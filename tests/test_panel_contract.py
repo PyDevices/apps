@@ -25,7 +25,7 @@ import unittest
 TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parent / "lib"
 CONTRACT = TESTS / "panel_contract.py"
-DEMO = LIB / "controls" / "examples" / "controls_demo" / "apps"
+DEMO = LIB / "controlkit" / "examples" / "controls_demo" / "apps"
 AUDIOINSTRUMENTS = Path(os.environ.get("AUDIOINSTRUMENTS_DIR", "")) if os.environ.get("AUDIOINSTRUMENTS_DIR") else None
 PANEL_LIB = AUDIOINSTRUMENTS / "lib" / "audioinstruments" if AUDIOINSTRUMENTS else None
 

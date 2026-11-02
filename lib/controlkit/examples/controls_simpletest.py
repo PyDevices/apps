@@ -23,7 +23,7 @@ an SDL window.
 from display_driver import app  # noqa: F401  (opens the display and LVGL)
 
 import panel_view
-from controls.mock import MockAdapter
+from controlkit.mock import MockAdapter
 
 
 # Print every edit the panel publishes, the way an engine would receive it.

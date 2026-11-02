@@ -8,7 +8,7 @@ path, which lays out the panel from the shared controls.
 """
 
 import panel_view
-from controls.mock import MockAdapter
+from controlkit.mock import MockAdapter
 
 
 def main(scope):

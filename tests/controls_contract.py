@@ -22,9 +22,9 @@ PLANT = "--plant" in sys.argv[1:]
 _headless.display(800, 480)
 _headless.pointer()
 
-from controls import LampButton, LedMeter, PadGrid, Slider  # noqa: E402
-from controls import slider as slider_module  # noqa: E402
-from controls.theme import BLACK  # noqa: E402
+from controlkit import LampButton, LedMeter, PadGrid, Slider  # noqa: E402
+from controlkit import slider as slider_module  # noqa: E402
+from controlkit.theme import BLACK  # noqa: E402
 
 if PLANT:
     # A slider that moves its cap but never tells its host.

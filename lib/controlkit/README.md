@@ -1,6 +1,6 @@
 ![A black control panel: a red dot-matrix display, sixteen patch pads with one lit, and sixteen encoders with red LED rings](docs/images/controlpanel.png)
 
-# controls
+# controlkit
 
 The shared controls for every PyDevices app that draws a front panel: the
 encoder with its LED ring, the dot-matrix display, the sixteen patch pads,
@@ -16,7 +16,7 @@ edits through them:
   for an instrument;
 - `audioeffects/lib/audioeffects/panel_view.py` does the same for an effect.
 
-Each file imports `controls` and LVGL inside a guard, so it loads on a host
+Each file imports `controlkit` and LVGL inside a guard, so it loads on a host
 with neither, and `build()` raises ImportError there. A host with its own
 control surface never needs this package.
 
@@ -37,8 +37,8 @@ slider, the meter, the lamp button and the pad grid each have a short
 docstring that says what the host calls.
 
 ```python
-from controls import LampButton, LedMeter, PadGrid, Slider
-from controls.theme import BLACK
+from controlkit import LampButton, LedMeter, PadGrid, Slider
+from controlkit.theme import BLACK
 
 slider = Slider(screen, 20, 20, 60, 200, BLACK, legend="Cutoff", led=True,
                 on_change=lambda s, value: print("cutoff", value))

@@ -34,7 +34,7 @@ def _clock_us():
     return int(time.perf_counter() * 1000000)
 
 
-from controls.mock import MockAdapter  # noqa: E402
+from controlkit.mock import MockAdapter  # noqa: E402
 from panel_view import build  # noqa: E402
 import panel_view as panel_module  # noqa: E402
 
