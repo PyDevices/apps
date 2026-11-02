@@ -20,10 +20,21 @@ import os
 from appkit import data as appdata
 from multimer import ticks_diff, ticks_ms
 
-from . import effects, engine, inputs, outputs, ui
+from . import SAMPLE_RATE, effects, engine, inputs, outputs, ui
+
+try:
+    import audiopump
+except ImportError:
+    audiopump = None
 
 MOUNT = "/sd"
 FOLDER = "guitar-clips"
+
+# A board carries plug-ins it can't run in real time: the ones that stay in
+# double precision on an FPU without it reach 2% on an ESP32-P4. Nothing fails,
+# the sound just arrives in fragments, so the app measures and says so.
+WATCH_MS = 1000
+KEEPS_UP = 0.9
 
 current = None  # the running App, for the console
 
@@ -124,6 +135,11 @@ class App:
         # starts near the top of its range (the Windows port does).
         self._lat_t = None
         self._lat_print = None
+        # Boards only, and only while the app is still choosing what to open on.
+        self._watching = audiopump is not None and not appdata.desktop()
+        self._opening = self._watching
+        self._watch_t = None
+        self._watch_frames = 0
 
     # -- names for the screen ------------------------------------------------
 
@@ -202,6 +218,7 @@ class App:
         fx = self.engine.set_effect("airwindows", self.effect_name)
         if self.screen is not None:
             self.screen.show_effect(fx, index)
+        self._watch_t = None
 
     def set_show_all(self, on):
         """Every plug-in, or the guitar set. The effect playing stays, and
@@ -262,6 +279,8 @@ class App:
 
     def _tick(self):
         self.engine.service()
+        if self._watching:
+            self._watch()
         try:
             self._latency()
         except Exception as e:  # noqa: BLE001 - a readout never stops the app
@@ -281,6 +300,33 @@ class App:
                 s.show_position("%s / %s" % (_clock(at), _clock(inp.seconds)))
             elif inp is not None and inp.kind == "clip":
                 s.show_position("-- / %s" % _clock(inp.seconds))
+
+    def _watch(self):
+        """Measure the effect against the clock. On opening, a plug-in that
+        can't keep up gives way to the next; after that the choice is the
+        player's, and the screen says what it costs."""
+        now = ticks_ms()
+        if self._watch_t is None:
+            self._watch_t = now
+            self._watch_frames = audiopump.now()
+            return
+        ms = ticks_diff(now, self._watch_t)
+        if ms < WATCH_MS:
+            return
+        speed = (audiopump.now() - self._watch_frames) * 1000 / (ms * SAMPLE_RATE)
+        self._watch_t = None
+        if speed >= KEEPS_UP:
+            self._opening = False
+            return
+        if self._opening:
+            at = self.effects.index(self.effect_name)
+            if at + 1 < len(self.effects):
+                print("%s runs at %d%% here, trying the next" % (self.effect_name, speed * 100))
+                self.pick_effect(at + 1)
+                return
+            self._opening = False
+        self.status("%s runs at %d%% of real time here: pick another"
+                    % (self.effect_name, speed * 100))
 
     def _latency(self):
         """Sample the latency four times a second and show the last second's

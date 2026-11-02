@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Stompbox is a real app: open it from Home on a board or a desktop interpreter,
+  with Live where the board's microphone shares the speaker's clocks. On a board
+  it measures the effect against real time, opens on the first one that keeps
+  up, and says on screen when one you pick doesn't.
 - touchkit's Home button and BOOT button work without `main.py` setting
   `shell.launcher`: making a `TouchShell` sets it. Before, they did nothing.
 - Synth Station stops trying a voice count that went over budget until you lift

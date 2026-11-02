@@ -47,6 +47,11 @@ The list opens on a curated guitar set, kept in [guitar-set.txt](guitar-set.txt)
 "Show all" adds the rest of the plug-ins your build carries: every one on a
 desktop build, and 140 on a board unless the build chose otherwise.
 
+A board can carry an effect it can't run in real time: on an ESP32-P4, PointyGuitar
+reaches 1%, and TapeDelay2, PitchDelay, TakeCare and Tremolo about a quarter. The
+app measures each one as it plays. It opens on the first in the list that keeps
+up, and when you pick one that doesn't, the screen says how far behind it is.
+
 ## Measure it
 
 [`tools/stompbox`](../../tools/stompbox) holds the desktop tools. `drive.py` runs
