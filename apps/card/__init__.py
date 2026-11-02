@@ -57,7 +57,7 @@ def main(scope):
     state = {"m": None, "level": None, "bytes": None}
 
     try:
-        from pump_levels import TapLevels
+        from spectrum.pump_levels import TapLevels
 
         m = spectrum.meter(scope, lambda bands: TapLevels(bands, rate=48000, channels=2), 0)
         state["m"] = m
