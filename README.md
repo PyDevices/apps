@@ -25,7 +25,7 @@ their own names. Each is imported directly, as in `import controlkit`:
 pip install -i https://test.pypi.org/simple/ omnipython-applibs
 ```
 
-On a board, use `mip.install("applibs", index="https://pydevices.github.io/lib")`.
+On a board, use `mip.install("applibs", index="https://lib.omnipython.org")`.
 To freeze them into firmware, name this repository's folder as a module of the
 build: its [manifest.py](manifest.py) lists them.
 
