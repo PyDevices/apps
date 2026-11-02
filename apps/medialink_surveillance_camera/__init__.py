@@ -68,7 +68,8 @@ def main(scope):
                 import board_peripherals
                 import cameraif
             except ImportError as e:
-                ui.missing(scope, "no camera", "No camera here: this app's camera side needs board_peripherals and cameraif (an ESP32-P4), or PICTURES set to a folder of JPEG files. %s" % (e,))
+                print("surveillance camera: camera:", e)
+                ui.missing(scope, "no camera", "No camera here. The camera side needs an ESP32-P4 board with a camera, or a folder of JPEG files set as PICTURES.")
                 return
             # Have the chip scale each picture down and encode it, so it is
             # quick to send and the other side decodes it in hardware.

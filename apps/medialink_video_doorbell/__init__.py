@@ -107,7 +107,8 @@ def main(scope):
                 camera.reconfigure(pixel_format=cameraif.PixelFormat.JPEG, frame_size=getattr(cameraif.FrameSize, SIZE))
                 camera.quality = QUALITY
         except Exception as e:
-            say("No camera: %s. The door can't send pictures." % (e,))
+            print("video doorbell: camera:", e)
+            say("No camera here, so the door can't send pictures.")
 
     # The link, its video, and the sound both ways.
     link = video = intercom = finder = None

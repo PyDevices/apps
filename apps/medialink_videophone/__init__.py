@@ -79,7 +79,7 @@ def main(scope):
         if camera is not None:
             camera.deinit()
         camera = None
-        notes_text.append("no camera: pictures aren't sent (%s)" % (e,))
+        notes_text.append("No camera here, so pictures aren't sent.")
         print("videophone: camera:", e)
 
     # The screen: the other side's pictures, on the left of the app's area.
