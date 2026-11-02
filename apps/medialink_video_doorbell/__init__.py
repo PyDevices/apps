@@ -27,7 +27,7 @@ screen.
 
 import events
 import lvgl as lv
-from devkit import ui
+from touchkit import ui
 from multimer import sleep_ms, ticks_diff, ticks_ms
 
 # Change these to match your setup.

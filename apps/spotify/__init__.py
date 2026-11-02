@@ -39,11 +39,11 @@ from appkit import data as appdata
 from multimer import ticks_diff, ticks_ms
 
 import spectrum
-from devkit import net, settings, ui
-from devkit.clock import sleep_ms
+from touchkit import net, settings, ui
+from touchkit.clock import sleep_ms
 
 # A desktop's speaker has a name of its own, so it never takes the board's place in Spotify's devices.
-DEFAULTS = {"name": "DEV-KIT desktop" if appdata.desktop() else "DEV-KIT", "volume": 70}
+DEFAULTS = {"name": "PyDevices desktop" if appdata.desktop() else "PyDevices", "volume": 70}
 CRED_FILE = "earful.credentials"
 CONFIG = "sayso.local.json"
 TOKENS = "tokens.json"

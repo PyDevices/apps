@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.settings -- what one DEV-KIT has that another doesn't, kept in JSON.
+"""touchkit.settings -- what one board has that another doesn't, kept in JSON.
 
 Two kinds of file, both optional, both in appkit's data root (``/data`` on
 the board):
 
 ``/data/settings.json``
-    The whole set's: ``{"hostname": "my-devkit"}`` names the board on the
-    network (``my-devkit.local``). Without it the board keeps the name it
+    The whole set's: ``{"hostname": "my-panel"}`` names the board on the
+    network (``my-panel.local``). Without it the board keeps the name it
     has.
 
 ``/data/<app>/config.json``

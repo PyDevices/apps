@@ -22,7 +22,7 @@ from time import ticks_diff, ticks_ms
 
 import audiometer
 
-from spectrum_view import HIGH_HZ, LOW_HZ, band_centres
+from .spectrum_view import HIGH_HZ, LOW_HZ, band_centres
 
 FLOOR_DB = -66.0
 TOP_DB = -6.0

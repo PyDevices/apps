@@ -31,7 +31,7 @@ import boarddev
 import medialink
 import multimer
 from audiodev import AudioFormat
-from devkit import ui
+from touchkit import ui
 
 # Change these to match your setup.
 NAME = "hands-free-1"  # this side's name on the network

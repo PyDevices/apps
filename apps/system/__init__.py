@@ -8,7 +8,7 @@ leave "in use" where it started, give or take a few KB. Wi-Fi setup puts
 the phone setup page up until a network is joined.
 """
 
-from devkit import net, shell, ui
+from touchkit import net, shell, ui
 
 
 def main(scope):

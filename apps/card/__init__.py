@@ -17,7 +17,7 @@ It needs micropython-lib's ``usb-device`` and pydevices' ``usb-device-audio`` in
 import lvgl as lv
 
 import spectrum
-from devkit import ui
+from touchkit import ui
 
 VOLUME = 85  # the panel's listening level; the PC's slider moves it down from here
 
@@ -56,7 +56,6 @@ def main(scope):
     pump.owner().play(spk, ring, driver=driver, raises=True)
     state = {"m": None, "level": None, "bytes": None}
 
-    spectrum.path()
     try:
         from pump_levels import TapLevels
 

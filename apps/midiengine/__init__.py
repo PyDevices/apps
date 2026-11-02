@@ -50,9 +50,11 @@ The MIDI it answers is the sound module's (studio's ``soundmodule.engine``).
 import lvgl as lv
 from multimer import ticks_diff, ticks_ms
 
-from devkit import midiin, ui
+from touchkit import ui
 
 from soundmodule import engine as gm  # the sound module's engine, from studio
+
+from . import midiin
 
 from . import banks, player
 
@@ -209,7 +211,7 @@ def main(scope):
         except (ImportError, AttributeError):
             return open_desktop_midi()
         if not st["host"]:
-            start(full_speed=True)  # the DEV-KIT's keyboard sits behind its hub
+            start(full_speed=True)  # the board's keyboard sits behind its hub
             st["host"] = True
         st["port"], _out = usb_host.all_ports()
         st["merged"] = True

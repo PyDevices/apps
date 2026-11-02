@@ -24,7 +24,7 @@ Open it from the appkit launcher: pick "Baby monitor" on the home screen.
 Set ROLE on each device first, since the same app runs on both.
 """
 
-from devkit import ui
+from touchkit import ui
 
 # Change these to match your setup.
 ROLE = "monitor"  # "monitor" in the room to hear, "listener" where you are

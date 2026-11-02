@@ -13,7 +13,7 @@ studio holds three applications that share a song model and an audio stack.
   and a browser page, over the network.
 
 The sound module also has a face elsewhere: midiEngine, the ESP32-P4
-DEV-KIT's General MIDI player, runs this engine.
+board's General MIDI player, runs this engine.
 
 ## The libraries underneath
 

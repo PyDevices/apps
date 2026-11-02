@@ -24,7 +24,7 @@ What is missing is named on screen, and the rest of the app keeps running.
 Change the settings at the top of this file and open the app again.
 """
 
-from devkit import ui
+from touchkit import ui
 
 # Change these to match your setup.
 CAMERA = True  # True on the side with the camera, False on the side that watches

@@ -1,6 +1,6 @@
 """Vamp: the song and the sound on one MicroPython, the screens elsewhere.
 
-On the ESP32-P4 DEV-KIT, with the files from ``tools/vamp_files.py`` on it::
+On the ESP32-P4 board, with the files from ``tools/vamp_files.py`` on it::
 
     import vamp; vamp.run()
 
@@ -72,7 +72,7 @@ def _log(*args):
 
 
 def _network(ip):
-    """The DEV-KIT's Ethernet port, up. An address from DHCP when the PC shares
+    """The board's Ethernet port, up. An address from DHCP when the PC shares
     its connection over the cable; without that, a link-local one (the PC
     takes a 169.254 address on a cable with no DHCP, so the two still meet)."""
     import board_peripherals as bp

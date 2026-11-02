@@ -4,7 +4,7 @@ analyzer.py -- the spectrum analyzer as a widget any app can put on its screen.
 ``spectrum.py`` is the demo that runs it on fake music. This file is the part
 an app imports to show its own sound::
 
-    from analyzer import Spectrum, levels_for
+    from spectrum.analyzer import Spectrum, levels_for
 
     out.play(song)                       # an audiodev AudioOut
     meter = Spectrum(display_drv, levels_for(out))
@@ -22,7 +22,7 @@ is metered the same way, by ``pump_levels.TapLevels`` on the pump's tap.
 
 from multimer import ticks_diff, ticks_ms
 from pygraphics import RGB565, FrameBuffer
-from spectrum_view import SpectrumView, band_count_for
+from .spectrum_view import SpectrumView, band_count_for
 
 try:
     from time import ticks_us
@@ -54,7 +54,7 @@ def levels_for(audio_out):
     fmt = audio_out.format
 
     def tap_levels(bands):
-        from pump_levels import TapLevels
+        from .pump_levels import TapLevels
 
         return TapLevels(bands, rate=fmt.rate, channels=fmt.channels)
 

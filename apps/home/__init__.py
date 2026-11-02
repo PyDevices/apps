@@ -15,7 +15,7 @@ the next one. Home comes back to the tab it was last on.
 
 import lvgl as lv
 
-from devkit import ui
+from touchkit import ui
 
 DEFAULT_SYMBOL = "LIST"
 DEFAULT_COLOR = "#44505E"
@@ -94,7 +94,7 @@ def main(scope):
     for name in scope.launcher.names:
         if info.get(name, {}).get("gear"):
             gear_app = name
-    title = ui.label(scr, "DEV-KIT", ui.big, ui.ACCENT)
+    title = ui.label(scr, "Home", ui.big, ui.ACCENT)
     title.set_pos(GAP + 4, 14)
 
     if gear_app is not None:

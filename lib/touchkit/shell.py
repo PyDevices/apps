@@ -1,14 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.shell -- the DEV-KIT's chrome and launcher.
+"""touchkit.shell -- the board's chrome and launcher.
 
-* :class:`DevkitShell` gives every app but Home a header: its title, and a
-  status line at the right (``scope.status``, see ``devkit.ui.status``).
+* :class:`TouchShell` gives every app but Home a header: its title, and a
+  status line at the right (``scope.status``, see ``touchkit.ui.status``).
   ``scope.root`` is the area below it. Its Home button sits at the header's
   left, on LVGL's system layer, so it never presses an app's own widgets;
   the board's BOOT button goes home too, through a pin interrupt.
-* :class:`DevkitLauncher` keeps a short history of switches for System,
+* :class:`TouchLauncher` keeps a short history of switches for System,
   and takes the USB sound card off when the next app isn't one that plays
   through it, so the PC goes back to its own speakers.
 
@@ -29,14 +29,14 @@ from . import ui
 #: How often LVGL reads the touch panel, in ms, unless an app asks otherwise.
 TOUCH_MS = 33
 
-launcher = None  # the running DevkitLauncher, once main.py has made it
+launcher = None  # the running TouchLauncher, once main.py has made it
 boot_presses = 0
 
 
 # -- the launcher -------------------------------------------------------------
 
 
-class DevkitLauncher(Launcher):
+class TouchLauncher(Launcher):
     """appkit's launcher, keeping the last switches."""
 
     def __init__(self, *args, **kw):
@@ -56,8 +56,8 @@ class DevkitLauncher(Launcher):
 # -- the shell ---------------------------------------------------------------------
 
 
-class DevkitShell(Shell):
-    """The DEV-KIT's look: a header with the app's title and a status line,
+class TouchShell(Shell):
+    """The board's look: a header with the app's title and a status line,
     a Home button on the system layer, and BOOT going home."""
 
     def __init__(self, launcher, *, data_root=None):
@@ -92,7 +92,7 @@ class DevkitShell(Shell):
             pin.irq(trigger=Pin.IRQ_FALLING, handler=_boot_irq)
             self.boot_pin = pin
         except Exception as e:  # a board without the role still runs the apps
-            print("devkit: no BOOT button: %r" % (e,))
+            print("touchkit: no BOOT button: %r" % (e,))
             self.boot_pin = None
 
     def make_root(self, scope):

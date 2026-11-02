@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.cam -- what the camera apps share: opening the CSI camera, its
+"""touchkit.cam -- what the camera apps share: opening the CSI camera, its
 settings, and where photos go.
 
 Flip, mirror, light and brightness are the Camera app's, kept in its

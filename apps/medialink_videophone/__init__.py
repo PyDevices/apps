@@ -23,7 +23,7 @@ What is missing is named on screen, and the rest of the call keeps running.
 Change the settings at the top of this file and open the app again.
 """
 
-from devkit import ui
+from touchkit import ui
 
 # Change these to match your setup.
 NAME = "phone-1"  # this side's name on the network

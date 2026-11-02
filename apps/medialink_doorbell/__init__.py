@@ -28,7 +28,7 @@ import lvgl as lv
 import medialink
 import multimer
 from audiodev import AudioFormat
-from devkit import ui
+from touchkit import ui
 
 # Change these to match your setup.
 ROLE = "door"  # "door" outside, "house" inside

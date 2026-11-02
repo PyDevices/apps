@@ -18,7 +18,7 @@ picked wins while the board stays up.
 
 import lvgl as lv
 
-from devkit import ecp, net, settings, ui
+from touchkit import ecp, net, settings, ui
 
 DEFAULTS = {"prefer": None}
 

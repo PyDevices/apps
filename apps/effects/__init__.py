@@ -22,7 +22,7 @@ It needs the rig's ``rig.py`` and ``rig_inputs.py`` in ``/lib``.
 
 import lvgl as lv
 
-from devkit import shell, ui
+from touchkit import shell, ui
 
 TOUCH_MS = 100
 REFRESH_MS = 250

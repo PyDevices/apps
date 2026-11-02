@@ -30,13 +30,13 @@ import time
 import lvgl as lv
 from multimer import ticks_add, ticks_diff, ticks_ms
 
-from devkit import cam, ecp, net, settings, ui
-from devkit.clock import sleep_ms
+from touchkit import cam, ecp, net, settings, ui
+from touchkit.clock import sleep_ms
 
 CAST_W, CAST_H = 1280, 720
 FPS = 20
 BITRATE = 2_000_000
-DEFAULTS = {"name": "DEV-KIT", "prefer": None}
+DEFAULTS = {"name": "PyDevices", "prefer": None}
 HLS = {"name": "VLC or any HLS player", "host": None, "kind": "hls"}
 EXAMPLES = ("/lib/examples/cast", "/lib/examples/roku_hls")
 
@@ -290,7 +290,7 @@ class CastScreen:
         name = net.hostname()
         st = self.sink.stats()
         self.about_text.set_text(
-            "ESP32-P4 WIFI6 DEV-KIT\n%s %s\n\nOn the network as %s (%s)\n"
+            "ESP32-P4 WIFI6\n%s %s\n\nOn the network as %s (%s)\n"
             "Streaming %d x %d at about %d frames a second"
             % (
                 sys.implementation.name,

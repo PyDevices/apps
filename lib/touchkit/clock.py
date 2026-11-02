@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.clock -- sleeping for milliseconds on every interpreter.
+"""touchkit.clock -- sleeping for milliseconds on every interpreter.
 
 ``time.sleep_ms`` is MicroPython's; CPython and CircuitPython have only
 ``time.sleep``. The tick functions are ``multimer``'s (``ticks_ms``,

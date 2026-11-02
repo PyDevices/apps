@@ -20,7 +20,7 @@ import os
 
 import lvgl as lv
 from multimer import ticks_diff, ticks_ms
-from devkit import ui
+from touchkit import ui
 
 from . import feed
 

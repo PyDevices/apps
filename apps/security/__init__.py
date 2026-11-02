@@ -24,13 +24,13 @@ import errno
 import lvgl as lv
 from multimer import ticks_add, ticks_diff, ticks_ms
 
-from devkit import cam, net, ui
-from devkit.clock import sleep_ms
+from touchkit import cam, net, ui
+from touchkit.clock import sleep_ms
 
 PORT = 8081
 QUALITY = 50
 PREVIEW = 400
-BOUNDARY = "devkitframe"
+BOUNDARY = "touchkitframe"
 FRAME_SECONDS = 4  # a viewer that can't take a whole frame in this long is dropped
 
 state = None  # the open app's state, for the console

@@ -1,7 +1,7 @@
 # Put Vamp on a board
 
 Vamp plays Ostinato's songs: the sound and the song on one MicroPython, an
-ESP32-P4 DEV-KIT or a desktop interpreter, with the screens somewhere else.
+ESP32-P4 board or a desktop interpreter, with the screens somewhere else.
 Ostinato's window and a browser page edit the song it plays, live, over
 [hmilink](https://github.com/PyDevices/pydevices/tree/main/hmilink). A MIDI
 keyboard on the board plays the selected track.

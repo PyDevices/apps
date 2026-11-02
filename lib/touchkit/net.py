@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.net -- Wi-Fi for the DEV-KIT's apps: when it's on is the set's call.
+"""touchkit.net -- Wi-Fi for the board's apps: when it's on is the set's call.
 
 A desktop has no ``wifi`` or ``network`` module and is on its network
 already: :func:`up` is then True once the computer has an address, and
@@ -10,7 +10,7 @@ already: :func:`up` is then True once the computer has an address, and
 The board joins a known network at boot (:func:`boot`) and stays joined
 while apps come and go, like the display. An app that needs the network
 calls :func:`up` from a timer until it says True. The hostname comes from
-``settings.json`` (see ``devkit.settings``).
+``settings.json`` (see ``touchkit.settings``).
 """
 
 from . import settings
@@ -81,7 +81,7 @@ def up():
         try:
             wifi.connect_from_secrets(wait=False, ntp=False)
         except Exception as e:
-            print("devkit: wifi:", e)
+            print("touchkit: wifi:", e)
             _started = False
     return False
 
@@ -97,7 +97,7 @@ def start_webrepl():
         webrepl.start()
         _webrepl_on = True
     except Exception as e:
-        print("devkit: webrepl:", e)
+        print("touchkit: webrepl:", e)
 
 
 def webrepl_on():
@@ -119,7 +119,7 @@ def boot():
             start_webrepl()
             return
     except Exception as e:
-        print("devkit: wifi:", e)
+        print("touchkit: wifi:", e)
     import lvgl as lv
 
     def poll(t):
@@ -142,7 +142,7 @@ def setup_job():
         if wifi_manager.run(**kw):
             start_webrepl()
     except Exception as e:
-        print("devkit: wifi setup:", e)
+        print("touchkit: wifi setup:", e)
 
 
 def rssi():

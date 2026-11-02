@@ -25,7 +25,7 @@ a capture is repeatable and loops cleanly.
 
 import math
 
-from spectrum_view import band_centres
+from .spectrum_view import band_centres
 
 BEAT = 0.5  # seconds, 120 BPM
 LOOP = 8.0

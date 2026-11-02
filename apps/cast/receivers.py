@@ -24,7 +24,7 @@ session request) and "windows" for anything else.
 import socket
 import struct
 
-from devkit.clock import sleep_ms
+from touchkit.clock import sleep_ms
 from multimer import ticks_diff, ticks_ms
 
 REMEMBER = "receivers.json"
@@ -59,7 +59,7 @@ def remember(folder, receiver):
 
 
 def _is_roku(host):
-    from devkit import ecp
+    from touchkit import ecp
 
     try:
         return ecp.device_info(host) is not None

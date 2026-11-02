@@ -15,7 +15,7 @@ import lvgl as lv
 from multimer import ticks_diff, ticks_ms
 
 import spectrum
-from devkit import ui
+from touchkit import ui
 
 MOUNT = "/sd"
 VOLUME = 80  # ES8311 steps of 0.5 dB: 80 is -10 dB
@@ -132,8 +132,7 @@ def main(scope):
         title.set_text("%d/%d  %s  (%d Hz, %s)" % (st["i"] + 1, len(songs), name[:-4], song.sample_rate, "stereo" if song.channel_count == 2 else "mono"))
         play_lbl.set_text(lv.SYMBOL.STOP + "  Stop")
         if getattr(out, "pumped", False):
-            spectrum.path()
-            from analyzer import levels_for
+            from spectrum.analyzer import levels_for
 
             m = spectrum.meter(scope, levels_for(out), TOP)
             st["meter"] = m

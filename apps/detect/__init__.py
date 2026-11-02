@@ -22,7 +22,7 @@ and says what's missing.
 import lvgl as lv
 from multimer import ticks_diff, ticks_ms
 
-from devkit import cam, ui
+from touchkit import cam, ui
 
 MODEL = "yolo11n_coco.espdl"
 FOLDERS = (None, "/models")  # None: the app's data folder

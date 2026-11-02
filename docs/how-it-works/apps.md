@@ -8,7 +8,7 @@ app's memory goes back when it's closed.
 
 The apps share code in `lib/`:
 
-- `devkit`: the helpers the touch-panel apps use (the layout, networking,
+- `touchkit`: the helpers the touch-panel apps use (the layout, networking,
   settings, the spectrum and a clock).
 - `controlpanel`: the hardware-style front panel that Synth Station draws.
 - `soundmodule`: the General MIDI engine that midiEngine runs.

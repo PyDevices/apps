@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.ui -- the DEV-KIT's look, and the few widgets its apps build from.
+"""touchkit.ui -- the board's look, and the few widgets its apps build from.
 
 The colours and fonts are here so an app can use them without the shell;
 :func:`apply_theme` puts them on the display, once, at boot.
@@ -39,7 +39,7 @@ WHITE = lv.color_hex(0xFFFFFF)
 
 
 def apply_theme():
-    """The dark theme in the DEV-KIT's colours, on the default display."""
+    """The dark theme in the board's colours, on the default display."""
     disp = lv.display_get_default()
     try:
         disp.set_theme(lv.theme_default_init(disp, ACCENT, WARN, True, font))

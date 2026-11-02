@@ -22,8 +22,8 @@ import os
 
 import lvgl as lv
 
-from devkit import cam, net, ui
-from devkit.clock import sleep_ms
+from touchkit import cam, net, ui
+from touchkit.clock import sleep_ms
 
 PREVIEW = 400  # the preview's longer side on the panel
 QUALITY = 85

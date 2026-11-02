@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.ecp -- Roku's External Control Protocol, for the remote and Cast.
+"""touchkit.ecp -- Roku's External Control Protocol, for the remote and Cast.
 
 Every call blocks on the network, so run it on ``scope.worker``. Each
 request opens a socket and closes it when done: nothing is left open when
