@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "omnipython-applibs"
+dynamic = ["version"]
+description = "The libraries apps share: appkit, controlkit, songmodel, soundmodule, spectrum and touchkit"
+readme = "README.md"
+authors = [{ name = "Brad Barnett" }]
+license = { text = "MIT" }
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: Implementation :: MicroPython",
+    "Programming Language :: Python :: Implementation :: CPython",
+]
+keywords = ["lvgl", "controls", "apps", "micropython"]
+# A program installs what the libraries it uses draw on: controlkit needs lvgl
+# and appkit needs pydevices.
+dependencies = []
+
+[tool.setuptools.dynamic]
+version = { file = "VERSION" }
+
+[tool.setuptools.packages.find]
+where = ["lib"]
+exclude = ["*.examples", "*.examples.*", "*.tests", "*.tests.*", "*.docs", "*.docs.*"]
+
+[tool.setuptools.package-data]
+songmodel = ["page.html"]

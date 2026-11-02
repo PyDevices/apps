@@ -34,3 +34,9 @@ It grows one part at a time, on the desktop interpreters first.
 
 - An effects rig for the ESP32-P4: plug in a guitar, chain audioeffects'
   pedals and amps, and switch presets from a footswitch or a screen.
+
+## Libraries
+
+- Ship songmodel's front panel page to boards. The wheel carries `page.html`,
+  but a `mip` install or a frozen build has only the Python, so today Vamp
+  copies the page across itself.

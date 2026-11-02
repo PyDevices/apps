@@ -17,6 +17,18 @@ pip install ./audiodsp numpy
 pip install --no-deps ./audioinstruments ./audioeffects/lib/audioeffects
 ```
 
+The libraries the apps share (`appkit`, `controlkit`, `songmodel`,
+`soundmodule`, `spectrum` and `touchkit`) also install as a package, under
+their own names. Each is imported directly, as in `import controlkit`:
+
+```bash
+pip install -i https://test.pypi.org/simple/ omnipython-applibs
+```
+
+On a board, use `mip.install("applibs", index="https://pydevices.github.io/lib")`.
+To freeze them into firmware, name this repository's folder as a module of the
+build: its [manifest.py](manifest.py) lists them.
+
 ## Try it
 
 Render a MIDI file through the sound module to a WAV, with no MIDI hardware.

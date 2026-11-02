@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The shared libraries publish as `applibs`: on the library index, where each
+  also installs on its own, and on TestPyPI as `omnipython-applibs`.
 - The sound module: sixteen parts on one pool of voices, General MIDI from a
   SoundFont, audioinstruments' instruments on bank 80 and drum machines on
   bank 81, RPN pitch bend and tuning, reverb and chorus sends, and the
