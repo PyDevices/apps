@@ -52,7 +52,11 @@ from multimer import ticks_diff, ticks_ms
 
 from touchkit import ui
 
-from soundmodule import engine as gm  # the sound module's engine, from studio
+try:
+    from soundmodule import engine as gm  # the sound module's engine
+except ImportError as _e:
+    gm = None  # main() says what's missing, on screen
+    _missing = _e
 
 from . import midiin
 
@@ -124,6 +128,9 @@ def main(scope):
     scr = scope.root
     W, H = scope.size
     status = ui.status(scope)
+    if gm is None:
+        ui.missing(scope, "missing: soundmodule", "midiEngine needs soundmodule, audioinstruments and audiodsp: %s" % (_missing,))
+        return
 
     st = state = {
         "module": None, "out": None, "port": None, "host": None, "ch": 0, "level": [0] * 16,
