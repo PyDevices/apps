@@ -22,7 +22,7 @@ an SDL window.
 
 from display_driver import app  # noqa: F401  (opens the display and LVGL)
 
-import panel_view
+from audioinstruments import panel_view
 from controlkit.mock import MockAdapter
 
 

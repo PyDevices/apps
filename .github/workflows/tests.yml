@@ -37,6 +37,8 @@ env:
   # Both are the v0.5.0 tags.
   AUDIOINSTRUMENTS_REF: 256662f69dc18d9bcd59f395b95a562ae74504f9
   AUDIOEFFECTS_REF: c0b05edc79e54b3d944417d983030676b80cfca3
+  # The instrument panel isn't in an audioinstruments release yet.
+  AUDIOINSTRUMENTS_PANEL_REF: a32dc9891f9e2d8f12692e73fe835cdc6d54e069
   # hmilink isn't in a pydevices release yet.
   PYDEVICES_REF: aa6911844168c21296a8f72dc825d744bf2a6c1f
   MICROPYTHON_REF: v1.29.0
@@ -100,7 +102,7 @@ jobs:
         working-directory: apps/ostinato
         run: python -m unittest discover -s tests -v
 
-  # Synth Station's tests on CPython, against controlpanel from lib/,
+  # Synth Station's tests on CPython, against controlkit from lib/,
   # audioinstruments from its main branch and pydevices from its main branch,
   # on a display with no window. Its MicroPython half needs a unix build with
   # LVGL and audiodsp, so it skips here, loudly.
@@ -198,6 +200,12 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
+          repository: PyDevices/audioinstruments
+          ref: ${{ env.AUDIOINSTRUMENTS_PANEL_REF }}
+          path: audioinstruments-panel
+
+      - uses: actions/checkout@v7
+        with:
           repository: PyDevices/audioeffects
           ref: ${{ env.AUDIOEFFECTS_REF }}
           path: audioeffects
@@ -212,7 +220,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      # Studio's controlpanel tests import lvgl on CPython.
+      # Studio's controlkit tests import lvgl on CPython.
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
@@ -264,6 +272,8 @@ jobs:
         env:
           PYDEVICES_MICROPYTHON: ${{ github.workspace }}/micropython/ports/unix/build-standard/micropython
           AUDIOINSTRUMENTS_DIR: ${{ github.workspace }}/audioinstruments
+          AUDIOINSTRUMENTS_PANEL_DIR: ${{ github.workspace }}/audioinstruments-panel
+          PANEL_REQUIRE: "1"
           AUDIOEFFECTS_DIR: ${{ github.workspace }}/audioeffects
           HMILINK_PATH: ${{ github.workspace }}/pydevices/hmilink
           VAMP_REQUIRE: "1"

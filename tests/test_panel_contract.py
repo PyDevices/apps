@@ -5,8 +5,10 @@
 
 Each run builds the instrument panel (audioinstruments' panel_view.py) on a
 display with no window and drives it the way a host, a sequencer and a hand
-do. The panel file comes from ``AUDIOINSTRUMENTS_DIR`` (a checkout's root). The planted run swaps in the old
-panel's patch handling and must fail, which proves the patch-follow checks
+do. The panel file comes from ``AUDIOINSTRUMENTS_PANEL_DIR``, or else
+``AUDIOINSTRUMENTS_DIR`` (a checkout's root). With neither these tests skip,
+unless ``PANEL_REQUIRE=1`` makes that a failure. The planted run swaps in the
+old panel's patch handling and must fail, which proves the patch-follow checks
 can.
 
 MicroPython comes from ``PYDEVICES_MICROPYTHON``, ``micropython`` on PATH,
@@ -26,8 +28,16 @@ TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parent / "lib"
 CONTRACT = TESTS / "panel_contract.py"
 DEMO = LIB / "controlkit" / "examples" / "controls_demo" / "apps"
-AUDIOINSTRUMENTS = Path(os.environ.get("AUDIOINSTRUMENTS_DIR", "")) if os.environ.get("AUDIOINSTRUMENTS_DIR") else None
-PANEL_LIB = AUDIOINSTRUMENTS / "lib" / "audioinstruments" if AUDIOINSTRUMENTS else None
+_CHECKOUT = os.environ.get("AUDIOINSTRUMENTS_PANEL_DIR") or os.environ.get("AUDIOINSTRUMENTS_DIR")
+PANEL_LIB = Path(_CHECKOUT) / "lib" if _CHECKOUT else None
+
+
+def _need_the_panel(test):
+    if PANEL_LIB is None or not (PANEL_LIB / "audioinstruments" / "panel_view.py").is_file():
+        message = "no checkout with lib/audioinstruments/panel_view.py: the panel checks did NOT run"
+        if os.environ.get("PANEL_REQUIRE") == "1":
+            test.fail(message)
+        test.skipTest(message)
 
 
 def _has_lvgl(interpreter):
@@ -75,8 +85,7 @@ class _Contract:
     interpreter = None
 
     def setUp(self):
-        if PANEL_LIB is None or not (PANEL_LIB / "panel_view.py").is_file():
-            self.skipTest("AUDIOINSTRUMENTS_DIR does not name a checkout with lib/audioinstruments/panel_view.py")
+        _need_the_panel(self)
         if self.interpreter is None:
             message = "no micropython binary with lvgl: the panel checks did NOT run on MicroPython"
             if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
@@ -121,6 +130,9 @@ class MicroPythonContract(_Contract, unittest.TestCase):
 
 
 class AppkitApp(unittest.TestCase):
+    def setUp(self):
+        _need_the_panel(self)
+
     def test_main_builds_on_the_scope_root_and_hands_back_its_close(self):
         code = (
             "import _headless, lvgl as lv\n"

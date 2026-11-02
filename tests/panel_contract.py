@@ -35,8 +35,8 @@ def _clock_us():
 
 
 from controlkit.mock import MockAdapter  # noqa: E402
-from panel_view import build  # noqa: E402
-import panel_view as panel_module  # noqa: E402
+from audioinstruments.panel_view import build  # noqa: E402
+from audioinstruments import panel_view as panel_module  # noqa: E402
 
 if PLANT:
     # The old panel: a patch change moved the selector and nothing else.

@@ -3,11 +3,11 @@
 # SPDX-License-Identifier: MIT
 """The panel as an appkit app: the instrument panel over the mock adapter.
 
-appkit calls ``main(scope)``. It needs audioinstruments' panel_view.py on the
+appkit calls ``main(scope)``. It needs audioinstruments on the
 path, which lays out the panel from the shared controls.
 """
 
-import panel_view
+from audioinstruments import panel_view
 from controlkit.mock import MockAdapter
 
 
