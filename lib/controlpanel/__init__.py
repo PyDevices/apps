@@ -9,10 +9,14 @@ rings on the right, and a dot-matrix display, all edited through an adapter
 app, ``main(scope)`` runs it against a stand-in adapter.
 """
 
+from .lamp_button import LampButton
+from .meter import LedMeter
+from .pad_grid import PadGrid
 from .panel import MACRO_COUNT, Panel, build
+from .slider import Slider
 from .theme import THEMES
 
-__all__ = ["MACRO_COUNT", "Panel", "THEMES", "build", "main"]
+__all__ = ["LampButton", "LedMeter", "MACRO_COUNT", "Panel", "PadGrid", "Slider", "THEMES", "build", "main"]
 
 
 def main(scope):
