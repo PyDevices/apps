@@ -8,7 +8,7 @@ through the sound module.
 [run Ostinato](guides/run-ostinato.md), and
 [put Vamp on a board](guides/put-vamp-on-a-board.md).
 
-**Reference.** [The apps, and what each does](reference/apps.md). [The sound module's MIDI](reference/sound-module-midi.md): banks,
+**Reference.** [The apps, and what each does](reference/apps.md). [What an appkit app must provide](reference/app-requirements.md). [The sound module's MIDI](reference/sound-module-midi.md): banks,
 controllers, System Exclusive, and the `soundmodule.run` options. Vamp's
 options are listed at the top of
 [`lib/vamp/main.py`](../lib/vamp/main.py).
