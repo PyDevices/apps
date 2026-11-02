@@ -48,6 +48,7 @@ jobs:
     outputs:
       ostinato: ${{ steps.scope.outputs.ostinato }}
       engines: ${{ steps.scope.outputs.engines }}
+      synthstation: ${{ steps.scope.outputs.synthstation }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -63,6 +64,7 @@ jobs:
             echo "Both jobs: a manual run, or no earlier commit to compare with."
             echo "ostinato=true" >> "$GITHUB_OUTPUT"
             echo "engines=true" >> "$GITHUB_OUTPUT"
+            echo "synthstation=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "$BASE...$GITHUB_SHA")
@@ -70,6 +72,7 @@ jobs:
           has() { grep -qE "$1" <<< "$files" && echo true || echo false; }
           echo "ostinato=$(has '^(apps/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "engines=$(has '^(lib/|tests/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -93,6 +96,48 @@ jobs:
       - name: Ostinato's tests
         working-directory: apps/ostinato
         run: python -m unittest discover -s tests -v
+
+  # Synth Station's tests on CPython, against controlpanel from lib/,
+  # audioinstruments from its main branch and pydevices from its main branch,
+  # on a display with no window. Its MicroPython half needs a unix build with
+  # LVGL and audiodsp, so it skips here, loudly.
+  synthstation:
+    needs: scope
+    if: needs.scope.outputs.synthstation == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: studio
+
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/audioinstruments
+          path: audioinstruments
+
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/pydevices
+          path: pydevices
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install LVGL and audiodsp for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl omnipython-audiodsp numpy
+
+      - name: Synth Station's tests
+        working-directory: studio/apps/synthstation
+        env:
+          PYDEVICES_DIR: ${{ github.workspace }}/pydevices
+          SYNTHSTATION_PATH: ${{ github.workspace }}/audioinstruments/lib:${{ github.workspace }}/studio/lib
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
 
   # Vamp's engine check and link contract, and the sound module's contract,
   # on CPython and unix MicroPython, each with its planted faults. The
