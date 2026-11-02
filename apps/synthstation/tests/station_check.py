@@ -524,7 +524,7 @@ def check_meters(app, scope):
     output._tap = Silent()
     for _ in range(25):
         app._meter_tick()
-    check(meters.bars[0].get_value() <= 1 and meters.bars[1].get_value() <= 1, "with nothing going out they fall")
+    check(meters.bars[0].get_value() == 0 and meters.bars[1].get_value() == 0, "with nothing going out they fall")
     output._tap = real
     app._meter_tick()
 

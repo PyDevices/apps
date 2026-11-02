@@ -121,8 +121,11 @@ class Meters:
         for i, peak in enumerate((left, right)):
             height = bar_height(peak)
             if height < shown[i]:
-                # A step's wobble isn't worth a redraw.
-                height = shown[i] if height == shown[i] - 1 else max(height, shown[i] - BAR_DECAY)
+                # A step's wobble isn't worth a redraw, but silence is empty.
+                if height == shown[i] - 1 and height:
+                    height = shown[i]
+                else:
+                    height = max(height, shown[i] - BAR_DECAY)
             if height != shown[i]:
                 shown[i] = height
                 self.bars[i].set_value(height, False)
