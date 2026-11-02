@@ -19,9 +19,18 @@ files of [`lib/appkit`](lib/appkit) to `/lib/appkit` on a board, with
 [mpftp](https://github.com/PyDevices/mpftp), `mpremote` or any file tool. On a
 CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
-Installing one file at a time from raw GitHub with `mip` is the way apps are
-meant to come, but it hasn't been checked on a board yet, so this page doesn't
-give that command.
+Or install the files from raw GitHub with `mip`, one file at a time:
+
+```python
+import mip
+
+for name in ("__init__", "data", "foreground", "home", "index", "launcher", "scope", "shell", "worker"):
+    mip.install("github:PyDevices/apps/lib/appkit/%s.py" % name, target="/lib/appkit")
+```
+
+This was checked on MicroPython on Linux (with the absolute target) and on
+MicroPython for Windows (with a relative target, since its `mip` fails on drive
+letters). It hasn't run on a board yet.
 
 ## An app
 
