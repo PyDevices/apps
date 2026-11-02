@@ -89,6 +89,7 @@ class Station:
         self._settle = 0
         self._most_voices = 0
         self._fitted = 0
+        self._raised = False
         self._read = None
         self._timers = []
         self._knobs = {}
@@ -333,6 +334,7 @@ class Station:
         self._settle = 0
         self._most_voices = inst.voices
         self._fitted = 0
+        self._raised = False
         self._read = None
         self.adapter = adapter
         # RELOAD builds the instrument again. Nothing is played or filled
@@ -438,7 +440,9 @@ class Station:
         whatever the voices share, so it reads dearer than the voices after
         it: with every allowed voice sounding and room for one more, the cap
         goes up one, and a count that has fit stays allowed unless the blocks
-        go over budget.
+        go over budget. A cap it just raised stays up until a chord has used
+        it or the blocks go over budget: the keys already held can't take the
+        new voice, so their reads say nothing about it.
         """
         output = self.output
         cost = output.pull_us()
@@ -465,8 +469,9 @@ class Station:
             if settled and sounding > self._fitted:
                 self._fitted = sounding
             fit = max(fit, self._fitted)
-        if fit < voices:
+        if fit < voices and (cost > budget or sounding >= voices or not self._raised):
             inst.voices = fit
+            self._raised = False
             self._settle = SETTLE
         elif settled and sounding >= voices and voices < self._most_voices:
             step = per_voice
@@ -475,6 +480,7 @@ class Station:
                 step = (cost - read[1]) / (sounding - read[0])
             if cost + step <= budget:
                 inst.voices = voices + 1
+                self._raised = True
                 self._settle = SETTLE
         if settled:
             self._read = (sounding, cost)
