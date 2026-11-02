@@ -548,7 +548,7 @@ def check_drum_pads(app, scope):
     # The order is literal: a test reading the table would agree with any table.
     check(pads.pad_notes("rhythm606", None) == (36, 38, 42, 46, 41, 48, 49), "Rhythm 606's pads")
     check(pads.pad_notes("rhythm808", None)[:6] == (36, 38, 42, 46, 39, 37), "Rhythm 808's first pads")
-    check(pads.pad_notes("electronic_drums5", None) == (36, 38, 41, 45, 48), "Electronic Drums 5 moves its toms up")
+    check(pads.pad_notes("electronic_drums5", None) == (36, 38, 42, 46, 41, 45, 48, 49), "Electronic Drums 5's pads")
     check(pads.pad_notes("poly106", None) is None, "a synth isn't laid out")
     check(pads.pad_notes("soundfont_drums", _FontKit(0)) == (36, 42, 45), "a SoundFont kit's pads are what it has")
     check(pads.pad_notes("soundfont_drums", _FontKit(1)) == (38, 39), "the next kit's pads are what that one has")

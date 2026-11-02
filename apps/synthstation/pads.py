@@ -45,10 +45,11 @@ KIT_PADS = {
         (36, "Bass Drum"), (38, "Snare Drum"), (42, "Hi-Hat"), (46, "Open Hi-Hat"),
         (37, "Rim Shot"), (49, "Cymbal"), (54, "Tambourine"), (56, "Cowbell"),
         (60, "High Bongo"), (61, "Low Bongo"), (62, "Low Conga"), (70, "Maracas"),
-        (73, "Guiro Short"), (74, "Guiro Long"), (75, "Claves"),
+        (73, "Guiro Short"), (74, "Guiro Long"), (75, "Claves"), (55, "Metal Beat"),
     ),
     "electronic_drums5": (
-        (36, "Bass Drum"), (38, "Snare Drum"), (41, "Tom 3"), (45, "Tom 2"), (48, "Tom 1"),
+        (36, "Bass Drum"), (38, "Snare Drum"), (42, "Closed Hi-Hat"), (46, "Open Hi-Hat"),
+        (41, "Tom 3"), (45, "Tom 2"), (48, "Tom 1"), (49, "Cymbal"),
     ),
 }
 #: A SoundFont's kits differ, so its pads are the first of these General MIDI
