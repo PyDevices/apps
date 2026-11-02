@@ -29,7 +29,7 @@ from . import ui
 #: How often LVGL reads the touch panel, in ms, unless an app asks otherwise.
 TOUCH_MS = 33
 
-launcher = None  # the running TouchLauncher, once main.py has made it
+launcher = None  # the running launcher, once a TouchShell has been made for it
 boot_presses = 0
 
 
@@ -56,11 +56,17 @@ class TouchLauncher(Launcher):
 # -- the shell ---------------------------------------------------------------------
 
 
+def _set_launcher(running):
+    global launcher
+    launcher = running
+
+
 class TouchShell(Shell):
     """The board's look: a header with the app's title and a status line,
     a Home button on the system layer, and BOOT going home."""
 
     def __init__(self, launcher, *, data_root=None):
+        _set_launcher(launcher)
         ui.apply_theme()  # first: the Home button is made in Shell.__init__
         Shell.__init__(self, launcher, data_root=data_root)
         self.boot_pin = None
