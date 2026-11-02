@@ -5,7 +5,7 @@
 
 An appkit app. The picker lists audioinstruments' instruments; the one you
 pick plays through the board's audio out, from every MIDI keyboard the
-program can reach, with the instrument panel as its front panel and a live
+program can reach, with controlpanel's panel as its front panel and a live
 readout of what rendering it costs. Importing this does nothing; appkit
 calls ``main(scope)``.
 """
