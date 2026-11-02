@@ -1,10 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""MP3 player: the songs on the SD card, with the spectrum of what plays.
+"""MP3 player: the songs in a folder, with the spectrum of what plays.
+
+On a computer the songs are in ``$MP3_DIR``, else ``~/music``; on a board,
+``/sd/music`` on the SD card.
 
 the archived pydevices-examples' mp3_from_sd, with buttons: play and stop, previous and
-next, volume. A song that ends goes on to the next one. The card is mounted
+next, volume. A song that ends goes on to the next one. On a board the card is mounted
 read-only (its writes are unreliable on this board) and only while the app
 is open.
 """
@@ -15,6 +18,7 @@ import lvgl as lv
 from multimer import ticks_diff, ticks_ms
 
 import spectrum
+from appkit import data as appdata
 from touchkit import ui
 
 MOUNT = "/sd"
@@ -22,6 +26,22 @@ VOLUME = 80  # ES8311 steps of 0.5 dB: 80 is -10 dB
 TOP = 132  # the spectrum's first row, in the app's area
 
 state = None  # the open player's state, for the console
+
+
+def _env(name):
+    fn = getattr(os, "getenv", None)
+    return fn(name) if fn is not None else None
+
+
+def _home():
+    return (_env("USERPROFILE") or _env("HOME") or "").replace("\\", "/")
+
+
+def music_folder():
+    """The songs' folder: ``$MP3_DIR`` or ``~/music`` on a computer, ``/sd/music`` on a board."""
+    if appdata.desktop():
+        return _env("MP3_DIR") or _home() + "/music"
+    return MOUNT + "/music"
 
 
 def _mount(scope):
@@ -57,21 +77,27 @@ def main(scope):
     W, H = scope.size
     hdr = getattr(scope, "header", None) or scr
     status = ui.status(scope)
+    folder = music_folder()
+    if not appdata.desktop():
+        try:
+            _mount(scope)
+        except AttributeError:  # no sdcard role on this board
+            ui.missing(
+                scope, "missing: SD card",
+                "The MP3 player plays the songs on the board's SD card, and this board has no sdcard (board_peripherals).",
+            )
+            return
+        except Exception as e:
+            status.set_text("no SD card")
+            ui.label(scr, "No SD card: %s\n\nPut .mp3 files in %s on the card, then open the MP3 player again." % (e, folder), ui.font, ui.WHITE).align(
+                lv.ALIGN.CENTER, 0, 0
+            )
+            return
     try:
-        _mount(scope)
-    except AttributeError:  # no sdcard role: a computer
-        ui.missing(
-            scope, "missing: SD card",
-            "The MP3 player plays the songs on the board's SD card, which this computer lacks (board_peripherals has no sdcard).",
-        )
-        return
-    except Exception as e:
-        status.set_text("no SD card")
-        ui.label(scr, "No SD card: %s\n\nPut .mp3 files on a card, then open the MP3 player again." % (e,), ui.font, ui.WHITE).align(
-            lv.ALIGN.CENTER, 0, 0
-        )
-        return
-    songs = sorted(n for n in os.listdir(MOUNT) if n.lower().endswith(".mp3"))
+        names = os.listdir(folder)
+    except OSError:
+        names = []
+    songs = sorted(n for n in names if n.lower().endswith(".mp3"))
     global state
     st = state = {"i": 0, "out": None, "file": None, "song": None, "meter": None, "fmt": None, "vol": VOLUME, "playing": False}
 
@@ -108,7 +134,7 @@ def main(scope):
             st["i"] = i % len(songs)
         release_song()
         name = songs[st["i"]]
-        f = open(MOUNT + "/" + name, "rb")
+        f = open(folder + "/" + name, "rb")
         st["file"] = f
         song = audiomp3.MP3Decoder(f)
         st["song"] = song
@@ -172,7 +198,8 @@ def main(scope):
     b.set_pos(W - 16 - 90, y)
 
     if not songs:
-        title.set_text("No .mp3 files on the SD card")
+        status.set_text("no songs")
+        title.set_text("No songs. Put .mp3 files in %s." % folder)
         return
 
     def tick(t):
@@ -188,6 +215,6 @@ def main(scope):
                 return
         status.set_text("playing" if st["playing"] else "stopped")
 
-    title.set_text("%d song%s on the card" % (len(songs), "" if len(songs) == 1 else "s"))
+    title.set_text("%d song%s in %s" % (len(songs), "" if len(songs) == 1 else "s", folder))
     scope.after(300, lambda t: play(0))
     scope.every(1000, tick)
