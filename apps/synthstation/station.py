@@ -91,6 +91,7 @@ class Station:
         self._fitted = 0
         self._raised = False
         self._read = None
+        self._refused = None
         self._timers = []
         self._knobs = {}
         self._program = None
@@ -336,6 +337,7 @@ class Station:
         self._fitted = 0
         self._raised = False
         self._read = None
+        self._refused = None
         self.adapter = adapter
         # RELOAD builds the instrument again. Nothing is played or filled
         # while it does; then the output takes the new one and lets go of
@@ -442,7 +444,9 @@ class Station:
         goes up one, and a count that has fit stays allowed unless the blocks
         go over budget. A cap it just raised stays up until a chord has used
         it or the blocks go over budget: the keys already held can't take the
-        new voice, so their reads say nothing about it.
+        new voice, so their reads say nothing about it. A count that went over
+        budget isn't tried again until the keys are up, because each try steals
+        a note.
         """
         output = self.output
         cost = output.pull_us()
@@ -455,6 +459,7 @@ class Station:
         sounding = inst.voice_pool.sounding()
         if sounding == 0:
             self._idle_us = cost if self._idle_us is None else min(self._idle_us, cost)
+            self._refused = None
             return
         idle = self._idle_us or 0
         budget = BUDGET * output.block_us()
@@ -470,10 +475,17 @@ class Station:
                 self._fitted = sounding
             fit = max(fit, self._fitted)
         if fit < voices and (cost > budget or sounding >= voices or not self._raised):
+            if cost > budget:
+                self._refused = sounding
             inst.voices = fit
             self._raised = False
             self._settle = SETTLE
-        elif settled and sounding >= voices and voices < self._most_voices:
+        elif (
+            settled
+            and sounding >= voices
+            and voices < self._most_voices
+            and (self._refused is None or voices + 1 < self._refused)
+        ):
             step = per_voice
             read = self._read
             if read is not None and read[0] < sounding and cost > read[1]:
