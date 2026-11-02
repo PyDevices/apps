@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Synth Station stops trying a voice count that went over budget until you lift
+  your hands: each try stole a note you were holding.
 - The shared libraries publish as `applibs`: on the library index, where each
   also installs on its own, and on TestPyPI as `omnipython-applibs`.
 - The sound module: sixteen parts on one pool of voices, General MIDI from a

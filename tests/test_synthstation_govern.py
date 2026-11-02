@@ -40,6 +40,7 @@ class _Rig:
             _fitted=0,
             _raised=False,
             _read=None,
+            _refused=None,
         )
         self.govern = _govern()
 
@@ -65,6 +66,17 @@ class VoiceCapTest(unittest.TestCase):
         rig = _Rig(voices=2)
         self.assertEqual(rig.read(2, 1770), 3)
         self.assertEqual(rig.read(3, 2800), 2)
+
+    def test_a_count_that_went_over_budget_waits_for_the_keys_to_come_up(self):
+        # Ten keys down: three voices read over, two read well under, and each
+        # try at three steals a note.
+        rig = _Rig(voices=2)
+        self.assertEqual(rig.read(2, 1800), 3)
+        self.assertEqual(rig.read(3, 2700), 2)
+        for _ in range(4):
+            self.assertEqual(rig.read(2, 1800), 2)
+        rig.read(0, IDLE_US)
+        self.assertEqual(rig.read(2, 1800), 3)
 
     def test_the_first_voice_still_sets_the_cap_before_a_chord(self):
         rig = _Rig(voices=16)
