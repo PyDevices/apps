@@ -1,0 +1,20 @@
+# Apps
+
+What each app here does. Apps that run on a board are also listed in the
+[gallery](https://gallery.omnipython.org).
+
+| App | What it does |
+|---|---|
+| [Synth Station](../../apps/synthstation) | Pick an audioinstruments instrument and play it from a MIDI keyboard, with a front panel for its knobs and patches. |
+| [Spotify](../../apps/spotify) | The board is a Spotify Connect speaker, and the screen is its remote. |
+| [Roku remote](../../apps/roku) | A TV remote over the LAN: d-pad, OK, Back, playback, volume and power. |
+| [midiEngine](../../apps/midiengine) | A General MIDI sound module: 16 parts from a SoundFont, played from a USB MIDI keyboard. |
+| [MP3 player](../../apps/mp3) | The songs on an SD card, with play, previous, next, volume and a spectrum. |
+| [Camera](../../apps/camera), [Security camera](../../apps/security), [Object detection](../../apps/detect) | A camera preview, a camera stream, and object detection on the camera. |
+| [Cast](../../apps/cast) | A screen of its own on a Roku or a Windows PC over Miracast or HLS, with the panel as its remote. |
+| [Effects rig](../../apps/effects) | Sound from a computer goes through drive, chorus and delay, with the pedals on screen. |
+| [Sound card](../../apps/card) | The board is a USB speaker for a computer, with a spectrum of what plays. |
+| [Instruments](../../apps/instruments) | audioinstruments' instruments played from a USB MIDI keyboard. |
+| [System](../../apps/system) | Free heap, the last switches, and what the apps left running. |
+| [Wake word](../../apps/wake) | Listens on a USB microphone for "Hey Jarvis" and flashes on each detection. |
+| [Ostinato](../../apps/ostinato) | A pattern sequencer and song editor in a browser or on the desktop. |
