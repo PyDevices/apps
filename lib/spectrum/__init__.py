@@ -47,7 +47,7 @@ def start(m, scope, above=()):
     redraw them). Hiding ``fill_rect`` for that one call keeps them; the meter
     paints its own rows. *above* are objects to have LVGL redraw anyway.
     """
-    from . import shell
+    from touchkit import shell
 
     d = m.display_drv
     d.fill_rect = None  # an instance attribute shadowing the method
