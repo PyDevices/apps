@@ -39,6 +39,9 @@ def check(ok, what):
 
 
 class Out:
+    def set_volume(self, percent):
+        pass
+
     def __init__(self):
         self.sample = None
 
@@ -259,6 +262,9 @@ def exercise(app, scope, name):
         knob = "knob %d" % panel.encoders[0].value
         check(panel.encoders[0].value == target, "%s: knob CC moves encoder 1 to %d (it's at %d)" % (name, target, panel.encoders[0].value))
         check(int(inst.get_macro(0)) == target, "%s: knob CC moves macro 0" % name)
+    keyboard.send(0xB0, 7, 64)
+    scope.run(3)
+    check(app.output.volume == 50, "%s: CC 7 sets the volume to 50 (it's %r)" % (name, app.output.volume))
     program = ""
     keys = sorted(inst.patches or {})
     if len(keys) > 1:
@@ -309,6 +315,7 @@ class _Keyboard:
     def __init__(self, macros):
         self.adapter = _Adapter(macros)
         self._knobs = {}
+        self._volume = None
 
 
 def check_knob_map():
@@ -317,7 +324,13 @@ def check_knob_map():
             sink = _Keyboard(16)
             station.Station.control(sink, offset + knob, 5)
             check(sink._knobs == {knob: 5}, "CC %d moves macro %d (%r)" % (offset + knob, knob, sink._knobs))
-    for controller in (7, 29, 42, 69, 78):
+    sink = _Keyboard(16)
+    station.Station.control(sink, 7, 64, 0)
+    check(sink._volume == 64 and not sink.adapter.instrument.controls, "CC 7 on channel 1 is the volume")
+    sink = _Keyboard(16)
+    station.Station.control(sink, 7, 64, 1)
+    check(sink._volume is None and sink.adapter.instrument.controls == [7], "CC 7 on channel 2 goes to the instrument")
+    for controller in (29, 42, 69, 78):
         sink = _Keyboard(16)
         station.Station.control(sink, controller, 5)
         check(not sink._knobs and sink.adapter.instrument.controls == [controller], "CC %d goes to the instrument" % controller)
