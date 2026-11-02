@@ -482,7 +482,29 @@ def check_drum_pads(app, scope):
     check(got == [("on", 37), ("off", 37)], "the keys stay General MIDI (%r)" % (got,))
     peak = play_pad(app, scope, 36)
     check(peak > 0, "the first pad sounds (peak %d)" % peak)
+    # However dear a block reads, a kit keeps every sound and a synth is capped.
+    app.output.pull_us = lambda: app.output.block_us() * 4
+    app.output.block_us = lambda: 5000
+    app._idle_us = 0
+    open_instrument(app, scope, "rhythm606")
+    inst = app.adapter.instrument
+    inst.note_on(36, 100)
+    app._played = 0
+    app._govern(inst)
+    check(inst.voices == 7, "a kit's voices aren't capped (%d)" % inst.voices)
+    inst.note_off(36)
     open_instrument(app, scope, "poly106")
+    inst = app.adapter.instrument
+    voices = inst.voices
+    inst.note_on(60, 100)
+    inst.fill()
+    app._idle_us = 0
+    app._played = 0
+    app._govern(inst)
+    check(inst.voices < voices, "a synth's voices are capped (%d of %d)" % (inst.voices, voices))
+    inst.note_off(60)
+    del app.output.pull_us
+    del app.output.block_us
     got = hits((0x99, 60, 100), (0x89, 60, 0))
     check(got == [("on", 60), ("off", 60)], "pads play a synth's notes as they are (%r)" % (got,))
 
