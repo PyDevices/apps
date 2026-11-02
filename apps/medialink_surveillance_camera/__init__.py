@@ -231,10 +231,10 @@ def main(scope):
             if CAMERA:
                 say("%d pictures sent, %.1f a second" % (total, rate))
             else:
-                latency = intercom.stats["latency_ms"] if intercom is not None else None
+                latency = (intercom.stats["latency_ms"] or 0) if intercom is not None else 0
                 underruns = intercom.stats["underruns"] if intercom is not None else 0
                 say("%d pictures shown, %.1f a second, %s ms late at most; sound %s ms late, %d underruns"
-                    % (total, rate, video.stats["max_latency_ms"], latency, underruns))
+                    % (total, rate, (video.stats["max_latency_ms"] or 0), latency, underruns))
                 video.stats["max_latency_ms"] = None
             st["counted"], st["reported"] = total, now
         if intercom is None or not intercom.talking:

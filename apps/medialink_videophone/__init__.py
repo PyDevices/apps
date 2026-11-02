@@ -205,10 +205,10 @@ def main(scope):
         # Every few seconds, say how it is going.
         total_shown = video.stats["received"]
         sent = video.stats["sent"]
-        latency = intercom.stats["latency_ms"] if intercom is not None else None
+        latency = (intercom.stats["latency_ms"] or 0) if intercom is not None else 0
         underruns = intercom.stats["underruns"] if intercom is not None else 0
         say("Pictures: %d sent, %d shown, %s ms late at most. Sound: %s ms late, %d underruns"
-            % (sent, total_shown, video.stats["max_latency_ms"], latency, underruns))
+            % (sent, total_shown, (video.stats["max_latency_ms"] or 0), latency, underruns))
         video.stats["max_latency_ms"] = None
 
     def close():

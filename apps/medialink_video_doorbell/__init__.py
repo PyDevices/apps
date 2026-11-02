@@ -239,10 +239,10 @@ def main(scope):
         # Inside, every few seconds, say how the pictures are coming.
         if not DOOR and video is not None and ticks_diff(now, s["reported"]) >= REPORT_MS:
             s["reported"] = now
-            sound = intercom.stats["latency_ms"] if intercom is not None else "no"
+            sound = (intercom.stats["latency_ms"] or 0) if intercom is not None else "no"
             underruns = intercom.stats["underruns"] if intercom is not None else 0
             stats.set_text("%d pictures shown, %s ms late at most; sound %s ms late, %d underruns"
-                           % (video.stats["received"], video.stats["max_latency_ms"], sound, underruns))
+                           % (video.stats["received"], (video.stats["max_latency_ms"] or 0), sound, underruns))
             video.stats["max_latency_ms"] = None
 
     def step():
