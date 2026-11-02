@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Synth Station: pick an instrument, then play it from a MIDI keyboard.
 
-An appkit app. The picker lists audioinstruments' instruments; the one you
+An appkit app. The menu lists audioinstruments' instruments; the one you
 pick plays through the board's audio out, from every MIDI keyboard the
 program can reach, with the instrument panel as its front panel and a live
 readout of what rendering it costs. Importing this does nothing; appkit

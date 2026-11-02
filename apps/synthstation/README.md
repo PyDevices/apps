@@ -3,9 +3,9 @@
 # synthstation
 
 Synth Station is the PyDevices app that plays OmniPython's instruments from
-a MIDI keyboard: pick one of audioinstruments' synthesizers, organs, pianos
-or drum machines, then play it, with the instrument panel to turn its
-knobs, on MicroPython-compatible boards and on CPython.
+a MIDI keyboard: audioinstruments' synthesizers, organs, pianos and drum
+machines, one at a time, with the instrument panel to turn its knobs, on
+MicroPython-compatible boards and on CPython.
 
 ## On a board
 
@@ -38,8 +38,20 @@ Donner DMK-25 PRO, that's its four knobs in banks A, B and C. Controllers
 70 to 77 (the MIDI spec's Sound Controllers 1 to 8, which many keyboards'
 knobs send) move the first eight. The panel's encoders follow. Controller 7
 on MIDI channel 1 sets the output's volume: slider S1 on the DMK-25 PRO. A program change picks the patch and lights
-its pad. EXIT goes back to the list; RELOAD builds the instrument again,
-keeping its patch and knobs.
+its pad. RELOAD builds the instrument again, keeping its patch and knobs.
+
+The last instrument you played opens by itself. To change it, use the
+drop-down in the panel's title bar, or a DMK-25 PRO's transport buttons:
+
+| Button | Controller | What it does |
+|---|---|---|
+| Rewind | 16 | Previous patch |
+| Fast Forward | 17 | Next patch |
+| Stop | 18 | Previous instrument |
+| Play | 19 | Next instrument |
+
+Any keyboard that sends those controllers does the same. The sound stops
+while the new instrument loads.
 
 ## The load readout
 
