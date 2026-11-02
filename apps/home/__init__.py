@@ -1,56 +1,24 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Home: the apps on tabbed pages of 4 x 2, and System behind the gear.
+"""Home: the apps on pages, one page per category, and one app behind the gear.
+
+Each app says what it is in its ``app.json``: ``category`` (its page), ``symbol``
+(a name on lv.SYMBOL), ``color`` (a "#RRGGBB" tile colour), ``tile`` (false to
+keep it off the pages) and ``gear`` (true for the app the gear button opens).
+Pages come in alphabetical order by category. An app with no category gets a
+page of its own, "More", last. Home knows no app by name.
 
 A tap on a tab switches pages at once; a swipe across the page slides to
-the next one. Home comes back to the tab it was last on. An app the
-launcher doesn't have isn't shown, so a page lists only what's installed,
-and an installed app no page names gets a page of its own, "More".
+the next one. Home comes back to the tab it was last on.
 """
 
 import lvgl as lv
 
 from devkit import ui
 
-PAGES = (
-    (
-        lv.SYMBOL.AUDIO + "  Audio",
-        (
-            ("card", lv.SYMBOL.USB, 0x1E6F8C),
-            ("effects", lv.SYMBOL.SHUFFLE, 0x8C3B1E),
-            ("mp3", lv.SYMBOL.AUDIO, 0x3B6E2A),
-            ("synthstation", lv.SYMBOL.KEYBOARD, 0x6A2C8C),
-            ("midiengine", lv.SYMBOL.LIST, 0x8C1E4E),
-            ("spotify", lv.SYMBOL.PLAY, 0x1E8C4E),
-            ("wake", lv.SYMBOL.BELL, 0x8C7A1E),
-        ),
-    ),
-    (
-        lv.SYMBOL.VIDEO + "  Video",
-        (
-            ("camera", lv.SYMBOL.IMAGE, 0x1E6F8C),
-            ("security", lv.SYMBOL.EYE_OPEN, 0x8C3B1E),
-            ("detect", lv.SYMBOL.GPS, 0x3B6E2A),
-            ("cast", lv.SYMBOL.WIFI, 0x6A2C8C),
-            ("roku", lv.SYMBOL.HOME, 0x4A3D8C),
-        ),
-    ),
-    (
-        lv.SYMBOL.CALL + "  Link",
-        (
-            ("medialink_baby_monitor", lv.SYMBOL.AUDIO, 0x1E6F8C),
-            ("medialink_doorbell", lv.SYMBOL.BELL, 0x8C3B1E),
-            ("medialink_hands_free", lv.SYMBOL.CALL, 0x3B6E2A),
-            ("medialink_surveillance_camera", lv.SYMBOL.EYE_OPEN, 0x6A2C8C),
-            ("medialink_video_doorbell", lv.SYMBOL.VIDEO, 0x4A3D8C),
-            ("medialink_videophone", lv.SYMBOL.IMAGE, 0x8C1E4E),
-            ("medialink_walkie_talkie", lv.SYMBOL.VOLUME_MAX, 0x1E8C4E),
-        ),
-    ),
-)
-#: Apps that have a place of their own (the gear), not a tile.
-NOT_TILES = ("home", "system")
+DEFAULT_SYMBOL = "LIST"
+DEFAULT_COLOR = "#44505E"
 
 COLS, ROWS = 4, 2
 GAP = 12
@@ -93,16 +61,25 @@ def _grid(scope, page, W, H, apps):
         b.add_event_cb((lambda n: lambda e: scope.switch(n))(name), lv.EVENT.CLICKED, None)
 
 
-def _pages(names):
-    """``[(tab title, [(app, symbol, colour), ...]), ...]`` for the apps in *names*."""
-    out = []
-    placed = set(NOT_TILES)
-    for title, apps in PAGES:
-        shown = [a for a in apps if a[0] in names]
-        placed.update(a[0] for a in apps)
-        if shown:
-            out.append((title, shown))
-    more = [(n, lv.SYMBOL.LIST, 0x44505E) for n in names if n not in placed]
+def _tile(name, entry):
+    symbol = getattr(lv.SYMBOL, entry.get("symbol", DEFAULT_SYMBOL), lv.SYMBOL.LIST)
+    return (name, symbol, int(entry.get("color", DEFAULT_COLOR)[1:], 16))
+
+
+def _pages(info):
+    """``[(category, [(app, symbol, colour), ...]), ...]``, from each app's ``app.json``."""
+    by_category = {}
+    more = []
+    for name in sorted(info):
+        entry = info[name]
+        if not entry.get("tile", True):
+            continue
+        category = entry.get("category")
+        if category is None:
+            more.append(_tile(name, entry))
+        else:
+            by_category.setdefault(category, []).append(_tile(name, entry))
+    out = [(category, by_category[category]) for category in sorted(by_category)]
     if more:
         out.append((lv.SYMBOL.LIST + "  More", more))
     return out
@@ -112,18 +89,22 @@ def main(scope):
     scr = scope.root
     W, H = scope.size
     kept = scope.store()
-    names = scope.launcher.names
+    info = scope.launcher.info
+    gear_app = None  # the app the gear opens: the one whose app.json says "gear": true
+    for name in scope.launcher.names:
+        if info.get(name, {}).get("gear"):
+            gear_app = name
     title = ui.label(scr, "DEV-KIT", ui.big, ui.ACCENT)
     title.set_pos(GAP + 4, 14)
 
-    if "system" in names:
+    if gear_app is not None:
         gear = lv.button(scr)
         gear.set_size(64, TOP - 12)
         gear.align(lv.ALIGN.TOP_RIGHT, -GAP, 6)
         gear.set_style_bg_color(lv.color_hex(0x44505E), 0)
         gear.set_style_radius(12, 0)
         ui.label(gear, lv.SYMBOL.SETTINGS, ui.big, ui.WHITE).center()
-        gear.add_event_cb(lambda e: scope.switch("system"), lv.EVENT.CLICKED, None)
+        gear.add_event_cb(lambda e: scope.switch(gear_app), lv.EVENT.CLICKED, None)
 
     tv = lv.tabview(scr)
     tv.set_pos(0, TOP)
@@ -133,7 +114,7 @@ def main(scope):
     tv.set_style_bg_color(ui.BG, 0)
     tv.get_content().set_style_bg_color(ui.BG, 0)
 
-    pages = _pages(names)
+    pages = _pages(info)
     for name, apps in pages:
         page = tv.add_tab(name)
         page.set_style_pad_all(0, 0)
