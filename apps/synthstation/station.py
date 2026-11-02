@@ -87,6 +87,9 @@ class Station:
         self._played = 0
         self._idle_us = None
         self._settle = 0
+        self._most_voices = 0
+        self._fitted = 0
+        self._read = None
         self._timers = []
         self._knobs = {}
         self._program = None
@@ -328,6 +331,9 @@ class Station:
         self.name = name
         self._idle_us = None
         self._settle = 0
+        self._most_voices = inst.voices
+        self._fitted = 0
+        self._read = None
         self.adapter = adapter
         # RELOAD builds the instrument again. Nothing is played or filled
         # while it does; then the output takes the new one and lets go of
@@ -428,12 +434,15 @@ class Station:
         this works out how many fit in :data:`BUDGET` of a block's time and
         sets the instrument's ``voices`` to that. The extra notes steal the
         oldest instead of everything going quiet. The cap is set from the
-        first sounding voice, before a chord needs it, and stays for as long
-        as the instrument is loaded.
+        first sounding voice, before a chord needs it. That voice also wakes
+        whatever the voices share, so it reads dearer than the voices after
+        it: with every allowed voice sounding and room for one more, the cap
+        goes up one, and a count that has fit stays allowed unless the blocks
+        go over budget.
         """
         output = self.output
         cost = output.pull_us()
-        if cost is None or inst.voices < 2:
+        if cost is None or self._most_voices < 2:
             return
         if self._settle:
             # The blocks right after a cap still carry the voices it stole.
@@ -444,13 +453,31 @@ class Station:
             self._idle_us = cost if self._idle_us is None else min(self._idle_us, cost)
             return
         idle = self._idle_us or 0
-        room = BUDGET * output.block_us() - idle
+        budget = BUDGET * output.block_us()
         per_voice = (cost - idle) / sounding
-        if per_voice > 0:
-            fit = max(1, int(room / per_voice + 0.5))
-            if fit < inst.voices:
-                inst.voices = fit
+        if per_voice <= 0:
+            return
+        voices = inst.voices
+        fit = max(1, int((budget - idle) / per_voice + 0.5))
+        # Just after a key the mean still holds blocks from before it.
+        settled = self._played == 0
+        if cost <= budget:
+            if settled and sounding > self._fitted:
+                self._fitted = sounding
+            fit = max(fit, self._fitted)
+        if fit < voices:
+            inst.voices = fit
+            self._settle = SETTLE
+        elif settled and sounding >= voices and voices < self._most_voices:
+            step = per_voice
+            read = self._read
+            if read is not None and read[0] < sounding and cost > read[1]:
+                step = (cost - read[1]) / (sounding - read[0])
+            if cost + step <= budget:
+                inst.voices = voices + 1
                 self._settle = SETTLE
+        if settled:
+            self._read = (sounding, cost)
 
     def back(self):
         """EXIT: stop the instrument and go back to the picker."""
