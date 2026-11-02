@@ -102,33 +102,45 @@ def main(scope):
     note.set_text(finder_note)
     print("This is %r, deciding by %s; looking for %r" % (NAME, voice.detector, PEER))
 
+    # The search runs on the worker, so the link check doesn't wait on it. The
+    find_key = "hands-free-find"
+    searching = {"on": False}
+
     def close():
         try:
             intercom.close()
         except Exception as e:
             print("hands free: intercom close:", e)
         link.close()
-        if finder is not None:
-            finder.deinit()
 
     scope.on_close(close)
+    if finder is not None:
+        scope.on_close(finder.deinit)
 
     st = {"looked": multimer.ticks_add(multimer.ticks_ms(), -LOOK_EVERY_MS - 1),
           "was_alive": False, "was_floor": medialink.IDLE}
 
-    def look_for_peer():
-        """Find the peer and say hello. Either side may find the other first."""
-        if PEER_ADDRESS:
-            found = [(PEER, PEER_ADDRESS)]
-        elif finder is not None:
-            found = finder.find(PEER, timeout=1)
-        else:
-            found = []
-        for _name, address in found:
+    def connect(peers):
+        for _name, address in peers:
             try:
                 link.connect(address)
             except medialink.PeerUnreachable:
                 pass
+
+    def found(value, error):
+        searching["on"] = False
+        if error is not None:
+            print("hands free: search:", error)
+            return
+        connect(value)
+
+    def look_for_peer():
+        """Find the peer and say hello. Either side may find the other first."""
+        if PEER_ADDRESS:
+            connect([(PEER, PEER_ADDRESS)])
+        elif finder is not None and not searching["on"]:
+            searching["on"] = True
+            scope.worker.submit(lambda: finder.find(PEER, timeout=1), found, key=find_key)
 
     def check(t):
         # The link and the floor, shown on the screen and printed as they change.

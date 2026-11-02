@@ -41,31 +41,6 @@ STATS_MS = 5000  # how often the numbers are refreshed
 PICTURE_SHARE = 2 / 3  # the part of the app's area the pictures take
 
 
-class _PictureArea:
-    """The display, cut down to the app's picture area, so that the
-    medialink Screen draws there and not over the panel beside it."""
-
-    def __init__(self, display, rect):
-        self._display = display
-        self._x, self._y = rect[0], rect[1]
-        self.width, self.height = rect[2], rect[3]
-
-    def fill_rect(self, x, y, w, h, color):
-        self._display.fill_rect(self._x + x, self._y + y, w, h, color)
-
-    def blit_rect(self, buf, x, y, w, h):
-        self._display.blit_rect(buf, self._x + x, self._y + y, w, h)
-
-    def flush_rect(self, x, y, w, h):
-        flush = getattr(self._display, "flush_rect", None)
-        return bool(flush and flush(self._x + x, self._y + y, w, h))
-
-    def show(self):
-        show = getattr(self._display, "show", None)
-        if show is not None:
-            show()
-
-
 def main(scope):
     # The libraries come in here, not at import time, so a missing one is
     # shown on screen rather than failing the launcher.
@@ -113,7 +88,7 @@ def main(scope):
     try:
         from board_config import display_drv
 
-        screen = medialink.Screen(_PictureArea(display_drv, (rect[0], rect[1], picture_w, rect[3])))
+        screen = medialink.Screen(display_drv, rect=(rect[0], rect[1], picture_w, rect[3]))
     except Exception as e:
         notes_text.append("no display: pictures aren't shown (%s)" % (e,))
         print("videophone: screen:", e)
@@ -241,12 +216,12 @@ def main(scope):
         if intercom is not None:
             intercom.close()
         link.close()
-        if finder is not None:
-            finder.deinit()
         if camera is not None:
             camera.deinit()
 
     scope.on_close(close)
+    if finder is not None:
+        scope.on_close(finder.deinit)
     scope.every(LOOK_MS, look)
     scope.every(STATS_MS, report)
 

@@ -134,20 +134,32 @@ def main(scope):
         msg.set_text(text)
         print(text)
 
-    def look_for_peer():
-        """Find the peer and say hello. Either side may find the other first."""
-        if PEER_ADDRESS:
-            found = [(PEER, PEER_ADDRESS)]
-        elif finder is not None:
-            found = finder.find(PEER, timeout=1)
-        else:
-            found = []
-        for _name, address in found:
+    # The search runs on the worker, so the screen doesn't wait on it. The
+    find_key = "walkie-talkie-find"
+    searching = {"on": False}
+
+    def connect(peers):
+        for _name, address in peers:
             try:
                 link.connect(address)
                 print("Connected to %r at %s" % (PEER, address))
             except medialink.PeerUnreachable:
                 pass
+
+    def found(value, error):
+        searching["on"] = False
+        if error is not None:
+            print("walkie-talkie: search:", error)
+            return
+        connect(value)
+
+    def look_for_peer():
+        """Find the peer and say hello. Either side may find the other first."""
+        if PEER_ADDRESS:
+            connect([(PEER, PEER_ADDRESS)])
+        elif finder is not None and not searching["on"]:
+            searching["on"] = True
+            scope.worker.submit(lambda: finder.find(PEER, timeout=1), found, key=find_key)
 
     st = {
         "looked": multimer.ticks_add(multimer.ticks_ms(), -5000),
@@ -161,10 +173,10 @@ def main(scope):
     def close():
         intercom.close()
         link.close()
-        if finder is not None:
-            finder.deinit()
 
     scope.on_close(close)
+    if finder is not None:
+        scope.on_close(finder.deinit)
 
     def step():
         """One pass of the loop: find the peer, talk while the button is

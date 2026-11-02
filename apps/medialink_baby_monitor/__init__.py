@@ -105,28 +105,40 @@ def main(scope):
         if intercom is not None:
             intercom.close()
         link.close()
-        if finder is not None:
-            finder.deinit()
 
     scope.on_close(close)
+    if finder is not None:
+        scope.on_close(finder.deinit)
 
     if intercom is None:
         status.set_text("no %s" % ("microphone" if ROLE == "monitor" else "speaker"))
         return
 
-    def look_for_monitor():
-        """Find the monitor and say hello to it."""
-        if PEER_ADDRESS:
-            found = [(NAME, PEER_ADDRESS)]
-        elif finder is not None:
-            found = finder.find(NAME, timeout=1)
-        else:
-            found = []
-        for _name, address in found:
+    # The search runs on the worker, so the sound doesn't wait on it. The
+    find_key = "baby-monitor-find"
+    searching = {"on": False}
+
+    def connect(peers):
+        for _name, address in peers:
             try:
                 link.connect(address)
             except medialink.PeerUnreachable:
                 pass
+
+    def found(value, error):
+        searching["on"] = False
+        if error is not None:
+            print("baby monitor: search:", error)
+            return
+        connect(value)
+
+    def look_for_monitor():
+        """Find the monitor and say hello to it."""
+        if PEER_ADDRESS:
+            connect([(NAME, PEER_ADDRESS)])
+        elif finder is not None and not searching["on"]:
+            searching["on"] = True
+            scope.worker.submit(lambda: finder.find(NAME, timeout=1), found, key=find_key)
 
     # The link runs in the main loop, one pass at a time, so the screen
     # stays responsive while audio moves.

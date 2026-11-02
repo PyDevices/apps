@@ -41,31 +41,6 @@ LOOK_MS = 3000  # how often the watching side looks for the camera
 PICTURE_SHARE = 2 / 3  # the part of the app's area the pictures take
 
 
-class _PictureArea:
-    """The display, cut down to the app's picture area, so that the
-    medialink Screen draws there and not over the status beside it."""
-
-    def __init__(self, display, rect):
-        self._display = display
-        self._x, self._y = rect[0], rect[1]
-        self.width, self.height = rect[2], rect[3]
-
-    def fill_rect(self, x, y, w, h, color):
-        self._display.fill_rect(self._x + x, self._y + y, w, h, color)
-
-    def blit_rect(self, buf, x, y, w, h):
-        self._display.blit_rect(buf, self._x + x, self._y + y, w, h)
-
-    def flush_rect(self, x, y, w, h):
-        flush = getattr(self._display, "flush_rect", None)
-        return bool(flush and flush(self._x + x, self._y + y, w, h))
-
-    def show(self):
-        show = getattr(self._display, "show", None)
-        if show is not None:
-            show()
-
-
 def main(scope):
     # The libraries come in here, not at import time, so a missing one is
     # shown on screen rather than failing the launcher.
@@ -147,7 +122,7 @@ def main(scope):
     screen = None
     if not CAMERA:
         try:
-            screen = medialink.Screen(_PictureArea(display_drv, (rect[0], rect[1], picture_w, rect[3])))
+            screen = medialink.Screen(display_drv, rect=(rect[0], rect[1], picture_w, rect[3]))
         except Exception as e:
             notes_text.append("no picture decoder (jpegio): %s" % (e,))
             print("surveillance camera: screen:", e)
@@ -174,15 +149,12 @@ def main(scope):
         status.set_text("looking for the camera")
         say("Looking for %r" % CAMERA_NAME)
 
-    def look_for_camera():
-        """Find the camera by name and say hello to it."""
-        if CAMERA_ADDRESS:
-            found = [(CAMERA_NAME, CAMERA_ADDRESS)]
-        elif finder is not None:
-            found = finder.find(CAMERA_NAME, timeout=1)
-        else:
-            found = []
-        for _name, address in found:
+    # The search runs on the worker, so the picture doesn't wait on it. The
+    find_key = "surveillance-find"
+    searching = {"on": False}
+
+    def connect(peers):
+        for _name, address in peers:
             try:
                 link.connect(address)
                 status.set_text("watching")
@@ -190,17 +162,32 @@ def main(scope):
             except medialink.PeerUnreachable:
                 pass
 
+    def found(value, error):
+        searching["on"] = False
+        if error is not None:
+            print("surveillance camera: search:", error)
+            return
+        connect(value)
+
+    def look_for_camera():
+        """Find the camera by name and say hello to it."""
+        if CAMERA_ADDRESS:
+            connect([(CAMERA_NAME, CAMERA_ADDRESS)])
+        elif finder is not None and not searching["on"]:
+            searching["on"] = True
+            scope.worker.submit(lambda: finder.find(CAMERA_NAME, timeout=1), found, key=find_key)
+
     def close():
         # Release what the app opened, in the order the example does.
         if intercom is not None:
             intercom.close()
         link.close()
-        if finder is not None:
-            finder.deinit()
         if camera is not None:
             camera.deinit()
 
     scope.on_close(close)
+    if finder is not None:
+        scope.on_close(finder.deinit)
 
     now = multimer.ticks_ms()
     st = {"looked": now, "taken": now, "reported": now, "counted": 0}

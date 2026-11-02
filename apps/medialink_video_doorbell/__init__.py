@@ -146,17 +146,18 @@ def main(scope):
     elif not DOOR and link is not None and finder is not None:
         say("Looking for %r" % DOOR_NAME)
 
+
     def close():
         if intercom is not None:
             intercom.close()
         if link is not None:
             link.close()
-        if finder is not None:
-            finder.deinit()
         if camera is not None:
             camera.deinit()
 
     scope.on_close(close)
+    if finder is not None:
+        scope.on_close(finder.deinit)
 
     # The button is a pin on a board, or a key or mouse button in the window.
     pin = None
