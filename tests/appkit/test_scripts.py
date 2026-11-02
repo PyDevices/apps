@@ -256,7 +256,7 @@ class Index(unittest.TestCase):
             with open(board, "w") as f:
                 f.write(
                     "import os\ninclude(%r, apps=%r, index_dir=%r)\n"
-                    % (str(TESTS.parent), str(SET / "apps"), os.path.join(tmp, "index"))
+                    % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"))
                 )
             result = subprocess.run(
                 [sys.executable, str(found), "--freeze", board], capture_output=True, text=True, cwd=tmp
