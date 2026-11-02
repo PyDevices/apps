@@ -36,6 +36,18 @@ PAGES = (
             ("roku", lv.SYMBOL.HOME, 0x4A3D8C),
         ),
     ),
+    (
+        lv.SYMBOL.CALL + "  Link",
+        (
+            ("medialink_baby_monitor", lv.SYMBOL.AUDIO, 0x1E6F8C),
+            ("medialink_doorbell", lv.SYMBOL.BELL, 0x8C3B1E),
+            ("medialink_hands_free", lv.SYMBOL.CALL, 0x3B6E2A),
+            ("medialink_surveillance_camera", lv.SYMBOL.EYE_OPEN, 0x6A2C8C),
+            ("medialink_video_doorbell", lv.SYMBOL.VIDEO, 0x4A3D8C),
+            ("medialink_videophone", lv.SYMBOL.IMAGE, 0x8C1E4E),
+            ("medialink_walkie_talkie", lv.SYMBOL.VOLUME_MAX, 0x1E8C4E),
+        ),
+    ),
 )
 #: Apps that have a place of their own (the gear), not a tile.
 NOT_TILES = ("home", "system")
