@@ -204,7 +204,7 @@ class TrackVoice:
                 self.inst = SilentInstrument(sr)
                 why = "%s can't play %s: %s" % (track.get("name", "A track"), track["instrument"], e)
                 print("engine %d: %s" % (self.engine.index, why))      # the log keeps the reason too
-                self.engine.post({"t": "failed", "track": self.id, "why": why})
+                self.engine.post({"t": "failed", "track": self.id, "instrument": track["instrument"], "why": why})
             self.instrument_name = track["instrument"]
             self.patch = None
             self.rack_spec = None   # the rack wraps the old instrument; rebuild it

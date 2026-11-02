@@ -54,6 +54,7 @@ class Ostinato:
         self.history = History(self._op)
         self.message = ""
         self.message_until = 0.0
+        self.failed = {}              # track id -> the instrument its engine couldn't build
         self.selected = self.project["tracks"][2]["id"]   # Keys: every key sounds
         self.midi_seen = 0
         self.last_midi = ""
@@ -74,6 +75,13 @@ class Ostinato:
     def edit(self, op, merge=False):
         """An undoable change to the project (see history.py)."""
         self.history.do(self.project, op, merge)
+
+    def silent_tracks(self):
+        """What the status line keeps saying while a track has no instrument:
+        a failure only said once is gone before anyone presses Play."""
+        names = ["%s (%s)" % (t["name"], t["instrument"]) for t in self.project["tracks"]
+                 if self.failed.get(t["id"]) == t["instrument"]]
+        return "No sound from " + ", ".join(names) if names else ""
 
     def say(self, text, seconds=4.0):
         import time
@@ -147,6 +155,7 @@ class Ostinato:
         elif t == "recorded":
             self.on_recorded(msg)
         elif t == "failed":
+            self.failed[msg.get("track")] = msg.get("instrument")
             self.say(msg.get("why", "An instrument couldn't be built"), seconds=8.0)
         elif t == "status" and msg.get("engine") == 0:
             pass
@@ -761,6 +770,10 @@ class Ostinato:
         right, message = "MIDI  %s" % (self.last_midi if self.midi_seen else "waiting for a keyboard"), False
         if self.message and now < self.message_until:
             right, message = self.message, True
+        elif self.failed:
+            silent = self.silent_tracks()
+            if silent:
+                right, message = silent, True
         self.status.show(self.project.get("name", "Untitled"), self.unsaved(),
                          now < getattr(self, "dropped_until", 0.0), right, message,
                          self.engines.loads() if DEBUG else None)
