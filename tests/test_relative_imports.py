@@ -20,6 +20,23 @@ def _exists(path):
     return os.path.isdir(path) or os.path.isfile(path + ".py")
 
 
+def _bound(path):
+    """The names *path* binds at its top level, besides what it imports from itself."""
+    if not os.path.isfile(path):
+        return set()
+    with open(path, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    names = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
+            names.add(node.name)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Store):
+            names.add(node.id)
+        elif isinstance(node, (ast.Import, ast.ImportFrom)) and not getattr(node, "level", 0):
+            names.update((a.asname or a.name).split(".")[0] for a in node.names)
+    return names
+
+
 def _dangling(path):
     with open(path, encoding="utf-8") as f:
         tree = ast.parse(f.read())
@@ -35,15 +52,9 @@ def _dangling(path):
             if not _exists(os.path.join(base, *node.module.split("."))):
                 found.append("%s:%d %s" % (path, node.lineno, node.module))
             continue
-        init = os.path.join(base, "__init__.py")
-        defined = ""
-        if os.path.isfile(init):
-            with open(init, encoding="utf-8") as f:
-                defined = f.read()
+        bound = _bound(os.path.join(base, "__init__.py"))
         for alias in node.names:
-            if not _exists(os.path.join(base, alias.name)) and alias.name not in defined.replace(
-                "from . import " + alias.name, ""
-            ):
+            if not _exists(os.path.join(base, alias.name)) and alias.name not in bound:
                 found.append("%s:%d %s" % (path, node.lineno, alias.name))
     return found
 
