@@ -13,22 +13,15 @@ several apps on one device and a way to move between them.
 
 ## Install
 
-On a board, or a desktop MicroPython, with `mip`:
+pydevices is frozen into the firmware, and appkit needs it for `appdev`,
+`events` and `multimer`. appkit itself comes from this repository: copy the
+files of [`lib/appkit`](lib/appkit) to `/lib/appkit` on a board, with
+[mpftp](https://github.com/PyDevices/mpftp), `mpremote` or any file tool. On a
+CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
-```python
-import mip
-
-mip.install("appkit", index="https://pydevices.github.io/lib")
-```
-
-That brings `pydevices` too, which supplies `appdev`, `events` and
-`multimer`. To install from this repository's current files instead, use
-`mip.install("github:PyDevices/pydevices/appkit", index="https://pydevices.github.io/lib")`.
-
-Without `mip`, copy [`lib/appkit`](lib/appkit) to `/lib/appkit` with
-[mpftp](https://github.com/PyDevices/mpftp), `mpremote` or any tool you like,
-or freeze it into the firmware (see [A frozen build](#a-frozen-build)). On a
-CPython or CircuitPython desktop, put `lib` on `PYTHONPATH`.
+Installing one file at a time from raw GitHub with `mip` is the way apps are
+meant to come, but it hasn't been checked on a board yet, so this page doesn't
+give that command.
 
 ## An app
 
