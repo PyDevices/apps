@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- touchkit's Home button and BOOT button work without `main.py` setting
+  `shell.launcher`: making a `TouchShell` sets it. Before, they did nothing.
 - Synth Station stops trying a voice count that went over budget until you lift
   your hands: each try stole a note you were holding.
 - The shared libraries publish as `applibs`: on the library index, where each
