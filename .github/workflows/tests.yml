@@ -128,7 +128,7 @@ jobs:
       - name: Install LVGL and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl omnipython-audiodsp numpy
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl "omnipython-audiodsp>=0.6.13.dev4" numpy
 
       - name: Synth Station's tests
         working-directory: studio/apps/synthstation
@@ -173,6 +173,12 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
+
+      # Studio's controlpanel tests import lvgl on CPython.
+      - name: Install LVGL for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl
 
       - name: Resolve audioeffects' audiodsp pin
         id: pin

@@ -26,17 +26,29 @@ LIB = TESTS.parent / "lib"
 CONTRACT = TESTS / "panel_contract.py"
 
 
+def _has_lvgl(interpreter):
+    try:
+        return subprocess.run([interpreter, "-c", "import lvgl"], capture_output=True, timeout=60).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 def _micropython():
+    """The first MicroPython that can import lvgl, or None: a build without LVGL skips, loudly."""
+    candidates = []
     explicit = os.environ.get("PYDEVICES_MICROPYTHON")
     if explicit:
-        return explicit
+        candidates.append(explicit)
     found = shutil.which("micropython")
     if found:
-        return found
+        candidates.append(found)
     for parent in TESTS.parents:
         candidate = parent / "bin" / "micropython"
         if candidate.is_file() and os.access(str(candidate), os.X_OK):
-            return str(candidate)
+            candidates.append(str(candidate))
+    for candidate in candidates:
+        if _has_lvgl(candidate):
+            return candidate
     return None
 
 
@@ -59,7 +71,7 @@ class _Contract:
 
     def setUp(self):
         if self.interpreter is None:
-            message = "no micropython binary: the controlpanel checks did NOT run on MicroPython"
+            message = "no micropython binary with lvgl: the controlpanel checks did NOT run on MicroPython"
             if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
                 self.fail(message)
             sys.stderr.write("\n*** " + message + " ***\n")
