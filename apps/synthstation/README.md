@@ -4,7 +4,7 @@
 
 Synth Station is the PyDevices app that plays OmniPython's instruments from
 a MIDI keyboard: pick one of audioinstruments' synthesizers, organs, pianos
-or drum machines, then play it, with controlpanel's front panel to turn its
+or drum machines, then play it, with the instrument panel to turn its
 knobs, on MicroPython-compatible boards and on CPython.
 
 ## On a board
@@ -13,7 +13,7 @@ Copy the app and the libraries it imports to the board, with mpftp, mpremote
 or any file tool:
 
 - `apps/synthstation/` to `/apps/synthstation/`
-- `lib/controlpanel/` from this repository to `/lib/controlpanel/`
+- `lib/controls/` from this repository to `/lib/controls/`, and audioinstruments' `lib/audioinstruments/panel_view.py` beside it
 - audioinstruments' `lib/` and `packages/midiports` from pydevices, to `/lib/`
 
 It needs a display and an audio out, and a USB MIDI keyboard to play.

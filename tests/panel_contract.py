@@ -6,7 +6,7 @@
 Prints one ``PASS name`` or ``FAIL name: why`` line per check, then the
 frame costs, and exits 1 if anything failed. ``--plant`` swaps in the old
 panel's handling of a patch change (move the patch selector, nothing else),
-so the patch-follow checks must fail: that is how test_controlpanel.py knows
+so the patch-follow checks must fail: that is how test_panel_contract.py knows
 they can.
 
     micropython panel_contract.py [width height] [--plant]
@@ -34,9 +34,9 @@ def _clock_us():
     return int(time.perf_counter() * 1000000)
 
 
-from controlpanel import build  # noqa: E402
-from controlpanel import panel as panel_module  # noqa: E402
-from controlpanel.mock import MockAdapter  # noqa: E402
+from controls.mock import MockAdapter  # noqa: E402
+from panel_view import build  # noqa: E402
+import panel_view as panel_module  # noqa: E402
 
 if PLANT:
     # The old panel: a patch change moved the selector and nothing else.

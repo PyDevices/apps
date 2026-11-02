@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Run panel_contract.py on CPython and on unix MicroPython.
 
-Each run builds the real panel on a display with no window and drives it
-the way a host, a sequencer and a hand do. The planted run swaps in the old
+Each run builds the instrument panel (audioinstruments' panel_view.py) on a
+display with no window and drives it the way a host, a sequencer and a hand
+do. The panel file comes from ``AUDIOINSTRUMENTS_DIR`` (a checkout's root). The planted run swaps in the old
 panel's patch handling and must fail, which proves the patch-follow checks
 can.
 
@@ -24,6 +25,9 @@ import unittest
 TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parent / "lib"
 CONTRACT = TESTS / "panel_contract.py"
+DEMO = LIB / "controls" / "examples" / "controls_demo" / "apps"
+AUDIOINSTRUMENTS = Path(os.environ.get("AUDIOINSTRUMENTS_DIR", "")) if os.environ.get("AUDIOINSTRUMENTS_DIR") else None
+PANEL_LIB = AUDIOINSTRUMENTS / "lib" / "audioinstruments" if AUDIOINSTRUMENTS else None
 
 
 def _has_lvgl(interpreter):
@@ -54,8 +58,9 @@ def _micropython():
 
 def _run(interpreter, *args):
     env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join([str(LIB), str(TESTS), env.get("PYTHONPATH", "")])
-    env["MICROPYPATH"] = ":".join([str(LIB), str(TESTS), ".frozen"])
+    paths = [str(LIB), str(TESTS), str(PANEL_LIB)]
+    env["PYTHONPATH"] = os.pathsep.join(paths + [env.get("PYTHONPATH", "")])
+    env["MICROPYPATH"] = ":".join(paths + [".frozen"])
     return subprocess.run(
         [interpreter, str(CONTRACT)] + list(args),
         cwd=str(TESTS),
@@ -70,8 +75,10 @@ class _Contract:
     interpreter = None
 
     def setUp(self):
+        if PANEL_LIB is None or not (PANEL_LIB / "panel_view.py").is_file():
+            self.skipTest("AUDIOINSTRUMENTS_DIR does not name a checkout with lib/audioinstruments/panel_view.py")
         if self.interpreter is None:
-            message = "no micropython binary with lvgl: the controlpanel checks did NOT run on MicroPython"
+            message = "no micropython binary with lvgl: the panel checks did NOT run on MicroPython"
             if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
                 self.fail(message)
             sys.stderr.write("\n*** " + message + " ***\n")
@@ -118,7 +125,7 @@ class AppkitApp(unittest.TestCase):
         code = (
             "import _headless, lvgl as lv\n"
             "_headless.display(800, 480)\n"
-            "import controlpanel\n"
+            "import controls_demo\n"
             "class Scope:\n"
             "    root = lv.screen_active()\n"
             "    closes = []\n"
@@ -128,7 +135,7 @@ class AppkitApp(unittest.TestCase):
             "    def on_close(self, fn):\n"
             "        self.closes.insert(0, fn)\n"
             "scope = Scope()\n"
-            "panel = controlpanel.main(scope)\n"
+            "panel = controls_demo.main(scope)\n"
             "assert len(panel.encoders) == 16\n"
             "for close in scope.closes: close()\n"
             "assert scope.root.get_child_count() == 0, scope.root.get_child_count()\n"
@@ -137,7 +144,7 @@ class AppkitApp(unittest.TestCase):
             "print('APP OK')\n"
         )
         env = dict(os.environ)
-        env["PYTHONPATH"] = os.pathsep.join([str(LIB), str(TESTS), env.get("PYTHONPATH", "")])
+        env["PYTHONPATH"] = os.pathsep.join([str(LIB), str(TESTS), str(PANEL_LIB), str(DEMO), env.get("PYTHONPATH", "")])
         result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=120)
         self.assertIn("APP OK", result.stdout, result.stdout + result.stderr)
 
@@ -151,7 +158,7 @@ class AppkitApp(unittest.TestCase):
             "        calls.append(kw)\n"
             "sys.modules['display_driver'] = Driver()\n"
             "lv.group_create().set_default()\n"
-            "import controlpanel\n"
+            "import controls_demo\n"
             "class Scope:\n"
             "    root = lv.screen_active()\n"
             "    closes = []\n"
@@ -161,7 +168,7 @@ class AppkitApp(unittest.TestCase):
             "    def on_close(self, fn):\n"
             "        self.closes.insert(0, fn)\n"
             "scope = Scope()\n"
-            "panel = controlpanel.main(scope)\n"
+            "panel = controls_demo.main(scope)\n"
             "assert calls == [dict(adjust_axis='h', adjust_sign=1, navigate=True, navigate_sign=-1)], calls\n"
             "assert panel.group.get_editing()\n"
             "for close in scope.closes: close()\n"
@@ -169,7 +176,7 @@ class AppkitApp(unittest.TestCase):
             "print('WHEELS OK')\n"
         )
         env = dict(os.environ)
-        env["PYTHONPATH"] = os.pathsep.join([str(LIB), str(TESTS), env.get("PYTHONPATH", "")])
+        env["PYTHONPATH"] = os.pathsep.join([str(LIB), str(TESTS), str(PANEL_LIB), str(DEMO), env.get("PYTHONPATH", "")])
         result = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, timeout=120)
         self.assertIn("WHEELS OK", result.stdout, result.stdout + result.stderr)
 

@@ -1,22 +1,14 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""A hardware-style control panel for an instrument or an effect, in LVGL.
+"""The panel as an appkit app: the instrument panel over the mock adapter.
 
-Sixteen patch pads in eight banks on the left, sixteen encoders with LED
-rings on the right, and a dot-matrix display, all edited through an adapter
-(see the README). ``build(adapter)`` puts one on the screen. As an appkit
-app, ``main(scope)`` runs it against a stand-in adapter.
+appkit calls ``main(scope)``. It needs audioinstruments' panel_view.py on the
+path, which lays out the panel from the shared controls.
 """
 
-from .lamp_button import LampButton
-from .meter import LedMeter
-from .pad_grid import PadGrid
-from .panel import MACRO_COUNT, Panel, build
-from .slider import Slider
-from .theme import THEMES
-
-__all__ = ["LampButton", "LedMeter", "MACRO_COUNT", "Panel", "PadGrid", "Slider", "THEMES", "build", "main"]
+import panel_view
+from controls.mock import MockAdapter
 
 
 def main(scope):
@@ -27,8 +19,6 @@ def main(scope):
     focus. The usual mapping comes back when the app closes.
     """
     import sys
-
-    from .mock import MockAdapter
 
     two_wheels = False
     if getattr(sys, "platform", "") in ("linux", "darwin", "win32"):
@@ -44,6 +34,6 @@ def main(scope):
             two_wheels = True
 
     adapter = MockAdapter()
-    panel = build(adapter, screen=scope.root, two_wheels=two_wheels)
+    panel = panel_view.build(adapter, screen=scope.root, two_wheels=two_wheels)
     scope.adopt(panel)
     return panel

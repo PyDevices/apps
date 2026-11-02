@@ -4,12 +4,12 @@
 """Run the control panel as an appkit app.
 
 appkit finds the one app in apps/, which hands its scope to
-controlpanel.main(). That builds the panel against the mock adapter, and
+main(). That builds the panel against the mock adapter, and
 appkit takes it down again, timer and all, when the app closes. On a desktop
 the window opens in landscape at WIDTH x HEIGHT, the plug-in editor's size;
 on a board the panel fills the board's own screen.
 
-Needs: appkit, controlpanel, pydevices' appdev, and LVGL with a
+Needs: appkit, controls, audioinstruments's panel_view, pydevices' appdev, and LVGL with a
 board_config that has a display.
 
 Run it from this folder:
@@ -36,5 +36,5 @@ if getattr(sys, "platform", "") in ("linux", "darwin", "win32") and not env_get(
 
 import appkit  # noqa: E402
 
-# Run the controlpanel app on its own, with no home screen.
-appkit.run("controlpanel")
+# Run the controls demo app on its own, with no home screen.
+appkit.run("controls_demo")
