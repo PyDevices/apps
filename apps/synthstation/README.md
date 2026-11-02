@@ -7,31 +7,18 @@ a MIDI keyboard: pick one of audioinstruments' synthesizers, organs, pianos
 or drum machines, then play it, with controlpanel's front panel to turn its
 knobs, on MicroPython-compatible boards and on CPython.
 
-```python
-import mip
-mip.install("synthstation", index="https://pydevices.github.io/lib")
-```
+## On a board
 
-```bash
-pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-synthstation
-```
+Copy the app and the libraries it imports to the board, with mpftp, mpremote
+or any file tool:
 
-It's an appkit app. Put it in an app set, or run it on its own on a board
-or a computer with a display and an audio out:
+- `apps/synthstation/` to `/apps/synthstation/`
+- `lib/controlpanel/` from this repository to `/lib/controlpanel/`
+- audioinstruments' `lib/` and `packages/midiports` from pydevices, to `/lib/`
 
-```python
-import appkit
+It needs a display and an audio out, and a USB MIDI keyboard to play.
 
-appkit.run("synthstation")
-```
-
-with an `apps/synthstation/` folder holding an `app.json` of
-`{"name": "synthstation", "title": "Synth Station"}` and an `__init__.py` of
-`from synthstation import main`
-([the example](examples/synthstation_app) is that). You get a list of
-instruments on three tabs; pick one and you get its panel, above.
-
-[Examples](examples) · [Roadmap](ROADMAP.md) · [Changelog](CHANGELOG.md)
+[Roadmap](ROADMAP.md)
 
 ## Play it
 

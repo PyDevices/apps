@@ -20,9 +20,9 @@ import sys
 import unittest
 
 TESTS = Path(__file__).resolve().parent
-LIB = TESTS.parent / "lib"
+LIB = TESTS.parents[1]  # the apps folder, which holds the synthstation package
 #: A pydevices checkout: its lib/ (audiodev) and packages/midiports. From the anchor, next to this repo.
-PYDEVICES = Path(os.environ.get("PYDEVICES_DIR", TESTS.parents[3].parent / "pydevices"))
+PYDEVICES = Path(os.environ.get("PYDEVICES_DIR", TESTS.parents[2].parent / "pydevices"))
 CHECK = TESTS / "station_check.py"
 EXTRA = [p for p in os.environ.get("SYNTHSTATION_PATH", "").split(":") if p]
 PATH = EXTRA + [str(LIB), str(PYDEVICES / "packages" / "midiports")]
