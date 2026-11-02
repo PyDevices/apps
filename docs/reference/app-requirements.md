@@ -38,8 +38,9 @@ against the code instead of against memory.
 
 - `app.json` names the module with `"script": "<module>"`. The script builds its
   own `App`. Choosing it restarts the program into it.
-- On a computer or a MicroPython board, `main.py` calls
-  `appkit.run_pending_script()` before anything opens the display.
+- A program that builds its own launcher calls `appkit.run_pending_script()` first
+  thing in `main.py`, before anything opens the display. `appkit.run()` does this for
+  you ([appkit README](../../lib/appkit/README.md#a-plain-script)).
 - A launcher on a CircuitPython board can't run scripts yet
   ([`launcher.py`](../../lib/appkit/launcher.py) line 375).
 
