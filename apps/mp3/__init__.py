@@ -14,7 +14,8 @@ import os
 import lvgl as lv
 from multimer import ticks_diff, ticks_ms
 
-from devkit import spectrum, ui
+import spectrum
+from devkit import ui
 
 MOUNT = "/sd"
 VOLUME = 80  # ES8311 steps of 0.5 dB: 80 is -10 dB

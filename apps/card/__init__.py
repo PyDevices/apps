@@ -16,7 +16,8 @@ It needs micropython-lib's ``usb-device`` and pydevices' ``usb-device-audio`` in
 
 import lvgl as lv
 
-from devkit import spectrum, ui
+import spectrum
+from devkit import ui
 
 VOLUME = 85  # the panel's listening level; the PC's slider moves it down from here
 

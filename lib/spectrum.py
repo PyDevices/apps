@@ -1,25 +1,27 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""devkit.spectrum -- gallery's spectrum analyzer in an app's area,
+"""spectrum -- the spectrum analyzer in an app's area,
 sharing the panel with LVGL.
 
 The analyzer draws straight into the panel's framebuffer, so it gets the
 rows LVGL leaves alone: an app puts nothing on ``scope.root`` where the
-meter is. It needs the analyzer's folder from gallery
-(``lib/examples/spectrum``) on the board, in ``/lib/examples/spectrum``.
+meter is. The analyzer is ``spectrum_analyzer/`` beside this module: on the
+board it lives in ``/lib/spectrum_analyzer``, and on a desktop it is found
+next to this file.
 """
 
 import sys
 
-FOLDERS = ("/lib/examples/spectrum", "/lib/spectrum")
+FOLDERS = ("/lib/spectrum_analyzer",)
 
 
 def path():
     """Put the analyzer's folder on ``sys.path``; ImportError without one."""
     import os
 
-    for folder in FOLDERS:
+    here = __file__.replace("\\", "/").rsplit("/", 1)[0] if "/" in __file__ else "."
+    for folder in FOLDERS + (here + "/spectrum_analyzer",):
         try:
             os.stat(folder + "/analyzer.py")
         except OSError:
@@ -27,7 +29,7 @@ def path():
         if folder not in sys.path:
             sys.path.append(folder)
         return folder
-    raise ImportError("no spectrum analyzer: copy gallery's lib/examples/spectrum to /lib/examples/spectrum")
+    raise ImportError("no spectrum analyzer: copy spectrum_analyzer/ to /lib/spectrum_analyzer")
 
 
 def meter(scope, source, top, x=0, width=None, height=None, bands=None, report=False):

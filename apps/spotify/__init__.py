@@ -38,7 +38,8 @@ import lvgl as lv
 from appkit import data as appdata
 from multimer import ticks_diff, ticks_ms
 
-from devkit import net, settings, spectrum, ui
+import spectrum
+from devkit import net, settings, ui
 from devkit.clock import sleep_ms
 
 # A desktop's speaker has a name of its own, so it never takes the board's place in Spotify's devices.
