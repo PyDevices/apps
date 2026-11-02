@@ -3,7 +3,7 @@
 # path, then run python.exe -m ostinato there.
 #   tools/win_run.sh [processes|threads|threads-ft] [ostinato args...]
 # threads-ft is the free-threaded build with the GIL off (-X gil=0).
-# processes and threads use the README's venv; threads-ft wants a
+# processes and threads use python.exe from PATH; threads-ft wants a
 # free-threaded 3.15t gate venv. Override
 # with PY315=... / PY315T=... (Windows paths). STAGE moves the staging folder.
 # It runs in the foreground until the window closes; TIMEOUT (seconds) caps it.
@@ -12,7 +12,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 KIND=${1:-processes}; [ $# -gt 0 ] && shift
 WSTAGE=${STAGE:-'C:\temp\ostinato-desktop'}
 STAGE_WSL=$(wslpath -u "$WSTAGE")
-PY315=${PY315:-'C:\Users\bradb\ostinato-venv\Scripts\python.exe'}
+PY315=${PY315:-python.exe}
 PY315T=${PY315T:-'C:\temp\py315\gate315t\Scripts\python.exe'}
 case $KIND in
   processes) PY=$PY315; FLAGS=""; ENG=processes ;;
