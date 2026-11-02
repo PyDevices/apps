@@ -33,9 +33,10 @@ It needs a display and an audio out, and a USB MIDI keyboard to play.
   octaves of C major on anything else. The patches move to bank B.
 
 Velocity, pitch bend and the instrument's own controllers go through.
-Knobs that send controllers 70 to 77 (the MIDI spec's Sound Controllers 1
-to 8, which many keyboards' knobs send) move the first eight macros, and
-the panel's encoders follow. A program change picks the patch and lights
+Knobs that send controllers 30 to 41 move the first twelve macros: on a
+Donner DMK-25 PRO, that's its four knobs in banks A, B and C. Controllers
+70 to 77 (the MIDI spec's Sound Controllers 1 to 8, which many keyboards'
+knobs send) move the first eight. The panel's encoders follow. A program change picks the patch and lights
 its pad. EXIT goes back to the list; RELOAD builds the instrument again,
 keeping its patch and knobs.
 

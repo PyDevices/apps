@@ -247,8 +247,14 @@ def exercise(app, scope, name):
     check(peak > 0, "%s: a note sounds (peak %d)" % (name, peak))
     knob = ""
     if labels:
+        # The last knob this instrument has a macro for, and a Sound Controller.
+        last = min(len(labels), 12) - 1
+        target = 17 if panel.encoders[last].value != 17 else 99
+        keyboard.send(0xB0, 30 + last, target)
+        scope.run(3)
+        check(panel.encoders[last].value == target, "%s: knob CC moves encoder %d to %d (it's %d)" % (name, last + 1, target, panel.encoders[last].value))
         target = 17 if panel.encoders[0].value != 17 else 99
-        keyboard.send(0xB0, station.KNOB_CCS[0], target)
+        keyboard.send(0xB0, 70, target)
         scope.run(3)
         knob = "knob %d" % panel.encoders[0].value
         check(panel.encoders[0].value == target, "%s: knob CC moves encoder 1 to %d (it's at %d)" % (name, target, panel.encoders[0].value))
@@ -281,7 +287,47 @@ def shot(path):
         _headless.save_raw(path, WIDTH, HEIGHT)
 
 
+class _Instrument:
+    def __init__(self):
+        self.controls = []
+
+    def control_change(self, controller, value):
+        self.controls.append(controller)
+
+
+class _Adapter:
+    def __init__(self, macros):
+        self.macro_count = macros
+        self.instrument = _Instrument()
+
+
+class _Keyboard:
+    """Station.control's only reads, for controllers no instrument here reaches."""
+
+    loading = False
+
+    def __init__(self, macros):
+        self.adapter = _Adapter(macros)
+        self._knobs = {}
+
+
+def check_knob_map():
+    for offset, count in ((30, 12), (70, 8)):
+        for knob in range(count):
+            sink = _Keyboard(16)
+            station.Station.control(sink, offset + knob, 5)
+            check(sink._knobs == {knob: 5}, "CC %d moves macro %d (%r)" % (offset + knob, knob, sink._knobs))
+    for controller in (7, 29, 42, 69, 78):
+        sink = _Keyboard(16)
+        station.Station.control(sink, controller, 5)
+        check(not sink._knobs and sink.adapter.instrument.controls == [controller], "CC %d goes to the instrument" % controller)
+    sink = _Keyboard(2)
+    station.Station.control(sink, 32, 5)
+    check(not sink._knobs and sink.adapter.instrument.controls == [32], "CC 32 goes to an instrument with two macros")
+
+
 def main(names, shots=None):
+    check_knob_map()
     import audioinstruments as ai
 
     scope = Scope()

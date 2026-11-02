@@ -33,10 +33,13 @@ STATUS_MS = 500
 LOG_MS = 5000
 #: How long a pad's note sounds when there's no keyboard.
 PAD_NOTE_MS = 300
-#: The controllers that move the first eight macros: Sound Controllers 1
-#: to 8 in the MIDI spec, which many keyboards' knobs send. Any other
+#: The controllers that move the first twelve macros: what a Donner DMK-25
+#: PRO's four knobs send across its banks A, B and C.
+KNOB_CCS = (30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)
+#: The controllers that also move the first eight macros: Sound Controllers
+#: 1 to 8 in the MIDI spec, which many keyboards' knobs send. Any other
 #: controller goes to the instrument itself.
-KNOB_CCS = (70, 71, 72, 73, 74, 75, 76, 77)
+SOUND_CCS = (70, 71, 72, 73, 74, 75, 76, 77)
 
 BG = 0x141518
 PANEL = 0x24262B
@@ -254,9 +257,11 @@ class Station:
         adapter = self.adapter
         if adapter is None or self.loading:
             return
-        try:
+        if controller in KNOB_CCS:
             knob = KNOB_CCS.index(controller)
-        except ValueError:
+        elif controller in SOUND_CCS:
+            knob = SOUND_CCS.index(controller)
+        else:
             knob = -1
         if 0 <= knob < adapter.macro_count:
             # Only each knob's last value, applied once everything waiting
