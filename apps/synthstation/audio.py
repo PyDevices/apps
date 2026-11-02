@@ -49,6 +49,8 @@ class Output:
         self._out = None
         self._status = None
         self._powered = False
+        #: The codec volume asked for since opening, or None for the default.
+        self.volume = None
         self._wire = None
         self._power = None
         self._dma_at_start = 0
@@ -97,7 +99,7 @@ class Output:
         self.worst_pct = None
         if self._wire is not None:
             if self._power is not None and not self._powered:
-                self._power(True, volume=VOLUME)
+                self._power(True, volume=VOLUME if self.volume is None else self.volume)
                 self._powered = True
             w = self._wire
             self._audioif.i2s_start(
@@ -112,6 +114,8 @@ class Output:
 
             out = self._bp.audio_out(AudioFormat(self.rate, self.channels, 16))
             out.attach(self.scope)  # its service() on the app's timer
+            if self.volume is not None:
+                out.set_volume(self.volume)
             out.play(inst.output)
             self._out = out
         self.instrument = inst
@@ -130,6 +134,14 @@ class Output:
             out.stop()
             out.detach()
             out.close()
+
+    def set_volume(self, percent):
+        """The codec's volume, 0 to 100, now and for the next instrument."""
+        self.volume = percent
+        if self._powered:
+            self._power(True, volume=percent)
+        elif self._out is not None:
+            self._out.set_volume(percent)
 
     def close(self):
         self.stop()

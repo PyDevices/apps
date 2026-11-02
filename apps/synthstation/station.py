@@ -40,6 +40,9 @@ KNOB_CCS = (30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41)
 #: 1 to 8 in the MIDI spec, which many keyboards' knobs send. Any other
 #: controller goes to the instrument itself.
 SOUND_CCS = (70, 71, 72, 73, 74, 75, 76, 77)
+#: Channel volume on MIDI channel 1 is the output's volume: slider S1 on a
+#: DMK-25 PRO. Its other sliders send it on other channels.
+VOLUME_CC = 7
 
 BG = 0x141518
 PANEL = 0x24262B
@@ -97,6 +100,7 @@ class Station:
         self._refused = None
         self._timers = []
         self._knobs = {}
+        self._volume = None
         self._program = None
         self._shown = None
         self._since_log = 0
@@ -253,9 +257,13 @@ class Station:
         if adapter is not None and not self.loading:
             adapter.note_off(note)
 
-    def control(self, controller, value):
+    def control(self, controller, value, channel=0):
         adapter = self.adapter
         if adapter is None or self.loading:
+            return
+        if controller == VOLUME_CC and channel == 0:
+            # Like the knobs: the codec is across I2C, so only the last value.
+            self._volume = value
             return
         if controller in KNOB_CCS:
             knob = KNOB_CCS.index(controller)
@@ -290,6 +298,9 @@ class Station:
             self._knobs = {}
             for knob, value in knobs.items():
                 adapter.note_cc(knob, value)
+        if self._volume is not None:
+            self.output.set_volume(self._volume * 100 // 127)
+            self._volume = None
         if self._program is not None:
             number = self._program
             self._program = None
