@@ -7,7 +7,7 @@ every change can be undone. The playhead moves across whichever is showing.
 import lvgl as lv
 
 import catalog
-from songlink import model
+from songmodel import model
 import theme
 from theme import px
 

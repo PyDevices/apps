@@ -1,4 +1,4 @@
-"""Drives a running Vamp (lib/vamp/main.py) over hmilink, as Ostinato's window
+"""Drives a running Vamp (apps/vamp/main.py) over hmilink, as Ostinato's window
 does, and checks the box keeps the song and the time.
 
     python tools/vamp_link_check.py HOST:PORT [--song FILE] [--browser] [--json OUT]
@@ -44,12 +44,12 @@ def _hmilink():
     raise SystemExit("no hmilink: set HMILINK_PATH to the folder holding the hmilink package")
 
 
-sys.path[0:0] = [os.path.join(ROOT, "lib"), _hmilink()]
+sys.path[0:0] = [os.path.join(ROOT, "lib"), os.path.join(ROOT, "apps"), _hmilink()]
 
 import hmilink  # noqa: E402
 from hmilink import tcp  # noqa: E402
 
-from songlink import model  # noqa: E402
+from songmodel import model  # noqa: E402
 
 FAILS = []
 

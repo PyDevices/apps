@@ -11,7 +11,7 @@ they're bound.
 import lvgl as lv
 
 import catalog
-from songlink import model
+from songmodel import model
 import theme
 from knob import Knob
 from theme import px

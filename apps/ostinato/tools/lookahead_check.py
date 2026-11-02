@@ -27,7 +27,7 @@ for p in ("app/engine", "../../lib"):
     sys.path.insert(0, os.path.join(ROOT, p))
 
 import engine as eng  # noqa: E402
-from songlink import model  # noqa: E402
+from songmodel import model  # noqa: E402
 
 SR = 48000
 BARS = 4

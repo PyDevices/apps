@@ -209,9 +209,9 @@ def main(argv=None):
     _log("box: bank open in %d ms" % time.ticks_diff(time.ticks_ms(), t))
     page = opts["page"]
     if page is None:
-        import songlink
+        import songmodel
 
-        page = songlink.page()
+        page = songmodel.page()
     dev = BoxDevice(engine, project, port=opts["port"], page=page, pump=pump, log=_log, plant=opts["plant"])
     _log("box: the song on port %d, %d tracks, %d KB heap free" % (opts["port"], len(dev.model.doc["tracks"]),
                                                                   gc.mem_free() // 1024))

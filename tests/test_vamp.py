@@ -25,6 +25,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 ROOT = TESTS.parent
 LIB = str(ROOT / "lib")
+APPS = str(ROOT / "apps")  # apps/vamp is the package itself
 sys.path.insert(0, str(TESTS))
 
 from test_engine import _find, audio_libs  # noqa: E402
@@ -89,7 +90,7 @@ class Vamp(unittest.TestCase):
         hm = _hmilink()
         if hm is None and "link" in script:
             _skip(self, "no hmilink: the link contract did NOT run")
-        path = [LIB] + ([hm] if hm else [])
+        path = [LIB, APPS] + ([hm] if hm else [])
         env = dict(os.environ)
         if kind == "cpython":
             env["PYTHONPATH"] = os.pathsep.join(path + audio_libs() + [env.get("PYTHONPATH", "")])
@@ -146,12 +147,13 @@ class Vamp(unittest.TestCase):
 
 
 class SongSegments(unittest.TestCase):
-    """songlink.model.segments, which Ostinato's engine and Vamp's both play
+    """songmodel.model.segments, which Ostinato's engine and Vamp's both play
     from: pattern mode, a pending switch, and song mode looping its scenes."""
 
     def setUp(self):
+        sys.path.insert(0, APPS)
         sys.path.insert(0, LIB)
-        from songlink import model
+        from songmodel import model
 
         self.m = model
 

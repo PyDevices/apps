@@ -23,7 +23,7 @@ import _audiodsp
 import audiocore
 import audioeffects
 
-from songlink import model
+from songmodel import model
 from engine import BLOCK, BLOCK_BYTES, Puller, StereoMeter, gain_buffer
 
 HEADROOM = 0.5            # the sum enters the rack 6 dB down

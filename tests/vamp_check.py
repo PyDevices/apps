@@ -1,4 +1,4 @@
-"""Checks Vamp's engine (lib/vamp/engine.py) offline, on MicroPython and CPython.
+"""Checks Vamp's engine (apps/vamp/engine.py) offline, on MicroPython and CPython.
 
 Pulls the engine's output itself, so it owns the clock, and listens to what
 comes out: notes start on their frame however rarely the sequencer runs, an
@@ -20,7 +20,7 @@ import time
 import audiocore
 
 from vamp import engine as be
-from songlink import model
+from songmodel import model
 
 SR = be.SR
 TEMPO = 120.0                      # a quarter is 24,000 frames

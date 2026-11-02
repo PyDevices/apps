@@ -8,7 +8,7 @@ engines by their measured cost; each engine renders only its own.
 from js import Object, performance, ports
 from pyodide.ffi import create_proxy, to_js
 
-from songlink import model
+from songmodel import model
 
 SR = 48000
 START_MARGIN_S = 0.08      # transport commands take effect this far ahead

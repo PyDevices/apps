@@ -7,7 +7,7 @@ sequencer and makes the sound; any screen in the room is its front panel.
   and the browser page drive over TCP.
 - :mod:`vamp.main`: the program, on a board or desktop MicroPython.
 
-The song is :mod:`songlink.model`'s, the same one Ostinato edits.
+The song is :mod:`songmodel.model`'s, the same one Ostinato edits.
 """
 
 

@@ -1,4 +1,4 @@
-"""Puts Vamp on a board through mpftp: vamp and songlink in /lib, hmilink
+"""Puts Vamp on a board through mpftp: vamp and songmodel in /lib, hmilink
 beside them, and a song to start with.
 
     python tools/vamp_files.py DEVICE [--hmilink DIR] [--song FILE]
@@ -20,9 +20,10 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OSTINATO = os.path.join(ROOT, "apps", "ostinato")
 
+# Each package, its files, and the folder they come from in this checkout.
 PACKAGES = {
-    "vamp": ["__init__.py", "engine.py", "device.py", "main.py"],
-    "songlink": ["__init__.py", "model.py", "link.py", "page.html"],
+    "vamp": (["__init__.py", "engine.py", "device.py", "main.py"], "apps"),
+    "songmodel": (["__init__.py", "model.py", "link.py", "page.html"], "lib"),
 }
 HMILINK = ["__init__.py", "tcp.py"]
 SONG = os.path.join(OSTINATO, "songs", "sketches", "soundfont_check.json")
@@ -51,14 +52,14 @@ def main(argv):
     device = argv[1]
     hmi = argv[argv.index("--hmilink") + 1] if "--hmilink" in argv else _hmilink()
     song = argv[argv.index("--song") + 1] if "--song" in argv else SONG
-    for d in ("/lib", "/lib/vamp", "/lib/songlink", "/lib/hmilink"):
+    for d in ("/lib", "/lib/vamp", "/lib/songmodel", "/lib/hmilink"):
         try:
             mpftp("mkdir", "-d", device, d)
         except SystemExit:
             pass                    # there already; a put into a missing one fails below
-    for package, names in PACKAGES.items():
+    for package, (names, source) in PACKAGES.items():
         for name in names:
-            mpftp("put", "-d", device, os.path.join(ROOT, "lib", package, name), "/lib/%s/%s" % (package, name))
+            mpftp("put", "-d", device, os.path.join(ROOT, source, package, name), "/lib/%s/%s" % (package, name))
     for name in HMILINK:
         mpftp("put", "-d", device, os.path.join(hmi, name), "/lib/hmilink/" + name)
     mpftp("put", "-d", device, song, "/vamp_song.json")

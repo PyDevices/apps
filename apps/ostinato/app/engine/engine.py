@@ -30,7 +30,7 @@ import audiometer
 
 import os
 
-from songlink import model
+from songmodel import model
 
 DEBUG = bool(os.environ.get("OSTINATO_DEBUG"))
 BLOCK = 256
@@ -469,7 +469,7 @@ class Engine:
     # -- what plays ---------------------------------------------------------
 
     def segments(self, t0, t1):
-        """What plays between ticks t0 and t1: :func:`songlink.model.segments`."""
+        """What plays between ticks t0 and t1: :func:`songmodel.model.segments`."""
         return model.segments(self.project, t0, t1)
 
     def _sequence(self, until):

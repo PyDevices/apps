@@ -19,7 +19,7 @@ Copy the files, with the board's port or address:
 python tools/vamp_files.py COM4
 ```
 
-That puts `vamp`, `songlink` and `hmilink` into `/lib` and a song at
+That puts `vamp`, `songmodel` and `hmilink` into `/lib` and a song at
 `/vamp_song.json`; `--song FILE` picks a different song. Put the SoundFont on
 the SD card at `/sd/soundfonts/GeneralUser-GS.sf2`. Then, on the board:
 
@@ -47,7 +47,7 @@ python -m ostinato --connect HOST:9100
 
 Every panel sees the same song, and an edit on one shows on the others while
 the box keeps playing. The options (`--port`, `--midi`, `--lookahead-ms`,
-`--seconds`) are listed at the top of [`lib/vamp/main.py`](../../lib/vamp/main.py).
+`--seconds`) are listed at the top of [`apps/vamp/main.py`](../../apps/vamp/main.py).
 
 ## Check that a box is behaving
 

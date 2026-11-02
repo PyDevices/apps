@@ -6,8 +6,8 @@ export default {
    "vendor/wheels/pydevices_lvgl-9.5.52-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
   ],
   "files": {
-   "lib/songlink/__init__.py": "songlink/__init__.py",
-   "lib/songlink/model.py": "songlink/model.py",
+   "lib/songmodel/__init__.py": "songmodel/__init__.py",
+   "lib/songmodel/model.py": "songmodel/model.py",
    "app/ui/catalog.py": "catalog.py",
    "app/ui/editor.py": "editor.py",
    "app/ui/engines.py": "engines.py",
@@ -42,8 +42,8 @@ export default {
    "vendor/wheels/omnipython_audioinstruments-0.5.0-py3-none-any.whl"
   ],
   "files": {
-   "lib/songlink/__init__.py": "songlink/__init__.py",
-   "lib/songlink/model.py": "songlink/model.py",
+   "lib/songmodel/__init__.py": "songmodel/__init__.py",
+   "lib/songmodel/model.py": "songmodel/model.py",
    "app/engine/engine.py": "engine.py",
    "app/engine/enginehost.py": "enginehost.py",
    "app/engine/main.py": "main.py",

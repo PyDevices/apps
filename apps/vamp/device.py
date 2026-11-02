@@ -28,8 +28,8 @@ import hmilink
 from hmilink import tcp
 
 from vamp import engine as be
-from songlink import model as song
-from songlink.link import SongModel
+from songmodel import model as song
+from songmodel.link import SongModel
 
 START_MARGIN = be.SR * 3 // 20    # 150 ms: the transport starts this long after it's asked
 STATUS_MS = 33

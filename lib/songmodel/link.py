@@ -8,7 +8,7 @@ panel, so two screens never disagree about the order.
 
     import hmilink
     from hmilink import tcp
-    from songlink.link import SongModel
+    from songmodel.link import SongModel
 
     song = SongModel(project, forward=engines_apply, host=the_host)
     device = hmilink.Device(song)
@@ -33,7 +33,7 @@ the audio.
 
 import hmilink
 
-from songlink import model as song
+from songmodel import model as song
 
 RANGES = {"tempo": [40, 240], "swing": [0, 100], "volume": [0, 127], "pan": [0, 127]}
 

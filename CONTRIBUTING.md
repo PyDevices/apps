@@ -32,7 +32,7 @@ samples, not bytes.
 ## Where code goes
 
 Applications live in `apps/` (Ostinato) or `lib/` (soundmodule, Vamp). Code
-two of them share goes in `lib/` (`songlink`). Ostinato's `tools/gen_boot.py`
+two of them share goes in `lib/` (`songmodel`). Ostinato's `tools/gen_boot.py`
 lists what its page loads from there, so run it after adding a shared file.
 
 ## The gates

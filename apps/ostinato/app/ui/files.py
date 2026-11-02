@@ -11,7 +11,7 @@ import json
 
 import lvgl as lv
 
-from songlink import model
+from songmodel import model
 import page
 import theme
 from theme import px

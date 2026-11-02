@@ -18,7 +18,7 @@ import pathlib
 import sys
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[3] / "lib"))
-from songlink import model  # noqa: E402
+from songmodel import model  # noqa: E402
 
 CHUNK_BARS = 4
 MAX_PATTERNS = 8

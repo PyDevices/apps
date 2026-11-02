@@ -22,8 +22,8 @@ import sys
 import hmilink
 from hmilink import tcp
 
-import songlink
-from songlink import model
+import songmodel
+from songmodel import model
 from vamp import engine as be
 from vamp.device import BoxDevice
 
@@ -55,7 +55,7 @@ class Rig:
         self.frames = 0
         self.eng = be.BoxEngine(bank, None, self.clock)
         self.port = 9300 + (self.ticks() % 500)
-        self.dev = BoxDevice(self.eng, port=self.port, bind="127.0.0.1", page=songlink.page(),
+        self.dev = BoxDevice(self.eng, port=self.port, bind="127.0.0.1", page=songmodel.page(),
                              log=lambda *a: None, plant=plant)
         self.panels = []
 

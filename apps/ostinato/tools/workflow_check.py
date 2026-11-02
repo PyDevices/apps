@@ -25,7 +25,7 @@ import argparse, json, pathlib, sys, time
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools")); sys.path.insert(0, str(ROOT.parent.parent / "lib"))
-from songlink import model
+from songmodel import model
 from files_check import menu
 
 

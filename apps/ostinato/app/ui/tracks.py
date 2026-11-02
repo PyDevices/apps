@@ -9,7 +9,7 @@ import lvgl as lv
 
 import catalog
 import fonts
-from songlink import model
+from songmodel import model
 import theme
 from knob import Knob
 from meter import StereoMeter

@@ -107,13 +107,13 @@ for the rest; the script says how many bars that changed.
   its track and hands it to the master worker (`app/engine/master.py`),
   which sums them, runs the master effects, and is the one stream the
   AudioWorklet (`workers/audio_worklet.js`) plays.
-- The project is `songlink.model`, in studio's `lib/songlink/`: plain data,
+- The project is `songmodel.model`, in studio's `lib/songmodel/`: plain data,
   changed only by ops that both sides apply. Vamp plays the same songs.
 - `workers/` is pyscript-template's worker kit.
 
-`songlink.model` imports on CPython, Pyodide and MicroPython. The engine and
+`songmodel.model` imports on CPython, Pyodide and MicroPython. The engine and
 UI around it haven't been tried on a board yet; on a board, the songs play on
-Vamp instead (studio's `lib/vamp/`).
+Vamp instead (`apps/vamp/`).
 
 ## Checks
 

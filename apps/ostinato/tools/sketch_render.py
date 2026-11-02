@@ -21,7 +21,7 @@ import numpy as np
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT.parents[1] / "lib"))
-from songlink import model  # noqa: E402
+from songmodel import model  # noqa: E402
 
 SR = 48000
 BLOCK = 256

@@ -15,9 +15,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # The desktop app's MIDI port and its link between processes (hmilink, and
 # the song as its model): scripts/fetch_midi.py fetches them beside the rest.
-DESKTOP_ONLY = ("vendor/lib/midiports/windows.py", "vendor/lib/hmilink/", "lib/songlink/link.py")
-# songlink (the song model Ostinato shares with Vamp) is in studio's lib/, two
-# folders up. The page fetches it as lib/songlink/...: tools/serve.py serves
+DESKTOP_ONLY = ("vendor/lib/midiports/windows.py", "vendor/lib/hmilink/", "lib/songmodel/link.py")
+# songmodel (the song model Ostinato shares with Vamp) is in studio's lib/, two
+# folders up. The page fetches it as lib/songmodel/...: tools/serve.py serves
 # studio's lib/ there, and a published copy carries it at that path.
 LIB = ROOT.parent.parent / "lib"
 
@@ -39,7 +39,7 @@ def tree(folder, dest="", root=ROOT, url=""):
 def main():
     w = json.loads((ROOT / "wheels.json").read_text())
     whl = lambda n: "vendor/wheels/" + w[n]["file"]
-    shared = tree("songlink", "songlink/", LIB, "lib/")
+    shared = tree("songmodel", "songmodel/", LIB, "lib/")
     ui = {"packages": [whl("pydevices"), whl("pydevices-lvgl")],
           "files": {**shared, **tree("app/ui"), **tree("vendor/board")}}
     engine = {"packages": [whl("pydevices"), whl("numpy"), whl("omnipython-audiodsp"), whl("omnipython-audioeffects"),

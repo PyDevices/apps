@@ -34,7 +34,7 @@ import audioinstruments
 import audioinstruments._rack.soundfont as sf
 import audiomixer
 
-from songlink import model
+from songmodel import model
 
 SR = 48000
 BLOCK = 256
@@ -449,7 +449,7 @@ class BoxEngine:
     # -- what plays ---------------------------------------------------------------
 
     def segments(self, t0, t1):
-        """What plays between ticks t0 and t1: :func:`songlink.model.segments`."""
+        """What plays between ticks t0 and t1: :func:`songmodel.model.segments`."""
         return model.segments(self.project, t0, t1)
 
     def _schedule(self, f0, f1):

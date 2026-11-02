@@ -13,7 +13,7 @@ The apps share code in `lib/`:
 - `controlkit`: the shared controls (knobs, sliders, meters, buttons, pads) the instrument panel is laid out from.
 - `soundmodule`: the General MIDI engine that midiEngine runs.
 - `vamp`: Ostinato's songs on a board.
-- `songlink`: the song that Ostinato and Vamp both edit, and what carries it to a
+- `songmodel`: the song that Ostinato and Vamp both edit, and what carries it to a
   front panel.
 
 An app imports from `lib/` and from the libraries in pydevices.

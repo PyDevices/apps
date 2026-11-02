@@ -8,13 +8,13 @@ const R = new URL("../", import.meta.url).pathname;
 const w = JSON.parse(fs.readFileSync(R + "wheels.json"));
 const py = await loadPyodide({ indexURL: R + "vendor/pyscript/pyodide/" });
 for (const n of ["numpy", "omnipython-audiodsp", "omnipython-audioeffects", "omnipython-audioinstruments"]) await py.loadPackage(R + "vendor/wheels/" + w[n].file);
-// songlink (the song model) is in studio's lib/, two folders up.
-py.FS.mkdirTree("/home/pyodide/songlink");
-for (const f of ["__init__.py", "model.py"]) py.FS.writeFile("/home/pyodide/songlink/" + f, fs.readFileSync(R + "../../lib/songlink/" + f));
+// songmodel (the song model) is in studio's lib/, two folders up.
+py.FS.mkdirTree("/home/pyodide/songmodel");
+for (const f of ["__init__.py", "model.py"]) py.FS.writeFile("/home/pyodide/songmodel/" + f, fs.readFileSync(R + "../../lib/songmodel/" + f));
 py.FS.writeFile("/home/pyodide/engine.py", fs.readFileSync(R + "app/engine/engine.py"));
 py.runPython(`
 import hashlib, audioeffects, engine, array
-from songlink import model
+from songmodel import model
 SR = 48000
 def take(rack):
     e = engine.Engine(SR, 0, lambda m: None)

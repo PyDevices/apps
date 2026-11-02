@@ -13,7 +13,7 @@ command there runs from that folder:
 - **On the desktop.** Python 3.14 or later, a virtual environment with the
   released PyDevices stack, and `python -m ostinato`.
 
-Both read the song model in [`lib/songlink`](../../lib/songlink), which
+Both read the song model in [`lib/songmodel`](../../lib/songmodel), which
 Vamp uses too. `tools/serve.py` serves that folder from this repository, so
 run it from a studio checkout.
 

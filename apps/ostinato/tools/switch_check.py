@@ -10,7 +10,7 @@ stream: the rebuilding engine pauses its stream instead.
 import argparse, pathlib, sys, time
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT.parent.parent / "lib")); sys.path.insert(0, str(ROOT / "tools"))
-from songlink import model
+from songmodel import model
 
 
 def run(s):

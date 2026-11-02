@@ -8,7 +8,7 @@ studio holds three applications that share a song model and an audio stack.
 - **Ostinato** ([`apps/ostinato`](../../apps/ostinato)) is the sequencer and
   song editor. LVGL draws its interface in a browser worker or a desktop
   window, and audioinstruments makes the sound.
-- **Vamp** ([`lib/vamp`](../../lib/vamp)) plays Ostinato's songs on a
+- **Vamp** ([`apps/vamp`](../../apps/vamp)) plays Ostinato's songs on a
   MicroPython with no screen of its own. Its panels are the Ostinato window
   and a browser page, over the network.
 
@@ -27,10 +27,10 @@ board's General MIDI player, runs this engine.
 
 When two applications need the same piece, it moves down: into `lib/` here
 when it is about songs, or into one of those libraries. That is why
-[`lib/songlink`](../../lib/songlink) is shared. It holds the song as plain
+[`lib/songmodel`](../../lib/songmodel) is shared. It holds the song as plain
 data, the edits panels send each other, and the browser panel's page. A song
 changes only through ops that every side applies, which is how a window, a
-page and a board edit one song at once. `songlink.model` imports on CPython,
+page and a board edit one song at once. `songmodel.model` imports on CPython,
 Pyodide and MicroPython.
 
 ## Many voices, one pool

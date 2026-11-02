@@ -67,7 +67,7 @@ class TemplateTests(unittest.TestCase):
                     continue
                 path = ROOT.parent.parent / src if src.startswith("lib/") else ROOT / src
                 self.assertTrue(path.is_file(), src)
-        self.assertIn("lib/songlink/model.py", cfg["engine"]["files"])
+        self.assertIn("lib/songmodel/model.py", cfg["engine"]["files"])
 
     def test_shell_references_existing_local_files(self):
         """sw.js caches the page and everything the page loads before its
