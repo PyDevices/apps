@@ -1,10 +1,38 @@
-![Ostinato, studio's pattern sequencer, playing a four-bar drum pattern in its desktop window](docs/ostinato.png)
+![Ostinato, the pattern sequencer, playing a four-bar drum pattern in its desktop window](docs/ostinato.png)
 
-studio is a set of music applications built on the PyDevices audio and MIDI stack, on the desktop and on boards: a sound module that plays whatever a DAW or keyboard sends it, Ostinato, a pattern sequencer and song editor in your browser, and Vamp, which plays Ostinato's songs on a board.
+# Apps
+
+The apps for PyDevices boards and desktops. Find one here, copy its files to
+your board, and it runs under [appkit](https://github.com/PyDevices/pydevices/tree/main/packages/appkit),
+the launcher that runs several apps on one device. Apps that only make sense
+on a computer, like Ostinato, run on the desktop.
+
+| App | What it does |
+|---|---|
+| `apps/synthstation` | Synth Station: pick an audioinstruments instrument and play it from a MIDI keyboard, with a hardware-style control panel for its knobs. |
+| `apps/spotify` | The board is a Spotify Connect speaker, and the screen is its remote. |
+| `apps/roku` | A TV remote over the LAN. |
+| `apps/midiengine` | A General MIDI sound module: 16 parts from a SoundFont, played from every USB MIDI keyboard. |
+| `apps/mp3` | The songs on an SD card, with play, previous, next, volume and a spectrum. |
+| `apps/camera`, `apps/security`, `apps/detect` | A camera preview, a security stream, and object detection on the camera. |
+| `apps/cast`, `apps/effects`, `apps/card`, `apps/instruments`, `apps/system`, `apps/wake` | Casting to a screen, an effects rig, a sound card, the instruments, a system page and a wake word. |
+| `apps/ostinato` | Ostinato, a pattern sequencer and song editor in your browser or on the desktop. |
+
+Shared code lives in `lib/`: `devkit` for the touch-panel apps, `controlpanel`
+for a front panel, `soundmodule` for the sound module, and `vamp` for
+Ostinato's songs on a board.
+
+## Boards
+
+An app is a folder of `.py` files. Each file installs on its own from raw
+GitHub with `mip`, so there is no package to publish and no release to wait
+for: a push to `main` is what users get. An app's README says which files it
+needs and where each one goes. Apps that depend on libraries in `lib/` name
+those too.
 
 ## Install
 
-studio is used from a clone, beside the libraries it builds on:
+The apps are used from a clone, beside the libraries they build on:
 
 ```bash
 git clone https://github.com/PyDevices/studio
