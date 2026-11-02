@@ -6,10 +6,10 @@
 Runs on CPython and on unix MicroPython. The app gets a scope whose timers
 the script fires itself, a stand-in audio out that only keeps the sample it
 was given (the script pulls the audio from it), and a stand-in keyboard the
-script plays. For each instrument it picks it, checks the panel shows the
+script plays. For each instrument it chooses it, checks the panel shows the
 instrument's name, macros and patches, plays a note and checks the output
 isn't silent, turns a knob and sends a program change and checks the panel
-follows, then presses EXIT. Then it opens a drum machine and a synth with no
+follows. Then it opens a drum machine and a synth with no
 keyboard at all and plays them from the pads.
 
     python station_check.py [NAME ...]
@@ -217,7 +217,7 @@ def play(app, scope, note, velocity=110, pad=None):
 
 
 def open_instrument(app, scope, name):
-    app.pick(name)
+    app.choose(name)
     scope.run(5)
     return app.panel
 
@@ -282,9 +282,6 @@ def exercise(app, scope, name):
         keyboard.send(0x80, 60, 0)
     print("ok  %-20s %-22s peak %5d  %d macros  %d patches  %s %s" % (
         name, face.DISPLAY_NAME, peak, len(labels), len(names), knob, program))
-    app.back()
-    scope.run()
-    check(app.panel is None and not app.picker.has_flag(lv.obj.FLAG.HIDDEN), "%s: EXIT goes back to the picker" % name)
 
 
 def shot(path):
@@ -316,6 +313,9 @@ class _Keyboard:
         self.adapter = _Adapter(macros)
         self._knobs = {}
         self._volume = None
+        self._held = {}
+        self._patch_step = 0
+        self._instrument_step = 0
 
 
 def check_knob_map():
@@ -330,13 +330,60 @@ def check_knob_map():
     sink = _Keyboard(16)
     station.Station.control(sink, 7, 64, 1)
     check(sink._volume is None and sink.adapter.instrument.controls == [7], "CC 7 on channel 2 goes to the instrument")
-    for controller in (29, 42, 69, 78):
+    sink = _Keyboard(16)
+    for value in (127, 100, 0, 127):
+        station.Station.control(sink, 17, value)
+    check(sink._patch_step == 2, "a press counts once, whatever follows it (%d)" % sink._patch_step)
+    for controller, attr, step in ((16, "_patch_step", -1), (17, "_patch_step", 1), (18, "_instrument_step", -1), (19, "_instrument_step", 1)):
+        sink = _Keyboard(16)
+        station.Station.control(sink, controller, 127)
+        check(getattr(sink, attr) == step and not sink.adapter.instrument.controls, "CC %d steps by %d" % (controller, step))
+    for controller in (15, 20, 29, 42, 69, 78):
         sink = _Keyboard(16)
         station.Station.control(sink, controller, 5)
         check(not sink._knobs and sink.adapter.instrument.controls == [controller], "CC %d goes to the instrument" % controller)
     sink = _Keyboard(2)
     station.Station.control(sink, 32, 5)
     check(not sink._knobs and sink.adapter.instrument.controls == [32], "CC 32 goes to an instrument with two macros")
+
+
+def check_menu_and_buttons(app, scope):
+    def press(controller):
+        keyboard.send(0xB0, controller, 127)
+        keyboard.send(0xB0, controller, 0)
+        scope.run(5)
+
+    def entry(name):
+        return [module for module, _ in app.instruments].index(name)
+
+    count = len(app.instruments)
+    open_instrument(app, scope, "poly106")
+    keys = sorted(app.adapter.instrument.patches)
+    at = keys.index(app.adapter.patch_index)
+    press(17)
+    check(app.adapter.patch_index == keys[(at + 1) % len(keys)], "Fast Forward is the next patch")
+    check(app.panel.patch == app.adapter.patch_index, "the panel follows the next patch")
+    press(16)
+    check(app.adapter.patch_index == keys[at], "Rewind is the previous patch")
+    start = entry("poly106")
+    press(19)
+    check(app.name == app.instruments[(start + 1) % count][0], "Play is the next instrument (%s)" % app.name)
+    check(app.menu.get_selected() == (start + 1) % count, "the menu follows Play")
+    check(app.panel is not None and app.adapter is not None, "the next instrument opens")
+    press(18)
+    check(app.name == "poly106", "Stop is the previous instrument (%s)" % app.name)
+    last = open_instrument(app, scope, app.instruments[-1][0])
+    check(last is not None and app.menu.get_selected() == count - 1, "choosing the last instrument")
+    press(19)
+    check(app.name == app.instruments[0][0], "Play wraps round to the first (%s)" % app.name)
+    press(18)
+    check(app.name == app.instruments[-1][0], "Stop wraps round to the last (%s)" % app.name)
+    app.menu.set_selected(entry("poly106"))
+    app.menu.send_event(lv.EVENT.VALUE_CHANGED, None)
+    scope.run(5)
+    check(app.name == "poly106" and app.panel is not None, "the menu changes the instrument (%s)" % app.name)
+    check(Peripherals.outs[-1].sample is app.adapter.instrument.output, "the output plays what the menu chose")
+    check(app.menu.get_y() + app.menu.get_height() <= app.panel.header.get_height(), "the menu is in the title bar")
 
 
 def main(names, shots=None):
@@ -346,10 +393,14 @@ def main(names, shots=None):
     scope = Scope()
     app = station.Station(scope)
     scope.run(8)
-    shot(shots and shots + "/picker.raw")
+    check(app.panel is not None, "the last instrument opens by itself")
+    check(app.name == station.DEFAULT, "with nothing saved, that's %s (it's %s)" % (station.DEFAULT, app.name))
+    check("EXIT" not in app.panel.buttons, "there's no EXIT")
+    check(app.splash.has_flag(lv.obj.FLAG.HIDDEN), "the splash is gone once it opens")
     check(app.inputs is not None and app.inputs.kind == "desktop", "the keyboard is open")
     for name in names or ai.ALL:
         exercise(app, scope, name)
+    check_menu_and_buttons(app, scope)
 
     # With no keyboard, bank A plays notes and the patches move up a bank.
     with_keyboard[0] = False
@@ -359,7 +410,7 @@ def main(names, shots=None):
     app = station.Station(scope)
     scope.run(8)
     check(not app.has_midi(), "no keyboard: the app knows")
-    check("No MIDI" in app.midi_label.get_text(), "no keyboard: the picker says so")
+    check("No MIDI" in app.midi_label.get_text(), "no keyboard: the splash says so")
     for name in ("rhythm808", "poly106"):
         panel = open_instrument(app, scope, name)
         check(panel is not None, "%s with no keyboard: the panel opens" % name)
@@ -383,8 +434,13 @@ def main(names, shots=None):
         peak = play(app, scope, None, pad=4)
         check(peak > 0, "%s: it sounds after RELOAD (peak %d)" % (name, peak))
         print("ok  %-20s pads play, peak %d, subtitle %r" % (name, peak, panel.subtitle.get_text()))
-        app.back()
-        scope.run()
+    app.inputs.kind = "desktop"
+    app.inputs.ports = [keyboard]
+    app.inputs._desktop_names = ["Test Keys"]
+    scope.run(60)
+    scope.run(5)
+    check(app.panel is not None and app._panel_midi, "a keyboard arriving reopens the panel for it")
+    check(not app.panel.subtitle.get_text().startswith("NO MIDI"), "the panel no longer says NO MIDI")
     check(station.current is app, "station.current is the running app")
     for fn in scope.closes:
         fn()

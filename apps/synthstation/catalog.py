@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Which instruments the picker shows, on which tab.
+"""Which instruments the menu lists, in which order.
 
 Every instrument in ``audioinstruments.ALL`` has a small module of
 constants (its face) that names it and its category, so the whole list is
