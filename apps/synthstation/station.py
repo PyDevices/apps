@@ -436,7 +436,9 @@ class Station:
         self.name = name
         self._idle_us = None
         self._settle = 0
-        self._most_voices = inst.voices
+        # A drum machine's voices are its sounds, one circuit each: a cap would
+        # silence the sounds past it, so it's never capped.
+        self._most_voices = 1 if name in _pads.KIT_PADS else inst.voices
         self._fitted = 0
         self._raised = False
         self._read = None
