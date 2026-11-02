@@ -52,11 +52,11 @@ class Sink:
     def __init__(self):
         self.got = []
 
-    def note_on(self, note, velocity):
-        self.got.append(("on", note, velocity))
+    def note_on(self, note, velocity, channel):
+        self.got.append(("on", note, velocity, channel))
 
-    def note_off(self, note):
-        self.got.append(("off", note))
+    def note_off(self, note, channel):
+        self.got.append(("off", note, channel))
 
     def control(self, controller, value, channel):
         self.got.append(("cc", controller, value, channel))
@@ -80,21 +80,24 @@ def parse(*chunks):
 class MidiParser(unittest.TestCase):
     def test_messages_on_any_channel(self):
         got = parse([0x90, 60, 100, 0x83, 60, 0, 0xB9, 74, 12, 0xE0, 0, 64, 0xC5, 7])
-        self.assertEqual(got, [("on", 60, 100), ("off", 60), ("cc", 74, 12, 9), ("bend", 8192), ("program", 7)])
+        self.assertEqual(got, [("on", 60, 100, 0), ("off", 60, 3), ("cc", 74, 12, 9), ("bend", 8192), ("program", 7)])
 
     def test_running_status_and_velocity_zero(self):
         got = parse([0x90, 60, 100, 62, 90, 60, 0])
-        self.assertEqual(got, [("on", 60, 100), ("on", 62, 90), ("off", 60)])
+        self.assertEqual(got, [("on", 60, 100, 0), ("on", 62, 90, 0), ("off", 60, 0)])
+
+    def test_a_pad_message_carries_its_channel(self):
+        self.assertEqual(parse([0x99, 36, 100, 0x89, 36, 0]), [("on", 36, 100, 9), ("off", 36, 9)])
 
     def test_a_message_split_across_reads(self):
-        self.assertEqual(parse([0x90, 60], [100]), [("on", 60, 100)])
+        self.assertEqual(parse([0x90, 60], [100]), [("on", 60, 100, 0)])
 
     def test_real_time_inside_a_message_and_sysex_are_skipped(self):
         got = parse([0x90, 60, 0xF8, 100, 0xF0, 1, 2, 3, 0xF7, 0xB0, 1, 5])
-        self.assertEqual(got, [("on", 60, 100), ("cc", 1, 5, 0)])
+        self.assertEqual(got, [("on", 60, 100, 0), ("cc", 1, 5, 0)])
 
     def test_data_after_system_common_is_not_a_note(self):
-        self.assertEqual(parse([0x90, 60, 100, 0xF3, 4, 61, 100]), [("on", 60, 100)])
+        self.assertEqual(parse([0x90, 60, 100, 0xF3, 4, 61, 100]), [("on", 60, 100, 0)])
 
 
 def _run(interpreter, *args):

@@ -1,7 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Pads that play notes, for when there's no keyboard.
+"""Pads that play a drum kit, and pads that play notes when there's no keyboard.
+
+A kit's General MIDI notes leave gaps and repeats under a keyboard's pads, so
+:data:`KIT_PADS` lays each kit out as one pad per sound. :func:`pad_notes` is
+what a pad note plays on an instrument.
 
 :class:`NotePads` stands between the panel and the instrument's adapter.
 Bank A's sixteen pads become notes: a drum machine's voices, or two octaves
@@ -13,14 +17,71 @@ PADS = 16
 #: Two octaves of C major from C3, for anything that isn't a drum machine.
 SCALE = (48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74)
 NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+#: The note a keyboard's first pad sends, and how many pads it has: three banks
+#: of eight on a Donner DMK-25 PRO.
+FIRST_PAD = 36
+PAD_COUNT = 24
+#: Each drum machine's sounds in pad order, so a sound stays under the same
+#: finger from kit to kit: kick, snare, closed hat, open hat, clap, rim, toms
+#: from low to high, cymbals, then percussion. A kit moves up over what it
+#: doesn't have. Its other notes repeat these sounds exactly.
+KIT_PADS = {
+    "rhythm808": (
+        (36, "Bass Drum"), (38, "Snare Drum"), (42, "Closed Hi-Hat"), (46, "Open Hi-Hat"),
+        (39, "Hand Clap"), (37, "Rim Shot"), (41, "Low Tom"), (45, "Mid Tom"),
+        (48, "High Tom"), (49, "Cymbal"), (56, "Cowbell"), (62, "High Conga"),
+        (63, "Mid Conga"), (64, "Low Conga"), (70, "Maracas"), (75, "Claves"),
+    ),
+    "rhythm909": (
+        (36, "Bass Drum"), (38, "Snare Drum"), (42, "Closed Hi-Hat"), (46, "Open Hi-Hat"),
+        (39, "Hand Clap"), (37, "Rim Shot"), (41, "Low Tom"), (45, "Mid Tom"),
+        (48, "High Tom"), (49, "Crash Cymbal"), (51, "Ride Cymbal"),
+    ),
+    "rhythm606": (
+        (36, "Bass Drum"), (38, "Snare Drum"), (42, "Closed Hi-Hat"), (46, "Open Hi-Hat"),
+        (41, "Low Tom"), (48, "High Tom"), (49, "Cymbal"),
+    ),
+    "rhythm78": (
+        (36, "Bass Drum"), (38, "Snare Drum"), (42, "Hi-Hat"), (46, "Open Hi-Hat"),
+        (37, "Rim Shot"), (49, "Cymbal"), (54, "Tambourine"), (56, "Cowbell"),
+        (60, "High Bongo"), (61, "Low Bongo"), (62, "Low Conga"), (70, "Maracas"),
+        (73, "Guiro Short"), (74, "Guiro Long"), (75, "Claves"),
+    ),
+    "electronic_drums5": (
+        (36, "Bass Drum"), (38, "Snare Drum"), (41, "Tom 3"), (45, "Tom 2"), (48, "Tom 1"),
+    ),
+}
+#: A SoundFont's kits differ, so its pads are the first of these General MIDI
+#: keys that the kit playing has a sound for, in the same order.
+SOUNDFONT_KIT = "soundfont_drums"
+SOUNDFONT_ORDER = (
+    36, 38, 42, 46, 39, 37, 41, 43, 45, 47, 48, 50, 49, 51, 57, 59,
+    35, 40, 44, 52, 53, 55, 54, 56, 58, 60, 61, 62, 63, 64, 65, 66,
+    67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81,
+)
 
 
 def note_name(note):
     return "%s%d" % (NAMES[note % 12], note // 12 - 1)
 
 
+def pad_notes(name, instrument):
+    """The note each pad plays on instrument *name*, or None if it isn't laid out."""
+    kit = KIT_PADS.get(name)
+    if kit is not None:
+        return tuple(note for note, _ in kit)
+    if name != SOUNDFONT_KIT:
+        return None
+    bank, program = instrument.preset
+    font = instrument.bank
+    return tuple(key for key in SOUNDFONT_ORDER if font.regions(bank, program, key, 100))[:PAD_COUNT]
+
+
 def notes_for(face):
-    """``((note, label), ...)`` for bank A: a kit's voices, or the scale."""
+    """``((note, label), ...)`` for bank A: a kit's sounds, or the scale."""
+    kit = KIT_PADS.get(getattr(face, "NAME", None))
+    if kit is not None:
+        return kit
     note_map = getattr(face, "NOTE_MAP", None)
     if note_map:
         return tuple((note, label) for note, label in tuple(note_map)[:PADS])

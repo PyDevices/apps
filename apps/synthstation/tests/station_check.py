@@ -162,7 +162,7 @@ class Keyboard:
 
 import audiocore  # noqa: E402
 
-from synthstation import midi, station  # noqa: E402
+from synthstation import midi, pads, station  # noqa: E402
 
 keyboard = Keyboard()
 with_keyboard = [True]
@@ -386,6 +386,119 @@ def check_menu_and_buttons(app, scope):
     check(app.menu.get_y() + app.menu.get_height() <= app.panel.header.get_height(), "the menu is in the title bar")
 
 
+def _render(name, patch, note):
+    """A hit on a new instrument, so nothing but the note can make it differ."""
+    import audioinstruments.panel
+
+    adapter = audioinstruments.panel.create(name, 48000, channel_count=2)
+    inst = adapter.instrument
+    if inst.patches:
+        adapter.note_program(patch)
+    inst.note_on(note, 100)
+    out = bytearray()
+    for _ in range(150):
+        inst.fill()
+        _, data = audiocore.get_buffer(inst.output)
+        out.extend(bytes(data))
+    inst.deinit()
+    return bytes(out)
+
+
+def check_kit_sounds(name, face):
+    """Every pad is a sound of its own, and no sound of the kit is left out."""
+    laid_out = [note for note, _ in pads.KIT_PADS[name]]
+    known = [note for note, _ in face.NOTE_MAP]
+    check(not [n for n in laid_out if n not in known], "%s: every pad is a note the kit has" % name)
+    check(len(laid_out) <= pads.PAD_COUNT, "%s: its sounds fit the pads" % name)
+    probe = _patches(name)
+    for patch in probe:
+        sounds = {}
+        for note in laid_out:
+            sound = _render(name, patch, note)
+            check(sound not in sounds, "%s patch %d: notes %d and %r are one sound" % (name, patch, note, sounds.get(sound)))
+            sounds[sound] = note
+        for note in known:
+            if note not in laid_out:
+                check(_render(name, patch, note) in sounds, "%s patch %d: note %d is a sound no pad plays" % (name, patch, note))
+
+
+def _patches(name):
+    import audioinstruments.panel
+
+    adapter = audioinstruments.panel.create(name, 48000, channel_count=2)
+    patches = sorted(adapter.instrument.patches or (0,))
+    adapter.instrument.deinit()
+    return patches
+
+
+class _Font:
+    """A SoundFont whose kit 0 has a kick, closed hat and tom, and kit 1 a snare and a clap."""
+
+    KITS = {0: (36, 42, 45), 1: (38, 39)}
+
+    def regions(self, bank, program, key, velocity):
+        return (key,) if key in self.KITS[program] else ()
+
+
+class _FontKit:
+    bank = _Font()
+
+    def __init__(self, program):
+        self.preset = (128, program)
+
+
+def check_drum_pads(app, scope):
+    import audioinstruments as ai
+
+    def hits(*messages):
+        """What the instrument is told when *messages* are played."""
+        got = []
+        adapter = app.adapter
+        adapter.note_on = lambda note, velocity: got.append(("on", note))
+        adapter.note_off = lambda note: got.append(("off", note))
+        for message in messages:
+            keyboard.send(*message)
+        scope.run(2)
+        del adapter.note_on
+        del adapter.note_off
+        return got
+
+    # The order is literal: a test reading the table would agree with any table.
+    check(pads.pad_notes("rhythm606", None) == (36, 38, 42, 46, 41, 48, 49), "Rhythm 606's pads")
+    check(pads.pad_notes("rhythm808", None)[:6] == (36, 38, 42, 46, 39, 37), "Rhythm 808's first pads")
+    check(pads.pad_notes("electronic_drums5", None) == (36, 38, 41, 45, 48), "Electronic Drums 5 moves its toms up")
+    check(pads.pad_notes("poly106", None) is None, "a synth isn't laid out")
+    check(pads.pad_notes("soundfont_drums", _FontKit(0)) == (36, 42, 45), "a SoundFont kit's pads are what it has")
+    check(pads.pad_notes("soundfont_drums", _FontKit(1)) == (38, 39), "the next kit's pads are what that one has")
+
+    for name in pads.KIT_PADS:
+        check_kit_sounds(name, ai.load(name))
+
+    open_instrument(app, scope, "rhythm606")
+    got = hits((0x99, 36, 100), (0x89, 36, 0), (0x99, 37, 100), (0x99, 42, 100), (0x89, 42, 0))
+    check(got == [("on", 36), ("off", 36), ("on", 38), ("on", 49), ("off", 49)], "pads play the kit one sound each (%r)" % (got,))
+    check(hits((0x99, 43, 100), (0x89, 43, 0), (0x99, 35, 100), (0x89, 35, 0)) == [], "a pad past the kit's sounds is silent")
+    got = hits((0x90, 37, 100), (0x80, 37, 0))
+    check(got == [("on", 37), ("off", 37)], "the keys stay General MIDI (%r)" % (got,))
+    peak = play_pad(app, scope, 36)
+    check(peak > 0, "the first pad sounds (peak %d)" % peak)
+    open_instrument(app, scope, "poly106")
+    got = hits((0x99, 60, 100), (0x89, 60, 0))
+    check(got == [("on", 60), ("off", 60)], "pads play a synth's notes as they are (%r)" % (got,))
+
+
+def play_pad(app, scope, note):
+    keyboard.send(0x99, note, 110)
+    sample = Peripherals.outs[-1].sample
+    peak = 0
+    for _ in range(12):
+        scope.run(2)
+        peak = max(peak, peak_of(sample, 2))
+    keyboard.send(0x89, note, 0)
+    scope.run()
+    return peak
+
+
 def main(names, shots=None):
     check_knob_map()
     import audioinstruments as ai
@@ -401,6 +514,7 @@ def main(names, shots=None):
     for name in names or ai.ALL:
         exercise(app, scope, name)
     check_menu_and_buttons(app, scope)
+    check_drum_pads(app, scope)
 
     # With no keyboard, bank A plays notes and the patches move up a bank.
     with_keyboard[0] = False
