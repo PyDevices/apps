@@ -17,6 +17,7 @@ the speaker ran dry since the instrument started.
 """
 
 import struct
+from array import array
 
 RATE = 48000
 CHANNELS = 2
@@ -27,6 +28,13 @@ VOLUME = 85
 #: screen redraw.
 DMA_DESC = 4
 DMA_FRAME = 128
+
+#: What :meth:`Output.levels` looks at: the newest 100 ms, every 40th frame, which
+#: is enough for a meter and costs the app about a millisecond.
+LEVEL_FRAMES = 4800
+LEVEL_STEP = 40
+#: The pump's tap holds this much, more than the app reads between two looks.
+TAP_FRAMES = 8192
 
 _BLOCKS_FOREVER = 0x7FFFFFFF
 # The status block's words (audiodsp's audiopump).
@@ -58,6 +66,8 @@ class Output:
         self._base = 0
         self._last = None
         self._gov = None
+        self._tap = None
+        self._level_buf = None
         self.underruns = 0
         self.load_pct = None
         self.worst_pct = None
@@ -118,11 +128,14 @@ class Output:
                 out.set_volume(self.volume)
             out.play(inst.output)
             self._out = out
+        self._attach_tap()
         self.instrument = inst
 
     def stop(self):
         """Silence. The instrument is left as it is, not deinitialised."""
         self.instrument = None
+        if self._tap is not None:
+            self._pump.tap(None)
         if self._wire is not None:
             if self._status is not None:
                 self._pump.shutdown()  # stops the pump task and closes I2S
@@ -134,6 +147,39 @@ class Output:
             out.stop()
             out.detach()
             out.close()
+
+    def _attach_tap(self):
+        pump = self._pump
+        if pump is None or not hasattr(pump, "Tap"):
+            return
+        if self._tap is None:
+            self._tap = pump.Tap(frames=TAP_FRAMES, channel_count=self.channels)
+            self._level_buf = array("h", bytes(LEVEL_FRAMES * self.channels * 2))
+        pump.tap(self._tap)
+
+    def levels(self):
+        """The newest audio's left and right peaks, 0.0 to 1.0.
+
+        Both 0.0 when nothing new has gone out, or where there's no tap.
+        """
+        if self._tap is None:
+            return 0.0, 0.0
+        buf = self._level_buf
+        channels = self.channels
+        samples = self._tap.readinto(buf) // 2
+        left = right = 0
+        for i in range(0, samples - channels + 1, LEVEL_STEP * channels):
+            v = buf[i]
+            if v < 0:
+                v = -v
+            if v > left:
+                left = v
+            v = buf[i + channels - 1]
+            if v < 0:
+                v = -v
+            if v > right:
+                right = v
+        return left / 32768, right / 32768
 
     def set_volume(self, percent):
         """The codec's volume, 0 to 100, now and for the next instrument."""

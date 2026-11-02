@@ -48,6 +48,12 @@ Drums does this for whichever kit is playing. The keys, and any other channel,
 still play General MIDI notes, so a song sent on channel 10 won't play the right
 drums here.
 
+Beside the drop-down, a small bar each for left and right shows what the board
+sends the speaker, and a light flashes for every note that comes in over MIDI.
+The light with no bars is a note the instrument doesn't sound; neither means
+nothing arrived. The volume controller and the codec's volume don't move the
+bars, because they come after the point the bars read.
+
 The last instrument you played opens by itself. To change it, use the
 drop-down in the panel's title bar, or a DMK-25 PRO's transport buttons:
 

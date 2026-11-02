@@ -447,6 +447,88 @@ class _FontKit:
         self.preset = (128, program)
 
 
+def check_meters(app, scope):
+    # The drop-down starts with the patch card and ends with it, or sooner on a
+    # panel whose display leaves the meters no room there.
+    open_instrument(app, scope, "poly106")
+    panel = app.panel
+    panel.root.update_layout()
+    title = panel._patch_title
+    x = app.menu.get_x()
+    right = x + app.menu.get_width()
+    rule_at = None
+    for i in range(panel.root.get_child_count()):
+        kid = panel.root.get_child(i)
+        if kid.get_height() == 1 and kid.get_y() > title.get_y() and kid.get_x() > x:
+            rule_at = kid.get_x() + kid.get_width()
+            break
+    check(x == title.get_x(), "the menu starts with the patch card (%d, %d)" % (x, title.get_x()))
+    meters = app._meters
+    check(right <= rule_at, "the menu is no wider than the patch card (%s, %s)" % (right, rule_at))
+    display_x = station._display_x(panel)
+    gap = panel._s(station.METER_GAP)
+    check(
+        right == rule_at or right == display_x - 2 * gap - station.Meters.width(panel._s),
+        "the menu stops at the card or at the meters (%s, %s, %s)" % (right, rule_at, display_x),
+    )
+    check(meters is not None, "the meters fit beside the menu")
+    bars, lit = meters.bars, meters.lit
+    check(
+        bars[0].get_x() >= right and bars[1].get_x() + bars[1].get_width() < display_x,
+        "the bars are between the menu and the display",
+    )
+
+    # The light follows what comes in, a pad past the kit's last sound too.
+    def opa():
+        return lit.get_style_bg_opa(0)
+
+    scope.run(50)
+    check(opa() == 0, "the light is out before a note (%d)" % opa())
+    app.parser.feed(bytearray((0x90, 60, 100)), 3)
+    app._meter_tick()
+    check(opa() > 0, "a note lights it")
+    scope.run(50)
+    check(opa() == 0, "it goes out by itself (%d)" % opa())
+    app.parser.feed(bytearray((0x80, 60, 0)), 3)
+    open_instrument(app, scope, "rhythm606")
+    meters = app._meters
+    lit = meters.lit
+    app.parser.feed(bytearray((0x99, 59, 100)), 3)
+    app._meter_tick()
+    check(opa() > 0, "a pad with no sound lights it")
+    app.parser.feed(bytearray((0x89, 59, 0)), 3)
+
+    open_instrument(app, scope, "poly106")
+    meters = app._meters
+
+    # Left and right are read apart, and a silent output falls to nothing.
+    output = app.output
+    real = output._tap
+
+    class OneSide:
+        def readinto(self, buf):
+            for i in range(0, len(buf), 2):
+                buf[i] = 16384
+                buf[i + 1] = 0
+            return len(buf) * 2
+
+    class Silent:
+        def readinto(self, buf):
+            return 0
+
+    output._tap = OneSide()
+    left, right = output.levels()
+    check(abs(left - 0.5) < 0.01 and right == 0, "the channels are read apart (%.2f, %.2f)" % (left, right))
+    app._meter_tick()
+    check(meters.bars[0].get_value() > 15 and meters.bars[1].get_value() == 0, "so are the bars")
+    output._tap = Silent()
+    for _ in range(25):
+        app._meter_tick()
+    check(meters.bars[0].get_value() <= 1 and meters.bars[1].get_value() <= 1, "with nothing going out they fall")
+    output._tap = real
+    app._meter_tick()
+
+
 def check_drum_pads(app, scope):
     import audioinstruments as ai
 
@@ -538,6 +620,7 @@ def main(names, shots=None):
         exercise(app, scope, name)
     check_menu_and_buttons(app, scope)
     check_drum_pads(app, scope)
+    check_meters(app, scope)
 
     # With no keyboard, bank A plays notes and the patches move up a bank.
     with_keyboard[0] = False

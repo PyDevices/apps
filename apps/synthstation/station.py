@@ -17,6 +17,8 @@ import lvgl as lv
 from . import midi as _midi
 from . import pads as _pads
 from .catalog import DEFAULT, RENAMED, catalog, find
+from .meters import TICK_MS as METER_MS
+from .meters import Meters
 
 #: How often the keyboards are read, and the instrument told to take in
 #: what was played, in milliseconds.
@@ -63,6 +65,13 @@ DIM = 0x8A8D93
 ACCENT = 0xD8402F
 MENU_W = 260
 MENU_H = 36
+#: The share of the panel's width up to the patch card's right edge, and where
+#: the card starts on an 800 wide panel: controlpanel's own layout, kept in step
+#: by the check.
+PATCH_SHARE = 0.34
+PATCH_INSET = 24
+#: The space either side of the meters, on an 800 wide panel.
+METER_GAP = 6
 
 #: The running app, for a console or a bench script: ``current.adapter``
 #: is the instrument's adapter, ``current.parser.feed()`` plays MIDI bytes.
@@ -86,6 +95,11 @@ def _label(parent, text, color=TEXT, font=None):
     if font is not None:
         label.set_style_text_font(font, 0)
     return label
+
+
+def _display_x(panel):
+    """Where the panel's display starts: its window sits in a bezel on the header."""
+    return panel.display.obj.get_parent().get_parent().get_x()
 
 
 class Station:
@@ -113,6 +127,7 @@ class Station:
         self._read = None
         self._refused = None
         self._timers = []
+        self._meters = None
         self._knobs = {}
         self._volume = None
         self._program = None
@@ -207,9 +222,33 @@ class Station:
                 menu.set_pos(2, 2)
             else:
                 plate.add_flag(lv.obj.FLAG.HIDDEN)
-                menu.set_size(max(plate.get_width(), MENU_W // 2), MENU_H)
-                menu.set_pos(plate.get_x(), max(2, plate.get_y() - 8))
+                # The patch card's width, unless a bigger display leaves the
+                # meters no room beside that.
+                panel.root.update_layout()
+                s = panel._s
+                x = s(PATCH_INSET)
+                room = _display_x(panel) - 2 * s(METER_GAP) - Meters.width(s)
+                right = min(int(panel.width * PATCH_SHARE), room)
+                menu.set_size(max(right - x, MENU_W // 2), MENU_H)
+                menu.set_pos(x, max(2, plate.get_y() - 8))
         menu.move_foreground()
+
+    def _build_meters(self):
+        """In the header between the menu and the display, if they fit."""
+        panel = self.panel
+        s = panel._s
+        menu = self.menu
+        menu.update_layout()
+        left = menu.get_x() + menu.get_width() + s(METER_GAP)
+        room = _display_x(panel) - s(METER_GAP) - left
+        width = Meters.width(s)
+        if room >= width:
+            pad = s(6)
+            self._meters = Meters(panel.header, left + (room - width) // 2, pad, panel.header.get_height() - 2 * pad, s)
+
+    def _meter_tick(self, _timer=None):
+        left, right = self.output.levels()
+        self._meters.tick(left, right)
 
     def _menu_changed(self, _event):
         self.choose(self.instruments[self.menu.get_selected()][0])
@@ -268,6 +307,8 @@ class Station:
     # The parser's sink: a keyboard's messages land here.
 
     def note_on(self, note, velocity, channel=0):
+        if self._meters is not None:
+            self._meters.strike(velocity)
         adapter = self.adapter
         if adapter is None or self.loading:
             return
@@ -476,12 +517,15 @@ class Station:
         self._panel_midi = self.has_midi()
         self.panel = self._build_panel(shown, display)
         self._place_menu()
+        self._build_meters()
         self._shown = None
         self._since_log = 0
         self._timers = [
             self.scope.every(MIDI_MS, self._midi_tick),
             self.scope.every(FILL_MS, self._fill),
         ]
+        if self._meters is not None:
+            self._timers.append(self.scope.every(METER_MS, self._meter_tick))
         self.loading = False
         self._status_tick()
 
@@ -608,6 +652,7 @@ class Station:
         for timer in self._timers:
             timer.deinit()
         self._timers = []
+        self._meters = None
         adapter = self.adapter
         self.adapter = None
         if adapter is not None:
