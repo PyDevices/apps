@@ -619,7 +619,7 @@ def main(scope):
             # say-so's kept-alive TLS sockets, unless the worker is mid-request
             # (a request in flight finishes on its own and is dropped)
             if not w.busy:
-                transport.requests.close()
+                transport.close_connections()
         except Exception as e:
             print("spotify: sockets:", e)
 
