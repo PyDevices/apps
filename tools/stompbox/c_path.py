@@ -11,7 +11,7 @@ is one lap: output, cable, input, and through the graph to the output again.
 It also samples how much audio each end holds while it runs: the capture
 backlog and the speaker queue.
 
-    micropython -X heapsize=64M tools/c_path.py [out=ID] [in=ID] [fx=Galactic]
+    micropython -X heapsize=64M tools/stompbox/c_path.py [out=ID] [in=ID] [fx=Galactic]
         [prime=10] [buffer=20] [keep=10] [frames=128] [fb=0.2] [click=0.3]
         [secs=5]
 """

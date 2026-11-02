@@ -1,9 +1,9 @@
 """Input adapters. Each reports its rate, channel count and clock, and hands
 the engine an audiocore source at the engine's rate and channel count.
 
-ClipInput is a WAV clip. LiveInput is a Windows microphone or line input,
-read by the pump's own thread (audioif's `Input`), so a guitar goes through
-the effect with no Python in the path.
+ClipInput is a WAV clip. LiveInput is the board's microphone or line input, or
+a Windows capture device, read by the pump's own thread (audioif's `Input`), so
+a guitar goes through the effect with no Python in the path.
 """
 
 import array
@@ -16,6 +16,25 @@ try:
     import audiospeed
 except ImportError:  # a build without it plays clips at their own rate only
     audiospeed = None
+
+
+def live_available():
+    """True where there is an input to open: Windows' capture devices, or a
+    board whose microphone shares its speaker's I2S clocks."""
+    try:
+        import _audioif
+    except ImportError:
+        return False
+    if not hasattr(_audioif, "Input"):
+        return False
+    if hasattr(_audioif, "same_clock"):
+        return True
+    try:
+        import board_peripherals as bp
+    except ImportError:
+        return False
+    wire = getattr(getattr(bp, "AUDIO_OUT", None), "wire", None)
+    return getattr(wire, "sd_in", None) is not None
 
 
 class ClipInput:
@@ -54,9 +73,58 @@ class ClipInput:
         return p[p.rfind("/") + 1:]
 
 
+class BoardInput:
+    """The board's microphone or line input: the RX half of the speaker's own
+    I2S channel, so the two share a clock and the graph reads it directly.
+    The output has to be open first; Engine.set_effect opens it."""
+
+    kind = "live"
+    clock = "device"
+    clocks = 1
+    drift = None
+    name_in = "the board's input"
+    target = 0
+
+    def __init__(self, frames=128):
+        import _audioif
+
+        import board_peripherals as bp
+
+        power = getattr(bp, "audio_in_power", None)
+        if power is not None:
+            power(True)
+        self._power = power
+        self.sample_rate = SAMPLE_RATE
+        self.channel_count = CHANNELS
+        self.seconds = 0
+        self.file_rate = SAMPLE_RATE
+        self._mic = _audioif.Input(sample_rate=SAMPLE_RATE,
+                                   channel_count=CHANNELS, frames=frames)
+
+    def source(self):
+        return self._mic
+
+    def name(self):
+        return "live input"
+
+    def close(self):
+        if hasattr(self._mic, "deinit"):
+            self._mic.deinit()
+        if self._power is not None:
+            self._power(False)
+
+
+def open_live(device=None, speaker=None, clock="auto", target=None):
+    import _audioif
+
+    if hasattr(_audioif, "same_clock"):
+        return LiveInput(device, speaker, clock, target=target)
+    return BoardInput()
+
+
 class LiveInput:
-    """A capture device, live. `device` is an endpoint ID, or None for the
-    default.
+    """A Windows capture device, live. `device` is an endpoint ID, or None for
+    the default.
 
     When the speaker is part of the same device, the two share a clock and
     the microphone feeds the graph directly: the pump reads it on its own

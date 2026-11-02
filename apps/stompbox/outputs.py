@@ -1,23 +1,31 @@
 """Output adapters. The output's clock drives the engine: it pulls the graph.
 
-DefaultOutput is the host's default device through audiodev's player, the
-same `play(sample)` shape a board's `audio_out` role returns. WasapiOutput is
-a Windows speaker the pump writes itself, with no Python in the path: the
-low-latency one, and the one a live input wants.
+DefaultOutput is the board's `audio_out` role, or a computer's default device
+through audiodev's player. WasapiOutput is a Windows speaker the pump writes
+itself, with no Python in the path: the low-latency one, and the one a live
+input wants.
 """
 
 from . import CHANNELS, SAMPLE_RATE
+
+VOLUME = 80  # the codec's, where the board has one: on an ES8311, -10 dB
 
 
 class DefaultOutput:
     kind = "default"
 
     def __init__(self, latency=None):
-        from audiodev import AudioFormat
-        from audiodev import auto
+        from audiodev import AudioFormat, auto
 
-        self.player = auto.audio_out(AudioFormat(SAMPLE_RATE, CHANNELS, 16),
-                                     latency=latency)
+        fmt = AudioFormat(SAMPLE_RATE, CHANNELS, 16)
+        try:
+            import board_peripherals as bp
+
+            self.player = bp.audio_out(fmt, latency=latency)
+        except (ImportError, AttributeError):
+            self.player = auto.audio_out(fmt, latency=latency)
+        if hasattr(self.player, "set_volume"):
+            self.player.set_volume(VOLUME)
         self.sample_rate = SAMPLE_RATE
         self.channel_count = CHANNELS
         self.clock = "device"
@@ -32,7 +40,7 @@ class DefaultOutput:
         self.player.service()
 
     def describe(self):
-        t = self.player.transport
+        t = getattr(self.player, "transport", None)
         return "%s, %d Hz" % (type(t).__name__, self.sample_rate)
 
     def close(self):

@@ -132,6 +132,10 @@ class Engine:
         self.output.close()
         if self.input is not None and hasattr(self.input, "close"):
             self.input.close()
+        if self.effect is not None:
+            self.effect.stop()
+            self.effect.deinit()
+            self.effect = None
 
     def latency(self):
         """(total ms, held ms, device periods ms) for a live input on a
@@ -139,7 +143,7 @@ class Engine:
 
         Held is what the software path holds at this moment: the
         microphone's backlog, the ring between two clocks, and the speaker's
-        queue. The periods are the Windows engine's, one each side."""
+        queue. The periods are the device engine's, one each side."""
         inp, out = self.input, self.output
         if inp is None or not hasattr(inp, "held_frames") \
                 or not hasattr(out, "held_frames"):

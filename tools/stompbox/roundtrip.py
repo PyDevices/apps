@@ -8,7 +8,7 @@ back in through the cable, counted in input samples, is one full trip
 (input, chain, output, cable). No passthrough, so nothing feeds back.
 The input is saved to roundtrip-in.wav in the current folder.
 
-    micropython -X heapsize=64M tools/roundtrip.py [cushion_ms] [latency]
+    micropython -X heapsize=64M tools/stompbox/roundtrip.py [cushion_ms] [latency]
         [out=ENDPOINT_ID] [in=ENDPOINT_ID] [click=0.3]
 
 out= and in= open those WASAPI endpoints instead of the defaults (see
@@ -96,7 +96,7 @@ out.close()
 inp.close()
 
 sys.path.insert(0, here[: here.rfind("/tools/")])
-from stompbox import wavfile  # noqa: E402
+from apps.stompbox import wavfile  # noqa: E402
 
 wavfile.write("roundtrip-in.wav", RATE, 1, heard)
 

@@ -11,7 +11,7 @@ With the output looped back to the input by a cable it also clicks, mixes
 the input back in at FB, and measures the lap from the tap, as c_path.py
 does. Keep FB at 0.2 to 0.4: a loop at full level howls.
 
-    micropython -X heapsize=64M tools/drift_path.py [out=ID] [in=ID]
+    micropython -X heapsize=64M tools/stompbox/drift_path.py [out=ID] [in=ID]
         [clock=two|same] [target=1024] [fb=0] [click=0] [secs=60]
         [buffer=20] [prime=10]
 

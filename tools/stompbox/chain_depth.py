@@ -2,7 +2,7 @@
 each stage holds while it runs, in milliseconds. It measures what the
 software path adds; the converters and the cable are not in it.
 
-    micropython -X heapsize=64M tools/chain_depth.py [SECONDS] [latency]
+    micropython -X heapsize=64M tools/stompbox/chain_depth.py [SECONDS] [latency]
 """
 
 import sys
