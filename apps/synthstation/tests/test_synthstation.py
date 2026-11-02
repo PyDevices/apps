@@ -6,7 +6,7 @@
 station_check.py runs on CPython and on unix MicroPython (from
 ``PYDEVICES_MICROPYTHON``, ``micropython`` on PATH, or a ``bin/micropython``
 in a folder above this one, with LVGL and audiodsp). Both need
-audioinstruments with its ``panel`` module, and controlpanel, on the path:
+audioinstruments with its ``panel_view`` module, and controlkit, on the path:
 ``SYNTHSTATION_PATH`` adds folders in front (``:``-separated), for a
 checkout of either. With no MicroPython its half is skipped loudly;
 ``PYDEVICES_REQUIRE_MICROPYTHON=1`` makes that a failure.

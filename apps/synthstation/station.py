@@ -5,7 +5,7 @@
 
 The picker lists every instrument in audioinstruments on three tabs. Pick
 one and it's created at the output's rate, starts playing through the
-board's audio out, and gets controlpanel's panel; EXIT on the panel goes
+board's audio out, and gets the instrument panel; EXIT on the panel goes
 back to the picker. While the panel is up, MIDI from every keyboard the
 program can reach plays it, and the line under the name shows what
 rendering it costs.
@@ -381,7 +381,7 @@ class Station:
     def _build_panel(self, adapter, title):
         import sys
 
-        import controlpanel
+        import audioinstruments.panel_view as panel_view
 
         two_wheels = False
         if getattr(sys, "platform", "") in ("linux", "darwin", "win32"):
@@ -392,7 +392,7 @@ class Station:
                 driver.set_wheel_mapping(adjust_axis="h", adjust_sign=1, navigate=True, navigate_sign=-1)
                 two_wheels = True
                 self._wheels = driver
-        return controlpanel.build(
+        return panel_view.build(
             adapter, screen=self.root, title=title, subtitle=None if self.has_midi() else "No MIDI",
             on_close=self.back, two_wheels=two_wheels)
 
