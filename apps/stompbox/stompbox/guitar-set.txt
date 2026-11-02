@@ -1,0 +1,51 @@
+# The guitar set: the airwindows effects the effect list shows first.
+# "Show all" adds the rest. One plug-in name per line, as audioairwindows
+# spells it; a line starting with "##" names the group the next ones are in.
+# The first name is the one the app opens with. Names a build doesn't carry
+# are skipped.
+
+## Amps and cabinet
+MidAmp
+FireAmp
+GrindAmp
+PointyGuitar
+Cabs
+
+## Drives
+GuitarConditioner
+PurestDrive
+Drive
+Edge
+
+## Compressors and gate
+ButterComp2
+Pressure4
+Pyewacket
+SoftGate
+
+## EQ and filters
+Baxandall2
+SmoothEQ3
+ToneSlant
+Highpass2
+Lowpass2
+
+## Delays
+TapeDelay2
+PurestEcho
+Doublelay
+PitchDelay
+
+## Reverbs
+Galactic
+Reverb
+Verbity2
+MatrixVerb
+Chamber
+
+## Modulation
+StereoChorus
+TakeCare
+Tremolo
+GalacticVibe
+Ensemble
