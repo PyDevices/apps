@@ -40,6 +40,14 @@ knobs send) move the first eight. The panel's encoders follow. Controller 7
 on MIDI channel 1 sets the output's volume: slider S1 on the DMK-25 PRO. A program change picks the patch and lights
 its pad. RELOAD builds the instrument again, keeping its patch and knobs.
 
+Pads on MIDI channel 10 play a drum machine one sound per pad, from note 36
+up, so every pad does something and none repeats: kick, snare, closed hat and
+open hat come first where the kit has them, so a sound stays under the same
+finger when you change kits, and pads past the kit's last sound are silent. SoundFont
+Drums does this for whichever kit is playing. The keys, and any other channel,
+still play General MIDI notes, so a song sent on channel 10 won't play the right
+drums here.
+
 The last instrument you played opens by itself. To change it, use the
 drop-down in the panel's title bar, or a DMK-25 PRO's transport buttons:
 

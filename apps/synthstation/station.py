@@ -8,12 +8,14 @@ and playing through the board's audio out. The drop-down in the panel's title
 bar picks another, and so do a keyboard's Stop and Play buttons; Rewind and
 Fast Forward step through the patches. While the panel is up, MIDI from every
 keyboard the program can reach plays it, and the line under the name shows
-what rendering it costs.
+what rendering it costs. Pads on MIDI channel 10 play a drum kit one sound per
+pad, and everything else plays its General MIDI notes.
 """
 
 import lvgl as lv
 
 from . import midi as _midi
+from . import pads as _pads
 from .catalog import DEFAULT, RENAMED, catalog, find
 
 #: How often the keyboards are read, and the instrument told to take in
@@ -47,6 +49,8 @@ VOLUME_CC = 7
 #: and its Stop and Play buttons through the instruments.
 PATCH_CCS = {16: -1, 17: 1}
 INSTRUMENT_CCS = {18: -1, 19: 1}
+#: MIDI channel 10, counted from 0: where a keyboard's pads send.
+PAD_CHANNEL = 9
 #: How long to wait for a USB keyboard before opening the first instrument,
 #: whose pads play notes if there isn't one.
 KEYBOARD_WAIT_MS = 10000
@@ -119,6 +123,9 @@ class Station:
         self._since_log = 0
         self._names = None
         self._panel_midi = False
+        self._pad_notes = None
+        self._pad_patch = None
+        self._struck = {}
         try:
             import audioinstruments as ai
 
@@ -260,16 +267,28 @@ class Station:
 
     # The parser's sink: a keyboard's messages land here.
 
-    def note_on(self, note, velocity):
+    def note_on(self, note, velocity, channel=0):
         adapter = self.adapter
-        if adapter is not None and not self.loading:
-            adapter.note_on(note, velocity)
-            self._played = 2
+        if adapter is None or self.loading:
+            return
+        if channel == PAD_CHANNEL and self._pad_notes is not None:
+            pad = note - _pads.FIRST_PAD
+            if not 0 <= pad < len(self._pad_notes):
+                return  # a pad past the kit's last sound is silent
+            # Kept for the release: a SoundFont's next kit lays out differently.
+            self._struck[note] = note = self._pad_notes[pad]
+        adapter.note_on(note, velocity)
+        self._played = 2
 
-    def note_off(self, note):
+    def note_off(self, note, channel=0):
         adapter = self.adapter
-        if adapter is not None and not self.loading:
-            adapter.note_off(note)
+        if adapter is None or self.loading:
+            return
+        if channel == PAD_CHANNEL and self._pad_notes is not None:
+            note = self._struck.pop(note, None)
+            if note is None:
+                return
+        adapter.note_off(note)
 
     def control(self, controller, value, channel=0):
         adapter = self.adapter
@@ -311,10 +330,18 @@ class Station:
     def program(self, number):
         self._program = number
 
+    def _lay_out_pads(self):
+        """Read the pads' notes once per patch, as asking a SoundFont takes a moment."""
+        adapter = self.adapter
+        self._pad_patch = adapter.patch_index
+        self._pad_notes = _pads.pad_notes(self.name, adapter.instrument)
+
     def _midi_tick(self, _timer=None):
         inputs = self.inputs
         if inputs is None or self.adapter is None or self.loading:
             return
+        if self.adapter.patch_index != self._pad_patch:
+            self._lay_out_pads()
         inputs.poll(self.parser)
         adapter = self.adapter
         if self._knobs:
@@ -415,6 +442,8 @@ class Station:
         self._read = None
         self._refused = None
         self.adapter = adapter
+        self._struck = {}
+        self._lay_out_pads()
         # RELOAD builds the instrument again. Nothing is played or filled
         # while it does; then the output takes the new one and lets go of
         # the old, which is deinitialised once nothing pulls it.
@@ -441,9 +470,7 @@ class Station:
         self.splash.add_flag(lv.obj.FLAG.HIDDEN)
         shown = adapter
         if not self.has_midi():
-            from .pads import NotePads, notes_for
-
-            shown = NotePads(adapter, notes_for(self.ai.load(name)), self._pad_note)
+            shown = _pads.NotePads(adapter, _pads.notes_for(self.ai.load(name)), self._pad_note)
         self._panel_midi = self.has_midi()
         self.panel = self._build_panel(shown, display)
         self._place_menu()

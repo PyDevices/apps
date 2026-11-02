@@ -168,7 +168,7 @@ class Inputs:
 class Parser:
     """MIDI bytes to calls on *sink*, from every channel.
 
-    *sink* has ``note_on(note, velocity)``, ``note_off(note)``,
+    *sink* has ``note_on(note, velocity, channel)``, ``note_off(note, channel)``,
     ``control(controller, value, channel)``, ``bend(value)`` (0 to 16383, centre
     8192) and ``program(number)``. Running status is followed; SysEx,
     real-time and system common messages are skipped.
@@ -208,11 +208,11 @@ class Parser:
             self._first = -1
             if kind == 0x90:
                 if b:
-                    sink.note_on(first, b)
+                    sink.note_on(first, b, status & 0x0F)
                 else:
-                    sink.note_off(first)
+                    sink.note_off(first, status & 0x0F)
             elif kind == 0x80:
-                sink.note_off(first)
+                sink.note_off(first, status & 0x0F)
             elif kind == 0xB0:
                 sink.control(first, b, status & 0x0F)
             elif kind == 0xE0:
