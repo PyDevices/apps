@@ -47,9 +47,9 @@ VOLUME_CC = 7
 #: and its Stop and Play buttons through the instruments.
 PATCH_CCS = {16: -1, 17: 1}
 INSTRUMENT_CCS = {18: -1, 19: 1}
-#: How long to wait for a keyboard before opening the first instrument, whose
-#: pads play notes if there isn't one.
-KEYBOARD_WAIT_MS = 3000
+#: How long to wait for a USB keyboard before opening the first instrument,
+#: whose pads play notes if there isn't one.
+KEYBOARD_WAIT_MS = 10000
 KEYBOARD_POLL_MS = 100
 
 BG = 0x141518
@@ -118,6 +118,7 @@ class Station:
         self._shown = None
         self._since_log = 0
         self._names = None
+        self._panel_midi = False
         try:
             import audioinstruments as ai
 
@@ -223,7 +224,9 @@ class Station:
         """Open the last instrument played, once a keyboard is seen or the wait is over."""
         if self.panel is not None or self.loading or self.inputs is None:
             return
-        if wait_ms > 0 and self.inputs.kind is not None and not self.has_midi():
+        # A keyboard shows up as the port is read, and nothing else reads it yet.
+        self.inputs.poll(self.parser)
+        if wait_ms > 0 and self.inputs.kind == "usb" and not self.has_midi():
             self.scope.after(KEYBOARD_POLL_MS, lambda t: self._first_instrument(wait_ms - KEYBOARD_POLL_MS))
             return
         self._show_midi()
@@ -361,6 +364,11 @@ class Station:
         self._place_menu()
         self.pick(name)
 
+    def _reopen(self):
+        name = self.name
+        self.name = None
+        self.choose(name)
+
     def pick(self, name):
         """Open instrument *name* on the panel."""
         if self.loading or self.panel is not None:
@@ -436,6 +444,7 @@ class Station:
             from .pads import NotePads, notes_for
 
             shown = NotePads(adapter, notes_for(self.ai.load(name)), self._pad_note)
+        self._panel_midi = self.has_midi()
         self.panel = self._build_panel(shown, display)
         self._place_menu()
         self._shown = None
@@ -600,6 +609,10 @@ class Station:
             self._show_midi()
         panel = self.panel
         if panel is None or self.loading:
+            return
+        if self.has_midi() and not self._panel_midi:
+            # A keyboard arrived: its panel has patches where the note pads were.
+            self._reopen()
             return
         text = self._status_text()
         if text != self._shown:

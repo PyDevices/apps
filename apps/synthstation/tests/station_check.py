@@ -434,6 +434,13 @@ def main(names, shots=None):
         peak = play(app, scope, None, pad=4)
         check(peak > 0, "%s: it sounds after RELOAD (peak %d)" % (name, peak))
         print("ok  %-20s pads play, peak %d, subtitle %r" % (name, peak, panel.subtitle.get_text()))
+    app.inputs.kind = "desktop"
+    app.inputs.ports = [keyboard]
+    app.inputs._desktop_names = ["Test Keys"]
+    scope.run(60)
+    scope.run(5)
+    check(app.panel is not None and app._panel_midi, "a keyboard arriving reopens the panel for it")
+    check(not app.panel.subtitle.get_text().startswith("NO MIDI"), "the panel no longer says NO MIDI")
     check(station.current is app, "station.current is the running app")
     for fn in scope.closes:
         fn()
