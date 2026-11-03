@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- sayso, the Spotify Web API client, moves into `lib/` and ships with `applibs`:
+  on the library index, where it also installs on its own, and in
+  `omnipython-applibs`. It imports as `sayso`, as before.
+- The Effects rig app is gone. Stompbox replaces it.
 - Stompbox is a real app: open it from Home on a board or a desktop interpreter,
   with Live where the board's microphone shares the speaker's clocks. On a board
   it measures the effect against real time, opens on the first one that keeps

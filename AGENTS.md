@@ -7,3 +7,6 @@
 - REAPER sends CC0 = 0 to every part when it stops. What a part played is in `Part.played`, not in its bank at the end.
 - Applications live in `apps/` (Ostinato, Vamp). Libraries live in `lib/` (soundmodule, songmodel). Code two of them share goes in `lib/` (`songmodel`); Ostinato's `tools/gen_boot.py` lists what its page loads from there, so run it after adding a shared file.
 - Vamp's tests need hmilink: `$HMILINK_PATH`, or a `pydevices` checkout beside this one. CI sets `VAMP_REQUIRE=1` so a missing piece fails instead of skipping.
+- sayso's tests: `PYTHONPATH=lib python -m unittest discover -s tests/sayso` from the root. The offline tests need no credentials; `test_live.py` skips without a `sayso.local.json`. Never commit `sayso.local.json`, `tokens.json` or `lib/sayso/examples/write_examples.json`.
+- To test sayso without a network, replace `sayso.transport.requests` with a mock that has `get`/`post` (and `put`/`delete` for writes) before you build `SpotifyClient`.
+- Spotify's Dev Mode removed `GET /users/{id}` and the legacy playlist track endpoints ([PORTABILITY.md](lib/sayso/PORTABILITY.md)). Don't add `fetch_method` on `User`.

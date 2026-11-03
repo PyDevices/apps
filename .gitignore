@@ -1,3 +1,7 @@
 __pycache__/
 *.pyc
 .venv/
+sayso.local.json
+tokens.json
+lib/sayso/examples/write_examples.json
+generated_object_specs.py

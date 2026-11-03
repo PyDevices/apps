@@ -37,6 +37,7 @@ It grows one part at a time, on the desktop interpreters first.
 
 ## Libraries
 
+- sayso's own list is in [lib/sayso/ROADMAP.md](lib/sayso/ROADMAP.md).
 - Ship songmodel's front panel page to boards. The wheel carries `page.html`,
   but a `mip` install or a frozen build has only the Python, so today Vamp
   copies the page across itself.
