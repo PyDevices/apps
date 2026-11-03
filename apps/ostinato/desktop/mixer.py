@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The desktop mixer: the AudioWorklet's job, in Python, on WASAPI.
 
 It asks each engine for blocks, sums them through the shared master

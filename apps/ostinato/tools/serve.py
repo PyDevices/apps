@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Serve Ostinato from its folder for local use and tests.
 
     .venv/bin/python tools/serve.py [--port 8765] [--isolate]

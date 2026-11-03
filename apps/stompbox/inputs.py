@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Input adapters. Each reports its rate, channel count and clock, and hands
 the engine an audiocore source at the engine's rate and channel count.
 

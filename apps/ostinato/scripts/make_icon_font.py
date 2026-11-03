@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Build Ostinato's icon fonts from Google's Material Icons.
 
     .venv/bin/python scripts/make_icon_font.py [~/material-design-icons]

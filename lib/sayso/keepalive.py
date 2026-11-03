@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """A small HTTP/1.1 client that keeps its TLS connections open.
 
 MicroPython's ``requests`` opens a new TCP connection and does a new TLS

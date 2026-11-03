@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Frozen canvas, scene moves and names, and selecting several notes.
 
     .venv/bin/python tools/workflow3_check.py --cdp http://127.0.0.1:9222

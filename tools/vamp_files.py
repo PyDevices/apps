@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Puts Vamp on a board through mpftp: vamp and songmodel in /lib, hmilink
 beside them, and a song to start with.
 

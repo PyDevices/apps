@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Live input through the chain to the default output, and how much audio
 each stage holds while it runs, in milliseconds. It measures what the
 software path adds; the converters and the cable are not in it.

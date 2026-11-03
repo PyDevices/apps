@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Fonts: Montserrat from lvgl-bindings, Material icons from the app.
 
 Text fonts come from lvgl-bindings' ``fonts/`` folder, at the tag pinned for

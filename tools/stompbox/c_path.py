@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Live input to output entirely in C, on the pump's thread, and what it costs.
 
 The microphone is `_audioif.Input` (WASAPI capture) and the speaker is an

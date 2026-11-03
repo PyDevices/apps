@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Play a scenario into Ostinato from the fake keyboard and record what came out.
 
     .venv/bin/python tools/midi_play.py --minutes 10 --stress 1 --out runs/p0-a

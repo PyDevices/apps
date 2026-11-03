@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The live path between two clocks, and whether its ring holds.
 
 The microphone (`_audioif.Input` with a Ring) writes on its own thread at

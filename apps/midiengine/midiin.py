@@ -4,7 +4,7 @@
 """What the apps that play say about the MIDI devices in the hub.
 
 Instruments and the midiEngine hear every USB MIDI device at once, through
-``midiports.usb_host.all_ports()``. :class:`Watch` names the ones open now,
+``midiports.usb_host.all_ports()``. `Watch` names the ones open now,
 for the status line, and notices when one comes or goes.
 """
 

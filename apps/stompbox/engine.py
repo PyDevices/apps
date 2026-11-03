@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The engine: input -> effect slot -> master -> output.
 
     clip --> input mixer (loop, trim) --> effect --> master mixer

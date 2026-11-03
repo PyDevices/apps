@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The screen: an LVGL panel over the engine, laid out to whatever size the
 app is given. The panels flow, the knobs scroll when they don't fit, and on a
 small panel the whole screen does.

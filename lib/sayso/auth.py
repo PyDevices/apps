@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 import time
 
 from .transport import TransportError, post_form_json, query_string, unquote_plus

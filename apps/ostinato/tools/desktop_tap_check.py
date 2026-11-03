@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Check a desktop spike run (desktop/app.py + desktop/send.py) the way
 tap_check.py checks the browser: what the keyboard sent against what the
 mixer wrote.

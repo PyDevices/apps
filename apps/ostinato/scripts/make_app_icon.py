@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Draw Ostinato's app icons (icon-192.png, icon-512.png).
 
     ~/gh/pydevices/.toolbox/bin/python scripts/make_app_icon.py

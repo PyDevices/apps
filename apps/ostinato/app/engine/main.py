@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Entry point of an engine worker.
 
 Ports from the page (workers/host.js): ``audio`` to the AudioWorklet,

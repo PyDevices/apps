@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Three classic-rock sketches for Ostinato, written as song files.
 
     python songs/sketches/make_sketches.py

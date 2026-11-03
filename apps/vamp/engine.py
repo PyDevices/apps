@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Vamp's sound: every SoundFont track on one sampler, sequenced ahead.
 
 This is a groovebox's engine on a board (an ESP32-P4) and on desktop
@@ -449,7 +453,7 @@ class BoxEngine:
     # -- what plays ---------------------------------------------------------------
 
     def segments(self, t0, t1):
-        """What plays between ticks t0 and t1: :func:`songmodel.model.segments`."""
+        """What plays between ticks t0 and t1: `songmodel.model.segments`."""
         return model.segments(self.project, t0, t1)
 
     def _schedule(self, f0, f1):

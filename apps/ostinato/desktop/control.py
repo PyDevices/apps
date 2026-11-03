@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The control socket: what the checks drive the desktop app through.
 
 The browser checks reach the app through Chrome's DevTools: they send the UI

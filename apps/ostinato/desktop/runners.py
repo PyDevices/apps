@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The two ways to run the engines and the mixer: processes or threads.
 
 Both give the UI the same object:

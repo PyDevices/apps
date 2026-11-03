@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Phase 4 (the groovebox): its gate, through the real UI.
 
     .venv/bin/python tools/groovebox_check.py --cdp http://127.0.0.1:9222

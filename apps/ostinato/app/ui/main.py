@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Ostinato's UI: LVGL, the project, and the engines.
 
 In a browser this is the UI worker: the page (index.html) runs nothing but

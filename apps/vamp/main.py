@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Vamp: the song and the sound on one MicroPython, the screens elsewhere.
 
 On the ESP32-P4 board, with the files from ``tools/vamp_files.py`` on it::

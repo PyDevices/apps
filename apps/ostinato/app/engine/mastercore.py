@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The master track's sound, whatever hosts it: the tracks' blocks summed,
 through the master rack and volume.
 

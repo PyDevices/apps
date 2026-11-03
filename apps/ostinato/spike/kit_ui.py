@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """P1 check: workerdisplay + appdev + display_driver + LVGL in a worker, with relayed input."""
 import board_config  # board_configs/workerdisplay
 import appdev

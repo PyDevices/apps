@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """What instruments and effects exist, from assets/catalog.json.
 
 scripts/make_catalog.mjs writes it from the same wheels the engines load,

@@ -16,7 +16,7 @@ the browser     ``/data``
 ==============  ==========================================================
 
 ``appkit.run(data_root=...)``, the same argument to ``Shell`` or
-:func:`set_root` moves it everywhere. Without one, ``APPKIT_DATA`` moves it
+`set_root` moves it everywhere. Without one, ``APPKIT_DATA`` moves it
 on a desktop.
 """
 
@@ -80,7 +80,7 @@ def default_root(platform=None, implementation=None, getenv=None):
 
 
 def root():
-    """The data root: what :func:`set_root` set, else :func:`default_root`."""
+    """The data root: what `set_root` set, else `default_root`."""
     return _root if _root is not None else default_root()
 
 

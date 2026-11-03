@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Download the newest PyDevices wheels Ostinato runs on into vendor/wheels/.
 
 Ostinato always takes the latest released stack, so moving to a new release

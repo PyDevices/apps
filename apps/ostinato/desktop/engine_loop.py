@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """An engine's life on the desktop, the same in a process and in a thread.
 
 The runner hands it ``io`` (how messages arrive and leave) and a ``Ring``

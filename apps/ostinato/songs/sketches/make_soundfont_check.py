@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """A short song on the SoundFont instruments, written as a song file.
 
     python songs/sketches/make_soundfont_check.py

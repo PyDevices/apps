@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """One app session for the checks: a server, a page, the app booted once.
 
     from checkkit import Session

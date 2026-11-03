@@ -1,10 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The song: plain data, shared by every panel and the engine that plays it.
 
 Ostinato's UI and engines use it, and so does Vamp.
 
 A project is dicts, lists, numbers and strings only, so it saves as JSON and
 crosses between workers as a message. Neither side edits it in place behind
-the other's back: every change is an op (:func:`apply`), applied locally and
+the other's back: every change is an op (`apply`), applied locally and
 sent to the other side, which applies the same op to its copy.
 
 Times are in ticks, PPQ to a quarter note. A step on the grid is a

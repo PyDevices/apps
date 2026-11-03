@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Write patched/synthio.py: audiodsp's synthio.py with its block clock per
 thread instead of per process (the stress test's --synthio-tls experiment).
 

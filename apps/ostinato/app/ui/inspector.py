@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The inspector: the selected track's instrument, its knobs, and its effects;
 or, with the master selected, the master effects.
 

@@ -588,7 +588,7 @@ class Station:
         keep up with doesn't slow the app, it starves the speaker: the audio
         runs behind for as long as the keys are held. Each sounding voice
         costs about the same, so from the cost of the blocks just rendered
-        this works out how many fit in :data:`BUDGET` of a block's time and
+        this works out how many fit in `BUDGET` of a block's time and
         sets the instrument's ``voices`` to that. The extra notes steal the
         oldest instead of everything going quiet. The cap is set from the
         first sounding voice, before a chord needs it. That voice also wakes

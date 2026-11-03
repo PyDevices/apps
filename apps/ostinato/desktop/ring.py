@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """One engine's audio on its way to the mixer: a single-producer,
 single-consumer ring of int16 stereo frames, plus a few shared counters.
 

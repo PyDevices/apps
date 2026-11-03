@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Where each region of the window goes.
 
 Every size here comes from the window size through one scale factor, and

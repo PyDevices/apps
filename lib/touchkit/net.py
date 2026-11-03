@@ -4,12 +4,12 @@
 """touchkit.net -- Wi-Fi for the board's apps: when it's on is the set's call.
 
 A desktop has no ``wifi`` or ``network`` module and is on its network
-already: :func:`up` is then True once the computer has an address, and
-:func:`ip` and :func:`hostname` are the computer's own.
+already: `up` is then True once the computer has an address, and
+`ip` and `hostname` are the computer's own.
 
-The board joins a known network at boot (:func:`boot`) and stays joined
+The board joins a known network at boot (`boot`) and stays joined
 while apps come and go, like the display. An app that needs the network
-calls :func:`up` from a timer until it says True. The hostname comes from
+calls `up` from a timer until it says True. The hostname comes from
 ``settings.json`` (see ``touchkit.settings``).
 """
 

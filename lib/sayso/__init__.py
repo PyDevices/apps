@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 from . import objects as _objects
 from .auth import (
     AuthorizationCodeAuth,

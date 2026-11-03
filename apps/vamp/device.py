@@ -1,9 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Vamp as an hmilink device: it holds the song and makes the sound, in one
 MicroPython process.
 
 Ostinato's split device (apps/ostinato/desktop/device.py) runs engines in
 processes of their own and passes messages; this one has one engine
-(:mod:`vamp.engine`) and calls it. To a panel the two look the same: Ostinato's
+(`vamp.engine`) and calls it. To a panel the two look the same: Ostinato's
 desktop window (``python -m ostinato --connect BOX:9100``) and the browser page the box serves at
 ``http://BOX:9100/`` edit the song with JSON Patch ops, the box numbers and
 applies them, and its telemetry says where the playhead is.

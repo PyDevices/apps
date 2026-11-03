@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Run Stompbox on a computer and script it, to prove it from a recording.
 
     micropython -X heapsize=128M tools/stompbox/drive.py [--clips DIR]

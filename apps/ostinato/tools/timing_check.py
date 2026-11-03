@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Playback timing of the demo song, Bass soloed, while its knobs, patch and
 instrument change.
 

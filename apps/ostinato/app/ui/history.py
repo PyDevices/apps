@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Undo and redo: every edit is an op with its inverse, grouped into steps.
 
 A step is what one undo takes back: one click on the grid, one drag in the

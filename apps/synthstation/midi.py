@@ -9,7 +9,7 @@ heard too. On Windows and Linux it's every MIDI input port the computer
 has, through ``midiports.windows`` or ``midiports.linux``. In a browser it's
 every MIDI input the browser offers, through ``midiports.webmidi``.
 
-:class:`Parser` turns the bytes into calls on an object you pass, with no
+`Parser` turns the bytes into calls on an object you pass, with no
 allocation per message, so a quiet keyboard costs nothing beside the audio.
 """
 

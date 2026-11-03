@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The desktop app's keyboard and wheel, as the browser version has them.
 
     .venv/bin/python tools/desktop_input_check.py --desktop processes|threads|threads-ft

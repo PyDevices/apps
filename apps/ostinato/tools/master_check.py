@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The master track: its effects and volume reach the sound, live and exported.
 
     .venv/bin/python tools/master_check.py --cdp http://127.0.0.1:9222

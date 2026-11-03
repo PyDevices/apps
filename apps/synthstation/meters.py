@@ -41,7 +41,7 @@ LEGEND = 0x8A8D93
 
 
 def bar_height(peak):
-    """A peak in 0.0 to 1.0 as a bar's height in 0 to :data:`BAR_TOP`."""
+    """A peak in 0.0 to 1.0 as a bar's height in 0 to `BAR_TOP`."""
     if peak <= 0:
         return 0
     db = 20 * math.log10(peak)
@@ -60,7 +60,7 @@ def _legend(parent, text, x, y, w):
 
 
 class Meters:
-    """The bars and the light, drawn on *parent* at (*x*, *y*), :meth:`width`
+    """The bars and the light, drawn on *parent* at (*x*, *y*), `width`
     wide and *h* high."""
 
     @staticmethod

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """A knob: drag up or down to turn it; its name under it, its value inside.
 
 Dragging is vertical, as in most music software: up turns it up, one step

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The song: scenes in order, each a pattern per track and a repeat count.
 
 Click a track's letter in a scene to cycle through its patterns (and "-",

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The workflow improvements from the UI audit, through the real UI.
 
     .venv/bin/python tools/workflow_check.py --cdp http://127.0.0.1:9222

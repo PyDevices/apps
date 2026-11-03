@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Add the SoundFont instruments to assets/catalog.json.
 
     python scripts/make_soundfont_catalog.py [--bank FILE.sf2]

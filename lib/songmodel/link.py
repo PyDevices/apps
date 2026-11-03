@@ -1,6 +1,10 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Ostinato's song as an hmilink model: any screen as the groovebox's front panel.
 
-The project is already plain data changed by ops (:mod:`model`), so this is
+The project is already plain data changed by ops (`model`), so this is
 a thin coat. The device holds the song; every panel (the desktop UI, the
 browser page the device serves, later the LCD-7) sends JSON Patch ops with
 JSON Pointer paths, and the device numbers them and sends them to every
@@ -24,7 +28,7 @@ Ops a panel sends, as pointers into the project:
 - ``remove /tracks/0/patterns/0/notes/3``
 
 Ostinato's own ops find a track by id (``["track", 7]``), so they survive a
-reorder; a pointer finds it by index. :func:`to_pointer` turns one into the
+reorder; a pointer finds it by index. `to_pointer` turns one into the
 other on the panel that sends it, against that panel's copy.
 
 Imports on CPython and MicroPython: nothing here touches a file, a thread or
@@ -76,7 +80,7 @@ def to_pointer(project, op):
 
 
 def from_pointer(op):
-    """A JSON Patch op as the Ostinato op :func:`model.apply` takes."""
+    """A JSON Patch op as the Ostinato op `model.apply` takes."""
     keys = hmilink.split_pointer(op["path"])
     if not keys:
         raise ValueError("replace the whole song with the load command")

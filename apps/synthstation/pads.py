@@ -4,10 +4,10 @@
 """Pads that play a drum kit, and pads that play notes when there's no keyboard.
 
 A kit's General MIDI notes leave gaps and repeats under a keyboard's pads, so
-:data:`KIT_PADS` lays each kit out as one pad per sound. :func:`pad_notes` is
+`KIT_PADS` lays each kit out as one pad per sound. `pad_notes` is
 what a pad note plays on an instrument.
 
-:class:`NotePads` stands between the panel and the instrument's adapter.
+`NotePads` stands between the panel and the instrument's adapter.
 Bank A's sixteen pads become notes: a drum machine's voices, or two octaves
 of a C major scale. The instrument's patches move up to bank B onwards, so
 they're still a press away.

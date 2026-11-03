@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Optional same-interpreter adapter for an earful Connect device.
 
 Importing this module never starts earful and never reads credentials.  A

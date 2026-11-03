@@ -1,10 +1,14 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The song both of studio's groovebox applications edit, and what carries it
 to a front panel.
 
-- :mod:`songmodel.model`: the project, plain JSON data changed only by ops that
+- `songmodel.model`: the project, plain JSON data changed only by ops that
   every side applies the same way. Imports on CPython, Pyodide and
   MicroPython.
-- :mod:`songmodel.link`: the project as an ``hmilink`` model, so any screen can
+- `songmodel.link`: the project as an ``hmilink`` model, so any screen can
   be a front panel (needs ``hmilink``, from pydevices).
 - ``page.html``: the browser front panel a device serves on its hmilink port.
 

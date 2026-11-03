@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Start Ostinato on the desktop.
 
     python -m ostinato [--engines processes|threads] [--midi NAME]... [--fresh]

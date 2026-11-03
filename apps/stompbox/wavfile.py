@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Read a PCM WAV into an int16 array, on any Python we run on."""
 
 import array

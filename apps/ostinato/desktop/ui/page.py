@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The desktop's page: what index.html does for the browser version.
 
 The shared UI (app/ui) talks to its page through the same names (``send``,

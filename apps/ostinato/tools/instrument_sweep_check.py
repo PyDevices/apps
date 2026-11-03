@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Judge tools/instrument_sweep.mjs's output: pitch within 50 cents for every
 melodic instrument's notes, a sound for every drum pad."""
 import json, math, pathlib, sys

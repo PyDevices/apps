@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Colours, spacing and the type scale, defined once, as shared LVGL styles.
 
 Every widget takes its look from a handful of shared styles; a pressed,

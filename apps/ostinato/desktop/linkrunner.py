@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The UI's runner when the engines are another process's: an hmilink panel.
 
 desktop/runners.py's runners host the engines and the mixer in this process

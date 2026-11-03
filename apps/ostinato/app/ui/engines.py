@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The UI's side of the engine workers.
 
 The UI owns the project. Every edit is an op, applied here and sent to every

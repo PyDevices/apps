@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The pattern editor: a step grid for drums, a piano roll for everything else.
 
 Both edit the selected track's current pattern through the app's history, so

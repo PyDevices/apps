@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """A stereo segment meter: left and right columns of lit segments.
 
 Levels arrive about 30 times a second as peak dB since the last reading.

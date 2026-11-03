@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Ostinato's sound engine: runs in a worker, owns everything you hear.
 
 The page relays MIDI bytes here (``feed``); the AudioWorklet asks for audio

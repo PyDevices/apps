@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Tooltips: what an icon-only button does, shown when the mouse rests on it.
 
 LVGL hovers a released pointer (HOVER_OVER, HOVER_LEAVE) when its input

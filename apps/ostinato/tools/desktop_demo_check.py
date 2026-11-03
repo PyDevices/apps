@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Phase 2's gate on the desktop: python -m ostinato opens maximised, loads
 the demo song on its first run and plays it.
 

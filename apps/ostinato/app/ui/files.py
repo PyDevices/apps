@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Files: save and open projects, autosave, and export WAV and MIDI.
 
 The file pickers belong to the page (index.html in a browser,

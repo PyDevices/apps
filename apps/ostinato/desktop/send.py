@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Play keys into a Windows MIDI port, stamping each with perf_counter_ns
 (QueryPerformanceCounter: the same clock in every process on the machine).
 
