@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.1
+
+- midiEngine hears every MIDI input on a computer, and on a MicroPython without a
+  native emitter it opens in a moment rather than 15 s over a network drive.
+- Synth Station and midiEngine ask a computer's audio output for its low-latency
+  profile, so a key sounds about 50 ms after it's played, not 200.
 - sayso, the Spotify Web API client, moves into `lib/` and ships with `applibs`:
   on the library index, where it also installs on its own, and in
   `omnipython-applibs`. It imports as `sayso`, as before.
