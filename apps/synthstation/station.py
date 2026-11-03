@@ -290,6 +290,8 @@ class Station:
         if not names:
             if inputs.kind == "usb":
                 return "No MIDI keyboard: plug one into the USB host port, or play the pads."
+            if inputs.kind == "web" and inputs.ports[0].why:
+                return "No MIDI: the browser refused it. The pads play notes."
             return "No MIDI keyboard: the pads play notes."
         return "MIDI: " + " + ".join(names)
 

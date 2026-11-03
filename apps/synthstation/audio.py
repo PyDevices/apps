@@ -17,6 +17,7 @@ the speaker ran dry since the instrument started.
 """
 
 import struct
+import sys
 from array import array
 
 RATE = 48000
@@ -28,6 +29,12 @@ VOLUME = 85
 #: screen redraw.
 DMA_DESC = 4
 DMA_FRAME = 128
+
+#: A browser's queue, in 10 ms chunks, and how far a stall may catch up, which
+#: has to clear the queue or the first stall cuts the queue back to it. 40 ms
+#: plays well on a keyboard; 120 ms rode out more but was too slow to play.
+BROWSER_LOOKAHEAD = 4
+BROWSER_CATCHUP = 6
 
 #: What :meth:`Output.levels` looks at: the newest 100 ms, every 40th frame, which
 #: is enough for a meter and costs the app about a millisecond.
@@ -123,7 +130,10 @@ class Output:
             from audiodev import AudioFormat
 
             # A computer's default output buffers for playback, too long for keys.
-            out = self._bp.audio_out(AudioFormat(self.rate, self.channels, 16), latency="low")
+            kwargs = {}
+            if sys.platform == "webassembly":
+                kwargs = {"lookahead_chunks": BROWSER_LOOKAHEAD, "max_catchup_chunks": BROWSER_CATCHUP}
+            out = self._bp.audio_out(AudioFormat(self.rate, self.channels, 16), latency="low", **kwargs)
             out.attach(self.scope)  # its service() on the app's timer
             if self.volume is not None:
                 out.set_volume(self.volume)
