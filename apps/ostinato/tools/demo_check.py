@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The demo song: it loads on the first run and from the menu, its controls
 work, and it exports with every track heard.
 

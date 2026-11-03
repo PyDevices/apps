@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The song: plain data, shared by every panel and the engine that plays it.
 
 Ostinato's UI and engines use it, and so does Vamp.

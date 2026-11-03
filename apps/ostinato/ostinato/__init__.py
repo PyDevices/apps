@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Ostinato on the desktop: ``python -m ostinato`` from a checkout.
 
 The browser version and the desktop app share everything in ``app/`` and studio's ``songmodel``. What

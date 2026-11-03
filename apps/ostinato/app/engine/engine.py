@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Ostinato's sound engine. Each engine worker runs one Engine.
 
 Several engine workers render in parallel, each owning some of the tracks

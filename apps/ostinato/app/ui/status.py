@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The status bar: the project's name and whether it's saved, a word when the
 audio drops out, and on the right either a message or the last MIDI."""
 

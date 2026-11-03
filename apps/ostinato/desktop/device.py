@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The engine process as an hmilink device: it holds the song and makes the sound.
 
     python -m ostinato --role device [--port 9100] [--song FILE]

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The desktop app starts with no network: the browser's offline check, for python -m ostinato.
 
     .venv/bin/python tools/desktop_offline_check.py --desktop processes|threads|threads-ft

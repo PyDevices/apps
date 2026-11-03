@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Send a scenario into a Windows MIDI port in real time (runs under python.exe).
 
     python.exe win_send.py "Ostinato Loopback" events.json sent.json

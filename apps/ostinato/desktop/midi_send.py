@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """A stand-in keyboard for the checks: plays MIDI into a port, on time.
 
     python desktop/midi_send.py "Ostinato Loopback"     (the control socket starts it)

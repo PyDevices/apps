@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The SoundFont instruments in the app: songs/sketches/soundfont_check.json
 opens, exports with every track heard, and plays; and without a bank the
 tracks stay silent while the status line says so.

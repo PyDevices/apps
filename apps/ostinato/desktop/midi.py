@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """MIDI in on the desktop: Windows MIDI ports, read once, relayed to every engine.
 
 The browser's page relays Web MIDI to the engine workers; here one thread in

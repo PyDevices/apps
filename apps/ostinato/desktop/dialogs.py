@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Windows' own Open and Save dialogs, through comdlg32 and ctypes.
 
 No dependency: ``GetOpenFileNameW`` and ``GetSaveFileNameW`` with the

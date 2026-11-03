@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Drives a running Vamp (apps/vamp/main.py) over hmilink, as Ostinato's window
 does, and checks the box keeps the song and the time.
 

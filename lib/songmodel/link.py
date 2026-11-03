@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Ostinato's song as an hmilink model: any screen as the groovebox's front panel.
 
 The project is already plain data changed by ops (`model`), so this is

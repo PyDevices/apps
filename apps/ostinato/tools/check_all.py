@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Every check, in one app session: boot once, run them all, time each.
 
     .venv/bin/python tools/check_all.py --cdp http://127.0.0.1:9222 [--long] [--only master,demo]

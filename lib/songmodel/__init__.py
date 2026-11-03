@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The song both of studio's groovebox applications edit, and what carries it
 to a front panel.
 

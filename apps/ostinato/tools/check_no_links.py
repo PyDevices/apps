@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Fail if anything in the app could navigate away from it.
 
     .venv/bin/python tools/check_no_links.py

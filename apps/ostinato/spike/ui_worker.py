@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """P0: the stress screen with LVGL in its own worker, drawing to an OffscreenCanvas.
 
 Same widgets and the same stress levels as page.py, but nothing here runs on

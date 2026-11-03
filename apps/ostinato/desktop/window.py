@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The desktop app's window: pydevices' WinDisplay, maximised, as the installed PWA is.
 
 ``PYDEVICES_MAXIMIZED=1`` makes the desktop board config open WinDisplay

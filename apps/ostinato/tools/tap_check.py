@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Check what Ostinato played against what the keyboard sent.
 
     .venv/bin/python tools/tap_check.py runs/p0-a [--max-p99-ms 40]

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Check the transport scenario: CC 19 (Play) starts, CC 18 (Stop) stops.
 
     .venv/bin/python tools/transport_check.py runs/p3-transport

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Vamp's sound: every SoundFont track on one sampler, sequenced ahead.
 
 This is a groovebox's engine on a board (an ESP32-P4) and on desktop

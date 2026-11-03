@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The on-screen keyboard: shows what's playing, plays the selected track."""
 
 import lvgl as lv

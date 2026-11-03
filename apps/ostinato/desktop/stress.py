@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Free-threading stress test for _audiodsp and LVGL (Phase 0).
 
     python3.15t.exe -I -X gil=0 desktop/stress.py [--threads 16] [--rounds 3] [--blocks 400]

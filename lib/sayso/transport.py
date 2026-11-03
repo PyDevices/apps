@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 API_BASE_URL = "https://api.spotify.com/v1"
 
 # Resolved once here, never inside a function. On MicroPython json is an

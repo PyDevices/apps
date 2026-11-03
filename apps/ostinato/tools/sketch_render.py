@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Render every track of a song to see that each one makes sound.
 
     .venv/bin/python tools/sketch_render.py [SONG.json ...] [--seconds 20] [--wav-dir DIR]

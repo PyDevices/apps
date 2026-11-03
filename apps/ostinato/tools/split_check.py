@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The desktop app split in two on Windows, with a browser as a second front panel.
 
     .venv/bin/python tools/split_check.py

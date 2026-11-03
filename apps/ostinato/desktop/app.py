@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Ostinato on CPython, Phase 0 spike: the demo song through the desktop
 runner and mixer, live MIDI from a Windows port, and the shared UI drawing.
 

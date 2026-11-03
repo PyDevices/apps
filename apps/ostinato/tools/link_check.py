@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The window and the browser page as two panels of one device agree on the song.
 
     ~/gh/pydevices/.toolbox/bin/python tools/link_check.py [--defeat]

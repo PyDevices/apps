@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The second UI audit's changes and the groups added with them, through the real UI.
 
     .venv/bin/python tools/workflow2_check.py --cdp http://127.0.0.1:9222

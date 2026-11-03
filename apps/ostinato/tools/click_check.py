@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Check the metronome in a tap: every beat there, on time, downbeats higher.
 
     .venv/bin/python tools/click_check.py runs/p2-metronome [--bpm 110]

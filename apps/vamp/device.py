@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Vamp as an hmilink device: it holds the song and makes the sound, in one
 MicroPython process.
 

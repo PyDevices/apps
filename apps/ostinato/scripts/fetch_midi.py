@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Download midiports and adafruit_midi into vendor/lib/ for the engine,
 hmilink for the desktop's two processes, and the UI worker's board config
 into vendor/board/.

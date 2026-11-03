@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The guide: how to play Ostinato, inside the app (it never links out).
 
 Shown once on the first run, and any time from the ? button.

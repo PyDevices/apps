@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Output adapters. The output's clock drives the engine: it pulls the graph.
 
 DefaultOutput is the board's `audio_out` role, or a computer's default device

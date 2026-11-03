@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The checks' session against the desktop app (python -m ostinato on Windows).
 
     from desktopkit import DesktopSession

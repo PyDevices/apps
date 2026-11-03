@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The track list: one row per track, select to play it, mute, solo, volume.
 
 Under the tracks, the master: its volume, and select it to see the master

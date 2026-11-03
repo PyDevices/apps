@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Turn a SoundHelix song (Export.java's JSON) into an Ostinato project.
 
 SoundHelix writes seven parts; Ostinato has four tracks, so parts share a

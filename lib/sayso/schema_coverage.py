@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 from .object_specs import SPOTIFY_OBJECT_SPECS
 
 

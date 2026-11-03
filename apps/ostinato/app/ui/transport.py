@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The top bar: transport, position, tempo, swing, metronome, patterns."""
 
 import lvgl as lv

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Write spike/pyscript.json and spike/spike_config.js from wheels.json and vendor/lib.
 
     .venv/bin/python tools/gen_spike_config.py

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Effect adapters: any library's effect, behind one small shape.
 
 An adapter builds the effect's audio node and describes its parameters, and

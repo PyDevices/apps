@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Phase 5 (files): its gate, through the real UI in Chrome.
 
     .venv/bin/python tools/files_check.py --cdp http://127.0.0.1:9222

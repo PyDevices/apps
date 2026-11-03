@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The UI's side of the engines on the desktop: app/ui/engines.py's job, over
 a runner (desktop/runners.py) instead of the page's MessagePorts.
 

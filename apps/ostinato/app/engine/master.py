@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Entry point of the master worker: the master rack, on the sum of every track.
 
 The track engines don't talk to the AudioWorklet. Each one talks to this

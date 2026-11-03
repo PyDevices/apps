@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Check the knob scenario: the sound's brightness follows CC 31 (Cutoff).
 
     .venv/bin/python tools/knob_check.py runs/p3-knob

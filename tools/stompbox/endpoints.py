@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Open given WASAPI endpoints instead of the defaults, for this process only.
 
 audiodev's win_audio always opens the default endpoint. use(out_id, in_id)

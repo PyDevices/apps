@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Vamp: a headless groovebox. One MicroPython holds the song, runs the
 sequencer and makes the sound; any screen in the room is its front panel.
 

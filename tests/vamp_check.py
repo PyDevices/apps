@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Checks Vamp's engine (apps/vamp/engine.py) offline, on MicroPython and CPython.
 
 Pulls the engine's output itself, so it owns the clock, and listens to what

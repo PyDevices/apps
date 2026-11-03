@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The engine sequences notes ahead of the render, so a paused sequencer
 doesn't make a note late.
 

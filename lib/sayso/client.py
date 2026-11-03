@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 from .auth import ClientCredentialsAuth
 from .objects import (
     Album,

@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Write app/boot_config.js: what each worker loads.
 
     .venv/bin/python tools/gen_boot.py

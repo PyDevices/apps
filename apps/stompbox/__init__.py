@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Stompbox: play a guitar or a WAV clip through an airwindows effect.
 
 The effect's knobs are on screen, built from the plug-in's own parameters. Live

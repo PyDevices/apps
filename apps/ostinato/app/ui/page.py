@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The UI's line to whatever hosts it: here, the browser page (index.html).
 
 The page holds what a worker can't: the file pickers, local storage, the

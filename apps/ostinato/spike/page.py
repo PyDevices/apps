@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """P0 stress screen: full-window LVGL that redraws as hard as it's told to.
 
 ``window.__stress``: 0 idle, 1 every widget changes every 16 ms frame,

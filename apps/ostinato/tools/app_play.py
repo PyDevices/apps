@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Drive the real app in Chrome and record what it plays.
 
     .venv/bin/python tools/app_play.py --cdp http://127.0.0.1:9222 \

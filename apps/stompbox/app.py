@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """The app: the engine, the screen, and what joins them.
 
 A computer can set these in its environment; a board needs none of them:

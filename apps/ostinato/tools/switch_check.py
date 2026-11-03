@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Changing an instrument mid-song silences only that track.
 
     .venv/bin/python tools/switch_check.py --cdp http://127.0.0.1:9222

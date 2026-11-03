@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """Check that the app starts offline after one visit, fonts included.
 
     .venv/bin/python tools/offline_check.py

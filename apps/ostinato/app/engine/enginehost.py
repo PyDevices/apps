@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+
 """One engine, whatever hosts it: a browser worker, a process, or a thread.
 
 A host gives an ``EngineHost`` three things and asks one:
