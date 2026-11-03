@@ -16,8 +16,10 @@ from pathlib import Path
 import os
 import shutil
 import subprocess
+import types
 import sys
 import unittest
+from unittest import mock
 
 TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parents[1]  # the apps folder, which holds the synthstation package
@@ -31,6 +33,7 @@ REPO_LIB = str(PYDEVICES / "lib")
 
 sys.path[:0] = [str(LIB)]
 
+from synthstation import midi  # noqa: E402
 from synthstation.midi import Parser  # noqa: E402
 
 
@@ -108,6 +111,43 @@ def _run(interpreter, *args):
         [interpreter, "-X", "heapsize=256M", str(CHECK)] + list(args) if "micropython" in interpreter
         else [interpreter, str(CHECK)] + list(args),
         cwd=str(TESTS), env=env, capture_output=True, text=True, timeout=1800)
+
+
+class WebInputs(unittest.TestCase):
+    """The browser's branch of Inputs, with webmidi stood in for."""
+
+    def _open(self, names, why=None):
+        port = types.SimpleNamespace(names=names, why=why, any=lambda: 3, closed=[])
+        port.readinto = mock.Mock(side_effect=[3, None])
+        port.close = lambda: port.closed.append(True)
+        webmidi = types.SimpleNamespace(page_in=lambda: port)
+        package = types.ModuleType("midiports")
+        package.webmidi = webmidi
+        with mock.patch.object(midi.sys, "platform", "webassembly"), \
+                mock.patch.dict(sys.modules, {"midiports": package, "midiports.webmidi": webmidi}):
+            return midi.Inputs().open(), port
+
+    def test_a_browser_opens_web_midi_and_polls_it(self):
+        inputs, port = self._open(["Keys"])
+        self.assertEqual(inputs.kind, "web")
+        self.assertIsNone(inputs.why)
+        self.assertEqual(inputs.names(), ["Keys"])
+        inputs.poll(mock.Mock())
+        self.assertEqual(port.readinto.call_count, 2)  # until it's empty
+        inputs.close()
+        self.assertEqual(port.closed, [True])
+
+    def test_names_stay_empty_until_the_browser_says_yes(self):
+        inputs, _ = self._open([])
+        self.assertEqual(inputs.kind, "web")
+        self.assertEqual(inputs.names(), [])
+
+    def test_no_midiports_is_said_rather_than_raised(self):
+        with mock.patch.object(midi.sys, "platform", "webassembly"), \
+                mock.patch.dict(sys.modules, {"midiports": None}):
+            inputs = midi.Inputs().open()
+        self.assertIsNone(inputs.kind)
+        self.assertEqual(inputs.why, "midiports isn't installed")
 
 
 class _Station:
