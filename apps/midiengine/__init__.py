@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """midiEngine: a General MIDI sound module in the shape of MIDIPLUS's
 pocket miniEngine. Plug a USB MIDI keyboard into the board's hub, or a
-sequencer into a desktop's MIDI port, and every one of the 16 channels
+sequencer into a desktop's MIDI ports, and every one of the 16 channels
 plays: SoundFont instruments on 1-9 and 11-16, a drum kit on 10. Or play
 a folder of .mid files, and the keyboard on top of them.
 
@@ -48,6 +48,8 @@ The MIDI it answers is the sound module's (studio's ``soundmodule.engine``).
 """
 
 import lvgl as lv
+import sys
+
 from multimer import ticks_diff, ticks_ms
 
 from touchkit import ui
@@ -66,6 +68,7 @@ RATE = 48000
 CHANNELS = 2
 CODEC_VOLUME = 85
 MIDI_MS = 4  # how often the file player is serviced, and the port read while no file plays
+DESKTOPS = ("win32", "linux", "darwin")  # computers, with MIDI ports of their own
 FILE_MIDI_EVERY = 3  # while a file plays, the port is read every third service (12 ms): a read waits
                      # a millisecond or more for the device, time the file's notes need
 UI_MS = 40
@@ -174,7 +177,9 @@ def main(scope):
             power = getattr(bp, "audio_power", None)
             if power is not None:
                 power(True, volume=CODEC_VOLUME)
-            out = bp.audio_out(AudioFormat(RATE, CHANNELS, 16))
+            # A computer's default output buffers for playback, too long for keys.
+            live = {"latency": "low"} if sys.platform in DESKTOPS else {}
+            out = bp.audio_out(AudioFormat(RATE, CHANNELS, 16), **live)
             out.attach(scope)  # its service() on the app's timer: pumped here, stops with the app
             module.on_master = out.set_volume
             module.set_master(prefs["volume"])
@@ -209,7 +214,11 @@ def main(scope):
 
     def open_midi():
         """Every USB MIDI device in the board's hub at once, merged (ones
-        plugged in later are heard too), or a desktop's first MIDI port."""
+        plugged in later are heard too), or all of a desktop's MIDI inputs."""
+        # A computer reads its own MIDI ports, even where a usb.core is
+        # importable (PyUSB, or a desktop build that carries the package).
+        if sys.platform in DESKTOPS:
+            return open_desktop_midi()
         try:
             import usb.core
             from midiports import usb_host

@@ -40,8 +40,31 @@ class Watch:
         return True
 
 
+class Merged:
+    """Every MIDI input a desktop has, read as one port, the way the hub's
+    merged port reads: ``any()``, ``read()``, ``close()``."""
+
+    def __init__(self, ports):
+        self.ports = ports
+
+    def any(self):
+        return sum(p.any() for p in self.ports)
+
+    def read(self):
+        data = b""
+        for p in self.ports:
+            if p.any():
+                data += p.read()
+        return data
+
+    def close(self):
+        for p in self.ports:
+            p.close()
+
+
 def open_desktop():
-    """``(port, name)`` of a desktop's first MIDI input, or None when it has
+    """``(port, names)`` of a desktop's MIDI inputs, all of them, since the
+    first is as likely a software synth's as a keyboard's, or None when it has
     none (or no ``midiports`` backend). The port reads like the merged hub
     port: ``any()``, ``read()``, ``close()``."""
     import sys
@@ -54,12 +77,20 @@ def open_desktop():
         return None
     import midiports
 
-    ins = [p for p in mp.available() if p.direction in (midiports.IN, midiports.INOUT)]
-    if not ins:
+    ports = []
+    names = []
+    for info in mp.available():
+        if info.direction not in (midiports.IN, midiports.INOUT):
+            continue
+        try:
+            midi_in, midi_out = mp.ports(info.name)
+        except OSError:  # another program has it open
+            continue
+        if midi_out is not None:
+            midi_out.close()
+        if midi_in is not None:
+            ports.append(midi_in)
+            names.append(info.name)
+    if not ports:
         return None
-    midi_in, midi_out = mp.ports(ins[0].name)
-    if midi_out is not None:
-        midi_out.close()
-    if midi_in is None:
-        return None
-    return midi_in, ins[0].name
+    return Merged(ports), " + ".join(names)

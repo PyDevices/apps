@@ -45,8 +45,10 @@ def _umidiparser_without_native():
 
     here = __file__.replace("\\", "/")
     path = here[: here.rfind("/") + 1] + "umidiparser.py"
+    # All at once: MicroPython reads a file's lines a byte per system call,
+    # which took 15 s over a network drive.
     with open(path) as f:
-        src = "".join(ln for ln in f if ln.strip() != "@micropython.native")
+        src = f.read().replace("@micropython.native", "")
     names = {"__name__": "umidiparser"}
     exec(compile(src, path, "exec"), names)
 
