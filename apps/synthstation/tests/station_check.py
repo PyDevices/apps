@@ -68,7 +68,7 @@ class Peripherals:
     outs = []
 
     @staticmethod
-    def audio_out(fmt):
+    def audio_out(fmt, **kwargs):
         out = Out()
         Peripherals.outs.append(out)
         return out
