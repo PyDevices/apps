@@ -30,10 +30,8 @@ It grows one part at a time, on the desktop interpreters first.
 - A published copy of the app on the web, so it installs without running a
   local server.
 
-## A guitar effects rig
+## Stompbox
 
-- An effects rig for the ESP32-P4: plug in a guitar, chain audioeffects'
-  pedals and amps, and switch presets from a footswitch or a screen.
 - Stompbox (`apps/stompbox`) plays a guitar through one airwindows effect. A
   meter and clip light, a tuner, several slots and presets come next.
 

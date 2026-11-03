@@ -12,7 +12,6 @@ What each app here does. Apps that run on a board are also listed in the
 | [MP3 player](../../apps/mp3) | The songs on an SD card, with play, previous, next, volume and a spectrum. |
 | [Camera](../../apps/camera), [Security camera](../../apps/security), [Object detection](../../apps/detect) | A camera preview, a camera stream, and object detection on the camera. |
 | [Cast](../../apps/cast) | A screen of its own on a Roku or a Windows PC over Miracast or HLS, with the panel as its remote. |
-| [Effects rig](../../apps/effects) | Sound from a computer goes through drive, chorus and delay, with the pedals on screen. |
 | [Stompbox](../../apps/stompbox) | A guitar or a WAV clip through an airwindows effect, with its knobs on screen. Needs a firmware built with audioairwindows. |
 | [Sound card](../../apps/card) | The board is a USB speaker for a computer, with a spectrum of what plays. |
 | [System](../../apps/system) | Free heap, the last switches, and what the apps left running. |
