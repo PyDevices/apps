@@ -122,7 +122,8 @@ class Output:
         else:
             from audiodev import AudioFormat
 
-            out = self._bp.audio_out(AudioFormat(self.rate, self.channels, 16))
+            # A computer's default output buffers for playback, too long for keys.
+            out = self._bp.audio_out(AudioFormat(self.rate, self.channels, 16), latency="low")
             out.attach(self.scope)  # its service() on the app's timer
             if self.volume is not None:
                 out.set_volume(self.volume)
