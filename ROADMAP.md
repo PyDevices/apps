@@ -30,15 +30,14 @@ It grows one part at a time, on the desktop interpreters first.
 - A published copy of the app on the web, so it installs without running a
   local server.
 
-## A guitar effects rig
+## Stompbox
 
-- An effects rig for the ESP32-P4: plug in a guitar, chain audioeffects'
-  pedals and amps, and switch presets from a footswitch or a screen.
 - Stompbox (`apps/stompbox`) plays a guitar through one airwindows effect. A
   meter and clip light, a tuner, several slots and presets come next.
 
 ## Libraries
 
+- sayso's own list is in [lib/sayso/ROADMAP.md](lib/sayso/ROADMAP.md).
 - Ship songmodel's front panel page to boards. The wheel carries `page.html`,
   but a `mip` install or a frozen build has only the Python, so today Vamp
   copies the page across itself.

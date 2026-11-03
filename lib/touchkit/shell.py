@@ -190,8 +190,8 @@ def _pointer_indev():
 def touch_period(scope, ms):
     """Have LVGL read the touch panel every *ms* while app *scope* is open.
 
-    A read costs about 0.8 ms and some garbage; the effects rig slows it to
-    100 ms, because every collection that garbage forces stalls its audio.
+    A read costs about 0.8 ms and some garbage. An app whose audio stalls on
+    every collection that garbage forces can slow it, to 100 ms say.
     """
     ind = _pointer_indev()
     if ind is None:
