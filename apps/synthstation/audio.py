@@ -31,10 +31,10 @@ DMA_DESC = 4
 DMA_FRAME = 128
 
 #: A browser's queue, in 10 ms chunks, and how far a stall may catch up, which
-#: has to clear the queue or the first stall cuts the queue back to it. A
-#: knob drag stalled the page's thread 60-80 ms, and 120 ms rode that out.
-BROWSER_LOOKAHEAD = 12
-BROWSER_CATCHUP = 14
+#: has to clear the queue or the first stall cuts the queue back to it. 40 ms
+#: plays well on a keyboard; 120 ms rode out more but was too slow to play.
+BROWSER_LOOKAHEAD = 4
+BROWSER_CATCHUP = 6
 
 #: What :meth:`Output.levels` looks at: the newest 100 ms, every 40th frame, which
 #: is enough for a meter and costs the app about a millisecond.
