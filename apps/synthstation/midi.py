@@ -6,7 +6,8 @@
 On a board with a USB host port that's every MIDI device plugged into it,
 merged by ``midiports.usb_host.all_ports()``; devices plugged in later are
 heard too. On Windows and Linux it's every MIDI input port the computer
-has, through ``midiports.windows`` or ``midiports.linux``.
+has, through ``midiports.windows`` or ``midiports.linux``. In a browser it's
+every MIDI input the browser offers, through ``midiports.webmidi``.
 
 :class:`Parser` turns the bytes into calls on an object you pass, with no
 allocation per message, so a quiet keyboard costs nothing beside the audio.
@@ -38,7 +39,7 @@ def _name(dev):
 class Inputs:
     """The open MIDI inputs, read together.
 
-    ``kind`` is ``"usb"``, ``"desktop"`` or None when there's nothing to
+    ``kind`` is ``"usb"``, ``"desktop"``, ``"web"`` or None when there's nothing to
     open; ``why`` then says why in a sentence. ``names()`` lists the
     devices heard now.
     """
@@ -59,6 +60,9 @@ class Inputs:
         # importable (PyUSB, or a desktop build that carries the package).
         if getattr(sys, "platform", "") in DESKTOPS:
             self._open_desktop()
+            return self
+        if getattr(sys, "platform", "") == "webassembly":
+            self._open_web()
             return self
         try:
             import usb.core
@@ -122,12 +126,23 @@ class Inputs:
         else:
             self.why = NO_INPUT
 
+    def _open_web(self):
+        try:
+            from midiports import webmidi
+        except ImportError:
+            self.why = "midiports isn't installed"
+            return
+        self.ports = [webmidi.page_in()]
+        self.kind = "web"
+
     # ---- reading --------------------------------------------------------------
 
     def names(self):
         """The devices heard now, as a list of strings."""
         if self.kind == "usb":
             return [_name(d) for d in getattr(self.ports[0], "devices", ())]
+        if self.kind == "web":
+            return self.ports[0].names
         return list(self._desktop_names)
 
     def poll(self, parser):
