@@ -140,15 +140,12 @@ def main(scope):
     note.set_pos(rx, 64 + LISTED * 34 + 8)
     note.set_width(rw)
 
-    stride = d.width * 2
+    panel = FrameBuffer(fb, d.width, d.height, RGB565)
 
     def blit():
-        # The finished frame onto the panel, a row at a time.
-        row = pw * 2
-        at = ay * stride + ax * 2
-        for r in range(ph):
-            fb[at : at + row] = buf[r * row : (r + 1) * row]
-            at += stride
+        # The finished frame onto the panel. Not row by row through memoryview
+        # slices: into a buffer this big, that took 7 s a frame on an ESP32-P4.
+        panel.blit(canvas, ax, ay)
         d.flush_rect(ax, ay, pw, ph)
 
     def loop():
