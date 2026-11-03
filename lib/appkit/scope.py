@@ -8,7 +8,7 @@ its RAM stays behind. What keeps an app's memory alive after it has gone is
 references: a timer or event callback pointing at its functions, a device it
 registered, an LVGL screen, its entry in ``sys.modules``, anything it parked
 in another module's global. An ``AppScope`` records what the app makes
-through it, and :meth:`AppScope.close` undoes all of it.
+through it, and `AppScope.close` undoes all of it.
 
 ::
 
@@ -469,7 +469,7 @@ class AppScope:
     def close(self):
         """Release everything this app made; return what couldn't be released.
 
-        In order: its foreground function (see :meth:`foreground`), the
+        In order: its foreground function (see `foreground`), the
         ``on_close`` hooks, the worker jobs it queued, timers,
         event subscriptions, devices, adopted objects, LVGL objects, then the
         app's modules leave ``sys.modules`` and the heap is collected. Each step runs even when

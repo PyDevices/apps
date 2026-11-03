@@ -21,7 +21,7 @@
     # later, from a button, a gesture or the REPL:
     launcher.switch("steps")
 
-Each switch closes the old app's :class:`~appkit.scope.AppScope` (its
+Each switch closes the old app's `AppScope <appkit.scope.AppScope>` (its
 timers, subscriptions, devices, LVGL objects and modules) and starts the
 new one in the same process. After the close it checks the heap: if free
 memory or the largest free block has fallen below its threshold, or the old
@@ -46,10 +46,10 @@ Browser (wasm)      the page URL's ``?app=``    reload the page
 The file is in the data root (see ``appkit.data``), so it moves with
 ``data_root``. ``PYDEVICES_NEXT_APP`` overrides its path.
 
-A plain script (:meth:`Launcher.add_script`, or ``"script"`` in an
+A plain script (`Launcher.add_script`, or ``"script"`` in an
 ``app.json``) builds its own ``App`` when imported, so it never runs in the
 launcher's process: the launcher restarts the program into it, and
-:func:`run_pending_script`, first thing in ``main.py``, runs it and restarts
+`run_pending_script`, first thing in ``main.py``, runs it and restarts
 back to the home screen when it quits.
 
 See appkit's README.md.
@@ -280,7 +280,7 @@ def take_next():
 def read_next(clear=False):
     """The ``(name, count, path)`` a restart left for this boot, or None.
 
-    Cleared once read when *clear*; left for :meth:`Launcher.boot` otherwise.
+    Cleared once read when *clear*; left for `Launcher.boot` otherwise.
     """
     h = host()
     text = None
@@ -507,8 +507,8 @@ class Launcher:
     """Owns the long-lived App, starts apps by name and switches between them.
 
     *apps* maps a name to the module holding that app's ``main(scope)``
-    (``{"steps": "apps.steps"}``); :meth:`add` registers more. *home* is
-    started by :meth:`boot` when no restart is pending, and after an app
+    (``{"steps": "apps.steps"}``); `add` registers more. *home* is
+    started by `boot` when no restart is pending, and after an app
     fails to start.
 
     *min_free* and *min_block* are the heap thresholds in bytes, checked
@@ -598,7 +598,7 @@ class Launcher:
         filesystem). The folder's parent goes on the end of ``sys.path``.
 
         An ``app.json`` with ``"script": "<module>"`` is a plain script (see
-        :meth:`add_script`), looked for in its own folder first. Where
+        `add_script`), looked for in its own folder first. Where
         *folder* doesn't exist (a build with the apps frozen in), the same
         entries come from the generated module ``_appkit_apps``, with the
         apps frozen as the package ``apps`` (see ``appkit.index``). Returns
@@ -700,7 +700,7 @@ class Launcher:
         return name
 
     def start(self, name):
-        """Start app *name*; the same as :meth:`switch`."""
+        """Start app *name*; the same as `switch`."""
         self.switch(name)
 
     def request(self, name):

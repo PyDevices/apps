@@ -392,7 +392,7 @@ class Engine:
 
     def resequence(self):
         """Forget what was sequenced and not yet played: the song or the
-        transport changed. :meth:`sequence_ahead` sequences it again."""
+        transport changed. `sequence_ahead` sequences it again."""
         self.queue = []
         self.sequenced_to = None
 
@@ -469,7 +469,7 @@ class Engine:
     # -- what plays ---------------------------------------------------------
 
     def segments(self, t0, t1):
-        """What plays between ticks t0 and t1: :func:`songmodel.model.segments`."""
+        """What plays between ticks t0 and t1: `songmodel.model.segments`."""
         return model.segments(self.project, t0, t1)
 
     def _sequence(self, until):

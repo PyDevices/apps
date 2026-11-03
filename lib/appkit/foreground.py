@@ -13,9 +13,9 @@ USB audio every millisecond. An app hands it to the program's main thread::
 
         scope.foreground(frame)
 
-:func:`serve` calls the app's function over and over, outside every timer
+`serve` calls the app's function over and over, outside every timer
 callback, until the app closes or clears it. ``appkit.run()`` ends in
-:func:`serve`; an app set with its own launcher calls ``appkit.serve()`` as
+`serve`; an app set with its own launcher calls ``appkit.serve()`` as
 the last line of ``main.py``.
 
 There's one foreground function at a time, for the whole program: the last
@@ -25,10 +25,10 @@ switch made from a timer can close the app while its function is in the
 middle of a call, so a function returns promptly once its app has closed,
 and an exception it raises after that is ignored.
 
-Where nothing runs :func:`serve` (a browser page, an app started at the
+Where nothing runs `serve` (a browser page, an app started at the
 REPL, or the REPL after Ctrl-C), a function that does one step and returns,
 like a frame, runs from a timer instead. One that never returns
-(``steps=False``) waits until :func:`serve` runs again, so it can't take the
+(``steps=False``) waits until `serve` runs again, so it can't take the
 REPL: ``scope.foreground()`` returns False, so the app can say so.
 
 Ctrl-C in the loop goes to the REPL with every timer still running. One
@@ -73,7 +73,7 @@ def set_function(scope, fn, steps=True):
     *scope*'s. This is ``scope.foreground(fn, steps=steps)``.
 
     Returns True when *fn* runs now (the loop is running, or *fn* steps from
-    a timer), False when it waits for :func:`serve`.
+    a timer), False when it waits for `serve`.
     """
     global _fn, _owner, _steps, _token
     if fn is None:
@@ -124,7 +124,7 @@ def after_calls(fn, *args):
 def _call(fn):
     """Call *fn* once. An error in it is reported, and clears the function
     if it is still the foreground one. The caller keeps no reference to
-    *fn* while the call runs, and drops its own before :func:`_run_after`."""
+    *fn* while the call runs, and drops its own before `_run_after`."""
     global _calls
     _calls += 1
     try:
@@ -139,7 +139,7 @@ def _call(fn):
 
 
 def _run_after():
-    """Run what :func:`after_calls` queued, now that the call is over."""
+    """Run what `after_calls` queued, now that the call is over."""
     while _calls == 0 and _after_calls:
         fn, args = _after_calls.pop(0)
         fn(*args)
@@ -156,12 +156,12 @@ def owner():
 
 
 def serving():
-    """True while :func:`serve` is running the loop."""
+    """True while `serve` is running the loop."""
     return _serving
 
 
 def stop():
-    """Have :func:`serve` return after the call it's in."""
+    """Have `serve` return after the call it's in."""
     global _stop
     _stop = True
 

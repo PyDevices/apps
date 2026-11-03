@@ -6,9 +6,9 @@
 This one is the plainest: an app gets the whole screen, and a Home button
 sits in the corner when there's a home screen to go back to. A board that
 wants a header, its own look or its own buttons subclasses it: override
-:meth:`Shell.make_root` to give apps a smaller area,
-:meth:`Shell.make_home_button` for its own Home button, or
-:meth:`Shell.prepare` to hand them other services.
+`Shell.make_root` to give apps a smaller area,
+`Shell.make_home_button` for its own Home button, or
+`Shell.prepare` to hand them other services.
 """
 
 import lvgl as lv
@@ -35,7 +35,7 @@ class Shell:
 
         Override it for a button of your own look. Put it on
         ``lv.layer_top()`` or ``lv.layer_sys()``, so it shows over every
-        app's screen; :meth:`prepare` hides it on the home screen itself.
+        app's screen; `prepare` hides it on the home screen itself.
         """
         launcher = self.launcher
         b = lv.button(lv.layer_top())

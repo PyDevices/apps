@@ -37,7 +37,7 @@ class NoCameraPort(OSError):
 
 
 def no_camera_text(err, app):
-    """What *app* shows when :func:`open_camera` raised *err*."""
+    """What *app* shows when `open_camera` raised *err*."""
     if isinstance(err, NoCameraPort):
         return "No camera: %s\n\n%s needs the board's CSI camera, which this computer doesn't have." % (err, app)
     return "No camera: %s\n\nConnect one to the CSI port, then open %s again." % (err, app)
@@ -98,7 +98,7 @@ def photos_dir(scope):
 
 def mount_sd(readonly=True):
     """Mount the SD card at ``/sd``: the card object (unmount it with
-    :func:`unmount_sd`), True when someone else has it mounted, or False
+    `unmount_sd`), True when someone else has it mounted, or False
     without a card."""
     try:
         os.stat("/sd")

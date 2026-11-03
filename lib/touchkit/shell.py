@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 """touchkit.shell -- the board's chrome and launcher.
 
-* :class:`TouchShell` gives every app but Home a header: its title, and a
+* `TouchShell` gives every app but Home a header: its title, and a
   status line at the right (``scope.status``, see ``touchkit.ui.status``).
   ``scope.root`` is the area below it. Its Home button sits at the header's
   left, on LVGL's system layer, so it never presses an app's own widgets;
   the board's BOOT button goes home too, through a pin interrupt.
-* :class:`TouchLauncher` keeps a short history of switches for System,
+* `TouchLauncher` keeps a short history of switches for System,
   and takes the USB sound card off when the next app isn't one that plays
   through it, so the PC goes back to its own speakers.
 

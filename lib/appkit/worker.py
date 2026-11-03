@@ -30,7 +30,7 @@ torn down under a call that is still using it, and close doesn't wait for
 the call.
 
 Where there are no threads (the browser, CircuitPython on a board,
-MicroPython's Windows port) a :class:`TimerWorker` runs each job on a timer
+MicroPython's Windows port) a `TimerWorker` runs each job on a timer
 instead, one per tick, so the screen still gets a turn between jobs.
 """
 
@@ -318,8 +318,8 @@ _shared = None
 
 
 def shared():
-    """The program's one worker, started on first use: a :class:`Worker`
-    where there are threads, a :class:`TimerWorker` where there aren't."""
+    """The program's one worker, started on first use: a `Worker`
+    where there are threads, a `TimerWorker` where there aren't."""
     global _shared
     if _shared is None:
         _shared = Worker() if threads() else TimerWorker()

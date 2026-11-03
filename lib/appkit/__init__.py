@@ -19,7 +19,7 @@ from .shell import Shell
 def run(name=None, folder="apps", *, data_root=None):
     """Run the apps in *folder*: a home screen listing them, or app *name* alone.
 
-    It ends in the main-thread loop, :func:`serve`, and returns the
+    It ends in the main-thread loop, `serve`, and returns the
     ``Launcher`` when the program quits. In a browser, where the page has
     the main thread, it returns the launcher at once. *data_root* moves
     every app's ``data_dir`` and the launcher's restart file (see

@@ -104,7 +104,7 @@ def _button(lv, page, text):
 
 
 def watch():
-    """Wait for the launcher ``appkit.run()`` makes, then :func:`drive` it.
+    """Wait for the launcher ``appkit.run()`` makes, then `drive` it.
 
     ``run()`` doesn't return until the program quits, so the autopilot
     finds the launcher through the scope of the app it started.

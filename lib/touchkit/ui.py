@@ -4,7 +4,7 @@
 """touchkit.ui -- the board's look, and the few widgets its apps build from.
 
 The colours and fonts are here so an app can use them without the shell;
-:func:`apply_theme` puts them on the display, once, at boot.
+`apply_theme` puts them on the display, once, at boot.
 """
 
 import lvgl as lv

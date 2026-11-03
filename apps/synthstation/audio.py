@@ -11,7 +11,7 @@ block straight into I2S. The codec is powered through the board's
 the board config's ``audio_out``, which uses the pump too where there is
 one.
 
-:meth:`Output.load` reads the pump's status block: how long a block of
+`Output.load` reads the pump's status block: how long a block of
 audio took to render, as a share of how long it lasts, and how many times
 the speaker ran dry since the instrument started.
 """
@@ -52,8 +52,8 @@ class Output:
     """Plays one instrument at a time.
 
     *scope* is the app's scope: the desktop output runs its service on the
-    app's timers. Construct it once; :meth:`start` and :meth:`stop` swap
-    instruments; :meth:`close` powers the codec down.
+    app's timers. Construct it once; `start` and `stop` swap
+    instruments; `close` powers the codec down.
     """
 
     def __init__(self, scope, rate=RATE, channels=CHANNELS):
@@ -232,7 +232,7 @@ class Output:
 
         ``load_pct`` is the render time of the blocks since the last call as
         a percentage of the time they last: over 100 can't keep up.
-        ``worst_pct`` is the slowest single block since :meth:`start`.
+        ``worst_pct`` is the slowest single block since `start`.
         ``underruns`` counts the calls between which the speaker ran out of
         audio (on a board), or blocks the output had no room for (on a
         desktop). Both loads are None until there's something to measure.
@@ -294,5 +294,5 @@ class Output:
         return DMA_FRAME * 1000000 // self.rate
 
     def starved_ms(self):
-        """On a board, the silence heard since :meth:`start`, in ms."""
+        """On a board, the silence heard since `start`, in ms."""
         return (self._starved - self._base) * 1000 // (self.rate * self.channels * 2)
