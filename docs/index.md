@@ -5,8 +5,9 @@ libraries they use, then [render a MIDI file](get-started/first-program.md)
 through the sound module.
 
 **Guides.** [Play the sound module from a DAW](guides/play-the-sound-module.md),
-[run Ostinato](guides/run-ostinato.md), and
-[put Vamp on a board](guides/put-vamp-on-a-board.md).
+[run Ostinato](guides/run-ostinato.md),
+[put Vamp on a board](guides/put-vamp-on-a-board.md), and
+[put a clock and the weather on your desk](guides/put-a-clock-on-your-desk.md).
 
 **Reference.** [The apps, and what each does](reference/apps.md). [What an appkit app must provide](reference/app-requirements.md). [The sound module's MIDI](reference/sound-module-midi.md): banks,
 controllers, System Exclusive, and the `soundmodule.run` options. Vamp's

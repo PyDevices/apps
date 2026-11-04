@@ -7,6 +7,7 @@ What each app here does. Apps that run on a board are also listed in the
 |---|---|
 | [Synth Station](../../apps/synthstation) | Pick an audioinstruments instrument and play it from a MIDI keyboard, with a front panel for its knobs and patches. |
 | [Spotify](../../apps/spotify) | The board is a Spotify Connect speaker, and the screen is its remote. |
+| [Clock](../../apps/clock), [Weather](../../apps/weather) | An analog clock and a five-day forecast for a round screen on a desk. [Set one up](../guides/put-a-clock-on-your-desk.md). |
 | [Roku remote](../../apps/roku) | A TV remote over the LAN: d-pad, OK, Back, playback, volume and power. |
 | [midiEngine](../../apps/midiengine) | A General MIDI sound module: 16 parts from a SoundFont, played from a USB MIDI keyboard. |
 | [MP3 player](../../apps/mp3) | The songs on an SD card, with play, previous, next, volume and a spectrum. |

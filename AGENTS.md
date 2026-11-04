@@ -10,3 +10,4 @@
 - sayso's tests: `PYTHONPATH=lib python -m unittest discover -s tests/sayso` from the root. The offline tests need no credentials; `test_live.py` skips without a `sayso.local.json`. Never commit `sayso.local.json`, `tokens.json` or `lib/sayso/examples/write_examples.json`.
 - To test sayso without a network, replace `sayso.transport.requests` with a mock that has `get`/`post` (and `put`/`delete` for writes) before you build `SpotifyClient`.
 - Spotify's Dev Mode removed `GET /users/{id}` and the legacy playlist track endpoints ([PORTABILITY.md](lib/sayso/PORTABILITY.md)). Don't add `fetch_method` on `User`.
+- tests/ has an `appkit` folder, which hides the real `appkit` when `tests/` is first on the path: put `lib/` before it.
