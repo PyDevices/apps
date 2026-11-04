@@ -125,13 +125,21 @@ def _micropython():
     return None
 
 
+def _has_lvgl(interpreter):
+    try:
+        return subprocess.run([interpreter, "-c", "import lvgl"], capture_output=True, timeout=60, check=False).returncode == 0
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+
+
 class ContractTest(unittest.TestCase):
     def _run(self, plant=None):
         interpreter = _micropython()
-        if interpreter is None:
+        if interpreter is None or not _has_lvgl(interpreter):
+            message = "no MicroPython with LVGL: the swipe checks did NOT run"
             if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
-                self.fail("no MicroPython: the swipe checks did NOT run")
-            self.skipTest("no MicroPython: the swipe checks did NOT run")
+                self.fail(message)
+            self.skipTest(message)
         env = dict(os.environ)
         if plant:
             env["DESK_PLANT"] = plant
@@ -151,7 +159,7 @@ class ContractTest(unittest.TestCase):
     def test_the_checks_can_fail(self):
         for plant in ("swapped_swipes", "no_idle_return", "never_dark", "untuned_touch"):
             done = self._run(plant)
-            self.assertNotEqual(done.returncode, 0, plant + " was not caught\n" + done.stdout)
+            self.assertIn("FAILED:", done.stdout, plant + " was not caught\n" + done.stdout + done.stderr)
 
 
 if __name__ == "__main__":
