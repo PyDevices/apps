@@ -149,7 +149,7 @@ class ContractTest(unittest.TestCase):
         self.assertIn("desk contract: ok", done.stdout)
 
     def test_the_checks_can_fail(self):
-        for plant in ("swapped_swipes", "no_idle_return", "never_dark"):
+        for plant in ("swapped_swipes", "no_idle_return", "never_dark", "untuned_touch"):
             done = self._run(plant)
             self.assertNotEqual(done.returncode, 0, plant + " was not caught\n" + done.stdout)
 

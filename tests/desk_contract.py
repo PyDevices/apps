@@ -45,7 +45,7 @@ _headless.display(SIZE, SIZE)
 _headless.pointer()
 
 from deskkit import localtime
-from deskkit.shell import DeskShell
+from deskkit.shell import DeskShell, tune_touch
 
 PLANT = os.getenv("DESK_PLANT")
 
@@ -69,12 +69,19 @@ class _Scope:
         return scr
 
 
+# The real panel's indev: display_driver asks for 255 px.
+_headless.pointer().set_gesture_min_distance(255)
+if PLANT != "untuned_touch":
+    tune_touch(_headless.pointer())
+
+
 def check(ok, what):
     if not ok:
         print("FAILED:", what)
         sys.exit(1)
 
 
+localtime.offset_s = 0
 launcher = _Launcher()
 shell = DeskShell(launcher, ("clock", "weather"), awake=(7, 18), weekends=False, idle_ms=60_000)
 root = shell.make_root(_Scope())
@@ -96,6 +103,30 @@ def swipe(x0, y0, x1, y1):
     _headless.touch(x1, y1, False)
     _headless.advance(50)
 
+
+# Slow swipes recorded from a CST820 on a real panel, repeated positions and all.
+# Neither reached 255 px between repeats.
+_RECORDED = (
+    (479, 479, 479, 478, 476, 473, 468, 459, 447, 433, 417, 401, 386, 371, 371, 355, 336, 317, 299, 282, 265, 251, 237, 222),
+    (447, 444, 439, 433, 425, 414, 403, 389, 374, 358, 358, 341, 322, 304, 285, 268, 254, 242, 232, 222, 212, 203, 193, 183, 172, 172, 161, 150, 140),
+)
+
+
+def replay(xs):
+    _headless.touch(xs[0], 250, True, 40)
+    for x in xs:
+        _headless.touch(x, 250, True, 40)
+    _headless.touch(xs[-1], 250, False, 40)
+    _headless.advance(50)
+
+
+for _xs in _RECORDED:
+    launcher.current = "clock"
+    del launcher.asked[:]
+    replay(_xs)
+    check(launcher.asked == ["weather"], "a recorded slow swipe: %r" % (launcher.asked,))
+launcher.current = "clock"
+del launcher.asked[:]
 
 swipe(380, 240, 80, 240)
 check(launcher.asked == ["weather"], "a swipe left from the clock asks for weather: %r" % (launcher.asked,))
@@ -141,6 +172,17 @@ check(_Pin.state == 0, "and it goes dark again")
 localtime.is_set = lambda: False
 _headless.advance(1_100)
 check(_Pin.state == 1, "an unset clock keeps the screen on")
+
+# Asking for the ZIP code, swipes and idle both leave it alone.
+localtime.is_set = lambda: True
+localtime.offset_s = None
+launcher.current = "weather"
+del launcher.asked[:]
+swipe(80, 240, 380, 240)
+_headless.advance(61_000)
+_headless.advance(1_100)
+check(not launcher.asked, "no leaving the ZIP code screen: %r" % (launcher.asked,))
+localtime.offset_s = 0
 
 # Nor before the place, and so the timezone, is known.
 localtime.is_set = lambda: True

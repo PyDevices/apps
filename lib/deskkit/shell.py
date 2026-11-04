@@ -10,6 +10,8 @@ from appkit import Shell
 from . import localtime
 
 _CHECK_MS = 1000
+_SWIPE_PX = 60
+_HOLD_MS = 1000  # long enough that resting a finger isn't a hold
 
 
 def is_awake(hour, weekday, awake, weekends):
@@ -26,6 +28,20 @@ def is_awake(hour, weekday, awake, weekends):
     if weekday >= 5 and not weekends:
         return False
     return awake[0] <= hour < awake[1]
+
+
+def tune_touch(indev):
+    """Make a one-finger swipe easy on *indev*.
+
+    `display_driver` asks for 255 px, so that a two-finger swipe can't steal a
+    pinch, and these apps have no pinch. A touch chip also repeats a position
+    between reads, which LVGL takes for a stopped finger and restarts its count,
+    so the minimum speed goes too. Otherwise a swipe has to cross over half of a
+    480 px screen with no repeat at all.
+    """
+    indev.set_gesture_min_distance(_SWIPE_PX)
+    indev.set_gesture_min_velocity(0)
+    indev.set_long_press_time(_HOLD_MS)
 
 
 class DeskShell(Shell):
@@ -47,6 +63,9 @@ class DeskShell(Shell):
         self.weekends = weekends
         self.idle_ms = idle_ms
         self._lit = True
+        device = getattr(getattr(board_config, "display_drv", None), "touch_device", None)
+        if device is not None:
+            tune_touch(device.user_data)
         self._timer = lv.timer_create(self._check, _CHECK_MS, None)
 
     def make_root(self, scope):
@@ -63,6 +82,8 @@ class DeskShell(Shell):
         else:
             return  # up and down are the app's
         lv.indev_active().wait_release()
+        if localtime.offset_s is None:
+            return  # still asking where it is: the clock has no timezone yet
         apps = self.apps
         current = self.launcher.current
         if current in apps:
@@ -80,8 +101,9 @@ class DeskShell(Shell):
 
     def _check(self, _timer):
         idle = lv.display_get_default().get_inactive_time()
-        if idle >= self.idle_ms and self.launcher.current != self.apps[0]:
-            if self.launcher.current in self.apps:
+        current = self.launcher.current
+        if idle >= self.idle_ms and localtime.offset_s is not None:
+            if current != self.apps[0] and current in self.apps:
                 self.launcher.request(self.apps[0])
         # Without the real time and place, a dark screen could be dark for no reason.
         if not localtime.is_set() or localtime.offset_s is None:

@@ -169,6 +169,7 @@ class _Screen:
             self.showing_days = False
         else:
             return
+        lv.indev_active().wait_release()  # or a slow swipe would also count as a hold
         self._apply_page()
 
     def _held(self, _event):
