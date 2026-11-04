@@ -83,8 +83,8 @@ class DeskShell(Shell):
         if idle >= self.idle_ms and self.launcher.current != self.apps[0]:
             if self.launcher.current in self.apps:
                 self.launcher.request(self.apps[0])
-        # Without the real time, a dark screen could be dark for no reason.
-        if not localtime.is_set():
+        # Without the real time and place, a dark screen could be dark for no reason.
+        if not localtime.is_set() or localtime.offset_s is None:
             self._set_lit(True)
             return
         t = localtime.now()

@@ -117,6 +117,7 @@ _noon_wed = (2026, 11, 4, 12, 0, 0, 2, 308)
 _midnight = (2026, 11, 4, 0, 0, 0, 2, 308)
 _noon_sat = (2026, 11, 7, 12, 0, 0, 5, 311)
 localtime.is_set = lambda: True
+localtime.offset_s = 0
 for moment, lit in ((_noon_wed, 1), (_midnight, 0), (_noon_sat, 0), (_noon_wed, 1)):
     localtime.now = lambda: moment
     _headless.advance(1_100)
@@ -140,5 +141,14 @@ check(_Pin.state == 0, "and it goes dark again")
 localtime.is_set = lambda: False
 _headless.advance(1_100)
 check(_Pin.state == 1, "an unset clock keeps the screen on")
+
+# Nor before the place, and so the timezone, is known.
+localtime.is_set = lambda: True
+localtime.now = lambda: _midnight
+_Pin.state = 0
+shell._lit = False
+localtime.offset_s = None
+_headless.advance(1_100)
+check(_Pin.state == 1, "no timezone yet keeps the screen on")
 
 print("desk contract: ok")
