@@ -35,6 +35,11 @@ It grows one part at a time, on the desktop interpreters first.
 - Stompbox (`apps/stompbox`) plays a guitar through one airwindows effect. A
   meter and clip light, a tuner, several slots and presets come next.
 
+## Clock and Weather
+
+- More faces on the clock, and a way to pick a face that's saved.
+- Weather searches by place name, for anywhere outside the US.
+
 ## Libraries
 
 - sayso's own list is in [lib/sayso/ROADMAP.md](lib/sayso/ROADMAP.md).

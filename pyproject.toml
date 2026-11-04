@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "omnipython-applibs"
 dynamic = ["version"]
-description = "The libraries apps share: appkit, controlkit, sayso, songmodel, soundmodule, spectrum and touchkit"
+description = "The libraries apps share: appkit, controlkit, deskkit, sayso, songmodel, soundmodule, spectrum and touchkit"
 readme = "README.md"
 authors = [{ name = "Brad Barnett" }]
 license = { text = "MIT" }
