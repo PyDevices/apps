@@ -6,6 +6,9 @@
 import lvgl as lv
 from deskkit import forecast
 
+# The ZIP code's digits: 40 px, or the largest a firmware without it has.
+_DIGITS = getattr(lv, "font_montserrat_40", None) or getattr(lv, "font_montserrat_32", lv.font_montserrat_24)
+
 _LENGTH = 5
 _BG = 0x0A1020
 _KEY = 0x24344A
@@ -52,7 +55,7 @@ class ZipPad:
         self.title.align(lv.ALIGN.TOP_MID, 0, height * 8 // 100)
 
         self.shown = lv.label(panel)
-        self.shown.set_style_text_font(lv.font_montserrat_40, 0)
+        self.shown.set_style_text_font(_DIGITS, 0)
         self.shown.set_style_text_color(lv.color_hex(_WHITE), 0)
         self.shown.align(lv.ALIGN.TOP_MID, 0, height * 13 // 100)
 

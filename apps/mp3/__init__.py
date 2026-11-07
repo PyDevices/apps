@@ -4,7 +4,7 @@
 """MP3 player: the songs in a folder, with the spectrum of what plays.
 
 On a computer the songs are in ``$MP3_DIR``, else ``~/music``; on a board,
-``/sd/music`` on the SD card.
+``/sd/music`` on the SD card, or ``/flash/music`` on a board with no card slot.
 
 the archived pydevices-examples' mp3_from_sd, with buttons: play and stop, previous and
 next, volume. A song that ends goes on to the next one. On a board the card is mounted
@@ -22,6 +22,7 @@ from appkit import data as appdata
 from touchkit import ui
 
 MOUNT = "/sd"
+FLASH_MUSIC = "/flash/music"  # where a board with no SD card keeps its songs
 VOLUME = 80  # ES8311 steps of 0.5 dB: 80 is -10 dB
 TOP = 132  # the spectrum's first row, in the app's area
 
@@ -82,11 +83,18 @@ def main(scope):
         try:
             _mount(scope)
         except AttributeError:  # no sdcard role on this board
-            ui.missing(
-                scope, "missing: SD card",
-                "The MP3 player plays the songs on the board's SD card, and this board has no sdcard (board_peripherals).",
-            )
-            return
+            # A board with no card slot (the Arduino GIGA R1) plays from its
+            # own flash instead, when there's a music folder there.
+            try:
+                os.listdir(FLASH_MUSIC)
+                folder = FLASH_MUSIC
+            except OSError:
+                ui.missing(
+                    scope, "missing: SD card",
+                    "The MP3 player plays the songs on the board's SD card, and this board has no sdcard "
+                    "(board_peripherals). Without one it plays the .mp3 files in %s." % FLASH_MUSIC,
+                )
+                return
         except Exception as e:
             status.set_text("no SD card")
             ui.label(scr, "No SD card: %s\n\nPut .mp3 files in %s on the card, then open the MP3 player again." % (e, folder), ui.font, ui.WHITE).align(
@@ -157,14 +165,17 @@ def main(scope):
         st["started"] = ticks_ms()
         title.set_text("%d/%d  %s  (%d Hz, %s)" % (st["i"] + 1, len(songs), name[:-4], song.sample_rate, "stereo" if song.channel_count == 2 else "mono"))
         play_lbl.set_text(lv.SYMBOL.STOP + "  Stop")
-        if getattr(out, "pumped", False):
-            from spectrum.analyzer import levels_for
-
-            m = spectrum.meter(scope, levels_for(out), TOP)
-            st["meter"] = m
-            spectrum.start(m, scope, (hdr,))
-        else:
+        if not getattr(out, "pumped", False):
             status.set_text("no spectrum: not on the audio pump")
+            return
+        try:
+            from spectrum.analyzer import levels_for
+        except ImportError as e:  # the spectrum draws with pygraphics
+            status.set_text("no spectrum: %s" % (e,))
+            return
+        m = spectrum.meter(scope, levels_for(out), TOP)
+        st["meter"] = m
+        spectrum.start(m, scope, (hdr,))
 
     def stop():
         st["playing"] = False

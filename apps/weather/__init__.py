@@ -21,6 +21,8 @@ _RAIN = 0x57B6FF
 _ICON = 130
 _SMALL_ICON = 44
 _BIG_TEMP_SCALE = 512  # the largest compiled font, doubled
+# The temperature's font: 40 px, or the largest a firmware without it has.
+_TEMP = getattr(lv, "font_montserrat_40", None) or getattr(lv, "font_montserrat_32", lv.font_montserrat_24)
 
 
 def _clean(obj):
@@ -104,7 +106,7 @@ class _Screen:
         icon = icons.make(panel, data["code"], data["is_day"], _ICON, background)
         icon.align(lv.ALIGN.TOP_MID, 0, self.h * 13 // 100)
 
-        temp = _label(panel, lv.font_montserrat_40)
+        temp = _label(panel, _TEMP)
         temp.set_text("%d°" % forecast.degrees(data["temp"]))
         temp.set_style_transform_scale(_BIG_TEMP_SCALE, 0)
         temp.update_layout()
