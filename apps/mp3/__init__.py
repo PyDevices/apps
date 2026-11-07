@@ -152,7 +152,13 @@ def main(scope):
             st["out"].close()
             st["out"] = None
         if st["out"] is None:
-            st["out"] = bp.audio_out(AudioFormat(song.sample_rate, song.channel_count, 16))
+            fmt_out = AudioFormat(song.sample_rate, song.channel_count, 16)
+            try:
+                # A player can trade latency for fewer dropouts: a board
+                # with a choice buffers more.
+                st["out"] = bp.audio_out(fmt_out, latency="buffered")
+            except TypeError:  # an audio_out that takes no latency
+                st["out"] = bp.audio_out(fmt_out)
             # service() refills the decoder's file buffer from this thread
             # (the pump on the other core can't read the card): on the app's
             # timer, so it stops when the app closes.
