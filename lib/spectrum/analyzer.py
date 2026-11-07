@@ -115,6 +115,11 @@ class Spectrum:
         self.present_rows = bool(getattr(display_drv, "needs_refresh", False)) and hasattr(
             getattr(display_drv, "_raw_buffer", None), "refresh_rect"
         )
+        # Any other display that needs presenting (a desktop window) is shown
+        # whole after each frame: an app that leaves presenting to LVGL has
+        # stopped appdev's refresh, so the bars would show only when LVGL
+        # next drew something.
+        self.present_all = bool(getattr(display_drv, "needs_refresh", False)) and not self.present_rows
         self._send = self._panel_blit()
         self._dirty = [0, 0]  # rows touched this frame, top and bottom
         self._stats = [0, 0, 0, 0, 0]  # frames, data us, update us, draw us, report start
@@ -187,8 +192,11 @@ class Spectrum:
         dirty = self._dirty
         dirty[0], dirty[1] = self.y + view.height, 0
         view.render_columns(self._blit)
-        if self.present_rows and dirty[1] > dirty[0]:
-            self.display_drv.flush_rect(self.x, dirty[0], view.width, dirty[1] - dirty[0])
+        if dirty[1] > dirty[0]:
+            if self.present_rows:
+                self.display_drv.flush_rect(self.x, dirty[0], view.width, dirty[1] - dirty[0])
+            elif self.present_all:
+                self.display_drv.show()
         if not self.report:
             return
         d = ticks_us()
