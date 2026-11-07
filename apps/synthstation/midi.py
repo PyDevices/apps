@@ -5,11 +5,11 @@
 
 On a board with a USB host port that's every MIDI device plugged into it,
 merged by ``midiports.usb_host.all_ports()``; devices plugged in later are
-heard too. A board without one, whose USB port can be a device
-(``machine.USBDevice``), becomes a USB MIDI device the computer plays,
-through ``midiports.usb_device``. On Windows and Linux it's every MIDI input port the computer
-has, through ``midiports.windows`` or ``midiports.linux``. In a browser it's
-every MIDI input the browser offers, through ``midiports.webmidi``.
+heard too. A board without one whose ``board_peripherals`` lists a
+``usb_midi`` role becomes a USB MIDI device the computer plays. On Windows
+and Linux it's every MIDI input port the computer has, through
+``midiports.windows`` or ``midiports.linux``. In a browser it's every MIDI
+input the browser offers, through ``midiports.webmidi``.
 
 `Parser` turns the bytes into calls on an object you pass, with no
 allocation per message, so a quiet keyboard costs nothing beside the audio.
@@ -96,17 +96,16 @@ class Inputs:
         return self
 
     def _open_device(self):
-        """Make this board a USB MIDI device, where its port can be one."""
+        """Make this board a USB MIDI device, where its board says it may
+        (a ``usb_midi`` role): starting one re-enumerates the USB port."""
         try:
-            import machine
-
-            if not hasattr(machine, "USBDevice"):
-                return False
-            from midiports import usb_device
+            import board_peripherals as bp
         except ImportError:
             return False
+        if "usb_midi" not in getattr(bp, "PERIPHERALS", ()):
+            return False
         try:
-            port, _out = usb_device.ports()
+            port, _out = bp.usb_midi()
         except Exception as e:
             self.why = "the USB MIDI device didn't start: %s" % (e,)
             return True
