@@ -164,7 +164,7 @@ def main(scope):
         found = banks.candidates(banks.folders(desktop), banks.getenv("SOUNDFONT"))
         if not found:
             st["error"] = ("No SoundFont. Put a .sf2 in ~/soundfonts, or set SOUNDFONT to one." if desktop else
-                           "No SoundFont. Put a .sf2 in %s or %s." % (banks.SD_SOUNDFONTS, banks.FLASH_SOUNDFONTS))
+                           "No SoundFont, so no sound. Put a .sf2 in %s or %s." % (banks.SD_SOUNDFONTS, banks.FLASH_SOUNDFONTS))
             return None
         return found
 
@@ -828,7 +828,8 @@ def main(scope):
                 st["midi"] = watch.text
                 st["midi_told"] = False
                 if watch.text:
-                    status.set_text(watch.text)
+                    # Without a bank the keys play nothing: say that, not just who is plugged in.
+                    status.set_text(watch.text if st["module"] is not None or not st["error"] else st["error"])
         elif st["port"] is not None:
             status.set_text(st["midi"])
             setup_timer.deinit()
@@ -852,6 +853,8 @@ def main(scope):
 
     scope.on_close(close)
     found = find_banks()
+    if found is None and st["error"]:
+        status.set_text(st["error"])  # plain on the status line too: keys play nothing without a bank
     if found is not None and len(found) == 1:
         start_audio(found[0][0])
     elif found:
