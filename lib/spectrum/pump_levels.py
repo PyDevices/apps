@@ -22,7 +22,7 @@ lifts the top octaves a little per octave above ``TILT_FROM_HZ``, since music
 has far less energy up there than a bar chart would like.
 """
 
-from time import ticks_diff, ticks_ms
+from multimer import ticks_diff, ticks_ms
 
 import audiometer
 
