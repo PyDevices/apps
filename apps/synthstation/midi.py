@@ -5,7 +5,9 @@
 
 On a board with a USB host port that's every MIDI device plugged into it,
 merged by ``midiports.usb_host.all_ports()``; devices plugged in later are
-heard too. On Windows and Linux it's every MIDI input port the computer
+heard too. A board without one, whose USB port can be a device
+(``machine.USBDevice``), becomes a USB MIDI device the computer plays,
+through ``midiports.usb_device``. On Windows and Linux it's every MIDI input port the computer
 has, through ``midiports.windows`` or ``midiports.linux``. In a browser it's
 every MIDI input the browser offers, through ``midiports.webmidi``.
 
@@ -39,7 +41,7 @@ def _name(dev):
 class Inputs:
     """The open MIDI inputs, read together.
 
-    ``kind`` is ``"usb"``, ``"desktop"``, ``"web"`` or None when there's nothing to
+    ``kind`` is ``"usb"``, ``"device"``, ``"desktop"``, ``"web"`` or None when there's nothing to
     open; ``why`` then says why in a sentence. ``names()`` lists the
     devices heard now.
     """
@@ -88,8 +90,29 @@ class Inputs:
             self.ports = [port]
             self.kind = "usb"
             return self
+        if self._open_device():
+            return self
         self._open_desktop()
         return self
+
+    def _open_device(self):
+        """Make this board a USB MIDI device, where its port can be one."""
+        try:
+            import machine
+
+            if not hasattr(machine, "USBDevice"):
+                return False
+            from midiports import usb_device
+        except ImportError:
+            return False
+        try:
+            port, _out = usb_device.ports()
+        except Exception as e:
+            self.why = "the USB MIDI device didn't start: %s" % (e,)
+            return True
+        self.ports = [port]
+        self.kind = "device"
+        return True
 
     def _open_desktop(self):
         platform = getattr(sys, "platform", "")
@@ -143,6 +166,8 @@ class Inputs:
             return [_name(d) for d in getattr(self.ports[0], "devices", ())]
         if self.kind == "web":
             return self.ports[0].names
+        if self.kind == "device":
+            return ["USB MIDI"]
         return list(self._desktop_names)
 
     def poll(self, parser):

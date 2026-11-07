@@ -11,7 +11,7 @@ the root too. By default the root is:
 Linux           ``$XDG_DATA_HOME/appkit``, or ``~/.local/share/appkit``
 Windows         ``%LOCALAPPDATA%\\appkit``
 macOS           ``~/Library/Application Support/appkit``
-a board         ``/data``
+a board         ``/data`` (``/flash/data`` on an STM32, whose ``/`` only holds mounts)
 the browser     ``/data``
 ==============  ==========================================================
 
@@ -62,7 +62,9 @@ def default_root(platform=None, implementation=None, getenv=None):
     if getenv is None:
         getenv = _getenv
     if not desktop(platform, implementation):
-        return "/data"
+        # The stm32 port's "/" is only where /flash and /sd are mounted, and
+        # a folder can't be made there.
+        return "/flash/data" if platform == "pyboard" else "/data"
     explicit = getenv("APPKIT_DATA")
     if explicit:
         return explicit

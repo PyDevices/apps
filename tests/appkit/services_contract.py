@@ -436,6 +436,7 @@ def data_root_follows_each_system():
         ("linux", "cpython", {"HOME": "/home/u", "APPKIT_DATA": "/elsewhere"}, "/elsewhere"),
         ("esp32", "micropython", {}, "/data"),
         ("rp2", "micropython", {"APPKIT_DATA": "/elsewhere"}, "/data"),
+        ("pyboard", "micropython", {}, "/flash/data"),
         ("Espressif", "circuitpython", {}, "/data"),
         ("webassembly", "micropython", {"HOME": "/home/u"}, "/data"),
         ("emscripten", "cpython", {"HOME": "/home/u"}, "/data"),
