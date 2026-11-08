@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.2.dev0
+
+- Wake word: the app listens through medialink.wakeword and tflite.
+- `appkit.run()` starts the folder's own Home when it has one, and keeps a scanned Home.
+- Spectrum runs on CPython and moves every frame on a desktop window.
+- midiEngine says on the status line when the sound can't start.
+
 ## 0.1.1
 
 - midiEngine hears every MIDI input on a computer, and on a MicroPython without a
