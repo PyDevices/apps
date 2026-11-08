@@ -9,11 +9,12 @@ a webcam's, is downmixed as the packets land); one without 16 kHz is
 taken at 48, 32 or 24 kHz and filtered down (``feed.py``). The host starts
 at high speed, which reaches a webcam's mic behind the board's hub, and
 if no mic turns up it starts again at full speed, which is how a
-full-speed mic behind the hub is reached. It needs pydevices' ``usb-core``
-and ``usb-host-audio``.
+full-speed mic behind the hub is reached. It needs pydevices' ``usb-core``,
+``usb-host-audio`` and ``medialink``, and firmware built with ``tflite`` and
+audiodsp's ``audiofeatures``.
 The model, ``hey_jarvis.json``, loads from the app's data folder
 (``/data/wake``), ``/models``, or the SD card's ``/models`` (read-only,
-unmounted again at once: the model keeps its own copy).
+unmounted again at once: the model is read in before that).
 """
 
 import os
@@ -37,14 +38,14 @@ state = None  # for the console
 
 
 def _load_model(folder):
-    import wakeword
+    from medialink.wakeword import MicroWakeWord
 
     for where in (folder, "/models"):
         try:
             os.stat(where + "/" + MODEL)
         except OSError:
             continue
-        return wakeword.load(where + "/" + MODEL)
+        return MicroWakeWord(where + "/" + MODEL)
     import board_peripherals as bp
 
     try:
@@ -55,7 +56,7 @@ def _load_model(folder):
         os.mount(card, "/sd", readonly=True)
         mounted = True
     try:
-        return wakeword.load("/sd/models/" + MODEL)
+        return MicroWakeWord("/sd/models/" + MODEL)
     finally:
         if mounted:
             os.umount("/sd")
@@ -65,17 +66,19 @@ def _load_model(folder):
 def main(scope):
     global state
     try:
+        import audiofeatures  # noqa: F401
+        import tflite  # noqa: F401
         import usb.core
-        import wakeword  # noqa: F401
+        from medialink.wakeword import MicroWakeWord  # noqa: F401
         from usb.host.audio import Microphone  # noqa: F401
 
         usb.core.start  # PyUSB on a desktop has no host to start
     except (ImportError, AttributeError) as e:
         ui.missing(
             scope,
-            "missing: wakeword or usb host",
-            "Wake word needs the board's wakeword module and its USB host with usb-host-audio, "
-            "for a USB microphone: %s." % (e,),
+            "missing: tflite, audiofeatures, medialink or usb host",
+            "Wake word needs firmware with tflite and audiofeatures, the medialink package, and the "
+            "board's USB host with usb-host-audio, for a USB microphone: %s." % (e,),
         )
         return
     scr = scope.root
@@ -119,9 +122,7 @@ def main(scope):
 
             usb.core.stop()
             st["host"] = None
-        if st["ww"] is not None:
-            st["ww"].close()
-            st["ww"] = None
+        st["ww"] = None
 
     scope.on_close(close)
 
@@ -193,7 +194,7 @@ def main(scope):
             if not n:
                 return
             for pcm in fd.push(memoryview(buf)[:n]):
-                if ww.process(pcm):
+                if ww.feed(pcm, feed.MODEL_RATE, 1):
                     hit()
                 if ww.probability > st["best"]:
                     st["best"] = ww.probability
