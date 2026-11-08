@@ -19,6 +19,9 @@ from .shell import Shell
 def run(name=None, folder="apps", *, data_root=None):
     """Run the apps in *folder*: a home screen listing them, or app *name* alone.
 
+    The home screen is the folder's own app named ``home`` when it has one,
+    and otherwise appkit's list of buttons, ``appkit.home``.
+
     It ends in the main-thread loop, `serve`, and returns the
     ``Launcher`` when the program quits. In a browser, where the page has
     the main thread, it returns the launcher at once. *data_root* moves
@@ -33,10 +36,17 @@ def run(name=None, folder="apps", *, data_root=None):
     launcher = Launcher(app)
     launcher.scan(folder)
     if name is None:
-        launcher.add("home", "appkit.home")
-        launcher.home = "home"
+        _use_home(launcher)
     launcher.shell = Shell(launcher)
     launcher.boot(name)
     if host() != "browser":
         serve(app)
     return launcher
+
+
+def _use_home(launcher):
+    """Make ``home`` the launcher's home screen: the folder's own app named
+    home when the scan found one, else appkit's list of buttons."""
+    if "home" not in launcher.names:
+        launcher.add("home", "appkit.home")
+    launcher.home = "home"

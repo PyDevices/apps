@@ -305,6 +305,21 @@ def restarts_in_a_row_are_bounded():
 
 
 @check
+def run_keeps_a_scanned_home():
+    import appkit
+
+    la = L.Launcher(_app())
+    la.scan(_dir + _sep + "sample_home" + _sep + "apps")
+    appkit._use_home(la)
+    expect(la.home == "home", "home is %r" % (la.home,))
+    expect(la._apps["home"] == "apps.home", "the scanned home was replaced by %r" % (la._apps["home"],))
+    la = L.Launcher(_app())
+    la.scan(_dir + _sep + "sample_set" + _sep + "apps")
+    appkit._use_home(la)
+    expect(la._apps["home"] == "appkit.home", "a folder without home got %r" % (la._apps["home"],))
+
+
+@check
 def pending_app_round_trip():
     # On a board this is the real RTC memory (or /next_app), without the reset.
     expect(L.host() in ("desktop", "cpython", "board"), "host %r" % (L.host(),))
