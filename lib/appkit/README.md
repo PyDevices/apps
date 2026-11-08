@@ -185,6 +185,9 @@ hiding the other. When `apps/` has no `__init__.py`, `scan()` makes one;
 where it can't (a read-only filesystem) it stops with an error saying to
 add an empty one.
 
+When `apps/` holds an app named `home`, `appkit.run()` starts that as the
+home screen instead of its own list of buttons.
+
 `appkit.run("hello")` runs one app on its own, with the whole screen and no
 home screen. An app set that wants its own home screen, chrome or launcher
 setup builds a `Launcher` itself. Its `Shell` subclass gives apps a smaller
