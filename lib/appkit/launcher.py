@@ -80,6 +80,9 @@ PROBE_LIMIT = 1 << 20
 
 MICROPYTHON = sys.implementation.name == "micropython"
 
+#: Whether this host can read its heap, and so checks it after a close.
+_HEAP = hasattr(gc, "mem_free")
+
 
 def _print_exc(exc):
     pe = getattr(sys, "print_exception", None)
@@ -349,9 +352,14 @@ def _browser_take(clear=True):
     return str(name), count, (str(path) if path else None)
 
 
+#: True while a launcher's scheduled start (`Launcher._resume`) runs.
+_resuming = False
+
+
 def _in_callback():
-    """True while multimer is delivering timer callbacks."""
-    return bool(getattr(multimer._dispatch, "_in_deliver", False))
+    """True while multimer is delivering timer callbacks, or a launcher's
+    scheduled start runs."""
+    return _resuming or bool(getattr(multimer._dispatch, "_in_deliver", False))
 
 
 def restart_into(name, count=1, path=None):
@@ -569,7 +577,23 @@ class Launcher:
         #: How the last switch went: ``(how, ms, free)`` with how one of
         #: ``"start"``, ``"switch"``, ``"restart"``.
         self.last = None
+        #: The app a `request` is waiting to switch to, or None.
         self._pending = None
+        # The request timers and their callback are made here, so a request
+        # allocates nothing. Made while an app runs, they would land among its
+        # objects and, still alive when the heap is checked after its close,
+        # split the free space it left. Two, because a request made while one
+        # is firing (an app's main() switching on) can't re-arm that one.
+        self._request_timers = (
+            multimer.Timer(-1, name="launcher.switch"),
+            multimer.Timer(-1, name="launcher.switch"),
+        )
+        self._firing = None
+        self._on_request_cb = self._on_request
+        self._resume_cb = self._resume
+        #: ``(t0, reason, free)`` from closing an app for a request whose
+        #: heap check and start are still to come; see `_on_request`.
+        self._closed = None
         self._restarting = False
 
     # -- registry -------------------------------------------------------
@@ -723,17 +747,60 @@ class Launcher:
         """
         if name not in self._apps:
             raise ValueError("no app named %r" % (name,))
-        self._cancel_request()
         # Under a hold: a host that delivers between bytecodes could otherwise
-        # fire it before it's stored, and the fired timer would stay pending.
+        # fire it before the name is stored.
         with multimer.hold():
-            self._pending = multimer.after(1, lambda t: self.switch(name), name="launcher.switch")
+            self._cancel_request()
+            self._pending = name
+            a, b = self._request_timers
+            t = b if self._firing is a else a
+            t.init(mode=multimer.Timer.ONE_SHOT, period=1, callback=self._on_request_cb)
+
+    def _on_request(self, timer):
+        name = self._pending
+        if name is None:
+            return
+        self._firing = timer
+        try:
+            if self.scope is not None and _HEAP and name not in self._scripts:
+                # Close the app now, and check the heap and start the next one
+                # once the calls that delivered this one have returned. Where
+                # an interpreter keeps a call's frame on the heap, those calls
+                # began while the old app ran, so their frames sit among its
+                # objects, and while they last they split the free space the
+                # check measures. The main loop's next turn has none of them
+                # below it; without the loop, a scheduled call has fewer.
+                t0 = multimer.ticks_ms()
+                self._closed = (t0,) + self._close_running()
+                if not foreground.next_turn(self._resume_cb, False):
+                    try:
+                        multimer.schedule(self._resume_cb, True)
+                    except RuntimeError:  # the scheduler's queue is full
+                        self.request(name)
+                return
+            self.switch(name)
+        finally:
+            self._firing = None
+
+    def _resume(self, scheduled):
+        # The second half of a request `_on_request` began: the old app is
+        # closed, so check the heap and start the next one, unless a newer
+        # request's switch already has. *scheduled* is True from a scheduled
+        # call, which swallows a soft reset as a timer callback does.
+        global _resuming
+        name = self._pending
+        if name is None or self._closed is None:
+            return
+        _resuming = scheduled
+        try:
+            self.switch(name)
+        finally:
+            _resuming = False
 
     def _cancel_request(self):
-        p = self._pending
         self._pending = None
-        if p is not None:
-            p.deinit()
+        for t in self._request_timers:
+            t.deinit()
 
     def switch(self, name):
         """Close the running app and start app *name*.
@@ -750,25 +817,19 @@ class Launcher:
         self._cancel_request()
         if name in self._scripts:
             return self._run_script(name)
-        t0 = multimer.ticks_ms()
-        reason = None
-        old = self.scope
-        how = "switch" if old is not None else "start"
-        if old is not None:
-            self.scope = None
-            self.current = None
-            try:
-                problems = old.close()
-            except Exception as exc:
-                problems = [_error("close() of %r raised" % (old.name,), exc)]
-            self.problems = list(problems)
-            if problems:
-                reason = "%r did not close cleanly: %s" % (old.name, problems[0])
-            # close() has just collected and read it.
-            free = getattr(old, "free_after_close", None)
-            old = problems = None
+        closed = self._closed
+        self._closed = None
+        if closed is not None:  # a request closed the app already
+            t0, reason, free = closed
+            how = "switch"
+        elif self.scope is not None:
+            t0 = multimer.ticks_ms()
+            reason, free = self._close_running()
+            how = "switch"
         else:
-            free = None
+            t0 = multimer.ticks_ms()
+            reason = free = None
+            how = "start"
         if free is None:
             # Before the baseline: its probe allocates, and a buffer it leaves
             # briefly reachable mustn't count against the first app.
@@ -799,9 +860,26 @@ class Launcher:
         self.last = (how, multimer.ticks_diff(multimer.ticks_ms(), t0), free)
         return how
 
+    def _close_running(self):
+        """Close the running app; return ``(reason to restart or None, free heap after)``."""
+        old = self.scope
+        self.scope = None
+        self.current = None
+        reason = None
+        try:
+            problems = old.close()
+        except Exception as exc:
+            problems = [_error("close() of %r raised" % (old.name,), exc)]
+        self.problems = list(problems)
+        if problems:
+            reason = "%r did not close cleanly: %s" % (old.name, problems[0])
+        # close() has just collected and read it.
+        return reason, getattr(old, "free_after_close", None)
+
     def _run_script(self, name):
         """Close the running app and restart the program into script *name*."""
         module, path = self._scripts[name]
+        self._closed = None
         old = self.scope
         self.scope = None
         self.current = None
@@ -864,6 +942,7 @@ class Launcher:
     def stop(self):
         """Close the running app and cancel a pending switch."""
         self._cancel_request()
+        self._closed = None
         old = self.scope
         self.scope = None
         self.current = None
