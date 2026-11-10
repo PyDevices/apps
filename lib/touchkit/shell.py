@@ -115,7 +115,12 @@ class TouchShell(Shell):
         hdr.set_style_bg_color(ui.PANEL, 0)
         hdr.set_style_bg_opa(lv.OPA.COVER, 0)
         title = self.launcher.info.get(scope.name, {}).get("title", scope.name)
-        t = ui.label(hdr, title, ui.big, ui.ACCENT)
+        # A narrow screen gets the smaller font, and a title that still
+        # doesn't fit ends in dots rather than running off the edge.
+        f = ui.big if w >= 480 else ui.font
+        t = ui.label(hdr, title, f, ui.ACCENT)
+        t.set_long_mode(lv.label.LONG_MODE.DOTS)
+        t.set_size(w - ui.HOME_W - 40, f.line_height)
         t.align(lv.ALIGN.LEFT_MID, ui.HOME_W + 24, 0)
         status = ui.label(hdr, "", ui.small, ui.MUTED)
         status.align(lv.ALIGN.RIGHT_MID, -16, 0)

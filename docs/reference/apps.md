@@ -15,6 +15,6 @@ What each app here does. Apps that run on a board are also listed in the
 | [Cast](../../apps/cast) | A screen of its own on a Roku or a Windows PC over Miracast or HLS, with the panel as its remote. |
 | [Stompbox](../../apps/stompbox) | A guitar or a WAV clip through an airwindows effect, with its knobs on screen. Needs a firmware built with audioairwindows. |
 | [Sound card](../../apps/card) | The board is a USB speaker for a computer, with a spectrum of what plays. |
-| [System](../../apps/system) | Free heap, the last switches, and what the apps left running. |
+| [System](../../apps/system) | Whether the board is well, at a glance: a turning arc and frame rate, a touch test, memory, boot, network, audio and what the board is; `stats()` gives the same from the REPL. |
 | [Wake word](../../apps/wake) | Listens on a USB microphone for "Hey Jarvis" and flashes on each detection. |
 | [Ostinato](../../apps/ostinato) | A pattern sequencer and song editor in a browser or on the desktop. |
