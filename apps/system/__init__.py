@@ -5,7 +5,7 @@
 
 The arc turns once a second, stepping every frame, with the seconds counted in
 its middle: when the arc and the count drift apart, so do the timers. Beside
-it are the display's frame rate and a button that counts taps and shows where
+it are the display's frame rate, the interpreter and its version, and a button that counts taps and shows where
 the last touch landed, so touch turned the wrong way on a rotated panel shows
 at once. The moving parts share one card, so the screen redraws as little as
 it can while it measures itself.
@@ -332,7 +332,6 @@ ROWS = (
     ("Host", lambda s: s["hostname"] or "-"),
     ("CPU", _cpu),
     ("Screen", _screen),
-    ("Python", lambda s: s["python"]),
 )
 
 
@@ -443,6 +442,9 @@ def main(scope):
     side = _box(live, lv.FLEX_FLOW.COLUMN, pad // 2) if across else live
     fps_lbl = ui.label(side, _fps_text(True), None, ui.MUTED)
     fps_lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+    # The interpreter sits with the moving parts, which no screen drops, so
+    # twin boards on different Pythons tell apart at a glance. It never changes.
+    ui.label(side, _identity()["python"])
 
     def tapped():
         _st["taps"] += 1
