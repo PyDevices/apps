@@ -11,10 +11,11 @@ at once. The moving parts share one card, so the screen redraws as little as
 it can while it measures itself.
 
 The rows go in order of importance: memory, boot, network, audio, then what
-the board is. A screen too small for all of them drops them from the end.
-The font is the largest the firmware has at or below a twentieth of the
-screen's short side, and the cards sit side by side only when the screen is
-more than 1.5 times wider than tall.
+the board is. The moving card's font is the largest the firmware has at or
+below a twentieth of the screen's short side. The rows take the largest at or
+below that which fits them all; a screen too small for all of them at the
+smallest font drops them from the end. The cards sit side by side only when
+the screen is more than 1.5 times wider than tall.
 
 On a screen 400 pixels or more on its short side, More has the last app
 switches, the restarts, the largest free block and Wi-Fi setup. The heap line
@@ -338,15 +339,21 @@ ROWS = (
 # -- the screen ------------------------------------------------------------------------
 
 
+def _fonts(limit):
+    """The Montserrat sizes this firmware has at or below *limit* pixels,
+    smallest first; the smallest it has when none is that small."""
+    fonts = []
+    for size in _SIZES:
+        font = getattr(lv, "font_montserrat_%d" % size, None)
+        if font is not None and (not fonts or size <= limit):
+            fonts.append(font)
+    return fonts or [lv.font_default()]
+
+
 def _font_for(short):
     """The largest Montserrat this firmware has at or below a twentieth of
     *short*, or its smallest when none is that small."""
-    best = None
-    for size in _SIZES:
-        font = getattr(lv, "font_montserrat_%d" % size, None)
-        if font is not None and (best is None or size <= short // 20):
-            best = font
-    return best or lv.font_default()
+    return _fonts(short // 20)[-1]
 
 
 def _card(parent, flow, pad):
@@ -465,14 +472,13 @@ def main(scope):
     values = []
     for key, _fn in ROWS:
         row = ui.plain(lv.obj(info))
-        row.set_size(lv.pct(100), line_h)
+        row.set_width(lv.pct(100))
         row.set_flex_flow(lv.FLEX_FLOW.ROW)
         row.set_style_pad_column(pad, 0)  # a key never runs into its value
         row.add_flag(lv.obj.FLAG.EVENT_BUBBLE)
         ui.label(row, key, None, ui.MUTED)
         v = lv.label(row)
         v.set_flex_grow(1)
-        v.set_height(line_h)
         v.set_long_mode(lv.label.LONG_MODE.DOTS)
         v.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
         values.append(v)
@@ -493,8 +499,22 @@ def main(scope):
         arc.set_style_arc_width(max(4, d // 12), lv.PART.MAIN)
         arc.set_style_arc_width(max(4, d // 12), lv.PART.INDICATOR)
         page.update_layout()
-        # A row that would run past the card's foot goes, and every row after it.
+        # The rows take the largest font at or below the screen's that fits
+        # them all in the room left; only the smallest one drops rows.
         bottom = info.get_content_height()
+        gap = pad // 2
+        sizes = _fonts(short // 20)
+        row_font = sizes[0]
+        for f in sizes:
+            if len(ROWS) * (f.line_height + gap) - gap <= bottom:
+                row_font = f
+        info.set_style_text_font(row_font, 0)
+        for i in range(info.get_child_count()):
+            row = info.get_child(i)
+            row.set_height(row_font.line_height)
+            row.get_child(1).set_height(row_font.line_height)
+        page.update_layout()
+        # A row that would still run past the card's foot goes, and every row after it.
         for i in range(info.get_child_count()):
             row = info.get_child(i)
             if row.get_y() + row.get_height() > bottom:
