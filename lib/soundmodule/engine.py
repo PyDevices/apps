@@ -31,7 +31,9 @@ i`` (102 to 117, controllers MIDI leaves undefined), at the instrument's
 own 0-127 scale. Volume (CC7) reaches a SoundFont part as CC7, which plays
 it as the square law GM modules use (40 log10 of CC7/127 in dB, as
 Expression), and pan (CC10) its Pan macro; on an instrument part both set
-its level and pan in the mixer.
+its level and pan in the mixer. Expression (CC11) is the same square law on
+every part, multiplied with volume, and a part keeps it when its instrument is
+made again (a bank or program change to another instrument, or All Sound Off).
 The sustain pedal (CC64) holds notes for every part, and Reset All
 Controllers (121) also puts Expression (CC11) back to 127 and the mod wheel
 and channel pressure to 0, as GM's RP-015 asks.
@@ -154,6 +156,7 @@ DEVICE_ID = 0x7F
 
 DEFAULT_VOLUME = 100
 DEFAULT_PAN = 64
+DEFAULT_EXPRESSION = 127
 # The soundfont instruments' macros that CC7 and CC10 drive.
 VOLUME_MACRO, PAN_MACRO = 0, 4
 DEFAULT_REVERB = 40  # GM Level 1's power-on reverb send; chorus is 0
@@ -306,6 +309,7 @@ class Part:
         self.bank_msb = 0
         self.bank_lsb = 0
         self.volume = DEFAULT_VOLUME
+        self.expression = DEFAULT_EXPRESSION
         self.pan = DEFAULT_PAN
         self.sustain = False
         self.held = set()
@@ -584,6 +588,7 @@ class Module:
             if index in inst.patches:
                 inst.program_change(index)
             inst.control_change(CC_VOLUME, part.volume)
+            inst.control_change(CC_EXPRESSION, part.expression)
             inst.set_macro(PAN_MACRO, part.pan)
         else:
             if part.bank_lsb in inst.patches:
@@ -591,11 +596,13 @@ class Module:
             self._level(part)
 
     def _level(self, part):
-        """An instrument part's volume and pan, on its mixer voice."""
+        """An instrument part's volume, expression and pan, on its mixer
+        voice: volume and expression multiply, and the product is squared,
+        as a SoundFont part plays them."""
         if not self._own_voice(part):
             return
         voice = self.mixer.voice[part.channel]
-        v = part.volume / 127.0
+        v = part.volume / 127.0 * part.expression / 127.0
         voice.level = PART_LEVEL * v * v
         try:
             voice.panning = max(-1.0, min(1.0, (part.pan - 64) / 63.0))
@@ -771,6 +778,13 @@ class Module:
                     inst.control_change(CC_VOLUME, value)
                 else:
                     self._level(part)
+        elif cc == CC_EXPRESSION:
+            part.expression = value
+            if inst is not None:
+                if part.inst_name in (MELODIC, DRUMS):
+                    inst.control_change(CC_EXPRESSION, value)
+                else:
+                    self._level(part)
         elif cc == CC_PAN:
             part.pan = value
             if inst is not None:
@@ -874,11 +888,14 @@ class Module:
         self._release_sustained(part)
         part.bend = BEND_CENTER
         part.rpn = RPN_NULL
+        part.expression = DEFAULT_EXPRESSION
         inst = part.inst
         if inst is not None:
             inst.pitch_bend(BEND_CENTER)
-            if part.inst_name in (MELODIC, DRUMS):
-                inst.control_change(CC_EXPRESSION, 127)
+            if part.inst_name not in (MELODIC, DRUMS):
+                self._level(part)
+            else:
+                inst.control_change(CC_EXPRESSION, DEFAULT_EXPRESSION)
                 inst.control_change(CC_MOD_WHEEL, 0)
                 if hasattr(inst, "channel_pressure"):
                     inst.channel_pressure(0)
