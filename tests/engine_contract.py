@@ -34,7 +34,8 @@ from soundmodule import engine, pipes, run  # noqa: E402
 PLANTS = ("bank-ignored", "lsb-ignored", "eager-bank", "macro-shift", "level-linear", "identity-wrong",
           "identity-any-device", "tally-final", "pipe-drops-peek", "frames-miscounted",
           "rpn-ignored", "rpn-null-ignored", "rpn-lsb-kept", "reset-keeps-bend", "reset-keeps-expression",
-          "fixed-range-unscaled", "reset-keeps-rpn", "volume-as-macro", "sends-last-wins", "fill-skipped")
+          "fixed-range-unscaled", "reset-keeps-rpn", "volume-as-macro", "sends-last-wins", "fill-skipped",
+          "expression-passthrough", "expression-forgotten", "expression-level-ignored")
 
 RESULTS = [0, 0]
 
@@ -237,6 +238,40 @@ def check_soundfont_volume():
     inst = m.parts[0].inst
     check("CC7 reaches a SoundFont part as CC7, for its square law", (7, 50) in inst.ccs and 0 not in inst.macros,
           "ccs %r, macros %r" % (inst.ccs, inst.macros))
+
+
+def check_expression():
+    m, made = module()
+    select(m, 2, engine.BANK_INSTRUMENTS, 0, 0)
+    m.feed(bytes((0xB2, 7, 64, 0xB2, 11, 64)))
+    voice = m.mixer.voice[2]
+    want = engine.PART_LEVEL * (64 / 127.0 * 64 / 127.0) ** 2
+    check("CC11 and CC7 multiply, squared, on an instrument part's level", abs(voice.level - want) < 1e-6,
+          "%r, not %r" % (voice.level, want))
+    m.feed(bytes((0xB2, 121, 0)))
+    want = engine.PART_LEVEL * (64 / 127.0) ** 2
+    check("Reset All Controllers puts an instrument part's Expression back", abs(voice.level - want) < 1e-6,
+          "%r, not %r" % (voice.level, want))
+    m.feed(bytes((0xB2, 11, 32, 0xB2, 120, 0)))
+    want = engine.PART_LEVEL * (64 / 127.0 * 32 / 127.0) ** 2
+    check("an instrument part keeps its Expression through All Sound Off", abs(voice.level - want) < 1e-6,
+          "%r, not %r" % (voice.level, want))
+
+    m, made = module()
+    m.feed(bytes((0x90, 60, 100, 0xB0, 11, 32)))
+    inst = m.parts[0].inst
+    check("CC11 reaches a SoundFont part as CC11", (11, 32) in inst.ccs, repr(inst.ccs))
+    inst.ccs = []
+    m.feed(bytes((0xB0, 120, 0)))
+    check("a SoundFont part keeps its Expression through All Sound Off", (11, 32) in inst.ccs, repr(inst.ccs))
+    select(m, 0, engine.BANK_INSTRUMENTS, 0, 0)
+    select(m, 0, 0, 0, 4)
+    again = made[-1]
+    check("a SoundFont part made again has its Expression", again is not inst and (11, 32) in again.ccs,
+          repr(again.ccs))
+    m.feed(bytes((0xF0, 0x7E, 0x7F, 0x09, 0x01, 0xF7)))
+    check("GM System On puts Expression back to 127", m.parts[0].expression == 127 and again.ccs[-1] == (11, 127),
+          "%r, %r" % (m.parts[0].expression, again.ccs[-2:]))
 
 
 def check_identity():
@@ -552,6 +587,35 @@ def plant(name):
                 part.inst.pitch_bend(engine.BEND_CENTER)
 
         M.reset_controllers = reset_controllers
+    elif name == "expression-passthrough":
+        old = M.control
+
+        def control(self, part, cc, value):
+            if cc == engine.CC_EXPRESSION:
+                if part.inst is not None:
+                    part.inst.control_change(cc, value)
+                return
+            old(self, part, cc, value)
+
+        M.control = control
+    elif name == "expression-forgotten":
+        old = M._select
+
+        def _select(self, part):
+            kept = part.expression
+            part.expression = engine.DEFAULT_EXPRESSION
+            old(self, part)
+            part.expression = kept
+
+        M._select = _select
+    elif name == "expression-level-ignored":
+        def _level(self, part):
+            if self._own_voice(part):
+                v = part.volume / 127.0
+                self.mixer.voice[part.channel].level = engine.PART_LEVEL * v * v
+                self.mixer.voice[part.channel].panning = max(-1.0, min(1.0, (part.pan - 64) / 63.0))
+
+        M._level = _level
     elif name == "fixed-range-unscaled":
         M._wheel = lambda self, part: part.bend
     elif name == "reset-keeps-rpn":
@@ -589,6 +653,7 @@ def main(argv):
     check_macro_ccs()
     check_volume_pan()
     check_soundfont_volume()
+    check_expression()
     check_identity()
     check_tally()
     check_rpn()

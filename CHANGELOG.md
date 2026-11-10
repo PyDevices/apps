@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Sound module: Expression (CC11) works on instrument parts as well as SoundFont parts, and a part keeps it when its instrument is made again, by a bank change or All Sound Off.
+
 ## 0.1.2.dev0
 
 - Wake word: the app listens through medialink.wakeword and tflite.
