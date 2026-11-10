@@ -17,6 +17,11 @@ below that which fits them all; a screen too small for all of them at the
 smallest font drops them from the end. The cards sit side by side only when
 the screen is more than 1.5 times wider than tall.
 
+On a round screen everything goes in one centred column, each line no wider
+than the circle is at its height, and the rows go on down while the circle
+leaves them two fifths of its width. A driver says its panel is round with a
+``round`` attribute; a GC9A01's is taken to be.
+
 On a screen 400 pixels or more on its short side, More has the last app
 switches, the restarts, the largest free block and Wi-Fi setup. The heap line
 there is the one to watch: switching back and forth all day should leave
@@ -365,6 +370,7 @@ def _font_for(short):
 def _card(parent, flow, pad):
     c = lv.obj(parent)
     c.set_style_bg_color(ui.PANEL, 0)
+    c.set_style_text_color(ui.WHITE, 0)
     c.set_style_border_width(0, 0)
     c.set_style_radius(pad * 2, 0)
     c.set_style_pad_all(pad, 0)
@@ -373,6 +379,134 @@ def _card(parent, flow, pad):
     c.remove_flag(lv.obj.FLAG.SCROLLABLE)
     c.add_flag(lv.obj.FLAG.EVENT_BUBBLE)  # a press anywhere shows where it landed
     return c
+
+
+def _dark(obj):
+    """System's own colours on *obj*, so it reads the same whether or not the
+    shell put a dark theme on the display."""
+    obj.set_style_bg_color(ui.BG, 0)
+    obj.set_style_bg_opa(lv.OPA.COVER, 0)
+    obj.set_style_text_color(ui.WHITE, 0)
+
+
+def _is_round():
+    """Whether the panel is round: its driver says so with ``round``, or it's
+    a GC9A01, a controller made for round panels."""
+    if display_drv is None or int(display_drv.width) != int(display_drv.height):
+        return False
+    r = getattr(display_drv, "round", None)
+    if r is None:
+        r = type(display_drv).__name__.upper().startswith("GC9A01")
+    return bool(r)
+
+
+def _round_page(root, size, font, big, pad, tapped, more=None):
+    """System on a round screen: one centred column, each line no wider than
+    the circle is at its height.
+
+    Returns ``(page, arc, seconds, fps, tap, touch, more, info, values)``:
+    *more* is the More button when *more* is given, and the rows are *info*'s
+    children. A row with too little of the circle left for it is hidden, as
+    the square layout hides the rows that don't fit.
+    """
+    page = ui.plain(lv.obj(root))
+    page.set_size(size, size)
+    page.set_style_text_font(font, 0)
+    page.add_flag(lv.obj.FLAG.CLICKABLE)
+    _dark(page)
+    r = size // 2
+    inner = r - pad  # everything keeps inside this circle
+    gap = max(2, pad // 2)
+
+    # As small as the square layout's smallest: an arc round the rim looked
+    # right, but its redraws halved the frame rate it was there to show.
+    d = max(4 * font.line_height, size // 4)
+    width = max(4, d // 12)
+    arc = lv.arc(page)
+    arc.set_size(d, d)
+    arc.set_bg_angles(0, 360)
+    arc.set_rotation(270)
+    arc.set_angles(0, 0)
+    arc.remove_style(None, lv.PART.KNOB)
+    arc.remove_flag(lv.obj.FLAG.CLICKABLE)
+    arc.set_style_arc_width(width, lv.PART.MAIN)
+    arc.set_style_arc_width(width, lv.PART.INDICATOR)
+
+    def room(y, h):
+        # The circle's width across the band from y to y + h, at its narrowest.
+        dy = max(abs(y - r), abs(y + h - r))
+        return 2 * int((inner * inner - dy * dy) ** 0.5) if dy < inner else 0
+
+    def place(obj, y, w):
+        # Centred at the first y, going down, where the circle is w wide.
+        h = obj.get_height()
+        while room(y, h) < w and y < r:
+            y += 1
+        obj.set_pos(r - w // 2, y)
+        return y + h + gap
+
+    def line(text, sample, font=None, color=None):
+        # A centred label as wide as *sample*, the widest text it will show.
+        lbl = ui.label(page, sample, font, color)
+        page.update_layout()
+        lbl.set_width(lbl.get_width())
+        lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+        lbl.set_text(text)
+        return lbl
+
+    # The count takes the big font only while four digits fit inside the arc.
+    seconds_lbl = ui.label(arc, "0000", big)
+    arc.update_layout()
+    if seconds_lbl.get_width() > d - 2 * width - 4:
+        seconds_lbl.set_style_text_font(font, 0)
+    seconds_lbl.set_text("0")
+    seconds_lbl.center()
+    fps_lbl = line(_fps_text(False), "88.8 fps, 88.8 ms, 100% busy", None, ui.MUTED)
+    python_lbl = line(_identity()["python"], _identity()["python"])
+    buttons = _box(page, lv.FLEX_FLOW.ROW, pad)
+    _, tap_lbl = _button(buttons, "Tap  0", pad, tapped)
+    more_btn = None
+    if more is not None:
+        more_btn, _ = _button(buttons, "More", pad, more)
+        more_btn.set_style_bg_color(ui.KEY, 0)
+    touch_lbl = ui.label(buttons, "touch 888, 888", None, ui.MUTED)
+    page.update_layout()
+    touch_lbl.set_width(touch_lbl.get_width())
+    touch_lbl.set_text("touch -")
+    page.update_layout()
+    y = r - inner
+    for obj in (arc, fps_lbl, python_lbl, buttons):
+        y = place(obj, y, obj.get_width())
+
+    # The rows, in order of importance, while the circle leaves them room.
+    info = ui.plain(lv.obj(page))
+    info.remove_flag(lv.obj.FLAG.CLICKABLE)  # the Tap button above it stays pressable
+    info.add_flag(lv.obj.FLAG.EVENT_BUBBLE)
+    info.set_pos(0, y)
+    info.set_size(size, size - y)
+    top = y
+    line_h = font.line_height
+    narrowest = size * 2 // 5
+    values = []
+    for key, _fn in ROWS:
+        w = room(y, line_h)
+        row = ui.plain(lv.obj(info))
+        row.set_size(max(w, narrowest), line_h)
+        row.set_pos(r - max(w, narrowest) // 2, y - top)
+        row.set_flex_flow(lv.FLEX_FLOW.ROW)
+        row.set_style_pad_column(pad, 0)
+        row.add_flag(lv.obj.FLAG.EVENT_BUBBLE)
+        ui.label(row, key, None, ui.MUTED)
+        v = lv.label(row)
+        v.set_flex_grow(1)
+        v.set_height(line_h)
+        v.set_long_mode(lv.label.LONG_MODE.DOTS)
+        v.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
+        values.append(v)
+        if w < narrowest:
+            row.add_flag(lv.obj.FLAG.HIDDEN)
+        y += line_h + gap
+    return page, arc, seconds_lbl, fps_lbl, tap_lbl, touch_lbl, more_btn, info, values
 
 
 def _box(parent, flow, gap):
@@ -414,6 +548,8 @@ def main(scope):
     big = _font_for(short * 2)
     pad = max(4, short // 40)
     landscape = W * 2 > H * 3  # side by side only when more than 1.5 times wider than tall
+    # A round panel gets its own layout when the app has the whole screen.
+    round_ = _is_round() and getattr(scope, "rect", (0, 0, W, H)) == (0, 0, scr.get_width(), scr.get_height())
     across = not landscape and W * 10 >= H * 9  # the live card's own long side
     timers = []
     # The meter goes on first, so the frame rate's two lines are there to lay out.
@@ -421,119 +557,127 @@ def main(scope):
     if not measuring and hasattr(display_drv, "measure_fps"):
         display_drv.measure_fps(True)
 
-    page = ui.plain(lv.obj(root))
-    page.set_size(W, H)
-    page.set_style_text_font(font, 0)
-    page.set_style_pad_all(pad, 0)
-    page.set_style_pad_gap(pad, 0)
-    page.set_flex_flow(lv.FLEX_FLOW.ROW if landscape else lv.FLEX_FLOW.COLUMN)
-    page.add_flag(lv.obj.FLAG.CLICKABLE)
-
-    # The live card: every moving part, so the dirty areas stay together.
-    live = _card(page, lv.FLEX_FLOW.ROW if across else lv.FLEX_FLOW.COLUMN, pad)
-    live.set_flex_align(lv.FLEX_ALIGN.SPACE_EVENLY, lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER)
-    if landscape:
-        live.set_size(W * 2 // 5, lv.pct(100))
-    else:
-        live.set_size(lv.pct(100), lv.SIZE_CONTENT)
-
-    arc = lv.arc(live)
-    arc.set_bg_angles(0, 360)
-    arc.set_rotation(270)
-    arc.set_angles(0, 0)
-    arc.remove_style(None, lv.PART.KNOB)
-    arc.remove_flag(lv.obj.FLAG.CLICKABLE)
-    seconds_lbl = ui.label(arc, "0", big)
-    seconds_lbl.center()
-
-    side = _box(live, lv.FLEX_FLOW.COLUMN, pad // 2) if across else live
-    fps_lbl = ui.label(side, _fps_text(True), None, ui.MUTED)
-    fps_lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-    # The interpreter sits with the moving parts, which no screen drops, so
-    # twin boards on different Pythons tell apart at a glance. It never changes.
-    ui.label(side, _identity()["python"])
-
     def tapped():
         _st["taps"] += 1
         tap_lbl.set_text("Tap  %d" % _st["taps"])
 
     _st["taps"] = 0
     _st["touch"] = None
-    # Beside the arc, the buttons share a line to keep the card low.
-    buttons = _box(side, lv.FLEX_FLOW.ROW, pad) if across else side
-    _, tap_lbl = _button(buttons, "Tap  0", pad, tapped)
-    touch_lbl = None if across else ui.label(side, "touch -", None, ui.MUTED)
-    more_btn = None
-    if short >= SMALL:
-        more_btn, _ = _button(buttons, "More", pad, lambda: show_more(True))
-        more_btn.set_style_bg_color(ui.KEY, 0)
-    if touch_lbl is None:
-        touch_lbl = ui.label(side, "touch -", None, ui.MUTED)
 
-    # The rows, in order of importance, as many as fit.
-    info = _card(page, lv.FLEX_FLOW.COLUMN, pad)
-    info.set_flex_grow(1)
-    if landscape:
-        info.set_height(lv.pct(100))
+    if round_:
+        more = (lambda: show_more(True)) if short >= SMALL else None
+        page, arc, seconds_lbl, fps_lbl, tap_lbl, touch_lbl, more_btn, info, values = _round_page(
+            root, W, font, big, pad, tapped, more
+        )
     else:
-        info.set_width(lv.pct(100))
-    line_h = font.line_height
-    values = []
-    for key, _fn in ROWS:
-        row = ui.plain(lv.obj(info))
-        row.set_width(lv.pct(100))
-        row.set_flex_flow(lv.FLEX_FLOW.ROW)
-        row.set_style_pad_column(pad, 0)  # a key never runs into its value
-        row.add_flag(lv.obj.FLAG.EVENT_BUBBLE)
-        ui.label(row, key, None, ui.MUTED)
-        v = lv.label(row)
-        v.set_flex_grow(1)
-        v.set_long_mode(lv.label.LONG_MODE.DOTS)
-        v.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
-        values.append(v)
+        page = ui.plain(lv.obj(root))
+        page.set_size(W, H)
+        page.set_style_text_font(font, 0)
+        page.set_style_pad_all(pad, 0)
+        page.set_style_pad_gap(pad, 0)
+        page.set_flex_flow(lv.FLEX_FLOW.ROW if landscape else lv.FLEX_FLOW.COLUMN)
+        page.add_flag(lv.obj.FLAG.CLICKABLE)
+        _dark(page)
 
-    def size_arc():
-        # The arc takes the room the live card's other parts leave.
-        page.update_layout()
-        if across:
-            d = min(max(min(W, H) // 3, side.get_height()), W - side.get_width() - 6 * pad)
-        elif not landscape:  # a tall screen: the card is as high as it needs
-            d = min(W, H) * 2 // 5
+        # The live card: every moving part, so the dirty areas stay together.
+        live = _card(page, lv.FLEX_FLOW.ROW if across else lv.FLEX_FLOW.COLUMN, pad)
+        live.set_flex_align(lv.FLEX_ALIGN.SPACE_EVENLY, lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER)
+        if landscape:
+            live.set_size(W * 2 // 5, lv.pct(100))
         else:
-            used = sum(live.get_child(i).get_height() for i in range(1, live.get_child_count()))
-            gaps = (live.get_child_count() - 1) * (pad // 2)
-            d = min(live.get_content_width(), live.get_content_height() - used - gaps)
-        d = max(d, 4 * line_h)
-        arc.set_size(d, d)
-        arc.set_style_arc_width(max(4, d // 12), lv.PART.MAIN)
-        arc.set_style_arc_width(max(4, d // 12), lv.PART.INDICATOR)
-        page.update_layout()
-        # The rows take the largest font at or below the screen's that fits
-        # them all in the room left; only the smallest one drops rows.
-        bottom = info.get_content_height()
-        # The choice is by height alone: a value too wide for its row ends in
-        # dots. The gap between rows gives way, down to 2 px, before the font.
-        n = len(ROWS)
-        sizes = _fonts(short // 20)
-        row_font = sizes[0]
-        for f in sizes:
-            if n * f.line_height + (n - 1) * 2 <= bottom:
-                row_font = f
-        gap = max(2, min(pad // 2, (bottom - n * row_font.line_height) // (n - 1)))
-        info.set_style_pad_gap(gap, 0)
-        info.set_style_text_font(row_font, 0)
-        for i in range(info.get_child_count()):
-            row = info.get_child(i)
-            row.set_height(row_font.line_height)
-            row.get_child(1).set_height(row_font.line_height)
-        page.update_layout()
-        # A row that would still run past the card's foot goes, and every row after it.
-        for i in range(info.get_child_count()):
-            row = info.get_child(i)
-            if row.get_y() + row.get_height() > bottom:
-                row.add_flag(lv.obj.FLAG.HIDDEN)
+            live.set_size(lv.pct(100), lv.SIZE_CONTENT)
 
-    size_arc()
+        arc = lv.arc(live)
+        arc.set_bg_angles(0, 360)
+        arc.set_rotation(270)
+        arc.set_angles(0, 0)
+        arc.remove_style(None, lv.PART.KNOB)
+        arc.remove_flag(lv.obj.FLAG.CLICKABLE)
+        seconds_lbl = ui.label(arc, "0", big)
+        seconds_lbl.center()
+
+        side = _box(live, lv.FLEX_FLOW.COLUMN, pad // 2) if across else live
+        fps_lbl = ui.label(side, _fps_text(True), None, ui.MUTED)
+        fps_lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+        # The interpreter sits with the moving parts, which no screen drops, so
+        # twin boards on different Pythons tell apart at a glance. It never changes.
+        ui.label(side, _identity()["python"])
+
+        # Beside the arc, the buttons share a line to keep the card low.
+        buttons = _box(side, lv.FLEX_FLOW.ROW, pad) if across else side
+        _, tap_lbl = _button(buttons, "Tap  0", pad, tapped)
+        touch_lbl = None if across else ui.label(side, "touch -", None, ui.MUTED)
+        more_btn = None
+        if short >= SMALL:
+            more_btn, _ = _button(buttons, "More", pad, lambda: show_more(True))
+            more_btn.set_style_bg_color(ui.KEY, 0)
+        if touch_lbl is None:
+            touch_lbl = ui.label(side, "touch -", None, ui.MUTED)
+
+        # The rows, in order of importance, as many as fit.
+        info = _card(page, lv.FLEX_FLOW.COLUMN, pad)
+        info.set_flex_grow(1)
+        if landscape:
+            info.set_height(lv.pct(100))
+        else:
+            info.set_width(lv.pct(100))
+        line_h = font.line_height
+        values = []
+        for key, _fn in ROWS:
+            row = ui.plain(lv.obj(info))
+            row.set_width(lv.pct(100))
+            row.set_flex_flow(lv.FLEX_FLOW.ROW)
+            row.set_style_pad_column(pad, 0)  # a key never runs into its value
+            row.add_flag(lv.obj.FLAG.EVENT_BUBBLE)
+            ui.label(row, key, None, ui.MUTED)
+            v = lv.label(row)
+            v.set_flex_grow(1)
+            v.set_long_mode(lv.label.LONG_MODE.DOTS)
+            v.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
+            values.append(v)
+
+        def size_arc():
+            # The arc takes the room the live card's other parts leave.
+            page.update_layout()
+            if across:
+                d = min(max(min(W, H) // 3, side.get_height()), W - side.get_width() - 6 * pad)
+            elif not landscape:  # a tall screen: the card is as high as it needs
+                d = min(W, H) * 2 // 5
+            else:
+                used = sum(live.get_child(i).get_height() for i in range(1, live.get_child_count()))
+                gaps = (live.get_child_count() - 1) * (pad // 2)
+                d = min(live.get_content_width(), live.get_content_height() - used - gaps)
+            d = max(d, 4 * line_h)
+            arc.set_size(d, d)
+            arc.set_style_arc_width(max(4, d // 12), lv.PART.MAIN)
+            arc.set_style_arc_width(max(4, d // 12), lv.PART.INDICATOR)
+            page.update_layout()
+            # The rows take the largest font at or below the screen's that fits
+            # them all in the room left; only the smallest one drops rows.
+            bottom = info.get_content_height()
+            # The choice is by height alone: a value too wide for its row ends in
+            # dots. The gap between rows gives way, down to 2 px, before the font.
+            n = len(ROWS)
+            sizes = _fonts(short // 20)
+            row_font = sizes[0]
+            for f in sizes:
+                if n * f.line_height + (n - 1) * 2 <= bottom:
+                    row_font = f
+            gap = max(2, min(pad // 2, (bottom - n * row_font.line_height) // (n - 1)))
+            info.set_style_pad_gap(gap, 0)
+            info.set_style_text_font(row_font, 0)
+            for i in range(info.get_child_count()):
+                row = info.get_child(i)
+                row.set_height(row_font.line_height)
+                row.get_child(1).set_height(row_font.line_height)
+            page.update_layout()
+            # A row that would still run past the card's foot goes, and every row after it.
+            for i in range(info.get_child_count()):
+                row = info.get_child(i)
+                if row.get_y() + row.get_height() > bottom:
+                    row.add_flag(lv.obj.FLAG.HIDDEN)
+
+        size_arc()
     shown = [not info.get_child(i).has_flag(lv.obj.FLAG.HIDDEN) for i in range(len(ROWS))]
 
     def read_rows(_t=None):
@@ -574,9 +718,11 @@ def main(scope):
         more_page = ui.plain(lv.obj(root))
         more_page.set_size(W, H)
         more_page.set_style_text_font(_font_for(short * 3 // 4), 0)  # a step down: it's a page of text
-        more_page.set_style_pad_all(pad, 0)
+        # On a round screen the page keeps to the square inside the circle.
+        more_page.set_style_pad_all(W * 3 // 20 if round_ else pad, 0)
         more_page.set_style_pad_gap(pad, 0)
         more_page.set_flex_flow(lv.FLEX_FLOW.COLUMN)
+        _dark(more_page)
         more_page.add_flag(lv.obj.FLAG.HIDDEN)
         text_card = _card(more_page, lv.FLEX_FLOW.COLUMN, pad)
         text_card.set_width(lv.pct(100))
@@ -621,7 +767,7 @@ def main(scope):
     def second(_t):
         _st["seconds"] += 1
         seconds_lbl.set_text(str(_st["seconds"]))
-        fps_lbl.set_text(_fps_text(True))
+        fps_lbl.set_text(_fps_text(not round_))
 
     def time_gc(_t):
         collect()
