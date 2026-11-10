@@ -198,7 +198,8 @@ home screen instead of its own list of buttons.
 home screen. An app set that wants its own home screen, chrome or launcher
 setup builds a `Launcher` itself. Its `Shell` subclass gives apps a smaller
 area by overriding `make_root()`, and its own Home button by overriding
-`make_home_button()`.
+`make_home_button()`. The default Home button sits at the top right; on a
+round screen it's a small round button on the diagonal, inside the circle.
 
 [`examples/appkit_simpletest`](examples/appkit_simpletest) is an app set of
 two apps, a counter and a greeter, laid out this way.

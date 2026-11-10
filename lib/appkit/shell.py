@@ -4,16 +4,53 @@
 """Shell: what's around an app, and what it hands each app's scope.
 
 This one is the plainest: an app gets the whole screen, and a Home button
-sits in the corner when there's a home screen to go back to. A board that
+sits in the corner when there's a home screen to go back to. On a round
+screen (`is_round`) the button is a circle with the Home symbol, set in
+from the top right along the diagonal so all of it is inside the circle. A board that
 wants a header, its own look or its own buttons subclasses it: override
 `Shell.make_root` to give apps a smaller area,
 `Shell.make_home_button` for its own Home button, or
 `Shell.prepare` to hand them other services.
 """
 
+import sys
+
 import lvgl as lv
 
 from . import data
+
+#: How far a round screen's Home button keeps in from the circle's edge, in pixels.
+ROUND_MARGIN = 4
+
+
+def is_round():
+    """Whether the default display is a round panel.
+
+    The board's display driver says so with a ``round`` attribute; without
+    one, a GC9A01 is taken to be round, since the controller is made for
+    round panels. A screen that isn't square never is. It only looks at a
+    ``board_config`` something has already imported, so it imports nothing.
+    """
+    disp = lv.display_get_default()
+    if disp is None or disp.get_horizontal_resolution() != disp.get_vertical_resolution():
+        return False
+    board = sys.modules.get("board_config")
+    drv = getattr(board, "display_drv", None)
+    if drv is None:
+        return False
+    r = getattr(drv, "round", None)
+    if r is None:
+        r = type(drv).__name__.upper().startswith("GC9A01")
+    return bool(r)
+
+
+def round_corner(size, d, margin=ROUND_MARGIN):
+    """Where a *d*-pixel circle goes at the top right of a round screen
+    *size* pixels across: ``(x, y)`` of its top left, on the diagonal, as
+    far out as it can go and stay *margin* pixels inside the edge."""
+    r = size // 2
+    off = int((r - margin - d / 2) * 0.7071)  # along the diagonal, cos 45
+    return r + off - d // 2, r - off - d // 2
 
 
 class Shell:
@@ -39,8 +76,20 @@ class Shell:
         """
         launcher = self.launcher
         b = lv.button(lv.layer_top())
-        b.align(lv.ALIGN.TOP_RIGHT, -8, 8)
-        lv.label(b).set_text("Home")
+        if is_round():
+            # The corner is outside the circle: a round button on the diagonal.
+            size = lv.display_get_default().get_horizontal_resolution()
+            d = max(36, size // 6)
+            b.set_size(d, d)
+            b.set_style_radius(lv.RADIUS_CIRCLE, 0)
+            b.set_style_pad_all(0, 0)
+            lbl = lv.label(b)
+            lbl.set_text(lv.SYMBOL.HOME)
+            lbl.center()
+            b.set_pos(*round_corner(size, d))
+        else:
+            b.align(lv.ALIGN.TOP_RIGHT, -8, 8)
+            lv.label(b).set_text("Home")
         b.add_event_cb(lambda e: launcher.request(launcher.home), lv.EVENT.CLICKED, None)
         return b
 

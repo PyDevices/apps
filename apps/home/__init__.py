@@ -11,10 +11,15 @@ page of its own, "More", last. Home knows no app by name.
 
 A tap on a tab switches pages at once; a swipe across the page slides to
 the next one. Home comes back to the tab it was last on.
+
+On a round screen (see ``appkit.shell.is_round``) the pages and their tabs
+fill the square inside the circle, two apps by two, and the gear sits
+centred above them, so nothing falls outside the circle.
 """
 
 import lvgl as lv
 
+from appkit.shell import ROUND_MARGIN, is_round
 from touchkit import ui
 
 DEFAULT_SYMBOL = "LIST"
@@ -30,34 +35,47 @@ LINE = 0x2A3550  # the card's border and the tab bar's top edge
 TAB_ON = 0x1A2438
 
 
-def _grid(scope, page, W, H, apps):
+def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
+    """The app tiles on one page: a card *cw* by *ch*, *cols* by *rows* tiles.
+    *small* tiles take the smaller fonts and stack the icon over the title."""
     launcher = scope.launcher
-    cw, ch = W - 2 * MARGIN, H - TOP - TAB_BAR - 2 * MARGIN
+    gap = GAP // 2 if small else GAP
     card = lv.obj(page)
     card.remove_style_all()
     card.set_pos(MARGIN, MARGIN)
     card.set_size(cw, ch)
     card.set_style_bg_color(lv.color_hex(CARD), 0)
     card.set_style_bg_opa(lv.OPA.COVER, 0)
-    card.set_style_radius(20, 0)
+    card.set_style_radius(12 if small else 20, 0)
     card.set_style_border_width(1, 0)
     card.set_style_border_color(lv.color_hex(LINE), 0)
     card.remove_flag(lv.obj.FLAG.SCROLLABLE)
     card.add_flag(lv.obj.FLAG.EVENT_BUBBLE)  # a swipe on the card still turns the page
-    w = (cw - (COLS + 1) * GAP) // COLS
-    h = (ch - (ROWS + 1) * GAP) // ROWS
-    for i, (name, sym, color) in enumerate(apps[: COLS * ROWS]):
-        col, row = i % COLS, i // COLS
+    w = (cw - (cols + 1) * gap) // cols
+    h = (ch - (rows + 1) * gap) // rows
+    for i, (name, sym, color) in enumerate(apps[: cols * rows]):
+        col, row = i % cols, i // cols
         b = lv.button(card)
         b.set_size(w, h)
-        b.set_pos(GAP + col * (w + GAP), GAP + row * (h + GAP))
+        b.set_pos(gap + col * (w + gap), gap + row * (h + gap))
         b.set_style_bg_color(lv.color_hex(color), 0)
-        b.set_style_radius(18, 0)
-        icon = ui.label(b, sym, ui.huge, ui.WHITE)
-        icon.align(lv.ALIGN.CENTER, 0, -22)
         title = launcher.info.get(name, {}).get("title", name)
-        lbl = ui.label(b, title, ui.font, ui.WHITE)
-        lbl.align(lv.ALIGN.CENTER, 0, 40)
+        if small:
+            b.set_style_radius(10, 0)
+            b.set_style_pad_all(2, 0)
+            icon = ui.label(b, sym, ui.big, ui.WHITE)
+            icon.align(lv.ALIGN.CENTER, 0, -ui.tiny.line_height // 2)
+            lbl = ui.label(b, title, ui.tiny, ui.WHITE)
+            lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
+            lbl.set_width(w - 4)
+            lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+            lbl.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+        else:
+            b.set_style_radius(18, 0)
+            icon = ui.label(b, sym, ui.huge, ui.WHITE)
+            icon.align(lv.ALIGN.CENTER, 0, -22)
+            lbl = ui.label(b, title, ui.font, ui.WHITE)
+            lbl.align(lv.ALIGN.CENTER, 0, 40)
         b.add_event_cb((lambda n: lambda e: scope.switch(n))(name), lv.EVENT.CLICKED, None)
 
 
@@ -94,23 +112,52 @@ def main(scope):
     for name in scope.launcher.names:
         if info.get(name, {}).get("gear"):
             gear_app = name
-    title = ui.label(scr, "Home", ui.big, ui.ACCENT)
-    title.set_pos(GAP + 4, 14)
+    # Dark whether or not the shell put a dark theme on the display.
+    scr.set_style_bg_color(ui.BG, 0)
+    scr.set_style_bg_opa(lv.OPA.COVER, 0)
+    # A round panel gets its own layout when Home has the whole screen.
+    round_ = W == H and getattr(scope, "rect", (0, 0, W, H))[:2] == (0, 0) and is_round()
+
+    if round_:
+        # The square inside the circle holds the pages and their tabs; the
+        # gear goes in the cap of the circle above it, centred.
+        inner = W // 2 - ROUND_MARGIN
+        side = int(inner * 1.4142) & ~1
+        x0 = (W - side) // 2
+        tab_bar = ui.small.line_height + 14
+        gear_w = 48
+        # As high as the circle is gear_w wide there, and down to the square.
+        gear_y = W // 2 - int((inner * inner - (gear_w // 2) ** 2) ** 0.5) + 1
+        gear_h = max(24, min(TOP - 12, x0 - gear_y - 2))
+    else:
+        title = ui.label(scr, "Home", ui.big, ui.ACCENT)
+        title.set_pos(GAP + 4, 14)
 
     if gear_app is not None:
         gear = lv.button(scr)
-        gear.set_size(64, TOP - 12)
-        gear.align(lv.ALIGN.TOP_RIGHT, -GAP, 6)
         gear.set_style_bg_color(lv.color_hex(0x44505E), 0)
-        gear.set_style_radius(12, 0)
-        ui.label(gear, lv.SYMBOL.SETTINGS, ui.big, ui.WHITE).center()
+        if round_:
+            gear.set_size(gear_w, gear_h)
+            gear.set_pos((W - gear_w) // 2, gear_y)
+            gear.set_style_radius(gear_h // 2, 0)
+            gear.set_style_pad_all(0, 0)
+            ui.label(gear, lv.SYMBOL.SETTINGS, ui.font, ui.WHITE).center()
+        else:
+            gear.set_size(64, TOP - 12)
+            gear.align(lv.ALIGN.TOP_RIGHT, -GAP, 6)
+            gear.set_style_radius(12, 0)
+            ui.label(gear, lv.SYMBOL.SETTINGS, ui.big, ui.WHITE).center()
         gear.add_event_cb(lambda e: scope.switch(gear_app), lv.EVENT.CLICKED, None)
 
     tv = lv.tabview(scr)
-    tv.set_pos(0, TOP)
-    tv.set_size(W, H - TOP)
+    if round_:
+        tv.set_pos(x0, x0)
+        tv.set_size(side, side)
+    else:
+        tv.set_pos(0, TOP)
+        tv.set_size(W, H - TOP)
     tv.set_tab_bar_position(lv.DIR.BOTTOM)
-    tv.set_tab_bar_size(TAB_BAR)
+    tv.set_tab_bar_size(tab_bar if round_ else TAB_BAR)
     tv.set_style_bg_color(ui.BG, 0)
     tv.get_content().set_style_bg_color(ui.BG, 0)
 
@@ -120,7 +167,10 @@ def main(scope):
         page.set_style_pad_all(0, 0)
         page.set_style_bg_color(ui.BG, 0)
         page.remove_flag(lv.obj.FLAG.SCROLLABLE)
-        _grid(scope, page, W, H, apps)
+        if round_:
+            _grid(scope, page, side - 2 * MARGIN, side - tab_bar - 2 * MARGIN, apps, 2, 2, True)
+        else:
+            _grid(scope, page, W - 2 * MARGIN, H - TOP - TAB_BAR - 2 * MARGIN, apps)
 
     bar = tv.get_tab_bar()
     bar.set_style_bg_color(ui.PANEL, 0)
@@ -132,7 +182,7 @@ def main(scope):
     for i in range(bar.get_child_count()):
         t = bar.get_child(i)
         t.set_style_radius(0, 0)
-        t.set_style_text_font(ui.font, 0)
+        t.set_style_text_font(ui.small if round_ else ui.font, 0)
         t.set_style_text_color(ui.MUTED, 0)
         t.set_style_bg_opa(lv.OPA.TRANSP, 0)
         t.set_style_border_width(0, 0)
