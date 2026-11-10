@@ -502,12 +502,16 @@ def main(scope):
         # The rows take the largest font at or below the screen's that fits
         # them all in the room left; only the smallest one drops rows.
         bottom = info.get_content_height()
-        gap = pad // 2
+        # The choice is by height alone: a value too wide for its row ends in
+        # dots. The gap between rows gives way, down to 2 px, before the font.
+        n = len(ROWS)
         sizes = _fonts(short // 20)
         row_font = sizes[0]
         for f in sizes:
-            if len(ROWS) * (f.line_height + gap) - gap <= bottom:
+            if n * f.line_height + (n - 1) * 2 <= bottom:
                 row_font = f
+        gap = max(2, min(pad // 2, (bottom - n * row_font.line_height) // (n - 1)))
+        info.set_style_pad_gap(gap, 0)
         info.set_style_text_font(row_font, 0)
         for i in range(info.get_child_count()):
             row = info.get_child(i)
