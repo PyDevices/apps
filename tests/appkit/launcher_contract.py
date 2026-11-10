@@ -38,6 +38,7 @@ sys.path.insert(0, _dir + _sep + ".." + _sep + "lib")
 
 import multimer
 from appdev import App
+from appkit import foreground
 from appkit import launcher as L
 from appkit.scope import open_scopes
 from sample_apps import shared
@@ -157,25 +158,26 @@ def request_defers_to_a_safe_point():
     la.stop()
 
 
+class _EagerTimer(multimer.Timer):
+    """A timer on a host that delivers between bytecodes: armed due at once,
+    it fires before ``init()`` has returned, unless a hold is on."""
+
+    def init(self, **kw):
+        multimer.Timer.init(self, **kw)
+        multimer.sleep_ms(kw.get("period", 1) + 2)  # delivers what's due, except under a hold
+
+
 class _EagerTimers:
-    """multimer, on a host that delivers between bytecodes: a timer due at
-    once fires before ``after()`` has returned, unless a hold is on."""
-
     def __getattr__(self, name):
-        return getattr(multimer, name)
-
-    def after(self, ms, callback=None, **kw):
-        t = multimer.after(ms, callback, **kw)
-        multimer.sleep_ms(ms + 2)  # delivers what's due, except under a hold
-        return t
+        return _EagerTimer if name == "Timer" else getattr(multimer, name)
 
 
 @check
 def request_that_fires_at_once_leaves_nothing_pending():
-    la = _launcher()
-    la.boot("clock")
     real, L.multimer = L.multimer, _EagerTimers()
     try:
+        la = _launcher()  # its request timers are eager ones
+        la.boot("clock")
         la.request("counter")
     finally:
         L.multimer = real
@@ -183,6 +185,37 @@ def request_that_fires_at_once_leaves_nothing_pending():
     expect(la.current == "counter", "request() never switched")
     expect(la._pending is None, "a fired request is still pending")
     la.stop()
+
+
+@check
+def request_from_a_requested_apps_main_still_switches():
+    la = _launcher()
+    la.add("redirect", "sample_apps.redirect")
+    la.boot("clock")
+    la.request("redirect")
+    multimer.sleep_ms(20)
+    expect(la.current == "counter", "a request made while a requested switch ran was lost: %r" % (la.current,))
+    la.stop()
+
+
+@check
+def request_under_the_loop_starts_on_its_next_turn():
+    # With the main loop running, a host that checks its heap closes the old
+    # app from the request's timer and starts the next one from the loop.
+    la = _launcher()
+    la.boot("clock")
+    foreground._serving = True
+    try:
+        la.request("counter")
+        multimer.sleep_ms(20)
+        if L._HEAP:
+            expect(la.current is None, "the next app started inside the request's callback: %r" % (la.current,))
+            foreground._run_turns()
+        expect(la.current == "counter", "the request never switched: %r" % (la.current,))
+    finally:
+        foreground._serving = False
+        del foreground._turns[:]
+        la.stop()
 
 
 @check

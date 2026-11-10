@@ -786,12 +786,14 @@ def main(scope):
         _st["seconds"] = None
         if not measuring and hasattr(display_drv, "measure_fps"):
             display_drv.measure_fps(False)
-        try:
-            import wifi_manager
-
-            wifi_manager.cancel()
-        except Exception:
-            pass
+        # Only when Wi-Fi setup loaded it: importing it here would keep a
+        # module in memory that System never used.
+        wifi_manager = sys.modules.get("wifi_manager")
+        if wifi_manager is not None:
+            try:
+                wifi_manager.cancel()
+            except Exception:
+                pass
 
     scope.on_close(close)
 

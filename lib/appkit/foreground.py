@@ -58,6 +58,7 @@ _timer = None  # the timer stepping it, while nothing runs the loop
 _token = None  # changes with the function: a stale timer step sees it
 _calls = 0  # calls of the foreground function in progress
 _after_calls = []  # what to run once no call is in progress
+_turns = []  # what runs at the loop's next turn (`next_turn`)
 _serving = False
 _stop = False
 
@@ -167,6 +168,29 @@ def owner():
 def serving():
     """True while `serve` is running the loop."""
     return _serving
+
+
+def next_turn(fn, arg):
+    """Call ``fn(arg)`` from `serve`'s loop at its next turn, outside every
+    callback, and return True; return False when nothing runs the loop.
+
+    The launcher starts the next app this way after closing one, so the
+    calls below the start are the loop's own and none made while the old app
+    ran. An error in *fn* is reported and the loop carries on.
+    """
+    if not _serving:
+        return False
+    _turns.append((fn, arg))
+    return True
+
+
+def _run_turns():
+    while _turns:
+        fn, arg = _turns.pop(0)
+        try:
+            fn(arg)
+        except Exception as exc:
+            _print_exc(exc)
 
 
 def stop():
@@ -292,6 +316,8 @@ def serve(app=None):
     _serving = True
     try:
         while not _done(app):
+            if _turns:
+                _run_turns()
             if console is not None:
                 console()
             fn = _fn
