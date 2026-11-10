@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.2.dev1
+
+- appkit, touchkit and System run on CircuitPython boards.
+- System: an at-a-glance check that scales from 240x240 to 1280x720, laid out inside the circle on round screens.
+- appkit and Home: no restart after System, and a round-screen layout.
 - Sound module: Expression (CC11) works on instrument parts as well as SoundFont parts, and a part keeps it when its instrument is made again, by a bank change or All Sound Off.
 
 ## 0.1.2.dev0
