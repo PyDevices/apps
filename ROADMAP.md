@@ -37,8 +37,8 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 
 ## Stompbox
 
-- Stompbox (`apps/stompbox`) plays a guitar through one airwindows effect. A
-  meter and clip light, a tuner, several slots and presets come next.
+- A level meter with a clip light and a tuner, and several effect slots with
+  saved presets, so Stompbox is more than one airwindows effect at a time.
 
 ## Clock and Weather
 
