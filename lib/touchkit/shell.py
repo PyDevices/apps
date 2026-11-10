@@ -90,9 +90,10 @@ class TouchShell(Shell):
     def _boot_button(self):
         try:
             import board_config as board
-            from machine import Pin
 
             pin = board.boot_button  # a lazy role: reading it may hand back a factory
+            from machine import Pin
+
             if not hasattr(pin, "irq"):
                 pin = pin()
             pin.irq(trigger=Pin.IRQ_FALLING, handler=_boot_irq)

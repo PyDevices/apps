@@ -155,6 +155,13 @@ def _interpreter():
     name = {"micropython": "MicroPython", "circuitpython": "CircuitPython", "cpython": "CPython"}.get(
         impl.name, impl.name
     )
+    if impl.name == "circuitpython":
+        # Its version tuple leaves out the pre-release, which tells one
+        # alpha from the next: "11.0.0-alpha.2 on 2026-11-05".
+        try:
+            return "%s %s" % (name, os.uname().version.split(" on ")[0])
+        except Exception:
+            pass
     v = impl.version
     return "%s %d.%d.%d" % (name, v[0], v[1], v[2])
 

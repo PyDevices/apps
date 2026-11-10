@@ -157,6 +157,12 @@ timer still running, and `appkit.serve()` picks the loop up again. A Ctrl-C
 that lands inside a timer's callback is held until the callback ends, so
 it sometimes needs pressing twice.
 
+On a CircuitPython board Ctrl-C ends `code.py`, display and all, so there's
+no REPL to go to while the apps run. The loop reads the console instead:
+type a line and it runs in `code.py`'s namespace, with its value printed.
+`launcher.current` or `import apps.system; apps.system.stats()` answer
+while the apps keep running.
+
 ## An app set
 
 Put each app in its own folder under `apps/`, with an `app.json` naming it:
@@ -229,8 +235,10 @@ import board_config
 ...
 ```
 
-On CircuitPython boards a launcher can't run scripts yet: there's no
-restart to go through.
+On a CircuitPython board the launcher keeps the next app's name in
+`/data/.next_app`, so CIRCUITPY has to be writable from code. While a
+computer has the drive mounted it isn't: a script then doesn't start, and a
+restart for memory carries on in-process instead.
 
 ## A frozen build
 
