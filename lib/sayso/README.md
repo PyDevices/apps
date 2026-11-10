@@ -362,5 +362,5 @@ Some playback controls require Spotify Premium and an active device.
   for the current user and `playlist.items` for playlist entries. See
   [`PORTABILITY.md`](PORTABILITY.md) for details.
 
-See [`ROADMAP.md`](ROADMAP.md) for implemented areas, next steps, and open design questions.
+See [`ROADMAP.md`](ROADMAP.md) for what's planned.
 See `PORTABILITY.md` for CPython, MicroPython, and CircuitPython boundary notes.
