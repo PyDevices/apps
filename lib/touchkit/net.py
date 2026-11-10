@@ -5,7 +5,9 @@
 
 A desktop has no ``wifi`` or ``network`` module and is on its network
 already: `up` is then True once the computer has an address, and
-`ip` and `hostname` are the computer's own.
+`ip` and `hostname` are the computer's own. CircuitPython has no
+``network`` module either: there `ip`, `rssi` and `hostname` read
+``wifi.radio``.
 
 The board joins a known network at boot (`boot`) and stays joined
 while apps come and go, like the display. An app that needs the network
@@ -26,7 +28,10 @@ def _host_ip():
     For a host with no ``network`` module (a desktop), which is on its LAN
     already: a UDP socket "connected" to a documentation address (TEST-NET-1,
     RFC 5737) sends nothing and names the interface the OS would use."""
-    import socket
+    try:
+        import socket
+    except ImportError:  # CircuitPython names it socketpool
+        return None
 
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -41,6 +46,16 @@ def _host_ip():
         s.close()
 
 
+def _radio():
+    """CircuitPython's ``wifi.radio``, where there is no ``network`` module; else None."""
+    try:
+        import wifi
+
+        return wifi.radio
+    except (ImportError, AttributeError):
+        return None
+
+
 def hostname():
     """The board's name on the network, without ``.local``, or None."""
     name = settings.get("hostname")
@@ -50,7 +65,10 @@ def hostname():
         import network
 
         return network.hostname()
-    except ImportError:  # a desktop: the computer's own name
+    except ImportError:  # CircuitPython's radio, or a desktop: the computer's own name
+        r = _radio()
+        if r is not None:
+            return r.hostname
         try:
             import socket
 
@@ -152,10 +170,15 @@ def setup_job():
 
 
 def rssi():
+    """The signal from the access point in dBm, or None off the network."""
     try:
         import network
 
         return network.WLAN(network.STA_IF).status("rssi")
+    except ImportError:
+        r = _radio()
+        info = r.ap_info if r is not None else None
+        return info.rssi if info is not None else None
     except Exception:
         return None
 
@@ -169,7 +192,11 @@ def ip():
         if wl.isconnected():
             return wl.ifconfig()[0]
     except ImportError:
-        return _host_ip()
+        r = _radio()
+        if r is None:
+            return _host_ip()
+        addr = r.ipv4_address
+        return str(addr) if addr else None
     except Exception:
         pass
     return None

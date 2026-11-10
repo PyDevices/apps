@@ -35,7 +35,11 @@ Host                The next app's name         Restart
 ESP32 (MicroPython) ``machine.RTC().memory()``  ``machine.soft_reset()``, or
                                                 ``machine.reset()`` from a callback;
                                                 main.py calls ``boot()`` again
-Other boards        a file, ``/data/.next_app`` the same
+CircuitPython       a file, ``/data/.next_app`` ``supervisor.reload()``, or
+                                                ``microcontroller.reset()`` from a
+                                                callback; code.py calls ``boot()``
+                                                again
+Other boards        a file, ``/data/.next_app`` the same as ESP32
 Desktop MicroPython ``<data root>/.next_app``   exit with code 75; run the program
                                                 under ``python -m appkit.launcher``
                                                 to have it started again
@@ -356,8 +360,7 @@ def restart_into(name, count=1, path=None):
     With *name* None the program restarts with nothing pending, so it starts
     as it does from cold: on its home screen. Doesn't return where the host
     can restart (it exits, execs or resets). In a browser it returns after
-    asking for the reload: stop work and let the page go. Raises
-    ``NotImplementedError`` where there is no restart.
+    asking for the reload: stop work and let the page go.
     """
     h = host()
     if h == "browser":
@@ -371,8 +374,6 @@ def restart_into(name, count=1, path=None):
                 params.set("app_path", path)
         js.window.location.search = params.toString()
         return
-    if h == "circuitpython":
-        raise NotImplementedError("no restart fallback on CircuitPython boards yet")
     if name is not None:
         save_next(name, count, path)
     else:
@@ -395,6 +396,17 @@ def restart_into(name, count=1, path=None):
         # A real soft reset stops it with every other timer.
         multimer.after(500, lambda t: machine.reset(), name="launcher.reset")
         machine.soft_reset()
+    elif h == "circuitpython":
+        import microcontroller
+        import supervisor
+
+        # The same as a board's soft reset: reload() raises an exception that
+        # a callback's caller catches, so from a callback reset the chip; the
+        # file in /data survives either.
+        if _in_callback():
+            microcontroller.reset()
+        multimer.after(500, lambda t: microcontroller.reset(), name="launcher.reset")
+        supervisor.reload()
     elif h == "desktop":
         import os
 

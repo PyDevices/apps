@@ -85,11 +85,12 @@ def mem_free():
 def _lvgl():
     """The lvgl module when it is loaded and initialised, else None.
 
-    MicroPython keeps built-in modules out of ``sys.modules``, so there an
-    import (free for a built-in, an ImportError without one) is the test.
+    MicroPython and CircuitPython keep built-in modules out of
+    ``sys.modules``, so there an import (free for a built-in, an ImportError
+    without one) is the test.
     """
     lv = sys.modules.get("lvgl")
-    if lv is None and sys.implementation.name == "micropython":
+    if lv is None and sys.implementation.name in ("micropython", "circuitpython"):
         try:
             import lvgl as lv
         except ImportError:

@@ -35,6 +35,11 @@ Ctrl-C in the loop goes to the REPL with every timer still running. One
 that lands inside a timer's callback is kept by the timers until they're
 done, so it sometimes needs pressing twice. ``appkit.serve()`` resumes the
 loop.
+
+CircuitPython has no REPL to go to with the program still running: Ctrl-C
+ends ``code.py``, and the display with it. There `serve` reads lines typed
+on the console instead, runs each in ``code.py``'s namespace and prints what
+it returns, so ``apps.system.stats()`` answers while the apps keep running.
 """
 
 import sys
@@ -59,6 +64,10 @@ _stop = False
 
 def _report(exc):
     print("appkit.foreground: the foreground function failed:")
+    _print_exc(exc)
+
+
+def _print_exc(exc):
     pe = getattr(sys, "print_exception", None)
     if pe is not None:
         pe(exc)
@@ -214,6 +223,52 @@ def _done(app):
     return app is not None and app.quit_requested
 
 
+def _console():
+    """A function that runs the lines typed on CircuitPython's console so
+    far, or None on any other host (or a CircuitPython with no console)."""
+    if sys.implementation.name != "circuitpython":
+        return None
+    try:
+        import supervisor
+
+        rt = supervisor.runtime
+        rt.serial_bytes_available
+        # code.py's globals; CircuitPython keeps __main__ out of sys.modules.
+        namespace = __import__("__main__").__dict__
+    except Exception:
+        return None
+    buf = [""]
+
+    def poll():
+        n = rt.serial_bytes_available
+        if not n:
+            return
+        text = buf[0] + sys.stdin.read(n).replace("\r", "\n")
+        while "\n" in text:
+            line, text = text.split("\n", 1)
+            line = line.strip()
+            if line:
+                print(">>> " + line)
+                _run_line(line, namespace)
+        buf[0] = text
+
+    return poll
+
+
+def _run_line(src, namespace):
+    try:
+        try:
+            code = compile(src, "<console>", "eval")
+        except SyntaxError:
+            exec(compile(src, "<console>", "exec"), namespace)
+        else:
+            value = eval(code, namespace)
+            if value is not None:
+                print(repr(value))
+    except Exception as exc:
+        _print_exc(exc)
+
+
 def serve(app=None):
     """Run the foreground function over and over until the program quits.
 
@@ -233,9 +288,12 @@ def serve(app=None):
     # A stop() asked for before the loop started still counts: a restart
     # from inside boot(), say.
     _stop_timer()
+    console = _console()
     _serving = True
     try:
         while not _done(app):
+            if console is not None:
+                console()
             fn = _fn
             if fn is None:
                 multimer.sleep_ms(IDLE_MS)
