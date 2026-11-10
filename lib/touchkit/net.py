@@ -13,6 +13,8 @@ calls `up` from a timer until it says True. The hostname comes from
 ``settings.json`` (see ``touchkit.settings``).
 """
 
+import sys
+
 from . import settings
 
 _started = False
@@ -101,7 +103,11 @@ def start_webrepl():
 
 
 def webrepl_on():
-    return _webrepl_on
+    """True when WebREPL is listening, whoever started it."""
+    if _webrepl_on:
+        return True
+    w = sys.modules.get("webrepl")  # main.py may have started it before the apps
+    return w is not None and getattr(w, "listen_s", None) is not None
 
 
 def boot():

@@ -1,1 +1,1 @@
-{"name": "system", "title": "System", "tile": false, "gear": true}
+{"name": "system", "title": "System", "category": "Desk", "symbol": "SETTINGS", "color": "#3E6B5A", "tile": true, "gear": true}
