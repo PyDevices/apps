@@ -1,11 +1,12 @@
 # Roadmap
 
-Three applications live here: a sound module, Ostinato the sequencer, and
-Vamp, which plays Ostinato's songs on a board. The first is a sound module: a box that plays whatever a DAW,
-sequencer or keyboard sends it over MIDI, the way a hardware tone module does.
-It grows one part at a time, on the desktop interpreters first.
+What's planned for the apps and libraries here. An app or library with a
+longer list keeps its own roadmap beside its code, linked below.
 
 ## Sound module
+
+The sound module (`lib/soundmodule`) plays whatever a DAW, sequencer or
+keyboard sends it over MIDI, the way a hardware tone module does.
 
 - Patch and macro names that DAWs can read, from the catalog files
   audioinstruments publishes with each release.
@@ -14,13 +15,12 @@ It grows one part at a time, on the desktop interpreters first.
 - On an ESP32-P4 as a USB MIDI device, with 24 voices at 48 kHz stereo.
 - Over BLE MIDI.
 - Reverb and chorus as true sends per channel, once the sampler can mix its
-  voices into a send bus. Today CC91 and CC93 set one master level, the mean
-  of the channels in use.
+  voices into a send bus. Today CC91 and CC93 set one master level.
 
 ## Vamp
 
-- A MIDI keyboard such as the DMK-25 on the board's USB host port, playing
-  and recording into the selected track.
+- Recording from a MIDI keyboard such as the DMK-25 on the board's USB host
+  port into the selected track. It already plays from one.
 - Undo in the window that knows about edits made on other panels.
 - The timed voice pool that schedules notes ahead of the audio moving into
   audioinstruments, once a second player needs it.
@@ -29,6 +29,11 @@ It grows one part at a time, on the desktop interpreters first.
 
 - A published copy of the app on the web, so it installs without running a
   local server.
+- The rest is in [Ostinato's roadmap](apps/ostinato/ROADMAP.md).
+
+## Synth Station
+
+- [Synth Station's roadmap](apps/synthstation/ROADMAP.md).
 
 ## Stompbox
 
@@ -42,7 +47,8 @@ It grows one part at a time, on the desktop interpreters first.
 
 ## Libraries
 
-- sayso's own list is in [lib/sayso/ROADMAP.md](lib/sayso/ROADMAP.md).
 - Ship songmodel's front panel page to boards. The wheel carries `page.html`,
   but a `mip` install or a frozen build has only the Python, so today Vamp
   copies the page across itself.
+- [appkit](lib/appkit/ROADMAP.md), [controlkit](lib/controlkit/ROADMAP.md)
+  and [sayso](lib/sayso/ROADMAP.md) keep their own roadmaps.
