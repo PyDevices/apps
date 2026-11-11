@@ -98,7 +98,9 @@ class TouchShell(Shell):
                 pin = pin()
             pin.irq(trigger=Pin.IRQ_FALLING, handler=_boot_irq)
             self.boot_pin = pin
-        except Exception as e:  # a board without the role still runs the apps
+        except AttributeError:  # no boot_button role: Home is on the screen
+            self.boot_pin = None
+        except Exception as e:  # the role is there but didn't come up
             print("touchkit: no BOOT button: %r" % (e,))
             self.boot_pin = None
 
