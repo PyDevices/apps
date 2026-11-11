@@ -109,25 +109,30 @@ class Storage(_FolderStorage):
 
     def __init__(self, make_card, present=None):
         """*present* is the card-detect pin's reading. A board with no such
-        pin passes None: the card is taken to be there, mounted once at
-        start, and not looked for again if that fails."""
+        pin passes None: the card is taken to be there and mounted at start,
+        trying a few more times a poll apart if that fails."""
         self.root = SD
         self.full = False
         self.card_in = False
         self._make = make_card
-        self._untried = present is None
-        self._present = present if present is not None else self._try_once
+        self._tries = 6 if present is None else 0
+        self._present = present if present is not None else self._try
         self._fns = []
         self.bdev = None
         self._first_mount = []
         if self._present():
             self._mount()
 
-    def _try_once(self):
-        if self._untried:
-            self._untried = False
+    def _try(self):
+        """Stand-in for the pin: a card is assumed to be there until a few
+        mounts have failed (the first can come while the USB host or the
+        camera is still starting)."""
+        if self.card_in:
             return True
-        return self.card_in
+        if self._tries > 0:
+            self._tries -= 1
+            return True
+        return False
 
     def _mount(self):
         try:
