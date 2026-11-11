@@ -174,11 +174,36 @@ class SourceInterfaceTest(unittest.TestCase):
         self.assertEqual(sources.open_source(board, "unused.jpg").kind, sources.CSI)
 
 
+class ModeTest(unittest.TestCase):
+    OV5647 = [("a", 800, 1280), ("b", 800, 640), ("c", 800, 800), ("d", 1920, 1080), ("e", 1280, 960)]
+
+    def test_the_smallest_landscape_mode_that_fills_the_preview(self):
+        self.assertEqual(sources.pick_mode(self.OV5647, (800, 1280, 0)), (800, 640))
+
+    def test_the_mode_already_open_is_kept(self):
+        self.assertIsNone(sources.pick_mode(self.OV5647, (800, 640, 0)))
+
+    def test_no_landscape_mode_keeps_what_there_is(self):
+        self.assertIsNone(sources.pick_mode([("a", 480, 800)], (480, 800, 0)))
+
+    def test_the_eyes_one_mode_is_left_alone(self):
+        self.assertIsNone(sources.pick_mode([("a", 1920, 1080)], (1920, 1080, 0)))
+
+
 class CropTest(unittest.TestCase):
     def test_the_eyes_crops_are_the_factorys(self):
         self.assertEqual(crop.video_crop(1920, 1080, 1072, "1080P", 1), (0, 4, 1920, 1072))
         self.assertEqual(crop.video_crop(1920, 1080, 720, "720P", 1), (320, 60, 1280, 960))
         self.assertEqual(crop.video_crop(1920, 1080, 720, "720P", 2), (640, 300, 640, 480))
+
+    def test_the_preview_cut_is_the_eyes_and_always_a_whole_sixteenth(self):
+        for m, side in ((1, 960), (2, 480), (3, 320), (4, 240)):
+            self.assertEqual(crop.preview_side(1920, 1080, m), side)
+        for w, h in ((800, 640), (800, 1280), (1280, 960), (640, 480)):
+            for m in (1, 2, 3, 4):
+                side = crop.preview_side(w, h, m)
+                self.assertEqual(3840 % (3840 // side), 0)
+                self.assertLessEqual(side, min(w, h))
 
     def test_a_small_camera_never_leaves_its_frame(self):
         for res in ("1080P", "720P", "480P"):

@@ -184,13 +184,48 @@ class TestCardSource:
         pass
 
 
+def pick_mode(formats, cur):
+    """The sensor mode a preview wants from *formats* (cameraif's
+    ``(name, width, height)`` list): the smallest landscape one whose short
+    side is at least 480, since a bigger one only costs frame rate (the
+    OV5647's default is 800x1280 at 16 fps, its 800x640 does 32). Returns the
+    ``(width, height)``, or None to keep the current mode (*cur*) when it
+    already is that, or nothing fits."""
+    best = None
+    for f in formats:
+        w, h = f[1], f[2]
+        if w >= h and h >= 480 and (best is None or w * h < best[0] * best[1]):
+            best = (w, h)
+    return None if best is None or best == tuple(cur[:2]) else best
+
+
+def landscape(cam):
+    """*cam* itself, or the same camera reopened in the mode ``pick_mode``
+    chose, through the board package's ``camera()`` maker. A board whose
+    package can't make one keeps the mode it has."""
+    try:
+        mode = pick_mode(cam.formats(), cam.size())
+        if mode is None:
+            return cam
+        import board_peripherals
+        make = board_peripherals.camera
+    except (AttributeError, ImportError, OSError):
+        return cam
+    cam.deinit()
+    try:
+        return make(format=mode)
+    except Exception as e:
+        print("eyecam: mode %dx%d: %s; keeping the default" % (mode[0], mode[1], e))
+        return make()
+
+
 def open_source(board_config, testcard_path, usb_wait_ms=3000):
     """Open the best source this board has. A missing camera is not an error:
     the test card is the last choice."""
 
     def csi():
         cam = getattr(board_config, "camera", None)  # made on first use
-        return CsiSource(cam) if cam is not None else None
+        return CsiSource(landscape(cam)) if cam is not None else None
 
     def uvc():
         dev = _usb_camera(usb_wait_ms)

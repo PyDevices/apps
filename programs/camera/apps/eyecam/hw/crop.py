@@ -22,3 +22,18 @@ def video_crop(sw, sh, out_h, resolution, magnify):
     m = max(1, magnify)
     cw, ch = bw // m, bh // m
     return (sw - cw) // 2, (sh - ch) // 2, cw, ch
+
+
+# The PPA scales in sixteenths: a square cut of 3840 / n pixels fills the 240
+# square exactly, and any other size leaves the corner unpainted.
+_EXACT = tuple(3840 // n for n in range(1, 256) if 3840 % n == 0)
+
+
+def preview_side(w, h, magnify):
+    """The side, in source pixels, of the centre square the preview shows at
+    this zoom: the factory's 8/9 of the short side (960 of the Eye's 1080)
+    when the PPA can scale it exactly, otherwise the nearest size it can."""
+    want = (min(w, h) * 8 // 9) // max(1, min(4, magnify))
+    room = min(w, h) // max(1, min(4, magnify))
+    fits = [s for s in _EXACT if s <= room]
+    return min(fits, key=lambda s: abs(s - want)) if fits else want

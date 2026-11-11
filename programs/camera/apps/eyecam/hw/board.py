@@ -26,7 +26,7 @@ import machine
 import ppa
 
 from . import Hardware
-from .crop import video_crop
+from .crop import preview_side, video_crop
 from .desktop import IntervalSleep as _BlankSleep
 from .desktop import Storage as _FolderStorage
 from .photo import SIZES, Photo
@@ -72,7 +72,7 @@ class Preview:
         self.external = False
 
     def frame(self, magnify):
-        side = (self.h * 8 // 9) // max(1, min(4, magnify))
+        side = preview_side(self.w, self.h, magnify)
         x0, y0 = (self.w - side) // 2, (self.h - side) // 2
         if self.external:
             with self.lock:
