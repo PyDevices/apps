@@ -51,3 +51,25 @@ The bridge stops when a file named `stop` appears in the folder, or after
 Send MIDI's Identity Request (`F0 7E <id> 06 01 F7`) and the module answers
 with an Identity Reply, so a DAW can find it. The reply's fields are in the
 [reference](../reference/sound-module-midi.md#system-exclusive).
+
+## Show the patch names in your DAW
+
+A DAW can list every instrument's patches by name, and its macros on CC102 to
+CC117, once it has a name file for the module. Write both kinds:
+
+```sh
+python -m soundmodule.names --out names/
+```
+
+That writes `PyDevices Sound Module.midnam`, for DAWs that read MIDNAM files
+(Ardour and Mixbus among them), and `PyDevices Sound Module.ins`, a Cakewalk
+instrument definition (Cakewalk, SONAR). Put the file where your DAW looks
+for them, choose "PyDevices Sound Module" as the port's instrument, and each
+patch's entry sends the Bank Select and Program Change that play it.
+
+The names come from the `catalog.json` that audioinstruments and audioeffects
+carry, so they match the versions you have installed. To write them from
+another catalog, pass its file with `--instruments` or `--effects`. Each
+instrument with macros also has a mode of its own (a device mode in the
+MIDNAM, an instrument definition in the `.ins`) that names CC102 to CC117
+after its macros; the default names them Macro 0 to Macro 15.
