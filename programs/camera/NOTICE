@@ -1,0 +1,19 @@
+Camera uses artwork and fonts from other projects.
+
+Pictures (apps/eyecam/images)
+    The 21 pictures are Espressif's, from the ESP32-P4-EYE factory demo
+    (https://github.com/espressif/esp-dev-kits, examples/esp32-p4-eye/
+    examples/factory_demo/main/ui/images, commit 5c06bf1). The demo's code is
+    "Apache License 2.0" under that repository's LICENSE-APACHE, and these
+    files are SquareLine Studio exports in that code. Copyright Espressif
+    Systems (Shanghai) CO LTD. Changed here: each was converted from an LVGL 8
+    C array to an LVGL 9 .bin file (RGB565 with an alpha plane); the pixels
+    are the same. The licence text is in LICENSE-APACHE.
+
+Fonts (apps/eyecam/fonts)
+    KoHo Bold and SemiBold, copyright 2018 The KoHo Project Authors
+    (https://github.com/cadsondemak/Koho), under the SIL Open Font License,
+    Version 1.1 (apps/eyecam/fonts/OFL.txt). The .bin files are bitmap fonts
+    made from the TTFs in assets/fonts/src with lv_font_conv.
+
+The page layout, texts and behaviour follow the same factory demo.

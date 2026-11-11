@@ -1,0 +1,8 @@
+# A fresh card: the album's "No data found". Run with an empty APPKIT_DATA.
+1500 down
+900 down
+900 down
+900 down
+1200 m
+1000 shot 60-album-empty
+300 quit
