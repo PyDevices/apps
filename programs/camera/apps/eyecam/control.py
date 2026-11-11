@@ -494,7 +494,10 @@ class Eye:
 
     def set_usb_disk_mounted(self, state):
         self.usb_mounted = state == "connected"
-        self.goto_page(USB)
+        # The host's events come from the USB stack, at any point of LVGL's own
+        # refresh: change the page on the loop's own time (an LVGL assert hangs
+        # the board otherwise).
+        self.scope.after(1, lambda t: self.goto_page(USB))
 
     def handle_usb_disk_page(self):
         if self.page != USB:
