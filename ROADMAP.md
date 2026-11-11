@@ -27,7 +27,7 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 
 - A published copy of the app on the web, so it installs without running a
   local server.
-- The rest is in [Ostinato's roadmap](apps/ostinato/ROADMAP.md).
+- The rest is in [Ostinato's roadmap](programs/ostinato/ROADMAP.md).
 
 ## Synth Station
 

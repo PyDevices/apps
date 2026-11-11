@@ -25,7 +25,7 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 ROOT = TESTS.parent
 LIB = str(ROOT / "lib")
-APPS = str(ROOT / "apps")  # apps/vamp is the package itself
+APPS = str(ROOT / "programs")  # programs/vamp is the package itself
 sys.path.insert(0, str(TESTS))
 
 from test_engine import _find, audio_libs  # noqa: E402
@@ -39,7 +39,7 @@ def _hmilink():
     candidates = [Path(explicit)] if explicit else []
     for parent in TESTS.parents:
         candidates.append(parent / "pydevices" / "hmilink")
-    candidates.append(ROOT / "apps" / "ostinato" / "vendor" / "lib")
+    candidates.append(ROOT / "programs" / "ostinato" / "vendor" / "lib")
     for c in candidates:
         if (c / "hmilink" / "__init__.py").is_file():
             return str(c)

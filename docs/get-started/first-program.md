@@ -3,9 +3,9 @@
 [`tools/render_mid.py`](../../tools/render_mid.py) plays a Standard MIDI File
 through the sound module and writes the result to a WAV. It needs no MIDI
 hardware and no sound card, and it is the same engine that plays live MIDI.
-You need [studio installed](install.md) and a SoundFont.
+You need the [apps repo installed](install.md) and a SoundFont.
 
-From the studio folder:
+From the apps folder:
 
 ```bash
 python tools/render_mid.py tests/midi/musicbox1_spooky_waltz.mid take.wav --bank GeneralUser-GS.sf2 --path lib

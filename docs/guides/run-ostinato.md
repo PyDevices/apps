@@ -2,9 +2,9 @@
 
 Ostinato is a pattern sequencer and song editor. It runs in a browser, where
 you can install it from the address bar as an app that works offline, and as
-a native window on the desktop. It lives in [`apps/ostinato`](../../apps/ostinato).
+a native window on the desktop. It lives in [`programs/ostinato`](../../programs/ostinato).
 
-The steps are in its [README](../../apps/ostinato/README.md), and every
+The steps are in its [README](../../programs/ostinato/README.md), and every
 command there runs from that folder:
 
 - **In a browser.** Fetch the PyDevices wheels it runs on, vendor PyScript
@@ -15,7 +15,7 @@ command there runs from that folder:
 
 Both read the song model in [`lib/songmodel`](../../lib/songmodel), which
 Vamp uses too. `tools/serve.py` serves that folder from this repository, so
-run it from a studio checkout.
+run it from an apps checkout.
 
 ## Use a SoundFont in Ostinato
 
@@ -23,7 +23,7 @@ The two SoundFont instruments, **SOUNDFONT** and **SOUNDFONT DRUMS**, play
 whatever `.sf2` they find: the `SOUNDFONT` environment variable, else the
 first one in `%USERPROFILE%\soundfonts` (`~/soundfonts` elsewhere). Without
 one the track stays silent and the status line says so.
-[`apps/ostinato/songs/sketches/soundfont_check.json`](../../apps/ostinato/songs/sketches/soundfont_check.json)
+[`programs/ostinato/songs/sketches/soundfont_check.json`](../../programs/ostinato/songs/sketches/soundfont_check.json)
 plays all four tracks on them.
 
 ## Give it a second panel

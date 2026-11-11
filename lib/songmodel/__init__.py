@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The song both of studio's groovebox applications edit, and what carries it
+"""The song both of this repo's groovebox applications edit, and what carries it
 to a front panel.
 
 - `songmodel.model`: the project, plain JSON data changed only by ops that
@@ -12,7 +12,7 @@ to a front panel.
   be a front panel (needs ``hmilink``, from pydevices).
 - ``page.html``: the browser front panel a device serves on its hmilink port.
 
-Ostinato (``apps/ostinato``) and Vamp (``apps/vamp``) both use it.
+Ostinato (``programs/ostinato``) and Vamp (``programs/vamp``) both use it.
 """
 
 

@@ -1,6 +1,6 @@
 # How it is checked
 
-Every check in studio has been shown to fail on a fault planted on purpose.
+Every check in the apps repo has been shown to fail on a fault planted on purpose.
 `tests/engine_contract.py` keeps a `PLANTS` table, one broken-on-purpose
 variant per check, and the suite runs the contract once per plant and expects
 it to fail. A check that has only ever passed proves nothing, so a new check
@@ -46,6 +46,6 @@ turn. They need a Windows machine as well as WSL.
 Ostinato's timing is measured in Chrome, because headless Chromium's audio
 clock is not reliable under load. Its checks, which cover MIDI-to-sound
 latency, the editing workflows, file export and offline start, are listed in
-the [Ostinato README](../../apps/ostinato/README.md#checks).
+the [Ostinato README](../../programs/ostinato/README.md#checks).
 
 To run them yourself, see [CONTRIBUTING.md](../../CONTRIBUTING.md).

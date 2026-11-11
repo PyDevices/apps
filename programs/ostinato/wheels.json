@@ -1,0 +1,32 @@
+{
+  "numpy": {
+    "version": "2.4.3",
+    "file": "numpy-2.4.3-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+    "sha256": "0cad9c1b91f0082e4f959bc0e0bf5835a2efbba6ab3b1e9d1fe6e7e564cca98e"
+  },
+  "pydevices": {
+    "version": "0.8.0.dev6",
+    "file": "pydevices-0.8.0.dev6-py3-none-any.whl",
+    "sha256": "f4f34930f1b51f1c9bb054159e2e1698fbfd3c4dd18526ab3a0afd96300dd09c"
+  },
+  "omnipython-audiodsp": {
+    "version": "0.6.16.dev2",
+    "file": "omnipython_audiodsp-0.6.16.dev2-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+    "sha256": "7c30407e95e8afeb0066fd032b52d53b5f7624b7b92da4d23faabdf982e2acb4"
+  },
+  "pydevices-lvgl": {
+    "version": "9.5.54",
+    "file": "pydevices_lvgl-9.5.54-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+    "sha256": "54c24cf9bc675a9283dc3b98aac1b4d2edbd80fbec44269d196e08334c0ed6aa"
+  },
+  "omnipython-audioinstruments": {
+    "version": "0.5.2.dev4",
+    "file": "omnipython_audioinstruments-0.5.2.dev4-py3-none-any.whl",
+    "sha256": "5ee85d830276f3f891e880e0cb3c6249df64ac5c172634b190d7843bc167fa8a"
+  },
+  "omnipython-audioeffects": {
+    "version": "0.5.2.dev2",
+    "file": "omnipython_audioeffects-0.5.2.dev2-py3-none-any.whl",
+    "sha256": "709ad8751d5091f3c36309bb6c108513767a8102e9966938d6329ac0671414c9"
+  }
+}

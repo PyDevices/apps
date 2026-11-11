@@ -7,7 +7,7 @@ cloned beside this repository (so the real-instrument checks run):
 
 ```bash
 python -m unittest discover -s tests
-cd apps/ostinato && python -m unittest discover -s tests
+cd programs/ostinato && python -m unittest discover -s tests
 ```
 
 MicroPython and CircuitPython runs get `MICROPYPATH` from the test wrapper
@@ -45,7 +45,7 @@ bank at the end. The gate's docstring lists what it needs on Windows.
 
 ## Ostinato's checks
 
-From `apps/ostinato`, run them all in one app session, about four minutes, against a real Chrome:
+From `programs/ostinato`, run them all in one app session, about four minutes, against a real Chrome:
 
 ```bash
 .venv/bin/python tools/check_all.py --cdp http://127.0.0.1:9222

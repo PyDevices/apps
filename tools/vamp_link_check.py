@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Drives a running Vamp (apps/vamp/main.py) over hmilink, as Ostinato's window
+"""Drives a running Vamp (programs/vamp/main.py) over hmilink, as Ostinato's window
 does, and checks the box keeps the song and the time.
 
     python tools/vamp_link_check.py HOST:PORT [--song FILE] [--browser] [--json OUT]
@@ -32,7 +32,7 @@ import sys
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OSTINATO = os.path.join(ROOT, "apps", "ostinato")
+OSTINATO = os.path.join(ROOT, "programs", "ostinato")
 
 
 def _hmilink():
@@ -48,7 +48,7 @@ def _hmilink():
     raise SystemExit("no hmilink: set HMILINK_PATH to the folder holding the hmilink package")
 
 
-sys.path[0:0] = [os.path.join(ROOT, "lib"), os.path.join(ROOT, "apps"), _hmilink()]
+sys.path[0:0] = [os.path.join(ROOT, "lib"), os.path.join(ROOT, "programs"), _hmilink()]
 
 import hmilink  # noqa: E402
 from hmilink import tcp  # noqa: E402

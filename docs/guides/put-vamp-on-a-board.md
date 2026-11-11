@@ -6,9 +6,9 @@ Ostinato's window and a browser page edit the song it plays, live, over
 [hmilink](https://github.com/PyDevices/pydevices/tree/main/hmilink). A MIDI
 keyboard on the board plays the selected track.
 
-You need [studio installed](../get-started/install.md), a General MIDI
+You need the [apps repo installed](../get-started/install.md), a General MIDI
 SoundFont, [mpftp](https://github.com/PyDevices/mpftp) installed, and a clone
-of [pydevices](https://github.com/PyDevices/pydevices) beside studio, where
+of [pydevices](https://github.com/PyDevices/pydevices) beside the apps repo, where
 `tools/vamp_files.py` finds hmilink (`--hmilink DIR` names it otherwise).
 
 ## On a board
@@ -29,17 +29,17 @@ import vamp; vamp.run()
 
 ## On a desktop MicroPython
 
-With studio's `lib/`, hmilink, audioinstruments' and audioeffects' `lib/` and pydevices' `lib/`
+With the apps repo's `programs/` and `lib/`, hmilink, audioinstruments' and audioeffects' `lib/` and pydevices' `lib/`
 on `MICROPYPATH`:
 
 ```bash
-micropython -X heapsize=96M -m vamp.main --bank GeneralUser-GS.sf2 --song apps/ostinato/songs/sketches/soundfont_check.json
+micropython -X heapsize=96M -m vamp.main --bank GeneralUser-GS.sf2 --song programs/ostinato/songs/sketches/soundfont_check.json
 ```
 
 ## Open a panel
 
 Browse to `http://HOST:9100/` for the browser panel, or join with Ostinato's
-window, from `apps/ostinato`:
+window, from `programs/ostinato`:
 
 ```bash
 python -m ostinato --connect HOST:9100
@@ -47,7 +47,7 @@ python -m ostinato --connect HOST:9100
 
 Every panel sees the same song, and an edit on one shows on the others while
 the box keeps playing. The options (`--port`, `--midi`, `--lookahead-ms`,
-`--seconds`) are listed at the top of [`apps/vamp/main.py`](../../apps/vamp/main.py).
+`--seconds`) are listed at the top of [`programs/vamp/main.py`](../../programs/vamp/main.py).
 
 ## Check that a box is behaving
 

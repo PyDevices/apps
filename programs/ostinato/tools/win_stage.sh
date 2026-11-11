@@ -14,7 +14,7 @@ for d in app desktop ostinato assets songs; do
 done
 mkdir -p "$DEST/vendor"
 rsync -a --delete --exclude __pycache__ "$ROOT/vendor/lib/" "$DEST/vendor/lib/"
-# songmodel, which Ostinato shares with Vamp, lives in studio's lib/.
+# songmodel, which Ostinato shares with Vamp, lives in the apps repo's lib/.
 mkdir -p "$DEST/lib"
 rsync -a --delete --exclude __pycache__ "$ROOT/../../lib/songmodel/" "$DEST/lib/songmodel/"
 echo "staged in $DEST"

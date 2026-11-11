@@ -5,7 +5,7 @@ module does. You set nothing up on it: each part's Bank Select and Program
 Change pick the sound, so a DAW's own instrument-selection UI is enough. The
 [reference](../reference/sound-module-midi.md) lists the banks.
 
-You need [studio installed](../get-started/install.md), a SoundFont, and a
+You need the [apps repo installed](../get-started/install.md), a SoundFont, and a
 virtual MIDI port your DAW can send to, such as a loopback port on Windows.
 
 ## Run it on a port

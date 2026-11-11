@@ -6,7 +6,7 @@
 
     .venv/bin/python tools/serve.py [--port 8765] [--isolate]
 
-No caching, so an edit shows on reload. ``/lib/`` is studio's ``lib/``, two
+No caching, so an edit shows on reload. ``/lib/`` is the apps repo's ``lib/``, two
 folders up, where the song model Ostinato shares with Vamp lives (songmodel). ``--isolate`` adds the COOP/COEP
 headers that SharedArrayBuffer needs (P0's SAB comparison only).
 """

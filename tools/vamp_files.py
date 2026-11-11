@@ -22,11 +22,11 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OSTINATO = os.path.join(ROOT, "apps", "ostinato")
+OSTINATO = os.path.join(ROOT, "programs", "ostinato")
 
 # Each package, its files, and the folder they come from in this checkout.
 PACKAGES = {
-    "vamp": (["__init__.py", "engine.py", "device.py", "main.py"], "apps"),
+    "vamp": (["__init__.py", "engine.py", "device.py", "main.py"], "programs"),
     "songmodel": (["__init__.py", "model.py", "link.py", "page.html"], "lib"),
 }
 HMILINK = ["__init__.py", "tcp.py"]

@@ -2,7 +2,7 @@ name: Tests
 
 # Documentation-only changes can't change these results, so they don't run them.
 # Past that, the scope job reads the diff and each job runs only for the paths it
-# checks: ostinato for apps/ostinato and lib/ (its page loads studio's lib/), and
+# checks: ostinato for programs/ostinato and lib/ (its page loads studio's lib/), and
 # engines for lib/, tests/ and this workflow (which holds its pins). A push to
 # main is scoped to what that push changed. A manual run, or a push with no
 # earlier commit to compare with, runs both.
@@ -78,7 +78,7 @@ jobs:
           files=$(git diff --name-only "$BASE...$GITHUB_SHA")
           echo "$files"
           has() { grep -qE "$1" <<< "$files" && echo true || echo false; }
-          echo "ostinato=$(has '^(apps/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "ostinato=$(has '^(programs/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "engines=$(has '^(lib/|tests/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
@@ -99,11 +99,11 @@ jobs:
           python-version: "3.x"
 
       - name: Vendor PyScript
-        working-directory: apps/ostinato
+        working-directory: programs/ostinato
         run: ./scripts/vendor_pyscript.sh
 
       - name: Ostinato's tests
-        working-directory: apps/ostinato
+        working-directory: programs/ostinato
         run: python -m unittest discover -s tests -v
 
   # Synth Station's tests on CPython, against controlkit from lib/,
@@ -240,7 +240,7 @@ jobs:
         with:
           python-version: "3.13"
 
-      # Studio's controlkit tests import lvgl on CPython.
+      # The controlkit tests import lvgl on CPython.
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
@@ -287,7 +287,7 @@ jobs:
           make -C micropython/ports/unix submodules
           make -C micropython/ports/unix -j4 USER_C_MODULES=$GITHUB_WORKSPACE/modules
 
-      - name: Studio's tests
+      - name: The apps repo's tests
         working-directory: studio
         env:
           PYDEVICES_MICROPYTHON: ${{ github.workspace }}/micropython/ports/unix/build-standard/micropython

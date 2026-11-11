@@ -1,6 +1,6 @@
 # Apps
 
-What each app here does. Apps that run on a board are also listed in the
+What each app in `apps/` does. These are the apps Home lists and appkit runs; things that run on their own, like Ostinato and Vamp, are in [programs](../../programs/README.md). Apps that run on a board are also listed in the
 [gallery](https://gallery.omnipython.org).
 
 | App | What it does |
@@ -17,4 +17,3 @@ What each app here does. Apps that run on a board are also listed in the
 | [Sound card](../../apps/card) | The board is a USB speaker for a computer, with a spectrum of what plays. |
 | [System](../../apps/system) | Whether the board is well, at a glance: a turning arc and frame rate, a touch test, memory, boot, network, audio and what the board is; `stats()` gives the same from the REPL. |
 | [Wake word](../../apps/wake) | Listens on a USB microphone for "Hey Jarvis" and flashes on each detection. |
-| [Ostinato](../../apps/ostinato) | A pattern sequencer and song editor in a browser or on the desktop. |

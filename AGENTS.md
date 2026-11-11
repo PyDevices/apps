@@ -5,7 +5,7 @@
 - The contract runs on MicroPython and CircuitPython too: no `os.path`, no f-strings with `=`, and `memoryview.cast` isn't there (use `array.array("h", bytes(buf))`). CircuitPython's audio buffers count samples, not bytes.
 - `tools/gate.py` drives Windows from WSL: REAPER, a loopback MIDI port and a CPython venv on Windows. A Windows process outlives a timeout on the WSL side; the gate ends them by command line.
 - REAPER sends CC0 = 0 to every part when it stops. What a part played is in `Part.played`, not in its bank at the end.
-- Applications live in `apps/` (Ostinato, Vamp). Libraries live in `lib/` (soundmodule, songmodel). Code two of them share goes in `lib/` (`songmodel`); Ostinato's `tools/gen_boot.py` lists what its page loads from there, so run it after adding a shared file.
+- Home apps (an `app.json`, run by appkit) live in `apps/`; things that run on their own (Ostinato, Vamp) live in `programs/`. Libraries live in `lib/` (soundmodule, songmodel). Code two of them share goes in `lib/` (`songmodel`); Ostinato's `tools/gen_boot.py` lists what its page loads from there, so run it after adding a shared file.
 - Vamp's tests need hmilink: `$HMILINK_PATH`, or a `pydevices` checkout beside this one. CI sets `VAMP_REQUIRE=1` so a missing piece fails instead of skipping.
 - sayso's tests: `PYTHONPATH=lib python -m unittest discover -s tests/sayso` from the root. The offline tests need no credentials; `test_live.py` skips without a `sayso.local.json`. Never commit `sayso.local.json`, `tokens.json` or `lib/sayso/examples/write_examples.json`.
 - To test sayso without a network, replace `sayso.transport.requests` with a mock that has `get`/`post` (and `put`/`delete` for writes) before you build `SpotifyClient`.

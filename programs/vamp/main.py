@@ -8,8 +8,8 @@ On the ESP32-P4 board, with the files from ``tools/vamp_files.py`` on it::
 
     import vamp; vamp.run()
 
-On desktop MicroPython (unix or Windows), with studio's ``lib/`` and hmilink on
-MICROPYPATH::
+On desktop MicroPython (unix or Windows), with this repository's ``programs/`` and ``lib/`` and
+hmilink on MICROPYPATH::
 
     micropython -X heapsize=96M -m vamp.main --bank GeneralUser-GS.sf2 [--song FILE]
         [--port 9100] [--midi NAME] [--lookahead-ms 750] [--seconds N]

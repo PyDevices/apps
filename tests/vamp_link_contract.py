@@ -8,7 +8,7 @@ on hmilink TCP, the way Ostinato's window and the browser page drive it.
     micropython -X heapsize=64M tests/vamp_link_contract.py BANK.sf2 [--plant nomute]
     python tests/vamp_link_contract.py BANK.sf2
 
-MICROPYPATH (or PYTHONPATH) needs studio's lib/, hmilink and the audio
+MICROPYPATH (or PYTHONPATH) needs the apps repo's programs/ and lib/, hmilink and the audio
 libraries. A panel loads a song, presses Play, changes the tempo, mutes a
 track, adds a note, puts a reverb on the master and stops. After each step
 the box's song must equal the panel's, and the engine must have acted on it.

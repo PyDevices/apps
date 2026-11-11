@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Checks Vamp's engine (apps/vamp/engine.py) offline, on MicroPython and CPython.
+"""Checks Vamp's engine (programs/vamp/engine.py) offline, on MicroPython and CPython.
 
 Pulls the engine's output itself, so it owns the clock, and listens to what
 comes out: notes start on their frame however rarely the sequencer runs, an
@@ -12,7 +12,7 @@ path, and the keyboard plays at once.
     micropython -X heapsize=96M tests/vamp_check.py BANK.sf2 [--plant FAULT]
 
 MICROPYPATH (or PYTHONPATH) needs the audio libraries (audioinstruments,
-audioeffects) and studio's lib/. Any General MIDI bank with a closed and an
+audioeffects) and the apps repo's lib/. Any General MIDI bank with a closed and an
 open hi-hat in one exclusive class will do: tests/vamp_bank.py writes a small
 one. ``--plant`` breaks the engine one way (nodelay,
 nocancel, nomute, norack, nolive, nochoke) and the check must then fail.

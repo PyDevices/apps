@@ -2,7 +2,7 @@
 
 # Apps
 
-The apps for PyDevices: things you run on a board or a desktop.
+The apps for PyDevices: things you run on a board or a desktop. A Home app lives in `apps/`; a program, which runs on its own, lives in [`programs/`](programs/README.md).
 
 ## Install
 

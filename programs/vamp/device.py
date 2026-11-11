@@ -5,7 +5,7 @@
 """Vamp as an hmilink device: it holds the song and makes the sound, in one
 MicroPython process.
 
-Ostinato's split device (apps/ostinato/desktop/device.py) runs engines in
+Ostinato's split device (programs/ostinato/desktop/device.py) runs engines in
 processes of their own and passes messages; this one has one engine
 (`vamp.engine`) and calls it. To a panel the two look the same: Ostinato's
 desktop window (``python -m ostinato --connect BOX:9100``) and the browser page the box serves at

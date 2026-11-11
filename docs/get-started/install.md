@@ -1,11 +1,11 @@
 # Install
 
-studio is used from a clone, beside the libraries it builds on. The sound
+The apps repo is used from a clone, beside the libraries it builds on. The sound
 module and Vamp need audiodsp, which provides the audio nodes, and
 audioinstruments and audioeffects, which provide the instruments and effects:
 
 ```bash
-git clone https://github.com/PyDevices/studio
+git clone https://github.com/PyDevices/apps
 git clone https://github.com/PyDevices/audioinstruments
 git clone https://github.com/PyDevices/audioeffects
 git clone https://github.com/PyDevices/audiodsp
@@ -15,7 +15,7 @@ pip install --no-deps ./audioinstruments ./audioeffects/lib/audioeffects
 
 ## A SoundFont
 
-The sound module plays General MIDI from a SoundFont, which studio does not
+The sound module plays General MIDI from a SoundFont, which the apps repo does not
 ship. Download a General MIDI `.sf2`, such as
 [GeneralUser GS](https://schristiancollins.com/generaluser.php), and either
 pass it with `--bank`, set the `SOUNDFONT` environment variable, or put it in
