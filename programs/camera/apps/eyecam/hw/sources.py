@@ -101,9 +101,6 @@ class UvcSource:
     """
 
     kind = UVC
-    # A webcam's isochronous packets must fit the host's IN limit, which a
-    # session started for "uvc" sets at 600 bytes.
-    IN_LIMIT = 600
 
     def __init__(self, dev, max_size=(1280, 720), fps=25):
         import jpegio
@@ -113,7 +110,13 @@ class UvcSource:
             self._dec = jpegio.JpegDecoder(hardware=True)
         except (OSError, TypeError):
             self._dec = jpegio.JpegDecoder()
-        self.cam = Camera(dev, encoding="mjpeg", max_size=max_size, fps=fps, in_limit=self.IN_LIMIT)
+        self.cam = Camera(dev, encoding="mjpeg", max_size=max_size, fps=fps)
+        hold = getattr(self.cam, "hold_frame_rate", None)
+        if hold is not None:
+            try:
+                hold()  # a dim room otherwise slows a webcam's frame rate
+            except OSError:
+                pass
         self.w, self.h = self.cam.width, self.cam.height
         self._jpeg = bytearray(self.cam.frame_bytes)
         self._raw, self._rgb = _aligned(self.w * self.h * 2)
@@ -231,7 +234,11 @@ def open_source(board_config, testcard_path, usb_wait_ms=3000):
 
     def uvc():
         dev = _usb_camera(usb_wait_ms)
-        return UvcSource(dev) if dev is not None else None
+        if dev is None:
+            return None
+        src = UvcSource(dev)
+        src.start()  # its transfer memory is taken now, before the encoder takes the board's internal RAM
+        return src
 
     return first_source(
         {CSI: csi, UVC: uvc, TESTCARD: lambda: TestCardSource(testcard_path)},
