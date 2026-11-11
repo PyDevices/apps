@@ -6,7 +6,7 @@
 
 This is a groovebox's engine on a board (an ESP32-P4) and on desktop
 MicroPython, one process with no workers. Ostinato's engine
-(apps/ostinato/app/engine/engine.py) renders each track in Python, a block at
+(programs/ostinato/app/engine/engine.py) renders each track in Python, a block at
 a time; here nothing in Python touches the audio. The tracks share one ``soundfont.Voices``
 pool, the pool goes through the master rack and a level, and the audio pump
 renders all of it on the other core.

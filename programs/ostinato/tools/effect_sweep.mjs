@@ -8,7 +8,7 @@ const R = new URL("../", import.meta.url).pathname;
 const w = JSON.parse(fs.readFileSync(R + "wheels.json"));
 const py = await loadPyodide({ indexURL: R + "vendor/pyscript/pyodide/" });
 for (const n of ["numpy", "omnipython-audiodsp", "omnipython-audioeffects", "omnipython-audioinstruments"]) await py.loadPackage(R + "vendor/wheels/" + w[n].file);
-// songmodel (the song model) is in studio's lib/, two folders up.
+// songmodel (the song model) is in the apps repo's lib/, two folders up.
 py.FS.mkdirTree("/home/pyodide/songmodel");
 for (const f of ["__init__.py", "model.py"]) py.FS.writeFile("/home/pyodide/songmodel/" + f, fs.readFileSync(R + "../../lib/songmodel/" + f));
 py.FS.writeFile("/home/pyodide/engine.py", fs.readFileSync(R + "app/engine/engine.py"));

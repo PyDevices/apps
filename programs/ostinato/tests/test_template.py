@@ -62,7 +62,7 @@ class TemplateTests(unittest.TestCase):
 
     def test_worker_files_exist(self):
         """Every Python file app/boot_config.js hands a worker is in the tree
-        (vendored ones aside). lib/ is studio's lib/, two folders up, as
+        (vendored ones aside). lib/ is the apps repo's lib/, two folders up, as
         tools/serve.py serves it: the song model Ostinato shares with Vamp."""
         cfg = json.loads(_read("app/boot_config.js").split("export default", 1)[1].rstrip().rstrip(";"))
         for worker in ("ui", "engine"):

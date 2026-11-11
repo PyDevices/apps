@@ -44,7 +44,7 @@ finds them). With none, the face says where to put one. The bank is opened when 
 starts; a channel's instrument is made the first time it is played or given a program, and its
 samples are read on its notes, a bounded number of them kept. A tap on a piece only starts the
 player's clock: its first events go on the app's timer.
-The MIDI it answers is the sound module's (studio's ``soundmodule.engine``).
+The MIDI it answers is the sound module's (the apps repo's ``soundmodule.engine``).
 """
 
 import lvgl as lv

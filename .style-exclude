@@ -1,5 +1,5 @@
 # Paths the style check skips: code that isn't ours, and generated files.
 # One glob per line.
 
-# Written by apps/ostinato/scripts/make_icon_font.py.
-apps/ostinato/app/ui/icons.py
+# Written by programs/ostinato/scripts/make_icon_font.py.
+programs/ostinato/app/ui/icons.py

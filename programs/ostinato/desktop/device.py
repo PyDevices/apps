@@ -7,10 +7,10 @@
     python -m ostinato --role device [--port 9100] [--song FILE]
 
 It runs the engines and the mixer (desktop/runners.py) and holds the song
-(songmodel.link, in studio's lib/). Panels connect on one port: the desktop UI
+(songmodel.link, in the apps repo's lib/). Panels connect on one port: the desktop UI
 (``python -m ostinato --connect 127.0.0.1:9100``, or ``--split``, which
 starts this process for you) and any browser, which gets the song page
-(songmodel's page.html, in studio's lib/) at http://<this machine>:9100/.
+(songmodel's page.html, in the apps repo's lib/) at http://<this machine>:9100/.
 
 Every edit is a JSON Patch op a panel sends. The device numbers it, applies
 it to the song and to the engines, and sends it to every panel. The engines'

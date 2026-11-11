@@ -5,13 +5,15 @@ synth from a MIDI keyboard, put drums on a step grid, record loops and fix
 them in a piano roll, chain patterns into a song, put effects on each track,
 and export a WAV or a MIDI file. It installs as an app and works offline.
 
+Runs on: a desktop browser (Chrome or Edge) or a Windows desktop with Python 3.14 or later. Put it there with the steps under [Run it](#run-it) or [Run it on the desktop](#run-it-on-the-desktop).
+
 It's built from PyDevices: LVGL draws the interface, audioinstruments' 33
 instruments and 44 effects make the sound, and `midiports` and
 `adafruit_midi` read the keyboard, all running in Pyodide in Web Workers.
 
 ## Run it
 
-Every command here runs from this folder, `apps/ostinato` in studio.
+Every command here runs from this folder, `programs/ostinato` in the apps repo.
 
 ```bash
 .venv/bin/python scripts/fetch_wheels.py      # the PyDevices wheels it runs on
@@ -65,7 +67,7 @@ venv above unless `PY315` names another interpreter.
   track's mute and volume, and a step grid. An edit on either shows on the other.
   `--device` is that process alone, with no window, and `--connect HOST:PORT`
   is the window alone, joining one that's already running. That one can be
-  Vamp, studio's headless groovebox: the window is one of its front panels.
+  Vamp, the apps repo's headless groovebox: the window is one of its front panels.
 
 The two SoundFont instruments, **SOUNDFONT** (General MIDI's 128 programs)
 and **SOUNDFONT DRUMS** (its kits), play whatever `.sf2` they find: the
@@ -107,13 +109,13 @@ for the rest; the script says how many bars that changed.
   its track and hands it to the master worker (`app/engine/master.py`),
   which sums them, runs the master effects, and is the one stream the
   AudioWorklet (`workers/audio_worklet.js`) plays.
-- The project is `songmodel.model`, in studio's `lib/songmodel/`: plain data,
+- The project is `songmodel.model`, in the apps repo's `lib/songmodel/`: plain data,
   changed only by ops that both sides apply. Vamp plays the same songs.
 - `workers/` is pyscript-template's worker kit.
 
 `songmodel.model` imports on CPython, Pyodide and MicroPython. The engine and
 UI around it haven't been tried on a board yet; on a board, the songs play on
-Vamp instead (`apps/vamp/`).
+Vamp instead (`programs/vamp/`).
 
 ## Checks
 

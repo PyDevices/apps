@@ -12,7 +12,7 @@ through the sound module.
 **Reference.** [The apps, and what each does](reference/apps.md). [What an appkit app must provide](reference/app-requirements.md). [The sound module's MIDI](reference/sound-module-midi.md): banks,
 controllers, System Exclusive, and the `soundmodule.run` options. Vamp's
 options are listed at the top of
-[`apps/vamp/main.py`](../apps/vamp/main.py).
+[`programs/vamp/main.py`](../programs/vamp/main.py).
 
 **How it works.** [How the apps are built](how-it-works/apps.md), [what is in the apps](how-it-works/overview.md) and
 [how it is checked](how-it-works/how-its-checked.md).

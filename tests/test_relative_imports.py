@@ -62,7 +62,7 @@ def _dangling(path):
 class RelativeImportsTest(unittest.TestCase):
     def test_every_relative_import_resolves(self):
         found = []
-        for top in ("lib", "apps"):
+        for top in ("lib", "apps", "programs"):
             for path, dirs, files in os.walk(os.path.join(ROOT, top)):
                 dirs[:] = [d for d in dirs if d not in _LEFT_OUT]
                 for name in files:

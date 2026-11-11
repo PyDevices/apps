@@ -1,14 +1,14 @@
-# What is in studio
+# What is in the apps repo
 
-studio holds three applications that share a song model and an audio stack.
+The apps repo holds two programs and a sound module that share a song model and an audio stack.
 
 - **soundmodule** ([`lib/soundmodule`](../../lib/soundmodule)) is a MIDI
   tone module. Its engine has no face of its own: feed it MIDI bytes and pull
   its `output`, from a headless loop (`soundmodule.run`), a UI or a test.
-- **Ostinato** ([`apps/ostinato`](../../apps/ostinato)) is the sequencer and
+- **Ostinato** ([`programs/ostinato`](../../programs/ostinato)) is the sequencer and
   song editor. LVGL draws its interface in a browser worker or a desktop
   window, and audioinstruments makes the sound.
-- **Vamp** ([`apps/vamp`](../../apps/vamp)) plays Ostinato's songs on a
+- **Vamp** ([`programs/vamp`](../../programs/vamp)) plays Ostinato's songs on a
   MicroPython with no screen of its own. Its panels are the Ostinato window
   and a browser page, over the network.
 
