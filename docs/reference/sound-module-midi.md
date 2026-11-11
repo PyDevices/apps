@@ -17,6 +17,10 @@ module's parts do.
 | 80 | the *n*-th of audioinstruments' instruments (`engine.INSTRUMENTS`) | the instrument's patch |
 | 81 | the *n*-th drum machine (`engine.DRUM_MACHINES`) | the drum machine's patch |
 
+Every bank, program and patch has a name a DAW can show:
+[Show the patch names in your DAW](../guides/play-the-sound-module.md#show-the-patch-names-in-your-daw)
+writes the MIDNAM and Cakewalk files.
+
 Channel 10 plays the SoundFont's drums. The lists `INSTRUMENTS` and
 `DRUM_MACHINES` are in `engine.py`; new entries go on the end, so a song's
 program numbers keep their sound. A `None` in a list is a program the

@@ -37,6 +37,10 @@ env:
   # Both are the v0.5.0 tags.
   AUDIOINSTRUMENTS_REF: 256662f69dc18d9bcd59f395b95a562ae74504f9
   AUDIOEFFECTS_REF: c0b05edc79e54b3d944417d983030676b80cfca3
+  # The catalogs the sound module's DAW names are built from aren't in a
+  # release of either package yet.
+  AUDIOINSTRUMENTS_CATALOG_REF: a6d394852f3957fc188cea9ba03e23c771677587
+  AUDIOEFFECTS_CATALOG_REF: 3a39612f4fc0057c7742e82f636188b6af47ce69
   # The instrument panel isn't in an audioinstruments release yet.
   AUDIOINSTRUMENTS_PANEL_REF: a32dc9891f9e2d8f12692e73fe835cdc6d54e069
   # hmilink isn't in a pydevices release yet.
@@ -212,6 +216,22 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
+          repository: PyDevices/audioinstruments
+          ref: ${{ env.AUDIOINSTRUMENTS_CATALOG_REF }}
+          path: catalogs/audioinstruments
+          sparse-checkout: lib/audioinstruments/catalog.json
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/audioeffects
+          ref: ${{ env.AUDIOEFFECTS_CATALOG_REF }}
+          path: catalogs/audioeffects
+          sparse-checkout: lib/audioeffects/catalog.json
+          sparse-checkout-cone-mode: false
+
+      - uses: actions/checkout@v7
+        with:
           repository: PyDevices/pydevices
           ref: ${{ env.PYDEVICES_REF }}
           path: pydevices
@@ -275,6 +295,8 @@ jobs:
           AUDIOINSTRUMENTS_PANEL_DIR: ${{ github.workspace }}/audioinstruments-panel
           PANEL_REQUIRE: "1"
           AUDIOEFFECTS_DIR: ${{ github.workspace }}/audioeffects
+          AUDIOINSTRUMENTS_CATALOG: ${{ github.workspace }}/catalogs/audioinstruments/lib/audioinstruments/catalog.json
+          AUDIOEFFECTS_CATALOG: ${{ github.workspace }}/catalogs/audioeffects/lib/audioeffects/catalog.json
           HMILINK_PATH: ${{ github.workspace }}/pydevices/hmilink
           VAMP_REQUIRE: "1"
         run: python -m unittest discover -s tests -v
