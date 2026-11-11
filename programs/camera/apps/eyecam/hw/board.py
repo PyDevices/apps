@@ -379,7 +379,9 @@ class Recorder:
                 if n < 64:
                     break
                 n = mic.readinto(memoryview(self._block)[:n])
-            elif now - self._heard_ms >= self._block_ms:
+            elif now - self._heard_ms >= 2 * self._block_ms:
+                # Two blocks behind the clock, so the read finds its block
+                # already captured and never waits on the recording thread.
                 n = mic.readinto(self._block)
             else:
                 break
@@ -626,8 +628,8 @@ class Detector:
 
 def _queued_fn(mic):
     """How many bytes the microphone has captured and not yet handed over,
-    or None when it can't say. The pump's input says so in ``stats()``
-    (its ``queued_size()`` is the output side's and always reads 0)."""
+    or None when it can't say: the pump's input says so in ``stats()``, and a
+    plain I2S microphone (the Eye's) says nothing, so the clock decides."""
     stats = getattr(mic, "stats", None)
     if callable(stats):
         try:
@@ -635,8 +637,7 @@ def _queued_fn(mic):
             return lambda: stats()["waiting"]
         except (KeyError, TypeError, OSError):
             pass
-    queued = getattr(mic, "queued_size", None)
-    return queued if callable(queued) else None
+    return None  # not queued_size(): on most inputs that is the output side's, or reads 0
 
 
 def _mic_16k(make):
