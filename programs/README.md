@@ -6,6 +6,9 @@ runs it from the home screen.
 
 | Program | What it does |
 |---|---|
+| [Bluetooth speaker](bt-speaker) | A speaker your phone or computer pairs with, on a board with Bluetooth Classic. |
+| [Internet radio](internet-radio) | Plays MP3 streams over Wi-Fi; a press changes station. |
+| [MIDI module](midi-module) | A General MIDI sound module: MIDI from a DIN socket plays a SoundFont. |
 | [Ostinato](ostinato) | A pattern sequencer and song editor, in a browser or a desktop window. |
 | [Vamp](vamp) | Plays Ostinato's songs on one MicroPython, with the screens elsewhere. |
 
