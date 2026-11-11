@@ -190,7 +190,9 @@ def pick_mode(formats, cur):
     side is at least 480, since a bigger one only costs frame rate (the
     OV5647's default is 800x1280 at 16 fps, its 800x640 does 32). Returns the
     ``(width, height)``, or None to keep the current mode (*cur*) when it
-    already is that, or nothing fits."""
+    already is that, is landscape and big enough, or nothing fits."""
+    if cur[0] >= cur[1] and cur[1] >= 480:
+        return None  # already a landscape mode that is big enough (the Eye's 1080P)
     best = None
     for f in formats:
         w, h = f[1], f[2]
