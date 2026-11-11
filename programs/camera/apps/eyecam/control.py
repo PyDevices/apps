@@ -730,7 +730,8 @@ class Eye:
                     show(c.pop_space)
                     return
                 hide(c.pop_space)
-                self.hw.recorder.start(self.mag, RESOLUTIONS[self.options[2]])
+                if self.hw.recorder.start(self.mag, RESOLUTIONS[self.options[2]]) is False:
+                    return
                 self.recording = True
                 self._lvgl_rest(None)  # the encoder's thread gets its share
                 show(c.red_dot, c.red_time)

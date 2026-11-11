@@ -235,12 +235,17 @@ class Recorder:
             self._scaled_raw, self._scaled = _aligned(w * h * 2)
 
     def start(self, magnify, resolution="1080P"):
-        import mp4mux
-
+        """Begin a recording. False when this board can't make one (no encoder,
+        no ``mp4mux`` package), so the page doesn't claim it is recording."""
+        try:
+            import mp4mux
+        except ImportError:
+            print("eyecam: no mp4mux in /lib: no video (mip install mp4mux)")
+            return False
         self.magnify = max(1, min(4, magnify))
         self.prepare(resolution)
         if self._enc is None:
-            return
+            return False
         w, h = self.size
         self._frame = memoryview(self._work)[: w * h * 2]
         self._enc.force_idr()  # a new file starts on a keyframe with its SPS and PPS
@@ -269,6 +274,7 @@ class Recorder:
         self.preview.external = True
         _thread.stack_size(16 * 1024)
         _thread.start_new_thread(self._loop, ())
+        return True
 
     def _loop(self):
         cam = self.preview.cam
@@ -320,15 +326,28 @@ class Recorder:
         self._thread_done = True
 
     def _sound(self, now):
-        """Take the sound that has already been captured, a 100 ms block at
-        a time, never a block the clock hasn't reached: a read for sound
-        that doesn't exist yet blocks, and a blocking read on a thread holds
-        the interpreter too (measured: a 245 ms pause in the main loop)."""
-        while self._mic is not None and now - self._heard_ms >= self._block_ms:
+        """Take the sound that has already been captured, never a block the
+        microphone hasn't made yet: a read for sound that doesn't exist yet
+        blocks, and a blocking read on a thread holds the interpreter too
+        (measured: a 245 ms pause in the main loop; on a P4 Devkit and Panel
+        the recording and the screen stopped altogether). A microphone that
+        says how much it has queued is read for exactly that; one that
+        doesn't is read a 100 ms block at a time, never ahead of the clock."""
+        mic = self._mic
+        queued = getattr(mic, "queued_size", None)
+        while self._mic is not None:
             mp4 = self._mp4
             if mp4 is None:
                 break
-            n = self._mic.readinto(self._block)
+            if callable(queued):
+                n = min(queued(), len(self._block)) & ~1
+                if n < 64:
+                    break
+                n = mic.readinto(memoryview(self._block)[:n])
+            elif now - self._heard_ms >= self._block_ms:
+                n = mic.readinto(self._block)
+            else:
+                break
             if not n:
                 break
             mp4.add_audio(memoryview(self._block)[:n], self._heard_ms)
@@ -568,6 +587,23 @@ class Detector:
         return []  # no COCO model in this build; the album shows no boxes
 
 
+def _mic_16k(make):
+    """The board's microphone opened as 16 kHz mono, which is what the MP4's
+    sound track says it is. A board's own default can be another rate (the
+    P4 boards' codecs open at 24 kHz, which would play 1.5 times too slow); one
+    whose factory takes no format keeps its default."""
+
+    def open_mic():
+        try:
+            from audiodev import AudioFormat
+
+            return make(format=AudioFormat(rate=16000, channels=1, bits=16))
+        except (ImportError, TypeError):
+            return make()
+
+    return open_mic
+
+
 def _optional(bc, name):
     """A board_config peripheral, or None when the board hasn't got it (or
     can't make it)."""
@@ -611,6 +647,8 @@ def build(scope):
         except (OSError, ImportError) as e:
             print("eyecam: no accelerometer:", e)
     mic = _optional(bc, "pcm_in")
+    if mic is not None:
+        mic = _mic_16k(mic)
     if mic is None:
         print("eyecam: no microphone: video has no sound")
     recorder = Recorder(preview, storage, mic, work)

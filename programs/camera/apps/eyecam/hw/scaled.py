@@ -77,7 +77,7 @@ class ScaledDisplay:
             disp.flush_ready()
 
     # Touch arrives as the app's pointer events, in the panel's pixels.
-    def pointer(self, e):
+    def pointer(self, e, *_):  # LVGL's read path adds (indev, data)
         import events
 
         if e.type == events.MOUSEBUTTONDOWN and e.button == 1:
