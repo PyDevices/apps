@@ -731,6 +731,7 @@ class Eye:
                     return
                 hide(c.pop_space)
                 if self.hw.recorder.start(self.mag, RESOLUTIONS[self.options[2]]) is False:
+                    self._say(getattr(self.hw.recorder, "why", None) or "Video can't be recorded here")
                     return
                 self.recording = True
                 self._lvgl_rest(None)  # the encoder's thread gets its share
@@ -745,6 +746,15 @@ class Eye:
                 if self.video_timer is not None:
                     self.video_timer.deinit()
                     self.video_timer = None
+
+    def _say(self, text, ms=4000):
+        """Show *text* over the picture for a few seconds."""
+        lb = self.cam.make_notice()
+        lb.set_text(text)
+        show(lb)
+        if getattr(self, "notice_timer", None) is not None:
+            self.notice_timer.fire()
+        self.notice_timer = Timer(self.scope, ms, lambda: hide(lb))
 
     # -- app_control: buttons and knob ----------------------------------------
 

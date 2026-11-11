@@ -17,6 +17,7 @@ the microphone's sound; detection runs esp-dl's pedestrian and face models
 from ``/pedestrian.espdl`` and ``/face.espdl``.
 """
 
+import gc
 import os
 import time
 import lvgl as lv
@@ -106,17 +107,27 @@ class Preview:
 class Storage(_FolderStorage):
     """The card at /sd, in the factory's folders, watched for insertion."""
 
-    def __init__(self, make_card, present):
+    def __init__(self, make_card, present=None):
+        """*present* is the card-detect pin's reading. A board with no such
+        pin passes None: the card is taken to be there, mounted once at
+        start, and not looked for again if that fails."""
         self.root = SD
         self.full = False
         self.card_in = False
         self._make = make_card
-        self._present = present
+        self._untried = present is None
+        self._present = present if present is not None else self._try_once
         self._fns = []
         self.bdev = None
         self._first_mount = []
-        if present():
+        if self._present():
             self._mount()
+
+    def _try_once(self):
+        if self._untried:
+            self._untried = False
+            return True
+        return self.card_in
 
     def _mount(self):
         try:
@@ -197,6 +208,7 @@ class Recorder:
         self._work = work  # shared with Photo: a full frame's worth, 64-byte aligned
         self.recording = False
         self.frames = 0
+        self.why = None  # what to tell the person when start() says no
         self._enc = None
         self._mp4 = None
         self._mic = None
@@ -230,9 +242,17 @@ class Recorder:
                                         out_size=1024 * 1024, pipeline=(h <= 720))
         except (ValueError, MemoryError) as e:
             print("eyecam: no %s video encoder: %s" % (resolution, e))
-        self._scaled = None
-        if w != self.preview.w or h > self.preview.h:
-            self._scaled_raw, self._scaled = _aligned(w * h * 2)
+            self.why = "%s video needs more memory than this board has free: choose a smaller size" % resolution
+        self._scaled = self._scaled_raw = None
+        if self._enc is not None and (w != self.preview.w or h > self.preview.h):
+            gc.collect()
+            try:
+                self._scaled_raw, self._scaled = _aligned(w * h * 2)
+            except MemoryError:
+                self._enc.close()
+                self._enc = None
+                print("eyecam: no room for a %s picture to encode" % resolution)
+                self.why = "%s video needs more memory than this board has free: choose a smaller size" % resolution
 
     def start(self, magnify, resolution="1080P"):
         """Begin a recording. False when this board can't make one (no encoder,
@@ -241,7 +261,9 @@ class Recorder:
             import mp4mux
         except ImportError:
             print("eyecam: no mp4mux in /lib: no video (mip install mp4mux)")
+            self.why = "No video: mp4mux isn't installed"
             return False
+        self.why = None
         self.magnify = max(1, min(4, magnify))
         self.prepare(resolution)
         if self._enc is None:
@@ -261,9 +283,10 @@ class Recorder:
         self._t0 = time.ticks_ms()
         self._pts = 0
         self._heard_ms = 0
+        self.audio_bytes = 0
         self._last_tick = 0
         self.frames = 0
-        self.stats = {"crop_us": 0, "encode_us": 0, "gap_ms": 0}
+        self.stats = {"crop_us": 0, "encode_us": 0, "gap_ms": 0, "wait_us": 0, "ppa_us": 0, "mux_us": 0, "sound_us": 0}
         self.recording = True
         # Frames are taken and encoded on their own thread: the encoder and
         # the PPA let go of the interpreter while the hardware works, so the
@@ -289,6 +312,7 @@ class Recorder:
                     if f is None:
                         continue
                     self.preview.src = f
+                tw = time.ticks_us()
                 if self._scaled is None:
                     # The sensor's own size: the frame less 4 rows top and bottom, no copy.
                     off = ((sh - h) // 2) * sw * 2
@@ -303,10 +327,12 @@ class Recorder:
                 t1 = time.ticks_us()
                 au = self._enc.encode(frame)
                 t2 = time.ticks_us()
+                st = self.stats
+                st["wait_us"] += time.ticks_diff(tw, t0)
+                st["ppa_us"] += time.ticks_diff(t1, tw)
                 now = time.ticks_diff(time.ticks_ms(), self._t0)
                 if now <= self._pts:
                     now = self._pts + 1  # two frames in one millisecond: the MP4 wants its times to climb
-                st = self.stats
                 st["crop_us"] += time.ticks_diff(t1, t0)
                 st["encode_us"] += time.ticks_diff(t2, t1)
                 if self._last_tick:
@@ -315,11 +341,15 @@ class Recorder:
                 mp4 = self._mp4
                 if mp4 is None:
                     break  # stop() gave up waiting and closed the file
+                t3 = time.ticks_us()
                 if au:
                     mp4.add_video(au, self._pts if self._enc.pipeline else now, self._enc.keyframe)
                     self.frames += 1
                 self._pts = now
+                t4 = time.ticks_us()
                 self._sound(now)
+                st["mux_us"] += time.ticks_diff(t4, t3)
+                st["sound_us"] += time.ticks_diff(time.ticks_us(), t4)
         except Exception as e:
             print("eyecam: recording stopped:", e)
         self.preview.external = False
@@ -334,12 +364,12 @@ class Recorder:
         says how much it has queued is read for exactly that; one that
         doesn't is read a 100 ms block at a time, never ahead of the clock."""
         mic = self._mic
-        queued = getattr(mic, "queued_size", None)
+        queued = _queued_fn(mic)
         while self._mic is not None:
             mp4 = self._mp4
             if mp4 is None:
                 break
-            if callable(queued):
+            if queued is not None:
                 n = min(queued(), len(self._block)) & ~1
                 if n < 64:
                     break
@@ -351,6 +381,7 @@ class Recorder:
             if not n:
                 break
             mp4.add_audio(memoryview(self._block)[:n], self._heard_ms)
+            self.audio_bytes += n
             self._heard_ms += n // 32  # 32 bytes a millisecond at 16 kHz mono
 
     def _crop(self, sw, sh):
@@ -380,8 +411,9 @@ class Recorder:
             self._mp4 = None
         n = max(1, self.frames)
         st = self.stats
-        print("eyecam: %d frames, %.1f fps; per frame crop %d ms, encode %d ms, between ticks %d ms"
-              % (self.frames, n * 1000 / max(1, self._pts), st["crop_us"] // n // 1000, st["encode_us"] // n // 1000, st["gap_ms"] // n))
+        print("eyecam: %d frames, %.1f fps; per frame wait %d ms, scale %d ms, encode %d ms, file %d ms, sound %d ms (%d bytes), between ticks %d ms"
+              % (self.frames, n * 1000 / max(1, self._pts), st["wait_us"] // n // 1000, st["ppa_us"] // n // 1000,
+                 st["encode_us"] // n // 1000, st["mux_us"] // n // 1000, st["sound_us"] // n // 1000, self.audio_bytes, st["gap_ms"] // n))
         if self._mic is not None:
             close = getattr(self._mic, "close", None)
             if close:
@@ -587,6 +619,21 @@ class Detector:
         return []  # no COCO model in this build; the album shows no boxes
 
 
+def _queued_fn(mic):
+    """How many bytes the microphone has captured and not yet handed over,
+    or None when it can't say. The pump's input says so in ``stats()``
+    (its ``queued_size()`` is the output side's and always reads 0)."""
+    stats = getattr(mic, "stats", None)
+    if callable(stats):
+        try:
+            stats()["waiting"]
+            return lambda: stats()["waiting"]
+        except (KeyError, TypeError, OSError):
+            pass
+    queued = getattr(mic, "queued_size", None)
+    return queued if callable(queued) else None
+
+
 def _mic_16k(make):
     """The board's microphone opened as 16 kHz mono, which is what the MP4's
     sound track says it is. A board's own default can be another rate (the
@@ -618,7 +665,16 @@ def _scaled(bc, scale, lock):
     """The 240x240 display that the PPA enlarges onto this board's panel."""
     from .scaled import ScaledDisplay
 
-    return ScaledDisplay(bc.display_drv, scale, lock)
+    def home():
+        try:
+            from touchkit import shell
+
+            if shell.launcher is not None:
+                shell.go(shell.launcher.home)
+        except ImportError:
+            pass  # not under a touch launcher: there is no Home to go to
+
+    return ScaledDisplay(bc.display_drv, scale, lock, home)
 
 
 def build(scope):
@@ -634,8 +690,10 @@ def build(scope):
     # encoder and the models need. The factory's largest picture is 1920x1080,
     # whatever the camera sends.
     work_raw, work = _aligned(max(preview.w * preview.h, SIZES["1080P"][0] * SIZES["1080P"][1]) * 2)
-    has_card = hasattr(bc, "sdcard") and hasattr(bc, "sdcard_present")
-    storage = Storage(lambda: bc.sdcard, bc.sdcard_present if has_card else (lambda: False))
+    if hasattr(bc, "sdcard"):
+        storage = Storage(lambda: bc.sdcard, bc.sdcard_present if hasattr(bc, "sdcard_present") else None)
+    else:
+        storage = Storage(lambda: None, lambda: False)
     lights = Lights(_optional(bc, "led"), _optional(bc, "display_drv"))
     usb = UsbDisk()
     storage.on_first_mount(usb.attach)

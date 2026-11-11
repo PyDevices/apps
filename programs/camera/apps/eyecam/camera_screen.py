@@ -165,6 +165,23 @@ class CameraScreen:
             self.ai_label = lb
         return self.ai_label
 
+    def make_notice(self):
+        """A line along the bottom of the picture for a message the factory
+        UI has no popup for (a video size this board can't encode)."""
+        if getattr(self, "notice", None) is None:
+            lb = lv.label(self.screen)
+            lb.set_style_text_font(assets.montserrat(16), 0)
+            lb.set_style_text_color(lv.color_hex(0xFFFFFF), 0)
+            lb.set_style_bg_color(lv.color_hex(0x000000), 0)
+            lb.set_style_bg_opa(200, 0)
+            lb.set_style_radius(5, 0)
+            lb.set_style_pad_all(5, 0)
+            lb.set_width(220)
+            lb.set_long_mode(lv.label.LONG_MODE.WRAP)
+            lb.align(lv.ALIGN.BOTTOM_MID, 0, -10)
+            self.notice = lb
+        return self.notice
+
     def refresh_preview(self):
         self.preview.invalidate()
 

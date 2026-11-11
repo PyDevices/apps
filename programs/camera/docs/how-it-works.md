@@ -47,6 +47,10 @@ gets tap zones over the Menu, Up and Down pictures (`controls.py`): tap one,
 tap anywhere else for the knob press, drag up or down for one knob step (up
 zooms in), and hold the top picture for Menu where it shows Select.
 
+To leave for Home on a panel the picture fills (720x720 at 3x), hold a finger
+in the top-left corner for about a second: the launcher's own Home button is
+under the picture there. A wider panel shows that button beside the picture.
+
 ## The camera source
 
 Every source answers `size()`, `frame(timeout)`, `start()`, `stop()` and
@@ -64,6 +68,17 @@ next call.
 Photos and video are cut from whatever frame the source gives, at the
 factory's sizes. A camera smaller than the factory's 1920x1080 gives a
 smaller cut that is scaled up.
+
+## Video
+
+Video is H.264 from the board's encoder, with the microphone's sound at
+16 kHz in the same MP4. The encoder, the colour conversion and the screen all
+share the PSRAM and the PPA, so a recording runs slower than the preview: a
+P4 board records 720P at 11 to 13 frames a second with sound. 1080P records
+at 4 to 7 frames a second on the P4 boards with a big panel (the EYE's small
+panel leaves it 10), and a board that can't find memory for the encoder says so
+on the screen. A recording needs a card; a board whose config has no
+card-detect pin is taken to have one.
 
 ## Where it differs from the factory
 

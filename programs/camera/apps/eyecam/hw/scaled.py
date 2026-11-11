@@ -13,17 +13,26 @@ the launcher's shell draws over it) outside the enlarged picture.
 
 import lvgl as lv
 import ppa
+import time
 import uctypes
 
 BASE = 240
+HOME_ZONE = 110  # panel pixels: a press held in the top-left corner goes Home
+HOME_HOLD_MS = 800
 
 
 class ScaledDisplay:
     """*panel* is the board's displaydev driver; *scale* the whole-number
-    enlargement; *lock* the lock every PPA user takes (or None)."""
+    enlargement; *lock* the lock every PPA user takes (or None);
+    *on_home* is called when a press is held in the top-left corner (the
+    launcher's own Home button is under the enlarged picture on a panel the
+    picture fills)."""
 
-    def __init__(self, panel, scale, lock=None):
+    def __init__(self, panel, scale, lock=None, on_home=None):
         self.panel = panel
+        self.on_home = on_home
+        self._raw_pos = (0, 0)
+        self._home_t = None
         self.scale = scale
         self.lock = lock
         fb = panel.framebuffers()
@@ -82,15 +91,24 @@ class ScaledDisplay:
 
         if e.type == events.MOUSEBUTTONDOWN and e.button == 1:
             self._down = True
+            self._home_t = time.ticks_ms() if e.pos[0] < HOME_ZONE and e.pos[1] < HOME_ZONE else None
         elif e.type == events.MOUSEBUTTONUP and e.button == 1:
             self._down = False
+            self._home_t = None
         elif e.type != events.MOUSEMOTION:
             return
+        elif self._home_t is not None and (e.pos[0] >= HOME_ZONE or e.pos[1] >= HOME_ZONE):
+            self._home_t = None  # slid out of the corner: not a Home press
         x, y = e.pos
         x, y = (x - self.ox) // self.scale, (y - self.oy) // self.scale
         self._pos = (max(0, min(BASE - 1, x)), max(0, min(BASE - 1, y)))
 
     def _read(self, indev, data):
+        t = self._home_t
+        if t is not None and self.on_home is not None and time.ticks_diff(time.ticks_ms(), t) >= HOME_HOLD_MS:
+            self._home_t = None
+            self._down = False  # the press is spent: the app sees it lift
+            self.on_home()
         data.point = lv.point_t({"x": self._pos[0], "y": self._pos[1]})
         data.state = lv.INDEV_STATE.PRESSED if self._down else lv.INDEV_STATE.RELEASED
 
