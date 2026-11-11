@@ -107,6 +107,12 @@ def main(scope):
         if dev.type in (appdev.HOST, appdev.KEYPAD, appdev.ENCODER):
             scope.subscribe(dev, on_event, (events.KEYDOWN, events.MOUSEWHEEL, events.MOUSEBUTTONDOWN))
 
+    if eye.scaled is not None:
+        for dev in scope.app.devices:
+            if dev.type == appdev.POINTER:
+                scope.subscribe(dev, eye.scaled.pointer,
+                                (events.MOUSEBUTTONDOWN, events.MOUSEBUTTONUP, events.MOUSEMOTION))
+
     def closing():
         global eye
         if eye is not None:

@@ -578,6 +578,13 @@ def _optional(bc, name):
         return None
 
 
+def _scaled(bc, scale, lock):
+    """The 240x240 display that the PPA enlarges onto this board's panel."""
+    from .scaled import ScaledDisplay
+
+    return ScaledDisplay(bc.display_drv, scale, lock)
+
+
 def build(scope):
     import board_config as bc
 
@@ -632,6 +639,7 @@ def build(scope):
     sleep_fn = _optional(bc, "sleep")
     sleep = IntervalSleep(sleep_fn, lights, preview) if sleep_fn else _BlankSleep(scope, 60000)
     parts = dict(
+        scaled=lambda scale: _scaled(bc, scale, preview.lock),
         preview=preview,
         photo=Photo(preview, storage, lights, work),
         recorder=recorder,

@@ -102,6 +102,15 @@ class Eye:
         self.video_timer = None
         self.events = []  # (what, detail): photos, recordings, sleeps; read by tests
 
+        # A board draws at 240x240 on a display of its own and lets the PPA
+        # enlarge it: LVGL transforming each frame in software takes 250 ms
+        # at 2x. Make it first, so the screens below are made on it.
+        self.scaled = None
+        main = lv.display_get_default()
+        width, height = main.get_horizontal_resolution(), main.get_vertical_resolution()
+        factor = layout.scale_for(width, height)
+        if factor > 1 and getattr(hw, "scaled", None) is not None:
+            self.scaled = hw.scaled(factor)
         self.cam_scr = scope.screen()
         self.album_scr = scope.screen(load=False)
         self.usb_scr = scope.screen(load=False)
@@ -243,6 +252,9 @@ class Eye:
             fs["cycle_t0"] = None
 
     def close(self):
+        if self.scaled is not None:
+            self.scaled.close()
+            self.scaled = None
         if self._refr_cb is not None:
             try:
                 self._refr_disp.remove_event_cb(self._refr_cb)
