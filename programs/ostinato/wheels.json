@@ -5,28 +5,28 @@
     "sha256": "0cad9c1b91f0082e4f959bc0e0bf5835a2efbba6ab3b1e9d1fe6e7e564cca98e"
   },
   "pydevices": {
-    "version": "0.8.0.dev6",
-    "file": "pydevices-0.8.0.dev6-py3-none-any.whl",
-    "sha256": "f4f34930f1b51f1c9bb054159e2e1698fbfd3c4dd18526ab3a0afd96300dd09c"
+    "version": "0.7.8",
+    "file": "pydevices-0.7.8-py3-none-any.whl",
+    "sha256": "482a52835d9d7b66fdef24a024b627235f0dda7e9f3c362cdacf4c8995d78349"
   },
   "omnipython-audiodsp": {
-    "version": "0.6.16.dev2",
-    "file": "omnipython_audiodsp-0.6.16.dev2-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
-    "sha256": "7c30407e95e8afeb0066fd032b52d53b5f7624b7b92da4d23faabdf982e2acb4"
+    "version": "0.6.13.dev1",
+    "file": "omnipython_audiodsp-0.6.13.dev1-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+    "sha256": "7416748bbba27d9db7e0bf635510de05ef66c28521644c86ccf36cef87f5979a"
   },
   "pydevices-lvgl": {
-    "version": "9.5.54",
-    "file": "pydevices_lvgl-9.5.54-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
-    "sha256": "54c24cf9bc675a9283dc3b98aac1b4d2edbd80fbec44269d196e08334c0ed6aa"
+    "version": "9.5.52",
+    "file": "pydevices_lvgl-9.5.52-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
+    "sha256": "6931367bbd325883560f55bc72e82c0375970b283663595b5d09ec814aaf00a5"
   },
   "omnipython-audioinstruments": {
-    "version": "0.5.2.dev4",
-    "file": "omnipython_audioinstruments-0.5.2.dev4-py3-none-any.whl",
-    "sha256": "5ee85d830276f3f891e880e0cb3c6249df64ac5c172634b190d7843bc167fa8a"
+    "version": "0.5.0",
+    "file": "omnipython_audioinstruments-0.5.0-py3-none-any.whl",
+    "sha256": "5052d99f46768ee1a49de124ddfc7fbdd0154932a28c91ef7d2ab0fcb8fa9453"
   },
   "omnipython-audioeffects": {
-    "version": "0.5.2.dev2",
-    "file": "omnipython_audioeffects-0.5.2.dev2-py3-none-any.whl",
-    "sha256": "709ad8751d5091f3c36309bb6c108513767a8102e9966938d6329ac0671414c9"
+    "version": "0.5.0.dev1",
+    "file": "omnipython_audioeffects-0.5.0.dev1-py3-none-any.whl",
+    "sha256": "45910b049cad637c2063c4129e9cb744bbc4f705230bb99f7bdec0a6849c8dac"
   }
 }
