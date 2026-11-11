@@ -64,18 +64,23 @@ def main(scope):
         if PICTURES:
             camera = medialink.FileCamera(PICTURES)
         else:
+            # A board can have cameraif and a board_peripherals with no camera
+            # in it; that is "no camera" too.
             try:
                 import board_peripherals
                 import cameraif
-            except ImportError as e:
+
+                # Have the chip scale each picture down and encode it, so it is
+                # quick to send and the other side decodes it in hardware.
+                camera = board_peripherals.camera()
+                camera.reconfigure(pixel_format=cameraif.PixelFormat.JPEG, frame_size=getattr(cameraif.FrameSize, SIZE))
+                camera.quality = QUALITY
+            except Exception as e:
                 print("surveillance camera: camera:", e)
+                if camera is not None:
+                    camera.deinit()
                 ui.missing(scope, "no camera", "No camera here. The camera side needs an ESP32-P4 board with a camera, or a folder of JPEG files set as PICTURES.")
                 return
-            # Have the chip scale each picture down and encode it, so it is
-            # quick to send and the other side decodes it in hardware.
-            camera = board_peripherals.camera()
-            camera.reconfigure(pixel_format=cameraif.PixelFormat.JPEG, frame_size=getattr(cameraif.FrameSize, SIZE))
-            camera.quality = QUALITY
     else:
         try:
             from board_config import display_drv

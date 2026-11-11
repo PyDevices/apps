@@ -45,10 +45,16 @@ def main(scope):
         return
 
     fmt = AudioFormat(48000, 2, 16)
+    # The speaker first: without one, the board must not become a USB sound
+    # card the PC would play into.
+    try:
+        transport = pcm_out(fmt)
+    except Exception as e:
+        ui.missing(scope, "no speaker", "Sound card needs a speaker on this board: %s." % (e,))
+        return
     ring = audiopump.Ring(sample_rate=48000, channel_count=2, frames=480, capacity=8)
     spk = SpeakerInterface(sink=ring)
     usb.device.get().init(spk, builtin_driver=True)
-    transport = pcm_out(fmt)
     while transport is not None and getattr(transport, "wire", None) is None:
         transport = getattr(transport, "_inner", None)
     driver = pump.BusioDriver(transport.wire, fmt, power=getattr(transport, "audio_power", None),
