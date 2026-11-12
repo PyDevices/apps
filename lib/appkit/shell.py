@@ -5,7 +5,7 @@
 
 This one is the plainest: an app gets the whole screen, and a Home button
 sits in the corner when there's a home screen to go back to. On a round
-screen (`is_round`) the button is a circle with the Home symbol, set in
+screen (`is_round`) the button is a circle with the Home icon, set in
 from the top right along the diagonal so all of it is inside the circle. A board that
 wants a header, its own look or its own buttons subclasses it: override
 `Shell.make_root` to give apps a smaller area,
@@ -16,6 +16,7 @@ wants a header, its own look or its own buttons subclasses it: override
 import sys
 
 import lvgl as lv
+from iconkit import lvicons
 
 from . import data
 
@@ -83,9 +84,7 @@ class Shell:
             b.set_size(d, d)
             b.set_style_radius(lv.RADIUS_CIRCLE, 0)
             b.set_style_pad_all(0, 0)
-            lbl = lv.label(b)
-            lbl.set_text(lv.SYMBOL.HOME)
-            lbl.center()
+            lvicons.image(b, "home", 24).center()
             b.set_pos(*round_corner(size, d))
         else:
             b.align(lv.ALIGN.TOP_RIGHT, -8, 8)

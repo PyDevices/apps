@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Home: the apps on pages, one page per category, and one app behind the gear.
 
-Each app says what it is in its ``app.json``: ``category`` (its page), ``symbol``
-(a name on lv.SYMBOL), ``color`` (a "#RRGGBB" tile colour), ``tile`` (false to
+Each app says what it is in its ``app.json``: ``category`` (its page), ``icon``
+(a Material icon name from iconkit's 48 px set, required), ``color`` (a "#RRGGBB" tile colour), ``tile`` (false to
 keep it off the pages) and ``gear`` (true for the app the gear button opens).
 Pages come in alphabetical order by category. An app with no category gets a
 page of its own, "More", last. Home knows no app by name.
@@ -19,12 +19,14 @@ centred above them, so nothing falls outside the circle.
 
 import lvgl as lv
 
+import iconkit
+from iconkit import lvicons
 from appkit.shell import ROUND_MARGIN, is_round
 from touchkit import ui
 
-DEFAULT_SYMBOL = "LIST"
 DEFAULT_COLOR = "#44505E"
 
+LARGE_PAD = 4  # least space between the large layout's icon or title and the tile's edge
 COLS, ROWS = 4, 2
 GAP = 12
 TOP = 56
@@ -35,10 +37,19 @@ LINE = 0x2A3550  # the card's border and the tab bar's top edge
 TAB_ON = 0x1A2438
 
 
+def _tall_enough(h):
+    """Whether a tile *h* pixels tall fits the large layout: the 48 px icon, centred 22 px
+    above the middle, and the title 40 px below it, each with LARGE_PAD to spare."""
+    return h >= max(2 * (22 + 24 + LARGE_PAD), 2 * (40 + ui.font.line_height // 2 + LARGE_PAD))
+
+
 def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
     """The app tiles on one page: a card *cw* by *ch*, *cols* by *rows* tiles.
-    *small* tiles take the smaller fonts and stack the icon over the title."""
+    *small* tiles take the smaller fonts and stack the icon over the title; so do
+    tiles too short for the large layout (see `_tall_enough`)."""
     launcher = scope.launcher
+    if not small and not _tall_enough((ch - (rows + 1) * GAP) // rows):
+        small = True
     gap = GAP // 2 if small else GAP
     card = lv.obj(page)
     card.remove_style_all()
@@ -53,7 +64,7 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
     card.add_flag(lv.obj.FLAG.EVENT_BUBBLE)  # a swipe on the card still turns the page
     w = (cw - (cols + 1) * gap) // cols
     h = (ch - (rows + 1) * gap) // rows
-    for i, (name, sym, color) in enumerate(apps[: cols * rows]):
+    for i, (name, icon_name, color) in enumerate(apps[: cols * rows]):
         col, row = i % cols, i // cols
         b = lv.button(card)
         b.set_size(w, h)
@@ -63,16 +74,16 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
         if small:
             b.set_style_radius(10, 0)
             b.set_style_pad_all(2, 0)
-            icon = ui.label(b, sym, ui.big, ui.WHITE)
+            icon = lvicons.image(b, icon_name, 24, ui.WHITE)
             icon.align(lv.ALIGN.CENTER, 0, -ui.tiny.line_height // 2)
             lbl = ui.label(b, title, ui.tiny, ui.WHITE)
             lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
-            lbl.set_width(w - 4)
+            lbl.set_size(w - 4, ui.tiny.line_height)  # a fixed height is what lets DOTS cut a long title
             lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
             lbl.align(lv.ALIGN.BOTTOM_MID, 0, 0)
         else:
             b.set_style_radius(18, 0)
-            icon = ui.label(b, sym, ui.huge, ui.WHITE)
+            icon = lvicons.image(b, icon_name, 48, ui.WHITE)
             icon.align(lv.ALIGN.CENTER, 0, -22)
             lbl = ui.label(b, title, ui.font, ui.WHITE)
             lbl.align(lv.ALIGN.CENTER, 0, 40)
@@ -80,12 +91,22 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
 
 
 def _tile(name, entry):
-    symbol = getattr(lv.SYMBOL, entry.get("symbol", DEFAULT_SYMBOL), lv.SYMBOL.LIST)
-    return (name, symbol, int(entry.get("color", DEFAULT_COLOR)[1:], 16))
+    icon = entry.get("icon")
+    if icon is None:
+        raise ValueError(
+            'app %r has no "icon" in its app.json. Every app with a tile needs one: add "icon": '
+            '"<Material icon name>", taken from iconkit.names(48), or set "tile": false.' % (name,)
+        )
+    if icon not in iconkit.names(48):
+        raise ValueError(
+            'app %r names icon %r in its app.json, which iconkit has no 48 px tile icon for. '
+            "Pick one of: %s." % (name, icon, ", ".join(iconkit.names(48)))
+        )
+    return (name, icon, int(entry.get("color", DEFAULT_COLOR)[1:], 16))
 
 
 def _pages(info):
-    """``[(category, [(app, symbol, colour), ...]), ...]``, from each app's ``app.json``."""
+    """``[(category, [(app, icon, colour), ...]), ...]``, from each app's ``app.json``."""
     by_category = {}
     more = []
     for name in sorted(info):
@@ -99,7 +120,7 @@ def _pages(info):
             by_category.setdefault(category, []).append(_tile(name, entry))
     out = [(category, by_category[category]) for category in sorted(by_category)]
     if more:
-        out.append((lv.SYMBOL.LIST + "  More", more))
+        out.append(("More", more))
     return out
 
 
@@ -141,12 +162,12 @@ def main(scope):
             gear.set_pos((W - gear_w) // 2, gear_y)
             gear.set_style_radius(gear_h // 2, 0)
             gear.set_style_pad_all(0, 0)
-            ui.label(gear, lv.SYMBOL.SETTINGS, ui.font, ui.WHITE).center()
+            lvicons.image(gear, "settings", 24, ui.WHITE).center()
         else:
             gear.set_size(64, TOP - 12)
             gear.align(lv.ALIGN.TOP_RIGHT, -GAP, 6)
             gear.set_style_radius(12, 0)
-            ui.label(gear, lv.SYMBOL.SETTINGS, ui.big, ui.WHITE).center()
+            lvicons.image(gear, "settings", 24, ui.WHITE).center()
         gear.add_event_cb(lambda e: scope.switch(gear_app), lv.EVENT.CLICKED, None)
 
     tv = lv.tabview(scr)
@@ -173,6 +194,10 @@ def main(scope):
             _grid(scope, page, W - 2 * MARGIN, H - TOP - TAB_BAR - 2 * MARGIN, apps)
 
     bar = tv.get_tab_bar()
+    tab_font = ui.font
+    if round_:
+        # Four labels share the square's width: the larger font if its tab is wide enough for "Video", else the smaller.
+        tab_font = ui.small if side // max(1, len(pages)) >= 4 * ui.small.line_height else ui.tiny
     bar.set_style_bg_color(ui.PANEL, 0)
     bar.set_style_bg_opa(lv.OPA.COVER, 0)
     bar.set_style_border_side(lv.BORDER_SIDE.TOP, 0)
@@ -182,7 +207,7 @@ def main(scope):
     for i in range(bar.get_child_count()):
         t = bar.get_child(i)
         t.set_style_radius(0, 0)
-        t.set_style_text_font(ui.small if round_ else ui.font, 0)
+        t.set_style_text_font(tab_font, 0)
         t.set_style_text_color(ui.MUTED, 0)
         t.set_style_bg_opa(lv.OPA.TRANSP, 0)
         t.set_style_border_width(0, 0)

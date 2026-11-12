@@ -18,7 +18,7 @@ classifiers = [
 ]
 keywords = ["lvgl", "controls", "apps", "micropython"]
 # A program installs what the libraries it uses draw on: controlkit needs lvgl
-# and appkit needs pydevices.
+# and appkit needs pydevices and omnipython-iconkit.
 dependencies = []
 
 [tool.setuptools.dynamic]

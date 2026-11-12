@@ -16,6 +16,7 @@ has them. Last, the index generator itself, and appkit's manifest through
 MicroPython's own manifest reader when a MicroPython checkout is found.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -23,11 +24,13 @@ import sys
 import tempfile
 import unittest
 
-from _harness import LIB, PYDEVICES_LIB, TESTS, ContractCase, need_micropython, run
+from _harness import ICONKIT_LIB, LIB, PYDEVICES_LIB, TESTS, ContractCase, need_micropython, run
 
 sys.path.insert(0, str(LIB))
 if PYDEVICES_LIB is not None:
     sys.path.insert(1, str(PYDEVICES_LIB))
+if ICONKIT_LIB is not None:
+    sys.path.insert(1, str(ICONKIT_LIB))
 from appkit import index  # noqa: E402  (runs without the rest of appkit)
 
 CONTRACT = "scripts_contract.py"
@@ -59,6 +62,11 @@ ROUND_TRIP = [
     "LOOP True",
     "DONE",
 ]
+
+
+def _libs():
+    """The pydevices and iconkit source folders, as strings, for a path."""
+    return [str(p) for p in (PYDEVICES_LIB, ICONKIT_LIB) if p is not None]
 
 
 def _board_configs():
@@ -118,10 +126,10 @@ class RoundTrip(ContractCase):
         # board_config for the desktop, and the desktop helpers it imports
         # (usdl2 and the rest, in utils/), after pydevices' lib.
         configs = os.pathsep.join((str(PYDEVICES_LIB.parent / "utils"), str(_board_configs())))
-        mp_path = os.pathsep.join(p for p in (env.pop("FROZEN", None), str(LIB), str(PYDEVICES_LIB), configs) if p)
+        mp_path = os.pathsep.join(p for p in (env.pop("FROZEN", None), str(LIB), *_libs(), configs) if p)
         env["MICROPYPATH"] = mp_path.replace(os.pathsep, ":") + ":.frozen"
         env["PYTHONPATH"] = os.pathsep.join(
-            p for p in (env.pop("FROZEN_PY", None), str(LIB), str(PYDEVICES_LIB), configs) if p
+            p for p in (env.pop("FROZEN_PY", None), str(LIB), *_libs(), configs) if p
         )
         try:
             result = run(cmd, state_dir=self.tmp.name, extra_env=env, cwd=cwd, timeout=90)
@@ -223,13 +231,24 @@ class Index(unittest.TestCase):
                 [sys.executable, str(LIB / "appkit" / "index.py"), str(SET / "apps"), "-o", out],
                 capture_output=True,
                 text=True,
+                env=dict(os.environ, PYTHONPATH=os.pathsep.join(_libs() + [os.environ.get("PYTHONPATH", "")])),
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             with open(out) as f:
-                self.assertIn("('hello', {'name': 'hello', 'title': 'Hello'})", f.read())
+                self.assertIn("('hello', {'name': 'hello', 'title': 'Hello', 'icon': 'language'})", f.read())
             result = subprocess.run([sys.executable, str(LIB / "appkit" / "index.py")], capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("usage", result.stdout)
+
+    def test_a_missing_iconkit_says_how_to_get_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [sys.executable, "-I", str(LIB / "appkit" / "index.py"), str(SET / "apps"), "-o", os.path.join(tmp, "x.py")],
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("omnipython-iconkit", result.stderr)
 
     def test_bad_app_json_is_named(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -239,6 +258,43 @@ class Index(unittest.TestCase):
             with self.assertRaises(ValueError) as cm:
                 index.collect(tmp)
             self.assertIn("bad", str(cm.exception))
+
+    def _one_app(self, tmp, info):
+        os.makedirs(os.path.join(tmp, "thing"))
+        with open(os.path.join(tmp, "thing", "app.json"), "w") as f:
+            json.dump(info, f)
+
+    def test_tile_app_without_an_icon_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._one_app(tmp, {"name": "thing", "title": "Thing"})
+            with self.assertRaises(ValueError) as cm:
+                index.collect(tmp)
+            self.assertIn("'thing'", str(cm.exception))
+            self.assertIn('no "icon"', str(cm.exception))
+            self.assertIn('"tile": false', str(cm.exception))
+
+    def test_unknown_icon_is_refused_and_names_the_choices(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._one_app(tmp, {"name": "thing", "title": "Thing", "icon": "no_such_icon"})
+            with self.assertRaises(ValueError) as cm:
+                index.collect(tmp)
+            msg = str(cm.exception)
+            self.assertIn("'thing'", msg)
+            self.assertIn("'no_such_icon'", msg)
+            self.assertIn("photo_camera", msg)
+            # An icon only in the 24 px set isn't a tile icon.
+            self._one_app_again(tmp, "home")
+            with self.assertRaises(ValueError):
+                index.collect(tmp)
+
+    def _one_app_again(self, tmp, icon):
+        with open(os.path.join(tmp, "thing", "app.json"), "w") as f:
+            json.dump({"name": "thing", "icon": icon}, f)
+
+    def test_app_without_a_tile_needs_no_icon(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._one_app(tmp, {"name": "thing", "tile": False})
+            self.assertEqual(index.collect(tmp), [("thing", {"name": "thing", "tile": False})])
 
     def test_manifest_through_micropythons_reader(self):
         # appkit's manifest.py as a firmware build reads it.
@@ -252,15 +308,7 @@ class Index(unittest.TestCase):
         if not found:
             self.skipTest("no MicroPython checkout with tools/manifestfile.py")
         with tempfile.TemporaryDirectory() as tmp:
-            board = os.path.join(tmp, "manifest.py")
-            with open(board, "w") as f:
-                f.write(
-                    "import os\ninclude(%r, apps=%r, index_dir=%r)\n"
-                    % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"))
-                )
-            result = subprocess.run(
-                [sys.executable, str(found), "--freeze", board], capture_output=True, text=True, cwd=tmp
-            )
+            result = self._freeze(found, tmp, iconkit=ICONKIT_LIB.parent if ICONKIT_LIB else None)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             listed = result.stdout
             for frozen_as in (
@@ -269,9 +317,45 @@ class Index(unittest.TestCase):
                 "apps/__init__.py",
                 "apps/hello/__init__.py",
                 "appkit/launcher.py",
+                "iconkit/__init__.py",
             ):
                 self.assertIn(frozen_as, listed, listed)
             self.assertTrue(os.path.isfile(os.path.join(tmp, "index", "_appkit_apps.py")))
+
+    def _freeze(self, manifestfile, tmp, iconkit, library=None):
+        """appkit's manifest, with *apps* from the sample set, read by MicroPython's own reader in a
+        process that has iconkit on no import path; *iconkit* is the ``iconkit=`` option."""
+        board = os.path.join(tmp, "manifest.py")
+        extra = ", iconkit=%r" % (str(iconkit),) if iconkit else ""
+        with open(board, "w") as f:
+            f.write(
+                "include(%r, apps=%r, index_dir=%r%s)\n"
+                % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"), extra)
+            )
+        env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "PYDEVICES_LIBRARY")}
+        if library:
+            env["PYDEVICES_LIBRARY"] = str(library)
+        return subprocess.run(
+            [sys.executable, "-I", str(manifestfile), "--freeze", board], capture_output=True, text=True, cwd=tmp, env=env
+        )
+
+    def test_manifest_without_iconkit_says_how_to_fix_it(self):
+        found = os.environ.get("MICROPYTHON_MANIFESTFILE")
+        for parent in TESTS.parents:
+            candidate = parent / "micropython" / "tools" / "manifestfile.py"
+            if not found and candidate.is_file():
+                found = candidate
+        if not found:
+            self.skipTest("no MicroPython checkout with tools/manifestfile.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._freeze(found, tmp, iconkit=None)
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn("iconkit is not found", result.stdout + result.stderr)
+            self.assertIn("PYDEVICES_LIBRARY", result.stdout + result.stderr)
+            # A folder that is not iconkit's.
+            result = self._freeze(found, tmp, iconkit=tmp)
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn("is not iconkit's folder", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

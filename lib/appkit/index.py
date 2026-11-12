@@ -33,8 +33,45 @@ PACKAGE = "apps"
 INIT_TEXT = "# The apps folder is a package: appkit imports each app in it as %s.<app>.\n" % PACKAGE
 
 
+def _tile_icons():
+    """The icon names a Home tile can show: iconkit's 48 px set."""
+    try:
+        import iconkit
+    except ImportError as exc:
+        raise ImportError(
+            "appkit's index needs iconkit to check app icons: pip install omnipython-iconkit, "
+            "or put packages/iconkit/lib from the pydevices repository on the import path"
+        ) from exc
+    return iconkit.names(48)
+
+
+def check_icon(entry, info, path):
+    """Raise ``ValueError`` when the app *entry* (``info`` is its app.json, read from *path*)
+    shows a tile and has no ``"icon"`` in iconkit's 48 px set. An app with ``"tile": false`` needs none."""
+    if info.get("tile", True) is False:
+        return
+    icon = info.get("icon")
+    if icon is None:
+        raise ValueError(
+            '%s: app %r has no "icon". Every app with a tile needs one: add "icon": "<Material icon name>" '
+            'to its app.json, taken from iconkit.names(48), or set "tile": false.' % (path, entry)
+        )
+    names = _tile_icons()
+    if icon not in names:
+        raise ValueError(
+            '%s: app %r names icon %r, which iconkit has no 48 px tile icon for. Pick one of: %s. '
+            "(Build more with iconkit's make_icons.py and register them with iconkit.add().)"
+            % (path, entry, icon, ", ".join(names))
+        )
+
+
 def collect(folder):
-    """``[(entry, app.json contents), ...]`` for every app in *folder*, sorted."""
+    """``[(entry, app.json contents), ...]`` for every app in *folder*, sorted.
+
+    Raises:
+        ValueError: An app.json isn't a JSON object, or an app with a tile has no
+            ``"icon"`` or one that isn't in iconkit's 48 px set.
+    """
     apps = []
     for entry in sorted(os.listdir(folder)):
         path = os.path.join(folder, entry, "app.json")
@@ -47,6 +84,7 @@ def collect(folder):
                 raise ValueError("%s: %s" % (path, exc))
         if not isinstance(info, dict):
             raise ValueError("%s: not a JSON object" % (path,))
+        check_icon(entry, info, path)
         apps.append((entry, info))
     return apps
 
