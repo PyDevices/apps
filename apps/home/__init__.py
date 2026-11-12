@@ -26,6 +26,7 @@ from touchkit import ui
 
 DEFAULT_COLOR = "#44505E"
 
+LARGE_PAD = 4  # least space between the large layout's icon or title and the tile's edge
 COLS, ROWS = 4, 2
 GAP = 12
 TOP = 56
@@ -36,10 +37,19 @@ LINE = 0x2A3550  # the card's border and the tab bar's top edge
 TAB_ON = 0x1A2438
 
 
+def _tall_enough(h):
+    """Whether a tile *h* pixels tall fits the large layout: the 48 px icon, centred 22 px
+    above the middle, and the title 40 px below it, each with LARGE_PAD to spare."""
+    return h >= max(2 * (22 + 24 + LARGE_PAD), 2 * (40 + ui.font.line_height // 2 + LARGE_PAD))
+
+
 def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
     """The app tiles on one page: a card *cw* by *ch*, *cols* by *rows* tiles.
-    *small* tiles take the smaller fonts and stack the icon over the title."""
+    *small* tiles take the smaller fonts and stack the icon over the title; so do
+    tiles too short for the large layout (see `_tall_enough`)."""
     launcher = scope.launcher
+    if not small and not _tall_enough((ch - (rows + 1) * GAP) // rows):
+        small = True
     gap = GAP // 2 if small else GAP
     card = lv.obj(page)
     card.remove_style_all()
@@ -68,7 +78,7 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
             icon.align(lv.ALIGN.CENTER, 0, -ui.tiny.line_height // 2)
             lbl = ui.label(b, title, ui.tiny, ui.WHITE)
             lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
-            lbl.set_width(w - 4)
+            lbl.set_size(w - 4, ui.tiny.line_height)  # a fixed height is what lets DOTS cut a long title
             lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
             lbl.align(lv.ALIGN.BOTTOM_MID, 0, 0)
         else:
