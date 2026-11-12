@@ -253,6 +253,9 @@ class UsbDisk:
     def on_change(self, fn):
         self._fns.append(fn)
 
+    def offer(self):
+        pass
+
     def plug(self, connected):
         self.state = "connected" if connected else "instruction"
         for fn in self._fns:

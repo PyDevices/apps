@@ -503,12 +503,18 @@ class IntervalSleep:
 class UsbDisk:
     """The card as a USB drive on the USB 2.0 port, from the first mount on,
     as the factory does. ``state`` follows the host: "connected" once it has
-    configured the device, "instruction" when it is unplugged or resets."""
+    configured the device, "instruction" when it is unplugged or resets.
+
+    After a crash, a watchdog or a software reset the drive waits until the
+    USB page is opened (``offer()``): a board that keeps crashing would
+    otherwise hand the PC a drive it took back without an eject every few
+    seconds, and the PC opens a window for each one."""
 
     def __init__(self):
         self.state = "instruction"
         self._fns = []
         self.msc = None
+        self._bdev = None
 
     def on_change(self, fn):
         self._fns.append(fn)
@@ -521,8 +527,14 @@ class UsbDisk:
             fn(state)
 
     def attach(self, bdev):
-        if self.msc is not None:
+        self._bdev = bdev
+        if machine.reset_cause() in (machine.PWRON_RESET, machine.DEEPSLEEP_RESET):
+            self.offer()
+
+    def offer(self):
+        if self.msc is not None or self._bdev is None:
             return
+        bdev = self._bdev
         import usb.device
         from usb.device.msc import MSCInterface
 

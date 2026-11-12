@@ -33,7 +33,8 @@ Storage
     ``next_photo()``, ``next_video()``, ``remove(path)``. On a desktop the
     card is a folder in the app's data folder.
 UsbDisk
-    ``state``: "instruction" (no host), "connected"; ``on_change(fn)``.
+    ``state``: "instruction" (no host), "connected"; ``on_change(fn)``;
+    ``offer()`` puts the card on USB if it isn't yet.
 Accel
     ``rotation()`` -> 0, 90, 180 or 270, the side the board is turned to.
 Lights

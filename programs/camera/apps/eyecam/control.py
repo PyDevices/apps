@@ -450,6 +450,7 @@ class Eye:
         elif page == USB:
             self.clear_page()
             lv.screen_load(self.usb_scr)
+            self.hw.usb.offer()
             u = self.usb
             if self.usb_mounted:
                 hide(u.page1, u.warning)
