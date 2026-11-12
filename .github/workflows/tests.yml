@@ -244,6 +244,13 @@ jobs:
           ref: ${{ env.PYDEVICES_REF }}
           path: pydevices
 
+      # appkit draws its icons from iconkit, which is newer than the pin above.
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/pydevices
+          path: iconkit-src
+          sparse-checkout: packages/iconkit/lib
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.13"
@@ -307,4 +314,5 @@ jobs:
           AUDIOEFFECTS_CATALOG: ${{ github.workspace }}/catalogs/audioeffects/lib/audioeffects/catalog.json
           HMILINK_PATH: ${{ github.workspace }}/pydevices/hmilink
           VAMP_REQUIRE: "1"
+          PYTHONPATH: ${{ github.workspace }}/iconkit-src/packages/iconkit/lib
         run: python -m unittest discover -s tests -v
