@@ -19,7 +19,7 @@ files of [`lib/appkit`](lib/appkit) to `/lib/appkit` on a board, with
 [mpftp](https://github.com/PyDevices/mpftp), `mpremote` or any file tool. On a
 CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
-appkit's Home and its apps draw with [iconkit](https://github.com/PyDevices/pydevices/tree/main/packages/iconkit), which lives in the pydevices repository as its own package (`omnipython-iconkit`). Freeze it beside appkit, or install it, the way you do pydevices itself.
+appkit's Home and its apps draw with [iconkit](https://github.com/PyDevices/pydevices/tree/main/packages/iconkit), which lives in the pydevices repository as its own package (`omnipython-iconkit`). Including appkit's `manifest.py` in a firmware build freezes iconkit with it, from the folder you pass as `iconkit=` (pydevices' `packages/iconkit`) or, without that, from the omnipython-lib tree in `$PYDEVICES_LIBRARY`; with neither the build stops and says so. Getting appkit with `require("appkit", library="omnipython-lib")` brings iconkit along. Otherwise install iconkit the way you do pydevices itself.
 
 Or install the files from raw GitHub with `mip`, one file at a time:
 

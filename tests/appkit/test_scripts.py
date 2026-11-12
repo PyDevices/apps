@@ -308,15 +308,7 @@ class Index(unittest.TestCase):
         if not found:
             self.skipTest("no MicroPython checkout with tools/manifestfile.py")
         with tempfile.TemporaryDirectory() as tmp:
-            board = os.path.join(tmp, "manifest.py")
-            with open(board, "w") as f:
-                f.write(
-                    "import os\ninclude(%r, apps=%r, index_dir=%r)\n"
-                    % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"))
-                )
-            result = subprocess.run(
-                [sys.executable, str(found), "--freeze", board], capture_output=True, text=True, cwd=tmp
-            )
+            result = self._freeze(found, tmp, iconkit=ICONKIT_LIB.parent if ICONKIT_LIB else None)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             listed = result.stdout
             for frozen_as in (
@@ -325,9 +317,45 @@ class Index(unittest.TestCase):
                 "apps/__init__.py",
                 "apps/hello/__init__.py",
                 "appkit/launcher.py",
+                "iconkit/__init__.py",
             ):
                 self.assertIn(frozen_as, listed, listed)
             self.assertTrue(os.path.isfile(os.path.join(tmp, "index", "_appkit_apps.py")))
+
+    def _freeze(self, manifestfile, tmp, iconkit, library=None):
+        """appkit's manifest, with *apps* from the sample set, read by MicroPython's own reader in a
+        process that has iconkit on no import path; *iconkit* is the ``iconkit=`` option."""
+        board = os.path.join(tmp, "manifest.py")
+        extra = ", iconkit=%r" % (str(iconkit),) if iconkit else ""
+        with open(board, "w") as f:
+            f.write(
+                "include(%r, apps=%r, index_dir=%r%s)\n"
+                % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"), extra)
+            )
+        env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "PYDEVICES_LIBRARY")}
+        if library:
+            env["PYDEVICES_LIBRARY"] = str(library)
+        return subprocess.run(
+            [sys.executable, "-I", str(manifestfile), "--freeze", board], capture_output=True, text=True, cwd=tmp, env=env
+        )
+
+    def test_manifest_without_iconkit_says_how_to_fix_it(self):
+        found = os.environ.get("MICROPYTHON_MANIFESTFILE")
+        for parent in TESTS.parents:
+            candidate = parent / "micropython" / "tools" / "manifestfile.py"
+            if not found and candidate.is_file():
+                found = candidate
+        if not found:
+            self.skipTest("no MicroPython checkout with tools/manifestfile.py")
+        with tempfile.TemporaryDirectory() as tmp:
+            result = self._freeze(found, tmp, iconkit=None)
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn("iconkit is not found", result.stdout + result.stderr)
+            self.assertIn("PYDEVICES_LIBRARY", result.stdout + result.stderr)
+            # A folder that is not iconkit's.
+            result = self._freeze(found, tmp, iconkit=tmp)
+            self.assertNotEqual(result.returncode, 0, result.stdout)
+            self.assertIn("is not iconkit's folder", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
