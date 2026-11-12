@@ -9,8 +9,10 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-LIB = ROOT.parent.parent / "lib"
-sys.path.insert(0, str(LIB))
+sys.path.insert(0, str(ROOT / "tools"))
+import iconkit_lib  # noqa: E402
+
+sys.path.insert(0, str(iconkit_lib.find()))
 sys.path.insert(0, str(ROOT / "app" / "ui"))
 
 import iconkit  # noqa: E402

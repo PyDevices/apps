@@ -11,7 +11,7 @@ of ICONS that iconkit's shared set at that size lacks (iconkit refuses a name
 twice). The Material PNGs come in 18, 24, 36 and 48 px, so those are the sizes.
 app/ui/theme.py registers each module with ``iconkit.add()``. The second argument is iconkit's generator, ``make_icons.py``, from
 https://github.com/PyDevices/pydevices/tree/main/packages/iconkit. Needs Pillow. The icons are Apache-2.0
-(lib/iconkit/LICENSE-ICONS).
+(iconkit's LICENSE-ICONS).
 """
 
 import os
@@ -20,8 +20,10 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
-APPS = ROOT.parent.parent
-sys.path.insert(0, str(APPS / "lib"))
+sys.path.insert(0, str(ROOT / "tools"))
+import iconkit_lib  # noqa: E402
+
+sys.path.insert(0, str(iconkit_lib.find()))
 
 import iconkit  # noqa: E402
 
