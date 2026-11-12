@@ -47,7 +47,7 @@ class TransportBar:
         at += bh + px(22)
         self.rec = theme.button(self.root, icon="fiber_manual_record", w=bh + px(14), h=bh, checkable=True)
         self.rec.obj.set_pos(at, cy)
-        self.rec.label.set_style_text_color(theme.c(theme.REC), 0)
+        self.rec.set_icon_colour(theme.REC)
         # Armed, it's red with a white dot, not the orange every other
         # checked button (and Play) uses; it pulses while recording.
         self.rec.obj.set_style_bg_color(theme.c(theme.REC), lv.STATE.CHECKED)
@@ -200,8 +200,8 @@ class TransportBar:
         self.play.checked = self.app.engines.playing
         self.song.checked = bool(p.get("song_mode"))
         self.rec.checked = self.app.rec_armed
-        # The label doesn't share the button's checked state: colour it here.
-        self.rec.label.set_style_text_color(theme.c(0xFFFFFF if self.app.rec_armed else theme.REC), 0)
+        # Armed or not, the icon keeps its own colour, not the button's: set it here.
+        self.rec.set_icon_colour(0xFFFFFF if self.app.rec_armed else theme.REC)
 
     def show_history(self, can_undo, can_redo):
         """Undo and redo dim when there's nothing to take back (or bring back)."""

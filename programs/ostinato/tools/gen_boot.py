@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # The desktop app's MIDI port and its link between processes (hmilink, and
 # the song as its model): scripts/fetch_midi.py fetches them beside the rest.
 DESKTOP_ONLY = ("vendor/lib/midiports/windows.py", "vendor/lib/hmilink/", "lib/songmodel/link.py")
-# songmodel (the song model Ostinato shares with Vamp) is in the apps repo's lib/, two
+# songmodel (the song model Ostinato shares with Vamp) and iconkit (its icons) are in the apps repo's lib/, two
 # folders up. The page fetches it as lib/songmodel/...: tools/serve.py serves
 # The apps repo's lib/ there, and a published copy carries it at that path.
 LIB = ROOT.parent.parent / "lib"
@@ -44,8 +44,11 @@ def main():
     w = json.loads((ROOT / "wheels.json").read_text())
     whl = lambda n: "vendor/wheels/" + w[n]["file"]
     shared = tree("songmodel", "songmodel/", LIB, "lib/")
+    # iconkit's icons, drawn by LVGL; its pygraphics drawing (gfx.py) and MicroPython manifest aren't used here.
+    icons = {src: dest for src, dest in tree("iconkit", "iconkit/", LIB, "lib/").items()
+             if not src.endswith(("/gfx.py", "/manifest.py"))}
     ui = {"packages": [whl("pydevices"), whl("pydevices-lvgl")],
-          "files": {**shared, **tree("app/ui"), **tree("vendor/board")}}
+          "files": {**shared, **icons, **tree("app/ui"), **tree("vendor/board")}}
     engine = {"packages": [whl("pydevices"), whl("numpy"), whl("omnipython-audiodsp"), whl("omnipython-audioeffects"),
                            whl("omnipython-audioinstruments")],
               "files": {**shared, **tree("app/engine"), **tree("vendor/lib")}}
