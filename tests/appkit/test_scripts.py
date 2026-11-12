@@ -16,6 +16,7 @@ has them. Last, the index generator itself, and appkit's manifest through
 MicroPython's own manifest reader when a MicroPython checkout is found.
 """
 
+import json
 import os
 import shutil
 import subprocess
@@ -226,7 +227,7 @@ class Index(unittest.TestCase):
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             with open(out) as f:
-                self.assertIn("('hello', {'name': 'hello', 'title': 'Hello'})", f.read())
+                self.assertIn("('hello', {'name': 'hello', 'title': 'Hello', 'icon': 'language'})", f.read())
             result = subprocess.run([sys.executable, str(LIB / "appkit" / "index.py")], capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("usage", result.stdout)
@@ -239,6 +240,43 @@ class Index(unittest.TestCase):
             with self.assertRaises(ValueError) as cm:
                 index.collect(tmp)
             self.assertIn("bad", str(cm.exception))
+
+    def _one_app(self, tmp, info):
+        os.makedirs(os.path.join(tmp, "thing"))
+        with open(os.path.join(tmp, "thing", "app.json"), "w") as f:
+            json.dump(info, f)
+
+    def test_tile_app_without_an_icon_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._one_app(tmp, {"name": "thing", "title": "Thing"})
+            with self.assertRaises(ValueError) as cm:
+                index.collect(tmp)
+            self.assertIn("'thing'", str(cm.exception))
+            self.assertIn('no "icon"', str(cm.exception))
+            self.assertIn('"tile": false', str(cm.exception))
+
+    def test_unknown_icon_is_refused_and_names_the_choices(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._one_app(tmp, {"name": "thing", "title": "Thing", "icon": "no_such_icon"})
+            with self.assertRaises(ValueError) as cm:
+                index.collect(tmp)
+            msg = str(cm.exception)
+            self.assertIn("'thing'", msg)
+            self.assertIn("'no_such_icon'", msg)
+            self.assertIn("photo_camera", msg)
+            # An icon only in the 24 px set isn't a tile icon.
+            self._one_app_again(tmp, "home")
+            with self.assertRaises(ValueError):
+                index.collect(tmp)
+
+    def _one_app_again(self, tmp, icon):
+        with open(os.path.join(tmp, "thing", "app.json"), "w") as f:
+            json.dump({"name": "thing", "icon": icon}, f)
+
+    def test_app_without_a_tile_needs_no_icon(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self._one_app(tmp, {"name": "thing", "tile": False})
+            self.assertEqual(index.collect(tmp), [("thing", {"name": "thing", "tile": False})])
 
     def test_manifest_through_micropythons_reader(self):
         # appkit's manifest.py as a firmware build reads it.
