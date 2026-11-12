@@ -805,7 +805,7 @@ async def start():
     splash = lv.label(lv.screen_active())
     splash.set_text("Ostinato")
     splash.center()
-    failed = await fonts.load(BASE)
+    failed = await fonts.load()
     await catalog.load(BASE)
     if failed:
         print("fonts not loaded:", failed)

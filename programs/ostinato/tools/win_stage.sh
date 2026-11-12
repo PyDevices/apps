@@ -14,7 +14,10 @@ for d in app desktop ostinato assets songs; do
 done
 mkdir -p "$DEST/vendor"
 rsync -a --delete --exclude __pycache__ "$ROOT/vendor/lib/" "$DEST/vendor/lib/"
-# songmodel, which Ostinato shares with Vamp, lives in the apps repo's lib/.
+# songmodel, which Ostinato shares with Vamp, lives in the apps repo's lib/; iconkit,
+# its icons, in the pydevices repo (tools/iconkit_lib.py says where it is).
 mkdir -p "$DEST/lib"
 rsync -a --delete --exclude __pycache__ "$ROOT/../../lib/songmodel/" "$DEST/lib/songmodel/"
+ICONKIT_LIB=$(python3 "$ROOT/tools/iconkit_lib.py") || exit 1
+rsync -a --delete --exclude __pycache__ "$ICONKIT_LIB/iconkit/" "$DEST/lib/iconkit/"
 echo "staged in $DEST"

@@ -5,11 +5,14 @@
 import json
 import re
 import subprocess
+import sys
 from pathlib import Path
 import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "tools"))
+import iconkit_lib  # noqa: E402
 # The page and the scripts it runs Python from.
 PAGE_SCRIPTS = ("index.html", "workers/host.js", "workers/python_worker.js", "workers/audio_worklet.js")
 
@@ -69,7 +72,12 @@ class TemplateTests(unittest.TestCase):
             for src in cfg[worker]["files"]:
                 if src.startswith("vendor/"):
                     continue
-                path = ROOT.parent.parent / src if src.startswith("lib/") else ROOT / src
+                if src.startswith("lib/iconkit/"):
+                    path = iconkit_lib.find() / src[len("lib/"):]
+                elif src.startswith("lib/"):
+                    path = ROOT.parent.parent / src
+                else:
+                    path = ROOT / src
                 self.assertTrue(path.is_file(), src)
         self.assertIn("lib/songmodel/model.py", cfg["engine"]["files"])
 

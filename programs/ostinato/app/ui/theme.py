@@ -11,6 +11,13 @@ checked or selected look is a state on the same style, never a restyle
 
 import lvgl as lv
 
+import iconkit
+from iconkit import lvicons
+
+import _icons_18
+import _icons_24
+import _icons_36
+import _icons_48
 import fonts
 
 BG = 0x0E1116          # the window
@@ -33,6 +40,14 @@ TRACK_COLOURS = (0xFF7A45, 0x3DB4F2, 0xB28DFF, 0x46D39A, 0xF5C542, 0xF26CA7, 0x5
 
 S = 1.0                # the layout's scale, set by setup()
 _styles = {}
+
+# Icons come from iconkit: its shared 24 and 48 px sets plus Ostinato's own
+# modules for the rest (scripts/make_icons.py). Material's PNGs, which the
+# modules are built from, come in these four sizes.
+ICON_SIZES = (18, 24, 36, 48)
+for _m in (_icons_18, _icons_24, _icons_36, _icons_48):
+    iconkit.add(_m)
+_icon_size = 24        # the size icons draw at, set by setup()
 
 
 def c(hexval):
@@ -75,8 +90,11 @@ def setup(scale):
     _styles["muted"] = _style(text_color=c(MUTED), text_font=fonts.t(px(14)))
     _styles["title"] = _style(text_color=c(TEXT), text_font=fonts.t(px(20)))
     _styles["big"] = _style(text_color=c(TEXT), text_font=fonts.t(px(28)))
-    _styles["icon"] = _style(text_font=fonts.i(px(24)))
-    _styles["icon_big"] = _style(text_font=fonts.i(px(32)))
+    global _icon_size
+    _icon_size = ICON_SIZES[0]
+    for size in ICON_SIZES:     # the largest size that fits in a 24 px design icon
+        if size <= px(24):
+            _icon_size = size
 
 
 def style(obj, *names, selector=0):
@@ -122,15 +140,40 @@ def label(parent, text, kind="text", colour=None):
 
 
 class Button:
-    """An LVGL button and its label (LVGL objects take no new attributes)."""
+    """An LVGL button and its label and icon (LVGL objects take no new attributes).
 
-    def __init__(self, obj, label):
+    ``label`` is the word on the button and ``icon`` its image; either is None
+    when the button has none.
+    """
+
+    def __init__(self, obj, label, icon=None):
         self.obj = obj
         self.label = label
+        self.icon = icon
+        self.icon_colour = None
+        if icon is not None:
+            # The button's own colours change with its state, or when a screen sets
+            # one on it: the icon follows through these two events.
+            obj.add_event_cb(lambda e: self._tint(), lv.EVENT.STATE_CHANGED, None)
+            obj.add_event_cb(lambda e: self._tint(), lv.EVENT.STYLE_CHANGED, None)
+            self._tint()
 
     def on(self, event, fn):
         self.obj.add_event_cb(lambda e: fn(), event, None)
         return self
+
+    def _tint(self):
+        """The icon takes the colour the text of this button has in its state."""
+        if self.icon_colour is None:
+            colour = self.obj.get_style_text_color(0)
+        else:
+            colour = c(self.icon_colour)
+        self.icon.set_style_image_recolor(colour, 0)
+
+    def set_icon_colour(self, colour):
+        """Always draw the icon in *colour*, whatever the button's state."""
+        self.icon_colour = colour
+        self._tint()
 
     @property
     def checked(self):
@@ -147,10 +190,17 @@ class Button:
         self.label.set_text(text)
 
 
-def button(parent, text="", icon=None, checkable=False, w=None, h=None, kind="button"):
-    """A themed button holding text, an icon (a Material Icons character), or both."""
-    import icons
+def icon_image(parent, name):
+    """An LVGL image of icon *name* at the scale's icon size; raises ValueError if there is none."""
+    img = lv.image(parent)
+    img.remove_style_all()
+    img.set_src(lvicons.dsc(name, _icon_size))
+    img.set_style_image_recolor_opa(255, 0)
+    return img
 
+
+def button(parent, text="", icon=None, checkable=False, w=None, h=None, kind="button"):
+    """A themed button holding text, an icon (a Material icon name), or both."""
     b = lv.button(parent)
     b.remove_style_all()
     style(b, kind)
@@ -163,25 +213,22 @@ def button(parent, text="", icon=None, checkable=False, w=None, h=None, kind="bu
     if w and h:
         b.set_size(w, h)
     if icon and text:
-        # An icon and a word: two labels in a centred row, each at its own
-        # font's height. One label at the icon font's height cut the word's
-        # descenders off ("Song" read "Sona"). The word takes the button's
-        # colour, so checked and hovered states recolour it too.
+        # An icon and a word: a centred row. The word takes the button's
+        # colour, so checked and hovered states recolour it too; the icon
+        # follows the same colours through the button's state events.
         b.set_flex_flow(lv.FLEX_FLOW.ROW)
         b.set_flex_align(lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER)
         b.set_style_pad_column(px(6), 0)
-        ic = lv.label(b)
-        style(ic, "icon")
-        ic.set_text(icons.ICONS[icon])
+        img = icon_image(b, icon)
         lb = lv.label(b)
         lb.set_style_text_font(fonts.t(px(16)), 0)
         lb.set_text(text)
-        return Button(b, lb)
-    lb = lv.label(b)
+        return Button(b, lb, img)
     if icon:
-        style(lb, "icon")
-        lb.set_text(icons.ICONS[icon])
-    else:
-        lb.set_text(text)
+        img = icon_image(b, icon)
+        img.center()
+        return Button(b, None, img)
+    lb = lv.label(b)
+    lb.set_text(text)
     lb.center()
     return Button(b, lb)

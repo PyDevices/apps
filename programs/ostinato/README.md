@@ -111,6 +111,10 @@ for the rest; the script says how many bars that changed.
   AudioWorklet (`workers/audio_worklet.js`) plays.
 - The project is `songmodel.model`, in the apps repo's `lib/songmodel/`: plain data,
   changed only by ops that both sides apply. Vamp plays the same songs.
+- The buttons' icons are images from `iconkit`, in the apps repo's `lib/iconkit/`.
+  Icons that its shared sets lack are in `app/ui/_icons_<size>.py`; remake them
+  with `.venv/bin/python scripts/make_icons.py PATH_TO_material-design-icons PATH_TO_make_icons.py`,
+  where the second is [iconkit's generator](https://github.com/PyDevices/pydevices/tree/main/packages/iconkit).
 - `workers/` is pyscript-template's worker kit.
 
 `songmodel.model` imports on CPython, Pyodide and MicroPython. The engine and

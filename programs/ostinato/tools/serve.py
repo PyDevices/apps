@@ -7,7 +7,8 @@
     .venv/bin/python tools/serve.py [--port 8765] [--isolate]
 
 No caching, so an edit shows on reload. ``/lib/`` is the apps repo's ``lib/``, two
-folders up, where the song model Ostinato shares with Vamp lives (songmodel). ``--isolate`` adds the COOP/COEP
+folders up, where the song model Ostinato shares with Vamp lives (songmodel);
+``/lib/iconkit/`` is iconkit from the pydevices repo (tools/iconkit_lib.py). ``--isolate`` adds the COOP/COEP
 headers that SharedArrayBuffer needs (P0's SAB comparison only).
 """
 
@@ -15,8 +16,12 @@ import argparse
 import functools
 import http.server
 import pathlib
+import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "tools"))
+import iconkit_lib  # noqa: E402
+
 LIB = ROOT.parent.parent / "lib"
 
 
@@ -27,6 +32,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                       ".whl": "application/zip", ".json": "application/json"}
 
     def translate_path(self, path):
+        if path.startswith("/lib/iconkit/"):
+            return str(iconkit_lib.find()) + super().translate_path(path)[len(str(ROOT / "lib")):]
         if path.startswith("/lib/") and not (ROOT / "lib").is_dir():
             return str(LIB) + super().translate_path(path)[len(str(ROOT / "lib")):]
         return super().translate_path(path)
@@ -69,6 +76,7 @@ def main():
     ap.add_argument("--isolate", action="store_true")
     a = ap.parse_args()
     Handler.isolate = a.isolate
+    iconkit_lib.find()      # fail now, not on the first icon request
     server = http.server.ThreadingHTTPServer(("127.0.0.1", a.port), functools.partial(Handler, directory=str(ROOT)))
     print("serving %s on http://127.0.0.1:%d/" % (ROOT, a.port), flush=True)
     server.serve_forever()
