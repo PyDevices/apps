@@ -32,13 +32,12 @@
 
 ## Fields a home screen reads
 
-These are optional. A home screen that reads them places the app; the apps
-repo's [Home](../../apps/home/__init__.py) does.
+These place the app on a home screen, and `icon` is required for an app with a tile; the rest are optional. The apps repo's [Home](../../apps/home/__init__.py) reads them.
 
 | Field | Meaning | Read by |
 |---|---|---|
 | `category` | The page the app's tile is on. Pages are in alphabetical order. No category: the app is on a "More" page, last. | [`apps/home/__init__.py`](../../apps/home/__init__.py) lines 77–80 |
-| `symbol` | A name on `lv.SYMBOL`, such as `"AUDIO"`. Default `"LIST"`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 65 |
+| `icon` | A Material icon name from iconkit's 48 px set (`iconkit.names(48)`), such as `"audio_file"`. Required on every app with a tile: the index build and Home refuse an app without one, or one iconkit doesn't have. | [`lib/appkit/index.py`](../../lib/appkit/index.py), [`apps/home/__init__.py`](../../apps/home/__init__.py) |
 | `color` | The tile's colour as `"#RRGGBB"`. Default `"#44505E"`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 66 |
 | `tile` | `false` keeps the app off the pages. Default `true`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 75 |
 | `gear` | `true` on the one app the gear button opens. | [`apps/home/__init__.py`](../../apps/home/__init__.py) lines 94–96 |

@@ -11,7 +11,7 @@ License 2.0, [LICENSE-ICONS](LICENSE-ICONS)):
 - 24 px: 128 general-purpose icons (72 KB), listed in [icons_24.txt](icons_24.txt).
 - 48 px: 32 app-tile icons (72 KB), listed in [icons_48.txt](icons_48.txt). All 32 are in the 24 px set too.
 
-Names are Material's own (`home`, `wifi`, `battery_charging_full`). WiFi
+Every icon is on a [contact sheet](../../docs/reference/icons.md). Names are Material's own (`home`, `wifi`, `battery_charging_full`). WiFi
 strength comes as `network_wifi_1_bar`, `network_wifi_2_bar`,
 `network_wifi_3_bar` and `network_wifi`.
 
