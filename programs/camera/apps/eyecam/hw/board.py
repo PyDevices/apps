@@ -295,8 +295,18 @@ class Recorder:
 
         self._thread_done = False
         self.preview.external = True
+        self._sound_done = True
+        self._pending = []
+        if self._mic is not None and _queued_fn(self._mic) is None:
+            # A microphone that can't say what it has queued is read in blocks
+            # of its own, which cost as much as the video's encode (a block
+            # takes 40 to 90 ms under load on a P4): on their own thread they
+            # overlap the encoder's wait instead of adding to every frame.
+            self._sound_done = False
         _thread.stack_size(16 * 1024)
         _thread.start_new_thread(self._loop, ())
+        if not self._sound_done:
+            _thread.start_new_thread(self._sound_loop, ())
         return True
 
     def _loop(self):
@@ -347,7 +357,10 @@ class Recorder:
                     self.frames += 1
                 self._pts = now
                 t4 = time.ticks_us()
-                self._sound(now)
+                if self._sound_done:
+                    self._sound(now)
+                else:
+                    self._drain_sound(mp4)
                 st["mux_us"] += time.ticks_diff(t4, t3)
                 st["sound_us"] += time.ticks_diff(time.ticks_us(), t4)
         except Exception as e:
@@ -386,6 +399,32 @@ class Recorder:
             self.audio_bytes += n
             self._heard_ms += n // 32  # 32 bytes a millisecond at 16 kHz mono
 
+    def _sound_loop(self):
+        """Read the microphone a block at a time, two blocks behind the clock,
+        and queue what it gave for the video thread to put in the file."""
+        mic = self._mic
+        try:
+            while self.recording and self._mic is not None:
+                now = time.ticks_diff(time.ticks_ms(), self._t0)
+                if now - self._heard_ms < 2 * self._block_ms:
+                    time.sleep_ms(10)
+                    continue
+                n = mic.readinto(self._block)
+                if n:
+                    self._pending.append((self._heard_ms, bytes(memoryview(self._block)[:n])))
+                    self._heard_ms += n // 32  # 32 bytes a millisecond at 16 kHz mono
+        except Exception as e:
+            print("eyecam: sound stopped:", e)
+        self._sound_done = True
+
+    def _drain_sound(self, mp4):
+        """Put the blocks the sound thread has read into the file."""
+        pending = self._pending
+        while pending:
+            ms, block = pending.pop(0)
+            mp4.add_audio(block, ms)
+            self.audio_bytes += len(block)
+
     def _crop(self, sw, sh):
         """The factory's cut for this zoom and size, in source pixels: see
         `video_crop`."""
@@ -402,6 +441,12 @@ class Recorder:
             if self._thread_done:
                 break
             time.sleep_ms(5)
+        for _ in range(400):  # a block read in flight: up to 100 ms
+            if self._sound_done:
+                break
+            time.sleep_ms(5)
+        if self._mp4 is not None:
+            self._drain_sound(self._mp4)
         if self._enc is not None and self._mp4 is not None and self._enc.pipeline:
             last = self._enc.flush()
             if last:
