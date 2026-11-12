@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 # appkit's MicroPython manifest. From a board's manifest.py:
 #
-#   include("/path/to/apps/lib/appkit")          appkit alone
+#   include("/path/to/apps/lib/appkit")          appkit and iconkit
 #
 #   import os
 #   include("/path/to/apps/lib/appkit", apps=os.path.abspath("apps"))
@@ -16,6 +16,7 @@
 options.defaults(apps=None, index_dir=None)
 
 package("appkit", base_path="..")  # this folder is appkit itself; its parent holds the package
+include("../iconkit")  # the icons appkit's Home and apps draw with
 
 if options.apps:
     import importlib.util
