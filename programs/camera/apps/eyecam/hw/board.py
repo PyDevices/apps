@@ -17,6 +17,7 @@ the microphone's sound; detection runs esp-dl's pedestrian and face models
 from ``/pedestrian.espdl`` and ``/face.espdl``.
 """
 
+import _thread
 import os
 import time
 import lvgl as lv
@@ -58,8 +59,6 @@ class Preview:
     """
 
     def __init__(self, camera):
-        import _thread
-
         self.cam = camera  # a source (hw/sources.py): size(), frame(), deinit()
         self.w, self.h = camera.size()[0], camera.size()[1]
         self._raw, self.buf = _aligned(OUT * OUT * 2)
@@ -70,11 +69,18 @@ class Preview:
         # the preview cuts its picture from that frame under this lock.
         self.lock = _thread.allocate_lock()
         self.external = False
+        # The thread that is about to take, or holds, the lock for the
+        # recorder. A timer callback can run on whichever thread is executing
+        # bytecode, so the preview's frame can land inside the recorder's own
+        # `with lock` and wait for a lock its own thread holds.
+        self.holder = None
 
     def frame(self, magnify):
         side = preview_side(self.w, self.h, magnify)
         x0, y0 = (self.w - side) // 2, (self.h - side) // 2
         if self.external:
+            if self.holder == _thread.get_ident():
+                return self.buf  # called from inside the recorder's hold: keep the last picture
             with self.lock:
                 f = self.src
                 if f is None:
@@ -313,15 +319,20 @@ class Recorder:
         cam = self.preview.cam
         w, h = self.size
         sw, sh = self.preview.w, self.preview.h
-        lock = self.preview.lock
+        preview = self.preview
+        lock = preview.lock
+        me = _thread.get_ident()
         try:
             while self.recording:
                 t0 = time.ticks_us()
+                preview.holder = me
                 with lock:  # not while the preview is cutting from the last frame
                     f = cam.frame(timeout=200)
                     if f is None:
+                        preview.holder = None
                         continue
-                    self.preview.src = f
+                    preview.src = f
+                preview.holder = None
                 tw = time.ticks_us()
                 if self._scaled is None:
                     # The sensor's own size: the frame less 4 rows top and bottom, no copy.
@@ -331,8 +342,10 @@ class Recorder:
                     # approx: 3x zoom is not a whole number of sixteenths; the PPA then fills a few pixels less.
                     # Under the lock: the PPA takes one operation at a time, and the preview's
                     # cut from another thread at the same moment is refused, not queued.
+                    preview.holder = me
                     with lock:
                         ppa.srm(f, sw, sh, self._scaled, w, h, src_rect=self._crop(sw, sh), hardware=True, approx=True)
+                    preview.holder = None
                     frame = self._scaled
                 t1 = time.ticks_us()
                 au = self._enc.encode(frame)
@@ -365,6 +378,7 @@ class Recorder:
                 st["sound_us"] += time.ticks_diff(time.ticks_us(), t4)
         except Exception as e:
             print("eyecam: recording stopped:", e)
+        preview.holder = None
         self.preview.external = False
         self._thread_done = True
 
