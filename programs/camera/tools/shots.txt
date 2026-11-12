@@ -1,0 +1,133 @@
+# wait-ms action. Run: tools/run.sh tools/shots.txt  (EYECAM_SHOTS=dir for the captures)
+1500 shot 01-main-camera
+# Camera
+300 m
+400 shot 02-camera-popup
+5200 shot 03-camera-hud
+300 up
+400 shot 04-camera-zoom-2x
+300 knob+
+400 shot 05-camera-knob-3x
+300 knob-
+300 knob-
+300 enter
+800 s
+400 shot 06-camera-no-sd-icon
+300 enter
+400 shot 07-camera-sd-warning
+300 s
+300 enter
+400 shot 08-camera-back-from-warning
+5200 f
+300 enter
+400 shot 09-camera-space-warning
+300 f
+300 m
+800 down
+1200 shot 10-main-interval
+# Interval Cam
+300 m
+400 shot 11-interval-popup
+5200 shot 12-interval-hud
+300 up
+400 shot 13-interval-prompt-35
+300 down
+300 down
+300 down
+300 down
+300 down
+400 shot 14-interval-prompt-10
+3500 shot 15-interval-prompt-gone
+300 enter
+700 shot 16-interval-starting
+7500 shot 17-interval-asleep
+# one timer wake at 10 s (10 min at 1 s per minute): a photo, then asleep again
+11000 shot 18-interval-asleep-after-timer-wake
+300 m
+600 shot 19-interval-ended
+5300 shot 20-interval-hud-after-end
+300 m
+800 down
+1200 shot 21-main-video
+# Video
+300 m
+400 shot 22-video-popup
+5200 shot 23-video-hud
+300 enter
+3300 shot 24-video-recording
+300 enter
+400 shot 25-video-stopped-encoder
+300 enter
+2300 m
+400 shot 26-video-stopped-menu
+300 m
+800 down
+1200 shot 27-main-ai
+# AI Detect
+300 m
+400 shot 28-ai-popup
+5200 shot 29-ai-pedestrian
+300 up
+600 shot 30-ai-face
+300 m
+800 down
+1200 shot 31-main-album
+# Album
+300 m
+1000 shot 32-album-newest
+300 down
+800 shot 33-album-next
+300 enter
+400 shot 34-album-delete-no
+300 up
+400 shot 35-album-delete-yes
+300 enter
+800 shot 36-album-after-delete
+300 m
+800 s
+300 m
+800 shot 37-album-no-sd
+300 s
+300 m
+800 down
+1200 shot 38-main-usb
+# USB disk
+300 m
+400 shot 39-usb-instructions
+300 u
+400 shot 40-usb-connected
+300 up
+400 shot 41-usb-warning
+5300 shot 42-usb-connected-again
+300 u
+400 m
+800 s
+300 m
+800 shot 43-usb-no-sd
+300 s
+300 m
+800 down
+1200 shot 44-main-settings
+# Settings
+300 m
+400 shot 45-settings
+300 down
+300 down
+300 down
+400 shot 46-settings-flash-focused
+300 m
+400 shot 47-settings-flash-off
+300 m
+300 down
+400 shot 48-camera-settings
+300 knob+
+300 knob+
+600 shot 49-camera-settings-contrast-up
+300 down
+300 down
+300 down
+300 down
+400 shot 50-camera-settings-back
+300 m
+800 shot 51-main-after-settings
+300 quit

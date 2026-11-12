@@ -23,6 +23,11 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 - The timed voice pool that schedules notes ahead of the audio moving into
   audioinstruments, once a second player needs it.
 
+## Camera
+
+- Record a USB camera's microphone as the video's sound on a board with no microphone of its own.
+- Run on the ESP32-P4 boards with a USB camera and on ESP32-S31 boards with one, once MicroPython runs there.
+
 ## Ostinato
 
 - A published copy of the app on the web, so it installs without running a
