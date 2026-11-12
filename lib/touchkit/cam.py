@@ -39,7 +39,8 @@ class NoCameraPort(OSError):
 def no_camera_text(err, app):
     """What *app* shows when `open_camera` raised *err*."""
     if isinstance(err, NoCameraPort):
-        return "No camera: %s\n\n%s needs the board's CSI camera, which this computer doesn't have." % (err, app)
+        here = "computer" if data.desktop() else "board"
+        return "No camera: %s\n\n%s needs the board's CSI camera, which this %s doesn't have." % (err, app, here)
     return "No camera: %s\n\nConnect one to the CSI port, then open %s again." % (err, app)
 
 

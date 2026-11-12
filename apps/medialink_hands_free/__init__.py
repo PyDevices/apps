@@ -51,18 +51,6 @@ def main(scope):
     status = ui.status(scope)
     status.set_text("starting")
 
-    heading = ui.label(scr, "Hands free", ui.big, ui.WHITE)
-    heading.set_pos(40, 40)
-    who = ui.label(scr, "", ui.font, ui.MUTED)
-    who.set_pos(40, 110)
-    turn = ui.label(scr, "Quiet", ui.huge, ui.ACCENT)
-    turn.set_pos(40, 170)
-    peer = ui.label(scr, "", ui.big, ui.WHITE)
-    peer.set_pos(40, 290)
-    note = ui.label(scr, "", ui.small, ui.MUTED)
-    note.set_pos(40, 350)
-    note.set_width(scope.size[0] - 80)
-
     # The audio and the network. Each piece that fails is named on the screen
     # and the app runs without it.
     intercom = link = finder = None
@@ -86,6 +74,18 @@ def main(scope):
         if link is not None:
             link.close()
         return
+
+    heading = ui.label(scr, "Hands free", ui.big, ui.WHITE)
+    heading.set_pos(40, 40)
+    who = ui.label(scr, "", ui.font, ui.MUTED)
+    who.set_pos(40, 110)
+    turn = ui.label(scr, "Quiet", ui.huge, ui.ACCENT)
+    turn.set_pos(40, 170)
+    peer = ui.label(scr, "", ui.big, ui.WHITE)
+    peer.set_pos(40, 290)
+    note = ui.label(scr, "", ui.small, ui.MUTED)
+    note.set_pos(40, 350)
+    note.set_width(scope.size[0] - 80)
 
     try:
         finder = medialink.MDNS()

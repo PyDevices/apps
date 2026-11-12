@@ -137,7 +137,7 @@ def main(scope):
 
     st = state = {
         "module": None, "out": None, "port": None, "host": None, "ch": 0, "level": [0] * 16,
-        "seen": [0] * 16, "midi": None, "error": None, "shown": None, "bank": None, "bank_name": "",
+        "seen": [0] * 16, "midi": None, "error": None, "short": None, "shown": None, "bank": None, "bank_name": "",
         "merged": False, "midi_told": False, "ticks": 0,
         "since": ticks_ms(), "player": None, "player_shown": None, "browse": None, "marked": None, "widgets": {},
     }
@@ -165,6 +165,7 @@ def main(scope):
         if not found:
             st["error"] = ("No SoundFont. Put a .sf2 in ~/soundfonts, or set SOUNDFONT to one." if desktop else
                            "No SoundFont, so no sound. Put a .sf2 in %s or %s." % (banks.SD_SOUNDFONTS, banks.FLASH_SOUNDFONTS))
+            st["short"] = "no SoundFont"  # the status line is short; the Channel panel has the sentence
             return None
         return found
 
@@ -829,7 +830,7 @@ def main(scope):
                 st["midi_told"] = False
                 if watch.text:
                     # Without a bank the keys play nothing: say that, not just who is plugged in.
-                    status.set_text(watch.text if st["module"] is not None or not st["error"] else st["error"])
+                    status.set_text(watch.text if st["module"] is not None or not st["error"] else st["short"] or st["error"])
         elif st["port"] is not None:
             status.set_text(st["midi"])
             setup_timer.deinit()
@@ -854,7 +855,7 @@ def main(scope):
     scope.on_close(close)
     found = find_banks()
     if found is None and st["error"]:
-        status.set_text(st["error"])  # plain on the status line too: keys play nothing without a bank
+        status.set_text(st["short"] or st["error"])  # plain on the status line too: keys play nothing without a bank
     if found is not None and len(found) == 1:
         start_audio(found[0][0])
     elif found:
