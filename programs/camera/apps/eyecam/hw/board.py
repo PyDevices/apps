@@ -17,7 +17,6 @@ the microphone's sound; detection runs esp-dl's pedestrian and face models
 from ``/pedestrian.espdl`` and ``/face.espdl``.
 """
 
-import gc
 import os
 import time
 import lvgl as lv
@@ -248,16 +247,13 @@ class Recorder:
         except (ValueError, MemoryError) as e:
             print("eyecam: no %s video encoder: %s" % (resolution, e))
             self.why = "%s video needs more memory than this board has free: choose a smaller size" % resolution
-        self._scaled = self._scaled_raw = None
+        # The scaled frame goes in the app's one work buffer, not a new one
+        # per size: a bytearray for each size grew the Python heap into the
+        # PSRAM the 1080P encoder needs in two 3 MB pieces, and after 480P and
+        # 720P it could no longer find them (found 11-11 on the P4 Panel).
+        self._scaled = None
         if self._enc is not None and (w != self.preview.w or h > self.preview.h):
-            gc.collect()
-            try:
-                self._scaled_raw, self._scaled = _aligned(w * h * 2)
-            except MemoryError:
-                self._enc.close()
-                self._enc = None
-                print("eyecam: no room for a %s picture to encode" % resolution)
-                self.why = "%s video needs more memory than this board has free: choose a smaller size" % resolution
+            self._scaled = memoryview(self._work)[: w * h * 2]
 
     def start(self, magnify, resolution="1080P"):
         """Begin a recording. False when this board can't make one (no encoder,
@@ -274,7 +270,6 @@ class Recorder:
         if self._enc is None:
             return False
         w, h = self.size
-        self._frame = memoryview(self._work)[: w * h * 2]
         self._enc.force_idr()  # a new file starts on a keyframe with its SPS and PPS
         self._mp4 = mp4mux.Writer(self.storage.next_video(), w, h, fps_hint=FPS, audio_rate=16000)
         self._mic = None
@@ -426,7 +421,6 @@ class Recorder:
             if close:
                 close()
             self._mic = None
-        self._frame = None
 
 
 class IntervalSleep:

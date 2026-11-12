@@ -560,6 +560,8 @@ class Eye:
     # -- photos and video ---------------------------------------------------
 
     def take_photo(self):
+        if self.recording:
+            return None  # the recorder's frames are in the buffer a photo would scale into
         path = self.hw.photo.take(self.mag, RESOLUTIONS[self.options[2]], self.options[3] == 1)
         self.events.append(("photo", path))
         return path
