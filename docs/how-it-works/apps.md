@@ -10,6 +10,7 @@ The apps share code in `lib/`:
 
 - `touchkit`: the helpers the touch-panel apps use (the layout, networking,
   settings, the spectrum and a clock).
+- `iconkit`: Material Design icons as alpha masks that stay in flash, for LVGL and pygraphics.
 - `controlkit`: the shared controls (knobs, sliders, meters, buttons, pads) the instrument panel is laid out from.
 - `soundmodule`: the General MIDI engine that midiEngine runs.
 - `vamp`: Ostinato's songs on a board.

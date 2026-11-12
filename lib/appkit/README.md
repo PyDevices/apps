@@ -19,6 +19,8 @@ files of [`lib/appkit`](lib/appkit) to `/lib/appkit` on a board, with
 [mpftp](https://github.com/PyDevices/mpftp), `mpremote` or any file tool. On a
 CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
+Freezing appkit also freezes [iconkit](../iconkit/README.md), the icons its apps draw.
+
 Or install the files from raw GitHub with `mip`, one file at a time:
 
 ```python
