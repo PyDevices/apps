@@ -24,11 +24,13 @@ import sys
 import tempfile
 import unittest
 
-from _harness import LIB, PYDEVICES_LIB, TESTS, ContractCase, need_micropython, run
+from _harness import ICONKIT_LIB, LIB, PYDEVICES_LIB, TESTS, ContractCase, need_micropython, run
 
 sys.path.insert(0, str(LIB))
 if PYDEVICES_LIB is not None:
     sys.path.insert(1, str(PYDEVICES_LIB))
+if ICONKIT_LIB is not None:
+    sys.path.insert(1, str(ICONKIT_LIB))
 from appkit import index  # noqa: E402  (runs without the rest of appkit)
 
 CONTRACT = "scripts_contract.py"
@@ -60,6 +62,11 @@ ROUND_TRIP = [
     "LOOP True",
     "DONE",
 ]
+
+
+def _libs():
+    """The pydevices and iconkit source folders, as strings, for a path."""
+    return [str(p) for p in (PYDEVICES_LIB, ICONKIT_LIB) if p is not None]
 
 
 def _board_configs():
@@ -119,10 +126,10 @@ class RoundTrip(ContractCase):
         # board_config for the desktop, and the desktop helpers it imports
         # (usdl2 and the rest, in utils/), after pydevices' lib.
         configs = os.pathsep.join((str(PYDEVICES_LIB.parent / "utils"), str(_board_configs())))
-        mp_path = os.pathsep.join(p for p in (env.pop("FROZEN", None), str(LIB), str(PYDEVICES_LIB), configs) if p)
+        mp_path = os.pathsep.join(p for p in (env.pop("FROZEN", None), str(LIB), *_libs(), configs) if p)
         env["MICROPYPATH"] = mp_path.replace(os.pathsep, ":") + ":.frozen"
         env["PYTHONPATH"] = os.pathsep.join(
-            p for p in (env.pop("FROZEN_PY", None), str(LIB), str(PYDEVICES_LIB), configs) if p
+            p for p in (env.pop("FROZEN_PY", None), str(LIB), *_libs(), configs) if p
         )
         try:
             result = run(cmd, state_dir=self.tmp.name, extra_env=env, cwd=cwd, timeout=90)
@@ -224,6 +231,7 @@ class Index(unittest.TestCase):
                 [sys.executable, str(LIB / "appkit" / "index.py"), str(SET / "apps"), "-o", out],
                 capture_output=True,
                 text=True,
+                env=dict(os.environ, PYTHONPATH=os.pathsep.join(_libs() + [os.environ.get("PYTHONPATH", "")])),
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             with open(out) as f:
@@ -231,6 +239,16 @@ class Index(unittest.TestCase):
             result = subprocess.run([sys.executable, str(LIB / "appkit" / "index.py")], capture_output=True, text=True)
             self.assertEqual(result.returncode, 2)
             self.assertIn("usage", result.stdout)
+
+    def test_a_missing_iconkit_says_how_to_get_it(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            result = subprocess.run(
+                [sys.executable, "-I", str(LIB / "appkit" / "index.py"), str(SET / "apps"), "-o", os.path.join(tmp, "x.py")],
+                capture_output=True,
+                text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("omnipython-iconkit", result.stderr)
 
     def test_bad_app_json_is_named(self):
         with tempfile.TemporaryDirectory() as tmp:

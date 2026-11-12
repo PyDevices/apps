@@ -31,6 +31,22 @@ def _pydevices_lib():
 
 PYDEVICES_LIB = _pydevices_lib()
 
+
+def _iconkit_lib():
+    """``ICONKIT_LIB``, or ``packages/iconkit/lib`` in the pydevices checkout that
+    ``PYDEVICES_LIB`` belongs to: where ``iconkit`` comes from. None when neither exists."""
+    explicit = os.environ.get("ICONKIT_LIB")
+    if explicit:
+        return Path(explicit)
+    if PYDEVICES_LIB is not None:
+        candidate = PYDEVICES_LIB.parent / "packages" / "iconkit" / "lib"
+        if (candidate / "iconkit").is_dir():
+            return candidate
+    return None
+
+
+ICONKIT_LIB = _iconkit_lib()
+
 #: About the T-Watch S3's MicroPython heap (its PSRAM).
 WATCH_HEAP = "8M"
 #: A tight heap, where leaks and fragmentation show first. These tests
@@ -73,7 +89,7 @@ def run(cmd, *, state_dir=None, timeout=300, extra_env=None, cwd=None):
     env = dict(os.environ)
     env.setdefault("SDL_VIDEODRIVER", "dummy")
     env.setdefault("SDL_AUDIODRIVER", "dummy")
-    paths = [str(LIB)] + ([str(PYDEVICES_LIB)] if PYDEVICES_LIB else [])
+    paths = [str(LIB)] + [str(p) for p in (PYDEVICES_LIB, ICONKIT_LIB) if p]
     env["PYTHONPATH"] = os.pathsep.join(paths + [env.get("PYTHONPATH", "")])
     # MicroPython: pydevices' source ahead of anything frozen into the build.
     env["MICROPYPATH"] = ":".join(paths[1:] + [".frozen"])

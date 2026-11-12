@@ -37,10 +37,11 @@ def _tile_icons():
     """The icon names a Home tile can show: iconkit's 48 px set."""
     try:
         import iconkit
-    except ImportError:
-        # Run on its own (``python lib/appkit/index.py``), appkit's folder is on the path, not its parent.
-        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        import iconkit
+    except ImportError as exc:
+        raise ImportError(
+            "appkit's index needs iconkit to check app icons: pip install omnipython-iconkit, "
+            "or put packages/iconkit/lib from the pydevices repository on the import path"
+        ) from exc
     return iconkit.names(48)
 
 
@@ -59,7 +60,7 @@ def check_icon(entry, info, path):
     if icon not in names:
         raise ValueError(
             '%s: app %r names icon %r, which iconkit has no 48 px tile icon for. Pick one of: %s. '
-            "(Build more with iconkit's tools/make_icons.py and register them with iconkit.add().)"
+            "(Build more with iconkit's make_icons.py and register them with iconkit.add().)"
             % (path, entry, icon, ", ".join(names))
         )
 
