@@ -492,7 +492,7 @@ class UsbDisk:
                 super().on_reset()
                 disk._set("instruction")
 
-        self.msc = _Drive(bdev)
+        self.msc = _Drive(bdev, readonly=True)  # the host only reads: a write would leave the card dirty beside the board's own mount
         try:
             usb.device.get().init(
                 self.msc,
