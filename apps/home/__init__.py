@@ -194,6 +194,10 @@ def main(scope):
             _grid(scope, page, W - 2 * MARGIN, H - TOP - TAB_BAR - 2 * MARGIN, apps)
 
     bar = tv.get_tab_bar()
+    tab_font = ui.font
+    if round_:
+        # Four labels share the square's width: the larger font if its tab is wide enough for "Video", else the smaller.
+        tab_font = ui.small if side // max(1, len(pages)) >= 4 * ui.small.line_height else ui.tiny
     bar.set_style_bg_color(ui.PANEL, 0)
     bar.set_style_bg_opa(lv.OPA.COVER, 0)
     bar.set_style_border_side(lv.BORDER_SIDE.TOP, 0)
@@ -203,7 +207,7 @@ def main(scope):
     for i in range(bar.get_child_count()):
         t = bar.get_child(i)
         t.set_style_radius(0, 0)
-        t.set_style_text_font(ui.small if round_ else ui.font, 0)
+        t.set_style_text_font(tab_font, 0)
         t.set_style_text_color(ui.MUTED, 0)
         t.set_style_bg_opa(lv.OPA.TRANSP, 0)
         t.set_style_border_width(0, 0)
