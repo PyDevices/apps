@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.2.dev2
+
+- Camera: the camera app for any ESP32-P4 board and a USB camera.
+- Home and the apps draw Material icons from iconkit.
+- Programs: Ostinato and Vamp move to programs/; internet radio, MIDI module and Bluetooth speaker run on any board.
+- Sound module: patch, key and macro names for DAWs (MIDNAM and .ins).
+- Sound card and Surveillance camera say what is missing on a board without it.
+- touchkit: a board with no BOOT button role boots without a warning.
+
 ## 0.1.2.dev1
 
 - appkit, touchkit and System run on CircuitPython boards.
