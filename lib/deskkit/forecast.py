@@ -5,7 +5,8 @@
 
 Open-Meteo needs no account or key, and is free for non-commercial use. Its
 reply also carries the place's UTC offset, which is how the clock follows the
-timezone and daylight saving.
+place's timezone and daylight saving. A chosen place wins over the timezone
+``deskkit.localtime`` finds from the board's IP address.
 
 The forecast lives here rather than in an app, so it stays while apps open and
 close. It's kept in RAM: writing flash every half hour would wear it for
@@ -62,6 +63,7 @@ def place():
         except (OSError, ValueError):
             return None
         localtime.offset_s = _place.get("utc_offset")
+        localtime.zone = None
     return _place
 
 
@@ -192,6 +194,7 @@ def fetch():
     last_error = None
     _got_at = time.time()
     localtime.offset_s = latest["utc_offset"]
+    localtime.zone = None
     if _place.get("utc_offset") != latest["utc_offset"]:
         _place["utc_offset"] = latest["utc_offset"]
         _save()  # rare: the first time, and at each daylight saving change

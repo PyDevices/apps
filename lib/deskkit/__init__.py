@@ -60,13 +60,13 @@ def run(*, hostname="deskclock", apps=APPS, awake=(7, 18), weekends=False, idle_
     wifi_manager.connect(hostname=hostname)
     label.set_text("Setting the time")
     lv.refr_now(None)
-    localtime.sync()
+    localtime.resync_if_due()
     label.delete()
 
     launcher = Launcher(app)
     for name in apps:
         launcher.add(name, "apps." + name)
     launcher.shell = DeskShell(launcher, apps, awake=awake, weekends=weekends, idle_ms=idle_ms)
-    # With no place yet there's no timezone either, so the place comes first.
+    # With no place yet there's no weather, so the place comes first.
     launcher.boot(apps[0] if forecast.place() else "weather")
     serve(app)

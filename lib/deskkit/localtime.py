@@ -6,6 +6,15 @@
 A board with no battery-backed clock forgets the time when it loses power, so
 it asks the network. It tries NTP first. Guest and office networks often block
 NTP, so a web server's ``Date`` header is the fallback.
+
+The clock reads in the chosen place's time once Weather has a place
+(``deskkit.forecast``). Until then the board asks ipwho.is which timezone its
+public IP address is in: an IANA zone such as ``America/Chicago`` and that
+zone's offset from UTC right now. ipwho.is is free and needs no key, and like
+any web service it sees the board's public IP address. The answer is asked for
+again with each daily resync, so a daylight saving change lands within a day.
+When the lookup fails, the clock keeps what it had (UTC at first) and the board
+asks again at the next resync.
 """
 
 import time
@@ -25,9 +34,11 @@ except ImportError:
 _FIRST_VALID_YEAR = 2025
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _DATE_URL = "https://api.open-meteo.com/"
+_ZONE_URL = "https://ipwho.is/?fields=success,message,timezone.id,timezone.offset"
 _RESYNC_S = 24 * 3600
 
-offset_s = None  # seconds east of UTC at the chosen place; forecast sets it
+offset_s = None  # seconds east of UTC: the chosen place's (forecast sets it), or the IP's
+zone = None  # the IANA zone the IP lookup found, while no place is chosen
 _synced_at = None
 
 
@@ -102,10 +113,57 @@ def due():
     return not is_set() or _synced_at is None or time.time() - _synced_at >= _RESYNC_S
 
 
+def parse_ip_zone(reply):
+    """Return ``(zone, offset_s)`` from an ipwho.is reply.
+
+    Args:
+        reply (dict): The decoded JSON.
+
+    Raises:
+        ValueError: The reply says the lookup failed.
+    """
+    if not reply.get("success"):
+        raise ValueError(reply.get("message") or "no timezone in the reply")
+    tz = reply["timezone"]
+    return tz["id"], int(tz["offset"])
+
+
+def follow_ip_zone():
+    """Take the timezone from the board's public IP address, unless a place is
+    chosen. It blocks: call it from a worker. A desktop keeps its own timezone.
+
+    Returns:
+        bool: True when the offset now comes from the IP.
+    """
+    global offset_s, zone
+    if machine is None:
+        return False
+    from . import forecast  # here: forecast imports this module
+
+    if forecast.place() is not None:
+        zone = None
+        return False  # a chosen place wins
+    try:
+        resp = requests.get(_ZONE_URL, timeout=10)
+        try:
+            found, offset = parse_ip_zone(resp.json())
+        finally:
+            resp.close()
+    except Exception as exc:
+        print("deskkit: no timezone from the IP address, keeping %s: %r" % (zone or "UTC", exc))
+        return False
+    if forecast.place() is not None:
+        return False  # chosen while the lookup ran
+    zone = found
+    offset_s = offset
+    return True
+
+
 def resync_if_due():
-    """Set the clock when it's unset or a day has passed. Call it from a worker."""
-    if due():
-        sync()
+    """Set the clock and the timezone when the clock is unset or a day has
+    passed. Call it from a worker."""
+    if due() and sync():
+        follow_ip_zone()
 
 
 def now():

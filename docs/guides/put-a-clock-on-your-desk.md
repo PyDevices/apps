@@ -36,7 +36,14 @@ The firmware needs `lvgl`, `requests` and the `pydevices` package, which has
    has the details. It needs a network with a plain password: one with a
    sign-in page or a company login won't work.
 2. **ZIP code.** Type your US ZIP code on the keypad and press the check mark.
-   This also sets the clock's timezone.
+   The weather is for that place, and the clock follows its timezone.
+
+The clock shows local time before you choose a place. Once the board is on
+Wi-Fi it asks [ipwho.is](https://ipwho.is) which timezone its public IP address
+is in, and asks again each day so it follows daylight saving. Like any web
+service, ipwho.is sees the board's public IP address. A place you choose in the
+weather takes over from it. If the lookup fails, the clock keeps the timezone
+it had, or UTC on a fresh start, and the board tries again the next day.
 
 ## Using it
 
