@@ -1,0 +1,61 @@
+{
+  "description": "Stompbox, an app for Home",
+  "target": "apps/stompbox",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "app.py",
+      "app.py"
+    ],
+    [
+      "effects.py",
+      "effects.py"
+    ],
+    [
+      "engine.py",
+      "engine.py"
+    ],
+    [
+      "guitar-set.txt",
+      "guitar-set.txt"
+    ],
+    [
+      "inputs.py",
+      "inputs.py"
+    ],
+    [
+      "outputs.py",
+      "outputs.py"
+    ],
+    [
+      "ui.py",
+      "ui.py"
+    ],
+    [
+      "wavfile.py",
+      "wavfile.py"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ],
+    [
+      "touchkit",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

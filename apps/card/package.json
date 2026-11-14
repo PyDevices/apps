@@ -1,0 +1,37 @@
+{
+  "description": "Sound card, an app for Home",
+  "target": "apps/card",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ],
+    [
+      "pygraphics",
+      "latest"
+    ],
+    [
+      "spectrum",
+      "latest"
+    ],
+    [
+      "touchkit",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

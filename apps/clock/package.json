@@ -1,0 +1,33 @@
+{
+  "description": "Clock, an app for Home",
+  "target": "apps/clock",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "face.py",
+      "face.py"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "deskkit",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

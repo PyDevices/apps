@@ -1,0 +1,37 @@
+{
+  "description": "Wake word, an app for Home",
+  "target": "apps/wake",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "feed.py",
+      "feed.py"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ],
+    [
+      "medialink",
+      "latest"
+    ],
+    [
+      "touchkit",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

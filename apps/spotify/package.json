@@ -1,0 +1,47 @@
+{
+  "description": "Spotify, an app for Home",
+  "target": "apps/spotify",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ],
+    [
+      "pygraphics",
+      "latest"
+    ],
+    [
+      "sayso",
+      "latest"
+    ],
+    [
+      "spectrum",
+      "latest"
+    ],
+    [
+      "touchkit",
+      "latest"
+    ]
+  ],
+  "upstream": [
+    [
+      "requests",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

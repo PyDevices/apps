@@ -57,6 +57,7 @@ jobs:
       synthstation: ${{ steps.scope.outputs.synthstation }}
       appkit: ${{ steps.scope.outputs.appkit }}
       bit_world: ${{ steps.scope.outputs.bit_world }}
+      app_packages: ${{ steps.scope.outputs.app_packages }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -75,6 +76,7 @@ jobs:
             echo "synthstation=true" >> "$GITHUB_OUTPUT"
             echo "appkit=true" >> "$GITHUB_OUTPUT"
             echo "bit_world=true" >> "$GITHUB_OUTPUT"
+            echo "app_packages=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "$BASE...$GITHUB_SHA")
@@ -85,6 +87,7 @@ jobs:
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "app_packages=$(has '^(apps/|lib/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -193,6 +196,23 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: python -m unittest discover -s tests/appkit -p 'test_*.py' -v
+
+  # Each app's package.json matches its folder and its imports, so
+  # omip.install("github:PyDevices/apps/apps/<name>") installs what it needs.
+  app_packages:
+    needs: scope
+    if: needs.scope.outputs.app_packages == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: The apps' package.json files are up to date
+        run: python tools/app_packages.py --check
 
   # Bit World's tests on CPython, against the released pydevices, pygraphics
   # and audiodsp, on a display with no window: the partial repaint matches a
