@@ -15,7 +15,9 @@ audiodsp's ``audiofeatures``.
 The model, ``hey_jarvis.json``, loads from a ``models`` folder: the SD card's
 ``/sd/models``, then ``/models`` on flash, then ``/data/models``
 (`appkit.places`). The card is mounted read-only and unmounted again at
-once: the model is read in before that.
+once: the model is read in before that. ``hey_jarvis.json`` and
+``hey_jarvis.tflite`` are downloaded from ESPHome's micro-wake-word-models; the
+links are at https://github.com/PyDevices/apps/blob/main/docs/reference/models.md
 """
 
 import lvgl as lv

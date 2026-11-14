@@ -18,6 +18,7 @@ file, ``yolo11n_coco.espdl``, in a ``models`` folder: ``/sd/models`` on the SD
 card (mounted while the app is open), ``/models`` on flash or
 ``/data/models``, looked at in that order (`appkit.places`). It checks for
 all three, and for the camera, when it opens, and says what's missing.
+Where to download the model: https://github.com/PyDevices/apps/blob/main/docs/reference/models.md
 """
 
 import lvgl as lv

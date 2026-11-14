@@ -21,8 +21,10 @@ log:
 
 On the ESP32-P4X-EYE every part is there, and nothing changes. On the board
 the models go in a `models` folder (`/sd/models` on the card, `/models` or
-`/data/models` on flash): `pedestrian.espdl`, `face.espdl` and
-`human_face_detect_*.espdl`, and the `mp4mux` package in `/lib/mp4mux`.
+`/data/models` on flash): `pedestrian.espdl` and `face.espdl`, and the
+`mp4mux` package in `/lib/mp4mux`. The two model files are Espressif's, and
+[the model files page](../../../docs/reference/models.md) says which ones and
+where to download them.
 The Eye's board config brings its display, keys, accelerometer and
 `orientation` helper.
 
