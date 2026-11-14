@@ -91,6 +91,13 @@ def main(scope):
     except Exception as e:
         missing(cam.no_camera_text(e, "Object detection"))
         return
+
+    from board_config import display_drv as d
+
+    if not d.framebuffers():
+        c0.deinit()
+        missing("No framebuffer: Object detection draws its preview straight into the display's framebuffer, and this board's display has none.")
+        return
     st["cam"] = c0
     try:
         det = espdl.YOLO11(path, score=SCORE)
@@ -101,8 +108,6 @@ def main(scope):
         return
     st["det"] = det
     cam.apply_controls(c0, opts)
-
-    from board_config import display_drv as d
 
     fb = memoryview(d.framebuffers()[0])
     pw, ph = cam.preview_size(c0, PREVIEW)

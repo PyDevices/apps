@@ -26,6 +26,7 @@ from touchkit import ui
 MUSIC = "music"  # the folder name, on the card, flash and the data root
 VOLUME = 80  # ES8311 steps of 0.5 dB: 80 is -10 dB
 TOP = 132  # the spectrum's first row, in the app's area
+MIN_H = 48  # the shortest spectrum worth drawing
 
 state = None  # the open player's state, for the console
 
@@ -141,6 +142,14 @@ def main(scope):
             from spectrum.analyzer import levels_for
         except ImportError as e:  # the spectrum draws with pygraphics
             status.set_text("no spectrum: %s" % (e,))
+            return
+        from board_config import display_drv
+
+        if not display_drv.framebuffers():
+            status.set_text("no spectrum: the display has no framebuffer")
+            return
+        if scope.rect[3] - TOP < MIN_H:
+            status.set_text("no spectrum: the screen is too short")
             return
         m = spectrum.meter(scope, levels_for(out), TOP)
         st["meter"] = m
