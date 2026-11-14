@@ -50,6 +50,7 @@ INDEX = {
 
 #: Import name -> a package.json in another repository, at its main branch.
 ELSEWHERE = {
+    "castdisplay": "github:PyDevices/pydevices/packages/castdisplay",
     "vtterm": "github:PyDevices/pydevices/packages/vtterm",
 }
 
@@ -74,9 +75,6 @@ FIRMWARE = {
     "microcontroller", "network", "numpy", "os", "platform", "random", "scipy", "select", "socket", "struct",
     "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab", "usb",
 }
-
-#: Optional modules no package carries yet: Cast's HLS and cast-receiver modes.
-UNPACKAGED = {"cast_display", "hls_display"}
 
 #: What isn't installed from an app's folder.
 SKIP_DIRS = {"tests", "docs", "__pycache__"}
@@ -134,7 +132,7 @@ def needs(name):
     local = {path.split("/")[0].rpartition(".py")[0] or path.split("/")[0] for path in app_files(folder)}
     index, elsewhere, upstream, unknown = set(), set(), set(), set()
     for module in imported(python_files(folder)):
-        if module in local or module in BOARD or module in FIRMWARE or module in UNPACKAGED:
+        if module in local or module in BOARD or module in FIRMWARE:
             continue
         if module == "apps":
             continue  # another app, which Home brings up on its own
