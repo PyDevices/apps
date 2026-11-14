@@ -41,7 +41,7 @@ Each app lands in `/apps/<name>`, where Home looks, and what it imports goes in
 `/lib`: appkit and touchkit from the OmniPython index, vtterm for the REPL app,
 `requests` from micropython-lib for the apps that go online. Anything the
 firmware has frozen in is skipped. On a WT32-SC01 Plus over Wi-Fi each of these
-took between 7 and 14 seconds.
+took between 6 and 22 seconds.
 
 ## Start Home when the board starts
 

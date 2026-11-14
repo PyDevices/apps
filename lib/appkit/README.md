@@ -232,15 +232,16 @@ folder.
 
 `appkit.run()` runs a pending script before anything else. An app set that
 builds its own `Launcher` calls `appkit.run_pending_script()` first thing in
-`main.py`, before anything opens the display:
+`main.py`, before anything opens the display. Where the script keeps running on
+timers after it returns, as on an ESP32, it returns True, and `main.py` then
+does nothing more:
 
 ```python
 from appkit import Launcher, run_pending_script
 
-run_pending_script()
-
-import board_config
-...
+if not run_pending_script():
+    import board_config
+    ...
 ```
 
 On a CircuitPython board the launcher keeps the next app's name in
