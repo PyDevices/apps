@@ -22,6 +22,7 @@ holds plus the device engine's period on each side, four times a second.
 import os
 
 from appkit import data as appdata
+from appkit import places
 from multimer import ticks_diff, ticks_ms
 
 from . import SAMPLE_RATE, effects, engine, inputs, outputs, ui
@@ -31,8 +32,7 @@ try:
 except ImportError:
     audiopump = None
 
-MOUNT = "/sd"
-FOLDER = "guitar-clips"
+FOLDER = "guitar-clips"  # the folder name, on the card, flash and the data root
 
 # A board carries plug-ins it can't run in real time: the ones that stay in
 # double precision on an FPU without it reach 2% on an ESP32-P4. Nothing fails,
@@ -52,36 +52,13 @@ def _home():
     return (_env("USERPROFILE") or _env("HOME") or "").replace("\\", "/")
 
 
-def clips_folder():
-    """``$STOMPBOX_CLIPS`` or ``~/music/guitar-clips`` on a computer, the SD card on a board."""
+def clips_folders():
+    """``$STOMPBOX_CLIPS`` or ``~/music/guitar-clips`` on a computer; on a
+    board ``/sd/guitar-clips``, ``/guitar-clips`` and ``/data/guitar-clips``
+    (`appkit.places`)."""
     if appdata.desktop():
-        return (_env("STOMPBOX_CLIPS") or _home() + "/music/" + FOLDER).replace("\\", "/")
-    return MOUNT + "/" + FOLDER
-
-
-def _mount(scope):
-    """The card, read-only and while the app is open. No card just means no clips."""
-    try:
-        os.listdir(MOUNT)
-        return  # someone else's mount: leave it
-    except OSError:
-        pass
-    try:
-        import board_peripherals as bp
-
-        card = bp.sdcard()
-        os.mount(card, MOUNT, readonly=True)
-    except Exception as e:  # noqa: BLE001 - the app still plays a live input
-        print("no SD card:", repr(e))
-        return
-
-    def unmount():
-        try:
-            os.umount(MOUNT)
-        finally:
-            card.deinit()
-
-    scope.on_close(unmount)
+        return [(_env("STOMPBOX_CLIPS") or _home() + "/music/" + FOLDER).replace("\\", "/")]
+    return places.folders(FOLDER)
 
 
 def is_dir(path):
@@ -114,8 +91,10 @@ def find_clips(folder):
 class App:
     def __init__(self, scope):
         self.scope = scope
-        self.folder = clips_folder()
-        self.clips = find_clips(self.folder)
+        self.folders = clips_folders()
+        self.clips = []
+        for folder in self.folders:
+            self.clips.extend(find_clips(folder))
         self.all_effects = effects.Airwindows.names()
         carried = set(self.all_effects)
         self.guitar = [n for _, n in effects.guitar_set() if n in carried]
@@ -148,8 +127,15 @@ class App:
     # -- names for the screen ------------------------------------------------
 
     def clip_names(self):
-        root = self.folder.rstrip("/") + "/"
-        return [p[len(root):] if p.startswith(root) else p for p in self.clips]
+        roots = [f.rstrip("/") + "/" for f in self.folders]
+        names = []
+        for p in self.clips:
+            for root in roots:
+                if p.startswith(root):
+                    p = p[len(root):]
+                    break
+            names.append(p)
+        return names
 
     def effect_names(self):
         return self.effects
@@ -378,7 +364,7 @@ class App:
             self.screen.clip_dd.set_selected(0)
             self.pick_clip(0)
         else:
-            self.status("No WAV files in %s" % self.folder)
+            self.status("No WAV files in %s" % " or ".join(self.folders))
         self.set_loop(True)
         self.set_master(self.engine.master)
         if self.can_go_live and _env("STOMPBOX_LIVE"):
@@ -394,8 +380,7 @@ def _clock(seconds):
 
 def start(scope):
     global current
-    if not appdata.desktop():
-        _mount(scope)
+    places.hold_card(scope)  # read-only, while the app is open
     current = App(scope)
     scope.on_close(current.close)
     current.begin()

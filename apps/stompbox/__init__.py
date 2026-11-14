@@ -7,7 +7,7 @@
 The effect's knobs are on screen, built from the plug-in's own parameters. Live
 takes the board's input, or a capture device on Windows. On a computer the clips
 are in ``$STOMPBOX_CLIPS``, else ``~/music/guitar-clips``; on a board, in
-``/sd/guitar-clips``. It needs a firmware built with audioairwindows.
+``/sd/guitar-clips``, ``/guitar-clips`` and ``/data/guitar-clips``. It needs a firmware built with audioairwindows.
 """
 
 SAMPLE_RATE = 48000

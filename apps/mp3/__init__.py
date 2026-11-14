@@ -3,8 +3,9 @@
 # SPDX-License-Identifier: MIT
 """MP3 player: the songs in a folder, with the spectrum of what plays.
 
-On a computer the songs are in ``$MP3_DIR``, else ``~/music``; on a board,
-``/sd/music`` on the SD card, or ``/flash/music`` on a board with no card slot.
+On a computer the songs are in ``$MP3_DIR``, else ``~/music``. On a board
+they're in a ``music`` folder: ``/sd/music`` on the SD card, ``/music`` on
+flash and ``/data/music``, all three in one list (`appkit.places`).
 
 the archived pydevices-examples' mp3_from_sd, with buttons: play and stop, previous and
 next, volume. A song that ends goes on to the next one. On a board the card is mounted
@@ -19,10 +20,10 @@ from multimer import ticks_diff, ticks_ms
 
 import spectrum
 from appkit import data as appdata
+from appkit import places
 from touchkit import ui
 
-MOUNT = "/sd"
-FLASH_MUSIC = "/flash/music"  # where a board with no SD card keeps its songs
+MUSIC = "music"  # the folder name, on the card, flash and the data root
 VOLUME = 80  # ES8311 steps of 0.5 dB: 80 is -10 dB
 TOP = 132  # the spectrum's first row, in the app's area
 
@@ -39,30 +40,8 @@ def _home():
 
 
 def music_folder():
-    """The songs' folder: ``$MP3_DIR`` or ``~/music`` on a computer, ``/sd/music`` on a board."""
-    if appdata.desktop():
-        return _env("MP3_DIR") or _home() + "/music"
-    return MOUNT + "/music"
-
-
-def _mount(scope):
-    import board_peripherals as bp
-
-    try:
-        os.listdir(MOUNT)
-        return  # someone else's mount: leave it
-    except OSError:
-        pass
-    card = bp.sdcard()
-    os.mount(card, MOUNT, readonly=True)
-
-    def unmount():
-        try:
-            os.umount(MOUNT)
-        finally:
-            card.deinit()
-
-    scope.on_close(unmount)
+    """A computer's songs' folder: ``$MP3_DIR`` or ``~/music``."""
+    return _env("MP3_DIR") or _home() + "/music"
 
 
 def main(scope):
@@ -78,34 +57,17 @@ def main(scope):
     W, H = scope.size
     hdr = getattr(scope, "header", None) or scr
     status = ui.status(scope)
-    folder = music_folder()
-    if not appdata.desktop():
+    if appdata.desktop():
+        folder = music_folder()
         try:
-            _mount(scope)
-        except AttributeError:  # no sdcard role on this board
-            # A board with no card slot (the Arduino GIGA R1) plays from its
-            # own flash instead, when there's a music folder there.
-            try:
-                os.listdir(FLASH_MUSIC)
-                folder = FLASH_MUSIC
-            except OSError:
-                ui.missing(
-                    scope, "missing: SD card",
-                    "The MP3 player plays the songs on the board's SD card, and this board has no sdcard "
-                    "(board_peripherals). Without one it plays the .mp3 files in %s." % FLASH_MUSIC,
-                )
-                return
-        except Exception as e:
-            status.set_text("no SD card")
-            ui.label(scr, "No SD card: %s\n\nPut .mp3 files in %s on the card, then open the MP3 player again." % (e, folder), ui.font, ui.WHITE).align(
-                lv.ALIGN.CENTER, 0, 0
-            )
-            return
-    try:
-        names = os.listdir(folder)
-    except OSError:
-        names = []
-    songs = sorted(n for n in names if n.lower().endswith(".mp3"))
+            names = sorted(os.listdir(folder))
+        except OSError:
+            names = []
+        songs = [folder + "/" + n for n in names if n.lower().endswith(".mp3")]
+    else:
+        places.hold_card(scope)  # read-only, while the app is open
+        folder = places.where_text(MUSIC)
+        songs = places.files(MUSIC, (".mp3",))
     global state
     st = state = {"i": 0, "out": None, "file": None, "song": None, "meter": None, "fmt": None, "vol": VOLUME, "playing": False}
 
@@ -141,8 +103,9 @@ def main(scope):
         if i is not None:
             st["i"] = i % len(songs)
         release_song()
-        name = songs[st["i"]]
-        f = open(folder + "/" + name, "rb")
+        path = songs[st["i"]]
+        name = path.rsplit("/", 1)[-1]
+        f = open(path, "rb")
         st["file"] = f
         song = audiomp3.MP3Decoder(f)
         st["song"] = song

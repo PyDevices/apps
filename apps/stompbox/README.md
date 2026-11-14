@@ -20,8 +20,9 @@ appkit.run("stompbox")
 
 ## Clips
 
-On a board the clips are in `/sd/guitar-clips`, and the card is mounted read-only
-while the app is open. On a computer they're in `~/music/guitar-clips`, or the
+On a board the clips are in `/sd/guitar-clips`, `/guitar-clips` and
+`/data/guitar-clips`, all in one list, and the card is mounted read-only while
+the app is open. On a computer they're in `~/music/guitar-clips`, or the
 folder `STOMPBOX_CLIPS` names. Each clip is read into memory, so a board's RAM
 sets how long one can be.
 

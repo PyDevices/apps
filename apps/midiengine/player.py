@@ -4,14 +4,15 @@
 """The midiEngine's MIDI file player: a library of .mid files, played
 into whatever takes raw MIDI bytes (``gm.Module.feed``).
 
-The library is a folder. With a ``catalog.json`` at its root (``{"version":
+The library is a folder, or several read one after another (a board's
+card, flash and data root). With a ``catalog.json`` at a folder's root (``{"version":
 1, "files": [{"path": "Classical/Pachelbel - Canon in D.mid", "title":
 "Canon in D", "composer": "Johann Pachelbel", "genre": "Classical",
 "seconds": 245, ...}, ...]}``) each piece has a title, a composer, a genre
 and a length, in the catalog's order. Without one the folder is scanned,
 subfolders and all, in path order: the title is the file's name, the genre
 the subfolder it sits in. ``entries`` are the pieces, ``files`` their paths
-relative to the folder, ``genres()`` the genres with their counts.
+relative to their folder, ``genres()`` the genres with their counts.
 
 ``Player`` parses a file with ``umidiparser``, streaming each track
 through a small buffer, and releases every channel message and SysEx at
@@ -129,7 +130,8 @@ def _walk(folder, prefix=""):
 class Player:
     def __init__(self, folder, sink, now=ticks_ms, loop=False, buffer_size=BUFFER, scope=ALL,
                  budget_ms=BUDGET_MS):
-        self.folder = folder
+        self.folders = [folder] if isinstance(folder, str) else list(folder)
+        self.folder = " or ".join(self.folders)  # for messages
         self.budget_ms = budget_ms  # of real time, whatever clock ``now`` is
         self.sink = sink
         self.now = now
@@ -137,8 +139,8 @@ class Player:
         self.scope = scope
         self.buffer_size = buffer_size
         self.entries = []  # the pieces, each as _entry() makes it
-        self.files = []  # their paths, relative to the folder, in the same order
-        self.catalog = False  # True when catalog.json described the library
+        self.files = []  # their paths, relative to their folder, in the same order
+        self.catalog = False  # True when a catalog.json described the library
         self.message = None  # why there is nothing to play, else None
         self.index = 0
         self.playing = False
@@ -155,42 +157,58 @@ class Player:
         """Read the library again (the catalog, else the folder); the
         current file keeps playing, and stays the current one if it is
         still there."""
-        current = self.files[self.index % len(self.files)] if self.files else None
-        try:
-            entries = self._read_catalog()
-        except OSError as e:  # a catalog that isn't JSON: say so, play nothing
-            self.entries, self.files = [], []
-            self.message = str(e)
-            return
-        self.catalog = entries is not None
-        if entries is None:
+        current = self._where(self.index) if self.files else None
+        entries = []
+        self.catalog = False
+        folders = 0  # how many of the folders are there
+        for root in self.folders:
             try:
-                entries = [_entry(p) for p in _walk(self.folder)]
-            except OSError:
+                found = self._read_catalog(root)
+            except OSError as e:  # a catalog that isn't JSON: say so, play nothing
                 self.entries, self.files = [], []
-                self.message = "No MIDI folder %s. Make it and put .mid files in it." % (self.folder,)
+                self.message = str(e)
                 return
+            if found is None:
+                try:
+                    found = [_entry(p) for p in _walk(root)]
+                except OSError:
+                    continue
+            else:
+                self.catalog = True
+            folders += 1
+            for e in found:
+                e["root"] = root
+            entries.extend(found)
+        if not folders:
+            self.entries, self.files = [], []
+            self.message = "No MIDI folder %s. Make it and put .mid files in it." % (self.folder,)
+            return
         self.entries = entries
         self.files = [e["path"] for e in entries]
         self.message = None if self.files else "No .mid files in %s. Put some there." % (self.folder,)
-        if current in self.files:
-            self.index = self.files.index(current)
+        where = [self._where(i) for i in range(len(entries))]
+        if current in where:
+            self.index = where.index(current)
         elif self.files:
             self.index %= len(self.files)
 
-    def _read_catalog(self):
+    def _where(self, i):
+        e = self.entries[i % len(self.entries)]
+        return e["root"] + "/" + e["path"]
+
+    def _read_catalog(self, root):
         """The catalog's entries, or None when there is no catalog.json."""
         try:
             # bytes, decoded as UTF-8: a desktop's text mode would use its
             # locale's codepage (cp1252 on Windows) and fail on the titles
-            with open(self.folder + "/" + CATALOG, "rb") as f:
+            with open(root + "/" + CATALOG, "rb") as f:
                 import json
 
                 data = json.loads(f.read().decode("utf-8"))
         except OSError:
             return None
         except ValueError as e:
-            raise OSError("%s/%s is not JSON: %s" % (self.folder, CATALOG, e))
+            raise OSError("%s/%s is not JSON: %s" % (root, CATALOG, e))
         entries = []
         for item in data.get("files", ()):
             path = item.get("path")
@@ -253,7 +271,7 @@ class Player:
 
     def path(self, i=None):
         i = self.index if i is None else i
-        return self.folder + "/" + self.files[i % len(self.files)]
+        return self._where(i)
 
     # -- transport ------------------------------------------------------------------
 

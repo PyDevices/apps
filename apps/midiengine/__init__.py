@@ -26,9 +26,10 @@ with its title, composer and length; tap a piece to play it. "Genre
 only" keeps next, previous and the end of a piece within the current
 genre; off, they walk the whole library. The library is a folder of
 .mid files, on a desktop ``$MIDI_DIR``, else ``~/midi``
-(``%USERPROFILE%\\midi`` on Windows); on a board ``/sd/midi``, the
-card mounted read-only while the app is open, as the MP3 player does. A
-``catalog.json`` at its root names each piece's title, composer, genre
+(``%USERPROFILE%\\midi`` on Windows). On a board it's every ``midi``
+folder: ``/sd/midi`` on the card (mounted read-only while the app is open,
+as the MP3 player does), ``/midi`` on flash and ``/data/midi``
+(`appkit.places`). A ``catalog.json`` at a folder's root names each piece's title, composer, genre
 and length; without one the folder is scanned, subfolders as genres,
 the file's name as its title. With no folder or no files, the face says
 where to put them. ``player.py`` is the player, ``umidiparser.py`` the
@@ -37,8 +38,8 @@ parser it reads files with.
 The sound is audioinstruments' ``soundfont`` and ``soundfont_drums``,
 reading one .sf2, mixed through audioeffects' Chorus and Reverb and out
 of the 3.5 mm jack. The bank is ``$SOUNDFONT``, else a .sf2 in
-``~/soundfonts`` on a desktop, ``/sd/soundfonts`` or ``/soundfonts`` on a
-board; with more than one there, the app opens on a list of them, the
+``~/soundfonts`` on a desktop, ``/sd/soundfonts``, ``/soundfonts`` or
+``/data/soundfonts`` on a board; with more than one there, the app opens on a list of them, the
 last one chosen lit, and the sound starts with the one tapped (``banks.py``
 finds them). With none, the face says where to put one. The bank is opened when the sound
 starts; a channel's instrument is made the first time it is played or given a program, and its
@@ -52,6 +53,7 @@ import sys
 
 from multimer import ticks_diff, ticks_ms
 
+from appkit import places
 from touchkit import ui
 
 try:
@@ -75,7 +77,7 @@ UI_MS = 40
 DECAY = 8  # a strip's meter falls this much (of 127) per UI tick: about 0.6 s from full
 SETUP_MS = 500  # how often to look for a keyboard until one is found
 SEP = "  \u2022  "  # between the facts of a line: a bullet, which every LVGL font has
-SD_MIDI = "/sd/midi"  # a board's MIDI files
+MIDI = "midi"  # the folder name, on the card, flash and the data root
 
 state = None  # for the console
 
@@ -86,37 +88,14 @@ def pan_text(v):
     return ("L%d" % (64 - v)) if v < 64 else ("R%d" % (v - 64))
 
 
-def _mount(scope):
-    """The SD card at ``/sd``, read-only, for as long as the app is open:
-    the MP3 player's way."""
-    import os
-
-    import board_peripherals as bp
-
-    try:
-        os.listdir("/sd")
-        return  # someone else's mount: leave it
-    except OSError:
-        pass
-    card = bp.sdcard()
-    os.mount(card, "/sd", readonly=True)
-
-    def unmount():
-        try:
-            os.umount("/sd")
-        finally:
-            card.deinit()
-
-    scope.on_close(unmount)
-
-
-def midi_folder(scope):
-    """Where the .mid files are: ``$MIDI_DIR`` or ``~/midi`` on a desktop,
-    ``/sd/midi`` on a board. Raises what mounting the card raised."""
+def midi_folders(scope):
+    """Where the .mid files are: ``$MIDI_DIR`` or ``~/midi`` on a desktop;
+    on a board ``/sd/midi`` (the card mounted read-only while the app is
+    open), ``/midi`` and ``/data/midi``."""
     if banks.DESKTOP:
-        return banks.getenv("MIDI_DIR") or banks.home() + "/midi"
-    _mount(scope)
-    return SD_MIDI
+        return [banks.getenv("MIDI_DIR") or banks.home() + "/midi"]
+    places.hold_card(scope)
+    return places.folders(MIDI)
 
 
 def clock_text(ms):
@@ -164,7 +143,7 @@ def main(scope):
         found = banks.candidates(banks.folders(desktop), banks.getenv("SOUNDFONT"))
         if not found:
             st["error"] = ("No SoundFont. Put a .sf2 in ~/soundfonts, or set SOUNDFONT to one." if desktop else
-                           "No SoundFont, so no sound. Put a .sf2 in %s or %s." % (banks.SD_SOUNDFONTS, banks.FLASH_SOUNDFONTS))
+                           "No SoundFont, so no sound. Put a .sf2 in %s." % (banks.where_text(),))
             st["short"] = "no SoundFont"  # the status line is short; the Channel panel has the sentence
             return None
         return found
@@ -265,11 +244,7 @@ def main(scope):
         if module is not None:
             module.feed(data)
 
-    try:
-        files = player.Player(midi_folder(scope), feed, loop=bool(prefs["loop"]), scope=prefs["scope"])
-    except Exception as e:  # no card to mount: a player with nothing, and the reason
-        files = player.Player(SD_MIDI, feed, loop=bool(prefs["loop"]), scope=prefs["scope"])
-        files.message = "No SD card: %s. Put .mid files in %s on one." % (e, SD_MIDI)
+    files = player.Player(midi_folders(scope), feed, loop=bool(prefs["loop"]), scope=prefs["scope"])
     st["player"] = files
 
     def guarded(fn):
