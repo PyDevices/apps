@@ -141,11 +141,16 @@ class Eye:
         if PACE_BY_REFRESH and hasattr(lv.EVENT, "REFR_START") and disp is not None:
             # LVGL sends REFR_START before it gathers the dirty areas, so a
             # frame cut and invalidated here is rendered in the same cycle.
-            self._refr_cb = lambda e: self._frame(None)
-            self._refr_done = lambda e: self._refresh_done()
+            # The callbacks reach the app through a cell that close() empties,
+            # so one left on the display does nothing.
+            eye = self._refr_eye = [self]
+            self._refr_cb = lambda e: eye[0] is not None and eye[0]._frame(None)
+            self._refr_done = lambda e: eye[0] is not None and eye[0]._refresh_done()
             self._refr_disp = disp
-            disp.add_event_cb(self._refr_cb, lv.EVENT.REFR_START, None)
-            disp.add_event_cb(self._refr_done, lv.EVENT.REFR_READY, None)
+            self._refr_dscs = (
+                disp.add_event_cb(self._refr_cb, lv.EVENT.REFR_START, None),
+                disp.add_event_cb(self._refr_done, lv.EVENT.REFR_READY, None),
+            )
         else:
             scope.every(FRAME_MS, self._frame)
         scope.every(ROTATE_POLL_MS, self._rotate_poll)
@@ -252,15 +257,24 @@ class Eye:
             fs["cycle_t0"] = None
 
     def close(self):
+        # Before the enlarged display closes, as the callbacks may be on it. One
+        # left on the board's own display would cut frames into this app's
+        # deleted screens.
+        if self._refr_cb is not None:
+            self._refr_eye[0] = None
+            disp = self._refr_disp
+            for dsc in self._refr_dscs:
+                if dsc is None:
+                    continue  # LVGL before 9.6 returns no descriptor: the emptied callback stays
+                # A display takes a callback off by its index, not by its function.
+                for i in range(disp.get_event_count() - 1, -1, -1):
+                    if disp.get_event_dsc(i) == dsc:
+                        disp.remove_event(i)
+                        break
+            self._refr_cb = self._refr_done = self._refr_disp = None
         if self.scaled is not None:
             self.scaled.close()
             self.scaled = None
-        if self._refr_cb is not None:
-            try:
-                self._refr_disp.remove_event_cb(self._refr_cb)
-            except Exception:
-                pass
-            self._refr_cb = None
 
     def frame_report(self):
         """Average times of the frame loop since the last call, in ms."""
