@@ -45,6 +45,12 @@ import omip
 omip.install("github:PyDevices/pydevices/lib/omip.py", target="/", force=True)
 ```
 
+On an Arduino GIGA, whose firmware has no `omip`, the writable drive is
+`/flash`: put `omip` on it with `mip.install(..., target="/flash/lib")`, and use
+`target="/flash"` where a line below says `target="/"`. The
+[GIGA Display Shield page](https://github.com/PyDevices/pydevices/blob/main/docs/boards/display-boards.md#arduino-giga-r1-wifi--giga-display-shield)
+has the lines.
+
 ## Install apps
 
 Name the app's folder under [`apps/`](../../apps):
