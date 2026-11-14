@@ -30,6 +30,7 @@ import time
 import lvgl as lv
 from multimer import ticks_add, ticks_diff, ticks_ms
 
+from appkit import places
 from touchkit import cam, ecp, net, settings, ui
 from touchkit.clock import sleep_ms
 
@@ -260,6 +261,8 @@ class CastScreen:
             self.cam_t0 = ticks_ms()
 
     def _load_photos(self):
+        if not getattr(self, "_card", None):  # the card's photos, read-only, while the app is open
+            self._card = places.hold_card(self.scope)
         self.photos = [p for k, p in cam.photos(self.scope)]
         self.photo_i = 0
         self.next_photo(0)
