@@ -64,7 +64,7 @@ def main(scope):
     try:
         st["cam"] = cam.open_camera(opts)
     except Exception as e:
-        ui.missing(scope, "no camera", cam.no_camera_text(e, "Camera"))
+        ui.missing(scope, "no camera", cam.no_camera_text(e, "Video Camera"))
         return
     c0 = st["cam"]
     pw, ph = cam.preview_size(c0, PREVIEW)
