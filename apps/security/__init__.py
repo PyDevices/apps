@@ -49,6 +49,13 @@ def main(scope):
     except Exception as e:
         ui.missing(scope, "no camera", cam.no_camera_text(e, "Security cam"))
         return
+
+    from board_config import display_drv as d
+
+    if not d.framebuffers():
+        c0.deinit()
+        ui.missing(scope, "no framebuffer", "Security cam draws its preview straight into the display's framebuffer, and this board's display has none.")
+        return
     try:
         import _thread
         import socket
@@ -63,8 +70,6 @@ def main(scope):
 
     cam.apply_controls(c0, opts)
     st["cam"] = c0
-    from board_config import display_drv as d
-
     fb = d.framebuffers()[0]
     cw, chh = c0.size()[:2]
     pw, ph = cam.preview_size(c0, PREVIEW)

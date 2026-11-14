@@ -66,6 +66,14 @@ def main(scope):
     except Exception as e:
         ui.missing(scope, "no camera", cam.no_camera_text(e, "Video Camera"))
         return
+
+    from board_config import display_drv as d
+
+    if not d.framebuffers():
+        st["cam"].deinit()
+        st["cam"] = None
+        ui.missing(scope, "no framebuffer", "Video Camera draws its preview straight into the display's framebuffer, and this board's display has none.")
+        return
     c0 = st["cam"]
     pw, ph = cam.preview_size(c0, PREVIEW)
     x0, y0 = 24, 8 + (PREVIEW - ph) // 2  # in root
@@ -138,8 +146,6 @@ def main(scope):
         lambda e: bright_l.set_text("Brightness %d%%" % slider.get_value()), lv.EVENT.VALUE_CHANGED, None
     )
     apply()
-    from board_config import display_drv as d
-
     fb = d.framebuffers()[0]
     ax, ay = RX + x0, RY + y0  # on the panel
 
