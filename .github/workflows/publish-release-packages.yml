@@ -33,7 +33,7 @@ jobs:
 
   publish:
     needs: credentials
-    uses: PyDevices/.github/.github/workflows/reusable-publish-release-packages.yml@publishing-v17
+    uses: PyDevices/.github/.github/workflows/reusable-publish-release-packages.yml@publishing-v23
     with:
       build-kind: pure-python
       distribution-name: omnipython-applibs
