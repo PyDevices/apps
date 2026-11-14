@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.1.2.dev4
+
+- The board sets its clock when it joins a network, and again each day, so Clock shows the time without waiting for a forecast. With no place chosen it shows UTC.
+- Home joins a known network and starts WebREPL at boot.
+- Camera: the P4 camera program installs with omip, as a Home app or the board's main.py; it has a Home icon, and closes and opens again cleanly.
+- Video Camera: the preview app's new name; it says photos go to the SD card when one is in.
+- Video Camera, Detect, Security and Mp3 work on a display with no framebuffer.
+- Synth Station installs controlkit, which its instrument panel draws with.
+- Cast casts with the castdisplay package.
+- Install an app: spots an older omip, updates it on CircuitPython, and removes code.py for Home.
+
 ## 0.1.2.dev3
 
 - Install any app on a board with one omip line: each app has its own package.json and installs to /apps/<name>.
