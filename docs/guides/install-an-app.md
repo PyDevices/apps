@@ -71,6 +71,13 @@ Each app lands in `/apps/<name>`, where Home looks, and what it imports goes in
 firmware has frozen in is skipped. On a WT32-SC01 Plus over Wi-Fi each of these
 took between 6 and 22 seconds.
 
+On CircuitPython, a long run of installs can reach a point where every request
+fails at once with `[Errno 5] Input/output error`, or where the board can't
+join Wi-Fi again. Ctrl-D doesn't clear it. Reset the board with its reset
+button, or with `import microcontroller; microcontroller.reset()`, and run the
+line that failed again. What was already installed stays, so you carry on from
+that app.
+
 ## Install a program that is an app
 
 Camera, the ESP32-P4 camera program, is an app too. Its line names the
