@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.2.dev5
+
+- touchkit installs deskkit, which sets the board's clock on joining a network; a board without it now reports the missing package instead of skipping the clock.
+
 ## 0.1.2.dev4
 
 - The board sets its clock when it joins a network, and again each day, so Clock shows the time without waiting for a forecast. With no place chosen it shows UTC.
