@@ -97,9 +97,14 @@ def sync():
     return True
 
 
+def due():
+    """Return True when the clock is unset, or this program hasn't set it in a day."""
+    return not is_set() or _synced_at is None or time.time() - _synced_at >= _RESYNC_S
+
+
 def resync_if_due():
     """Set the clock when it's unset or a day has passed. Call it from a worker."""
-    if not is_set() or _synced_at is None or time.time() - _synced_at >= _RESYNC_S:
+    if due():
         sync()
 
 

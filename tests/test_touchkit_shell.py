@@ -93,5 +93,68 @@ class BootButtonTest(unittest.TestCase):
         pin.irq.assert_called_once()
 
 
+class ClockOnJoinTest(unittest.TestCase):
+    """The clock is set when the board joins a network, not when an app asks."""
+
+    def _net(self, connected, due):
+        radio = types.SimpleNamespace(connected=connected)
+        worker = mock.MagicMock()
+        worker.pending.return_value = False
+        localtime = types.SimpleNamespace(due=lambda: due, resync_if_due=object())
+        fakes = {
+            "lvgl": mock.MagicMock(),
+            "wifi": types.SimpleNamespace(radio=radio, connect_from_secrets=mock.MagicMock()),
+            "webrepl": mock.MagicMock(),
+            "appkit.worker": types.SimpleNamespace(shared=lambda: worker),
+            "deskkit": types.SimpleNamespace(localtime=localtime),
+            "deskkit.localtime": localtime,
+            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+        }
+        return fakes, worker, localtime
+
+    def _up(self, fakes):
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            result = net.up()
+            timer = fakes["lvgl"].timer_create.call_args
+            sys.modules.pop("touchkit.net", None)
+            return net, result, timer
+
+    def test_joining_sets_the_clock_on_the_worker(self):
+        fakes, worker, localtime = self._net(connected=True, due=True)
+        net, result, timer = self._up(fakes)
+        self.assertTrue(result)
+        worker.submit.assert_called_once_with(localtime.resync_if_due, key="touchkit.clock")
+        self.assertEqual(timer.args[1], net._CLOCK_CHECK_MS)  # and checks again each minute
+
+    def test_a_join_asks_once_and_leaves_retries_to_the_timer(self):
+        fakes, worker, _ = self._net(connected=True, due=True)
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            for _ in range(5):  # an app polling up()
+                net.up()
+            self.assertEqual(worker.submit.call_count, 1)
+            fakes["lvgl"].timer_create.call_args.args[0](None)  # a minute on, still unset
+            self.assertEqual(worker.submit.call_count, 2)
+            sys.modules.pop("touchkit.net", None)
+
+    def test_a_set_clock_is_left_alone_until_a_day_has_passed(self):
+        fakes, worker, _ = self._net(connected=True, due=False)
+        self._up(fakes)
+        worker.submit.assert_not_called()
+
+    def test_nothing_is_asked_before_the_board_has_joined(self):
+        fakes, worker, _ = self._net(connected=False, due=True)
+        _, result, _ = self._up(fakes)
+        self.assertFalse(result)
+        worker.submit.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

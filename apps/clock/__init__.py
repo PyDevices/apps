@@ -33,5 +33,7 @@ def main(scope):
 
     scope.every(_TICK_MS, tick)
     tick()
-    # Here all day: the forecast's reply is what keeps the offset and the clock right.
+    # The board sets its clock when it joins a network (touchkit.net); the
+    # forecast's reply is what gives the chosen place's offset. Without a place
+    # the clock shows UTC.
     forecast.keep_fresh(scope)
