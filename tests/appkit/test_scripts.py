@@ -224,6 +224,18 @@ class Index(unittest.TestCase):
         self.assertEqual(ns["APPS"], (("blocks", apps[0][1]), ("hello", apps[1][1])))
         self.assertEqual(ns["APPS"][0][1]["script"], "blocks")
 
+    def test_every_app_here_passes_homes_check(self):
+        # Home runs this check at boot and stops on the first app that fails
+        # it, so one bad app.json leaves a board with no Home.
+        root = LIB.parent
+        folders = [root / "apps"]
+        for program in sorted(os.listdir(root / "programs")):
+            if (root / "programs" / program / "apps").is_dir():
+                folders.append(root / "programs" / program / "apps")
+        for folder in folders:
+            with self.subTest(folder=str(folder.relative_to(root))):
+                self.assertTrue(index.collect(str(folder)))
+
     def test_command_line(self):
         with tempfile.TemporaryDirectory() as tmp:
             out = os.path.join(tmp, "x.py")
