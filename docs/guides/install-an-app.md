@@ -16,6 +16,16 @@ import omip
 omip.install("github:PyDevices/pydevices/board_configs/busdisplay/i80/wt32sc01-plus")
 ```
 
+On a CircuitPython board with native USB, the `CIRCUITPY` drive belongs to
+your computer, and every install fails with `Read-only filesystem`. Put this
+`boot.py` on the drive to hand it to the board, then reset the board. Don't
+write to the drive from your computer while the board owns it.
+
+```python
+import storage
+storage.remount("/", readonly=False)
+```
+
 Installing an app needs a current `omip`. Your firmware's copy is older if
 `omip.install` on an app puts `app.json` in `/lib`, or if midiEngine's install
 copies `/lib/audioinstruments` although the firmware has it frozen in, which
