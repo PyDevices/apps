@@ -14,6 +14,7 @@ What each app in `apps/` does. These are the apps Home lists and appkit runs; th
 | [midiEngine](../../apps/midiengine) | A General MIDI sound module: 16 parts from a SoundFont, played from a USB MIDI keyboard. |
 | [MP3 player](../../apps/mp3) | The songs on the SD card or the board's flash, with play, previous, next, volume and a spectrum. |
 | [Camera](../../apps/camera), [Security camera](../../apps/security), [Object detection](../../apps/detect) | A camera preview, a camera stream, and object detection on the camera (which needs a [model file](models.md)). |
+| [Camera for the ESP32-P4](../../programs/camera) | The ESP32-P4X-EYE's camera app on any ESP32-P4: photos, H.264 video with sound, an album and detection (which needs [model files](models.md)). A program that installs as an app, with `omip.install("github:PyDevices/apps/programs/camera")`. |
 | [Cast](../../apps/cast) | A screen of its own on a Roku or a Windows PC over Miracast or HLS, with the panel as its remote. |
 | [Stompbox](../../apps/stompbox) | A guitar or a WAV clip through an airwindows effect, with its knobs on screen. Needs a firmware built with audioairwindows. |
 | [Sound card](../../apps/card) | The board is a USB speaker for a computer, with a spectrum of what plays. |

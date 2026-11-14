@@ -87,7 +87,7 @@ jobs:
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "app_packages=$(has '^(apps/|lib/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "app_packages=$(has '^(apps/|lib/|programs/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -198,7 +198,8 @@ jobs:
         run: python -m unittest discover -s tests/appkit -p 'test_*.py' -v
 
   # Each app's package.json matches its folder and its imports, so
-  # omip.install("github:PyDevices/apps/apps/<name>") installs what it needs.
+  # omip.install("github:PyDevices/apps/apps/<name>") installs what it needs;
+  # the same for a program that holds one app, as programs/camera does.
   app_packages:
     needs: scope
     if: needs.scope.outputs.app_packages == 'true'

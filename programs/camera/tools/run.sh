@@ -12,4 +12,4 @@ export MICROPYPATH=".:.frozen:${APPKIT_LIB:-$(pwd)/../../lib}:$HOME/.micropython
 if [ $# -gt 0 ]; then
     exec "$MP" -X heapsize=32M tools/shoot.py "$@"
 fi
-exec "$MP" -X heapsize=32M eye_camera.py
+exec "$MP" -X heapsize=32M main.py

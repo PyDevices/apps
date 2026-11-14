@@ -7,10 +7,11 @@ an album, the card as a USB disk, pedestrian and face detection, four screen
 rotations and interval shooting. It is the ESP32-P4X-EYE's own camera app,
 screen for screen, written as a PyDevices app so that other boards run it too.
 
-Runs on: the ESP32-P4X-EYE, and desktop MicroPython at 240x240 or larger.
-Other ESP32-P4 boards run the same code and step down to what they have, but
-haven't been tried yet; the USB camera source is written and not yet run on a
-camera. [What each board does](docs/how-it-works.md#what-a-board-needs).
+Runs on: the ESP32-P4X-EYE, where it starts with the board, any other ESP32-P4
+board as an app in Home, and desktop MicroPython at 240x240 or larger. A board
+without one of the Eye's parts steps down to what it has; the USB camera source
+is written and not yet run on a camera.
+[What each board does](docs/how-it-works.md#what-a-board-needs).
 
 ## Try it on a desktop
 
@@ -45,19 +46,36 @@ drawn once at 240x240, enlarged by a whole number and centred, so
 ## Put it on a board
 
 The firmware is MicroPython from micropython-pydevices with `cameraif`, `ppa`,
-`jpegio`, `h264enc` and `vision`. Install your board's package from
-[pydevices](https://github.com/PyDevices/pydevices) first, then put the app on
-it:
+`jpegio`, `h264enc` and `vision`. With your board's config installed, one line
+at the board's REPL puts Camera in `/apps/eyecam`, where Home lists it, and
+`mp4mux`, appkit and touchkit in `/lib`:
 
-```
-mpftp put eye_camera.py /eye_camera.py
-mpftp put -r apps/eyecam /apps/eyecam
+```python
+import omip
+omip.install("github:PyDevices/apps/programs/camera")
 ```
 
-and make `main.py` say `import eye_camera`. The app is about 1.4 MB with its
-pictures and fonts. [Putting the rest on the card and the board](docs/how-it-works.md#what-a-board-needs)
-(models, `mp4mux`, the Eye's own parts) is in the guide; the models are
-downloaded from [these links](../../docs/reference/models.md).
+The app is about 1.4 MB with its pictures and fonts.
+[Install an app](../../docs/guides/install-an-app.md) has the board config and
+Wi-Fi lines that come first.
+
+To have the board start in Camera, full screen, as the Eye does, make Camera's
+`main.py` the board's:
+
+```python
+omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
+```
+
+On a board with Home installed, Home's `main.py` puts it back
+(`omip.install("github:PyDevices/apps/apps/home/main.py", target="/")`). Under
+Home, on a panel bigger than the Eye's, a press held in the top-left corner
+goes back to Home.
+
+Pedestrian and face detection need two model files that the app doesn't
+carry. Put them in `/sd/models` on the card: the
+[model files page](../../docs/reference/models.md) has the downloads and the
+names to save them as. Without them the AI page draws no boxes, and the REPL
+says which file it looked for and where.
 
 Docs: [how it works](docs/how-it-works.md). Examples: [the shot lists](tools).
 Roadmap: [ROADMAP.md](../../ROADMAP.md).

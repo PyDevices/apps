@@ -4,12 +4,18 @@
 
 """Write each app's package.json, so one line installs an app on a board.
 
-    python tools/app_packages.py           # write apps/*/package.json
+    python tools/app_packages.py           # write every package.json
     python tools/app_packages.py --check   # fail if one is out of date
 
 On the board, ``omip.install("github:PyDevices/apps/apps/<name>")`` then puts
 the app's files in ``/apps/<name>``, where Home finds them, and what it imports
 from the OmniPython index, micropython-lib or another repository in ``/lib``.
+
+A program whose ``apps`` folder holds one app (``programs/camera`` holds
+eyecam) gets a package.json of its own, so
+``omip.install("github:PyDevices/apps/programs/<program>")`` installs that app
+the same way. The program's other files, such as its ``main.py``, are left to
+lines of their own.
 
 What an app needs is read from its imports, and from the imports of this
 repository's libraries it uses. Every name an app imports has to be known
@@ -24,6 +30,7 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APPS = os.path.join(ROOT, "apps")
+PROGRAMS = os.path.join(ROOT, "programs")
 LIB = os.path.join(ROOT, "lib")
 
 #: Import name -> package on the OmniPython index.
@@ -38,6 +45,7 @@ INDEX = {
     "iconkit": "iconkit",
     "medialink": "medialink",
     "midiports": "midiports",
+    "mp4mux": "mp4mux",
     "palettes": "palettes",
     "programkit": "programkit",
     "pygraphics": "pygraphics",
@@ -71,9 +79,10 @@ BOARD = {
 FIRMWARE = {
     "_audioif", "_thread", "array", "asyncio", "audioairwindows", "audiobiquad", "audiobusio", "audiocore",
     "audiofeatures", "audiomixer", "audiomp3", "audiopump", "audiospeed", "cameraif", "castif", "earful",
-    "errno", "esp32", "espdl", "gc", "image", "json", "lvgl", "machine", "math", "mdns", "micropython",
-    "microcontroller", "network", "numpy", "os", "platform", "random", "scipy", "select", "socket", "struct",
-    "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab", "usb",
+    "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "image", "jpegio", "json", "lvgl", "machine",
+    "math", "mdns", "micropython", "microcontroller", "network", "numpy", "os", "platform", "ppa", "random",
+    "scipy", "select", "socket", "struct", "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab",
+    "usb",
 }
 
 #: What isn't installed from an app's folder.
@@ -126,9 +135,8 @@ def lib_needs(name, seen):
             lib_needs(other, seen)
 
 
-def needs(name):
-    """``(deps, upstream)`` for app *name*, as package.json lists them."""
-    folder = os.path.join(APPS, name)
+def needs(folder):
+    """``(deps, upstream)`` for the app in *folder*, as package.json lists them."""
     local = {path.split("/")[0].rpartition(".py")[0] or path.split("/")[0] for path in app_files(folder)}
     index, elsewhere, upstream, unknown = set(), set(), set(), set()
     for module in imported(python_files(folder)):
@@ -146,8 +154,8 @@ def needs(name):
             unknown.add(module)
     if unknown:
         raise SystemExit(
-            "apps/%s imports %s, which tools/app_packages.py doesn't know: add each to INDEX, "
-            "ELSEWHERE, UPSTREAM, BOARD or FIRMWARE" % (name, ", ".join(sorted(unknown)))
+            "%s imports %s, which tools/app_packages.py doesn't know: add each to INDEX, "
+            "ELSEWHERE, UPSTREAM, BOARD or FIRMWARE" % (os.path.relpath(folder, ROOT), ", ".join(sorted(unknown)))
         )
     closure = set()
     for package in sorted(index):
@@ -159,16 +167,17 @@ def needs(name):
     return deps, [[package, "latest"] for package in sorted(upstream)]
 
 
-def render(name):
-    """The text of app *name*'s package.json."""
-    folder = os.path.join(APPS, name)
+def render(folder, prefix=""):
+    """The text of the package.json for the app in *folder*. *prefix* is the
+    app's folder as seen from the package.json, when that sits higher up."""
+    name = os.path.basename(folder)
     with open(os.path.join(folder, "app.json"), encoding="utf-8") as f:
         info = json.load(f)
-    deps, upstream = needs(name)
+    deps, upstream = needs(folder)
     body = {
         "description": "%s, an app for Home" % info.get("title", name),
         "target": "apps/" + name,
-        "urls": [[path, path] for path in app_files(folder)],
+        "urls": [[path, prefix + path] for path in app_files(folder)],
         "deps": deps,
     }
     if upstream:
@@ -181,12 +190,39 @@ def apps():
     return sorted(e for e in os.listdir(APPS) if os.path.isfile(os.path.join(APPS, e, "app.json")))
 
 
+def program_app(program):
+    """The one app in program *program*'s ``apps`` folder, or None when it has none.
+
+    A program with two would need a package.json for each, which nothing
+    installs yet, so it stops the script.
+    """
+    folder = os.path.join(PROGRAMS, program, "apps")
+    if not os.path.isdir(folder):
+        return None
+    found = sorted(e for e in os.listdir(folder) if os.path.isfile(os.path.join(folder, e, "app.json")))
+    if len(found) > 1:
+        raise SystemExit("programs/%s/apps holds %s: one package.json installs one app" % (program, ", ".join(found)))
+    return found[0] if found else None
+
+
+def packages():
+    """``(package.json path, its text)`` for each app here and each program that holds one."""
+    out = []
+    for name in apps():
+        out.append((os.path.join(APPS, name, "package.json"), render(os.path.join(APPS, name))))
+    for program in sorted(os.listdir(PROGRAMS)):
+        name = program_app(program)
+        if name is not None:
+            folder = os.path.join(PROGRAMS, program, "apps", name)
+            out.append((os.path.join(PROGRAMS, program, "package.json"), render(folder, "apps/%s/" % name)))
+    return out
+
+
 def main(argv):
     check = "--check" in argv
     stale = []
-    for name in apps():
-        path = os.path.join(APPS, name, "package.json")
-        text = render(name)
+    wanted = packages()
+    for path, text in wanted:
         try:
             with open(path, encoding="utf-8") as f:
                 current = f.read()
@@ -200,10 +236,12 @@ def main(argv):
             with open(path, "w", encoding="utf-8", newline="\n") as f:
                 f.write(text)
             print("wrote", os.path.relpath(path, ROOT))
-    for entry in os.listdir(APPS):
-        orphan = os.path.join(APPS, entry, "package.json")
-        if entry not in apps() and os.path.isfile(orphan):
-            stale.append(orphan + " (no app.json beside it)")
+    paths = [path for path, _ in wanted]
+    for top in (APPS, PROGRAMS):
+        for entry in os.listdir(top):
+            orphan = os.path.join(top, entry, "package.json")
+            if orphan not in paths and os.path.isfile(orphan):
+                stale.append(orphan + " (no app for it)")
     if stale:
         sys.exit(
             "out of date: %s\nRun python tools/app_packages.py and commit the result."
