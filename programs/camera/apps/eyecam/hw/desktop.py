@@ -117,8 +117,10 @@ class Preview:
 
 
 class Storage:
-    PICS = "esp32_p4_pic_save"
-    VIDS = "esp32_p4_mp4_save"
+    """A stand-in card in the data folder's ``sd``, with the board's folder names."""
+
+    PICS = "photos"
+    VIDS = "videos"
 
     def __init__(self, root):
         self.root = root + "/sd"
@@ -128,6 +130,10 @@ class Storage:
         self.full = False
 
     def mounted(self):
+        return self.card_in
+
+    def ready(self):
+        """True when a photo can be saved (the board's has flash behind the card)."""
         return self.card_in
 
     def free(self):

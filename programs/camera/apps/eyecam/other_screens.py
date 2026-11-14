@@ -112,7 +112,7 @@ class AlbumScreen:
         self.boxes.clean()
         if not self.paths:
             hide(self.counter)
-            if self.storage.mounted():
+            if self.storage.ready():
                 show(self.empty)
             else:
                 hide(self.empty)

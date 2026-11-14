@@ -13,15 +13,16 @@ log:
 |---|---|
 | a MIPI-CSI camera | looks for a USB camera on the host port, then shows the test card |
 | a microphone | records video with no sound |
-| a card slot | the album says there is no card; photos and video need one |
+| a card slot | photos and video go to `/photos` and `/videos` on flash |
 | an accelerometer | the screen stays upright |
 | a sleep helper | interval sleep blanks the screen and wakes on a touch or key |
 | `vision` in the firmware | no pedestrian or face detection |
 | `usb.device` | the card isn't offered as a disk |
 
 On the ESP32-P4X-EYE every part is there, and nothing changes. On the board
-the models go in `/pedestrian.espdl`, `/face.espdl` and
-`/models/human_face_detect_*.espdl`, and the `mp4mux` package in `/lib/mp4mux`.
+the models go in a `models` folder (`/sd/models` on the card, `/models` or
+`/data/models` on flash): `pedestrian.espdl`, `face.espdl` and
+`human_face_detect_*.espdl`, and the `mp4mux` package in `/lib/mp4mux`.
 The Eye's board config brings its display, keys, accelerometer and
 `orientation` helper.
 
@@ -77,8 +78,9 @@ share the PSRAM and the PPA, so a recording runs slower than the preview: a
 P4 board records 720P at 11 to 13 frames a second with sound. 1080P records
 at 4 to 7 frames a second on the P4 boards with a big panel (the EYE's small
 panel leaves it 10), and a board that can't find memory for the encoder says so
-on the screen. A recording needs a card; a board whose config has no
-card-detect pin is taken to have one.
+on the screen. A recording goes to the card when one is in, else to flash; a
+board whose config has no card-detect pin is taken to have a card until it
+fails to mount.
 
 ## Where it differs from the factory
 
@@ -90,6 +92,7 @@ card-detect pin is taken to have one.
 | Detection | esp-dl in its own task | esp-dl's pedestrian and face models, run in the frame loop and unloaded when the AI page is left |
 | Settings | NVS u8, u16 and u32 keys | NVS i32 keys, namespace `p4_eye_cfg`; JSON on a desktop |
 | Rotation | LVGL rotation and the PPA | the panel itself turns, and the PPA turns the preview back |
+| Card folders | `esp32_p4_pic_save` and `esp32_p4_mp4_save` | `photos` and `videos`, shared with the other camera apps, with flash behind the card |
 
 Where the factory was unclear, the program picks: video needs 100 MB free and
 a photo 5 MB; resolution cycles 720P, 1080P, 480P; the delete dialog opens with
