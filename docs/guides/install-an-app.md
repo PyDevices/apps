@@ -16,14 +16,23 @@ import omip
 omip.install("github:PyDevices/pydevices/board_configs/busdisplay/i80/wt32sc01-plus")
 ```
 
-Installing an app needs an `omip` that knows a package can have a folder of its
-own. If `omip.install` on an app puts `app.json` in `/lib`, your firmware's
-copy is older: put the current one at the board's root, where it runs ahead of
-the frozen one, then reset the board:
+Installing an app needs a current `omip`. Your firmware's copy is older if
+`omip.install` on an app puts `app.json` in `/lib`, or if midiEngine's install
+copies `/lib/audioinstruments` although the firmware has it frozen in, which
+fills a 2 MB filesystem. Put the current one at the board's root, where it runs
+ahead of the frozen one, then reset the board:
 
 ```python
 import mip
 mip.install("github:PyDevices/pydevices/lib/omip.py", target="/")
+```
+
+CircuitPython has no `mip`, and `omip` skips itself as frozen unless you force
+it:
+
+```python
+import omip
+omip.install("github:PyDevices/pydevices/lib/omip.py", target="/", force=True)
 ```
 
 ## Install apps
@@ -66,7 +75,8 @@ omip.install("github:PyDevices/apps/apps/home/main.py", target="/")
 ```
 
 Reset the board. Home comes up with a tile for each app you installed, and the
-gear opens System. Installing Home doesn't touch `main.py`, so a board that
+gear opens System. On CircuitPython, remove `code.py` first (`os.remove("/code.py")`):
+CircuitPython runs it ahead of `main.py`, and a freshly erased board has one. Installing Home doesn't touch `main.py`, so a board that
 starts something else keeps doing so until you run this line.
 
 A board that should start in Camera, as a camera does, takes Camera's
