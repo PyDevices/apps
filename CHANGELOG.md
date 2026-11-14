@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.1.2.dev5
+
+- Clock shows local time before a place is chosen: when the board joins a network it looks up the timezone of its public IP address (ipwho.is), and again each day for daylight saving. A place chosen in Weather still wins.
+- touchkit: a board without deskkit fails loudly instead of skipping the clock.
+- Camera: its main.py joins Wi-Fi and starts WebREPL when there's a secrets.py.
+
 ## 0.1.2.dev4
 
 - The board sets its clock when it joins a network, and again each day, so Clock shows the time without waiting for a forecast. With no place chosen it shows UTC.
