@@ -264,17 +264,18 @@ def main(scope):
 
     ip = net.ip()
     name = net.hostname()
+    where = "Photos go to the SD card." if sd else "Photos go to the board's flash."
     if ip:
         info.set_text(
-            "Photos go to the board's flash.\nOpen %shttp://%s:%d to see them."
-            % ("http://%s.local:%d or " % (name, PORT) if name else "", ip, PORT)
+            "%s\nOpen %shttp://%s:%d to see them."
+            % (where, "http://%s.local:%d or " % (name, PORT) if name else "", ip, PORT)
         )
         try:
             start_server()
         except Exception as e:
             print("camera: web page:", e)
     else:
-        info.set_text("Photos go to the board's flash.\nNo Wi-Fi: no web page.")
+        info.set_text(where + "\nNo Wi-Fi: no web page.")
 
     def close():
         st["open"] = False  # the web page's thread ends within half a second
