@@ -14,7 +14,8 @@ medialink.VoiceActivity decides what counts as speech: audiodsp's speech
 detector where the firmware has it, and a level gate over the room's own
 noise elsewhere. Set WAKE_WORD to a microWakeWord model's manifest and a turn
 starts only with the word, so the room's talk stays home. That needs
-firmware with tflite and audiodsp.
+firmware with tflite and audiodsp. A model under ``/sd`` is read from the SD
+card, mounted just while the model loads.
 
 Needs: a microphone and a speaker that boarddev.pcm_in() and pcm_out()
 reach, which a PyDevices board package or pydevices-desktop provides, and a
@@ -40,10 +41,33 @@ PEER_ADDRESS = None  # or ("192.168.1.20", 47830) to skip the search
 PORT = 47830  # this side's port
 RATE = 16000  # samples a second
 HOLD_MS = 800  # how long a turn lasts after the last word
-WAKE_WORD = None  # or "/sdcard/models/hey_jarvis.json" to start a turn by name
+WAKE_WORD = None  # or "/sd/models/hey_jarvis.json" to start a turn by name
 
 TICK_MS = 100  # how often the screen and the link are checked
 LOOK_EVERY_MS = 3000  # between searches for the peer while it's gone
+
+
+def _wake_word(voice):
+    """The wake word in front of *voice*. A model on the card (``/sd/...``)
+    mounts it for the load, unless something else already has it there."""
+    if not WAKE_WORD.startswith("/sd/"):
+        return medialink.WakeWord(WAKE_WORD, RATE, voice=voice)
+    import os
+
+    try:
+        os.listdir("/sd")
+        card = None  # someone else's mount: leave it
+    except OSError:
+        import board_peripherals as bp
+
+        card = bp.sdcard()
+        os.mount(card, "/sd", readonly=True)
+    try:
+        return medialink.WakeWord(WAKE_WORD, RATE, voice=voice)
+    finally:
+        if card is not None:
+            os.umount("/sd")
+            card.deinit()
 
 
 def main(scope):
@@ -58,7 +82,7 @@ def main(scope):
         audio = AudioFormat(RATE, 1, 16)
         voice = medialink.VoiceActivity(RATE, hold_ms=HOLD_MS)
         if WAKE_WORD:
-            voice = medialink.WakeWord(WAKE_WORD, RATE, voice=voice)
+            voice = _wake_word(voice)
         link = medialink.Link(medialink.UDPTransport(PORT), retries=2)
         intercom = medialink.Intercom(
             link, boarddev.pcm_in(audio), boarddev.pcm_out(audio, latency="low"), voice=voice
