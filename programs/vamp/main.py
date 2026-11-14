@@ -15,8 +15,8 @@ hmilink on MICROPYPATH::
         [--port 9100] [--midi NAME] [--lookahead-ms 750] [--seconds N]
 
 Then the window joins it (``python -m ostinato --connect BOX:9100``) and a
-browser opens ``http://BOX:9100/``. On the board, the bank is read from the
-SD card, the network is the Ethernet port, and a keyboard on the USB host
+browser opens ``http://BOX:9100/``. On the board, the bank is read from
+``/sd/soundfonts`` on the SD card, else ``/soundfonts`` or ``/data/soundfonts``, the network is the Ethernet port, and a keyboard on the USB host
 port plays the selected track.
 """
 
@@ -30,7 +30,7 @@ except AttributeError:
     _BOARD = False
 
 DEFAULTS = {
-    "bank": "/sd/soundfonts/GeneralUser-GS.sf2" if _BOARD else "GeneralUser-GS.sf2",
+    "bank": "GeneralUser-GS.sf2",  # on the board, from a soundfonts folder (_find_bank)
     "song": "/vamp_song.json" if _BOARD else None,   # the box plays SoundFont tracks
     "port": 9100,
     "midi": None,
@@ -112,7 +112,26 @@ def _mount_sd():
         pass
     import board_peripherals as bp
 
-    os.mount(bp.sdcard(), "/sd")
+    try:
+        os.mount(bp.sdcard(), "/sd")
+    except Exception as e:  # noqa: BLE001 - the bank can be on flash instead
+        _log("box: no SD card:", e)
+
+
+def _find_bank(name):
+    """A bank given by name alone, from the card's soundfonts folder, then
+    flash's, then the data root's; a path is used as it is."""
+    import os
+
+    if "/" in name:
+        return name
+    for folder in ("/sd/soundfonts", "/soundfonts", "/data/soundfonts"):
+        try:
+            os.stat(folder + "/" + name)
+            return folder + "/" + name
+        except OSError:
+            pass
+    raise OSError("%s is in none of /sd/soundfonts, /soundfonts or /data/soundfonts" % (name,))
 
 
 def _output():
@@ -192,6 +211,7 @@ def main(argv=None):
         lan = _network(opts["ip"])
         _log("box: Ethernet", lan.ifconfig()[0])
         _mount_sd()
+        opts["bank"] = _find_bank(opts["bank"])
 
     from vamp import engine as be
     from vamp.device import BoxDevice
