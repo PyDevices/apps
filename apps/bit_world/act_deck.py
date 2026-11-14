@@ -64,7 +64,9 @@ PAD_NOTES = ("D4", "E4", "F4", "A4", "C5", "D5", "E5", "A5")
 class CyberDeckAct:
     """Render and operate Act 3: Solarpunk Reactor and Synth HMI Console."""
 
-    def __init__(self, layout, sprites, sound):
+    # *background* is a (bytearray, FrameBuffer) pair from make_fb at the panel's size to
+    # draw the static scene into; left as None, the act makes its own.
+    def __init__(self, layout, sprites, sound, background=None):
         self.lay = layout
         self.sprites = sprites
         self.sound = sound
@@ -149,7 +151,7 @@ class CyberDeckAct:
         self.bubbles = [0.15, 0.42, 0.68, 0.85]
 
         # Pre-render the brushed metal chassis and static dial bezels into bg_fb.
-        self.bg_buf, self.bg_fb = make_fb(w, layout.h, VOID)
+        self.bg_buf, self.bg_fb = background or make_fb(w, layout.h, VOID)
         self.bg_draw = Draw(self.bg_fb)
         self._build_static_console()
 

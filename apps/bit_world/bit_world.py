@@ -22,6 +22,7 @@ launcher, put this folder on ``sys.path`` and ``import bit_world``.
 Needs: audiodsp, multimer, pygraphics.
 """
 
+import gc
 import sys
 
 from boarddev import env_get
@@ -104,17 +105,23 @@ class BitWorldDirector:
         # copied across.
         self.panels = {}
         self.direct = self._share_panel_buffers()
+        # The full-screen buffers come first, one after another, while the
+        # heap's free space is still in large pieces. Made after the sprites,
+        # the sound and the acts' smaller objects, the last of them can find no
+        # piece big enough on a heap with plenty free in total.
+        gc.collect()
         if not self.direct:
             self.screen_buf, self.screen_fb = make_fb(WIDTH, HEIGHT, VOID)
             self.screen_draw = Draw(self.screen_fb)
             self.screen_state = PanelState()
+        backgrounds = [make_fb(WIDTH, HEIGHT, VOID) for _ in range(3)]
 
         self.sprites = SpriteBank(self.lay)
         self.sound = SoundEngine(board_peripherals, app)
 
-        self.act_pet = WorkshopAct(self.lay, self.sprites, self.sound)
-        self.act_game = SkyRuinsAct(self.lay, self.sprites, self.sound)
-        self.act_deck = CyberDeckAct(self.lay, self.sprites, self.sound)
+        self.act_pet = WorkshopAct(self.lay, self.sprites, self.sound, backgrounds[0])
+        self.act_game = SkyRuinsAct(self.lay, self.sprites, self.sound, backgrounds[1])
+        self.act_deck = CyberDeckAct(self.lay, self.sprites, self.sound, backgrounds[2])
         self.acts = (self.act_pet, self.act_game, self.act_deck)
 
         start_act = env_get("BIT_WORLD_ACT")
