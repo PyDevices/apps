@@ -80,7 +80,8 @@ UNPACKAGED = {"cast_display", "hls_display"}
 
 #: What isn't installed from an app's folder.
 SKIP_DIRS = {"tests", "docs", "__pycache__"}
-SKIP_FILES = {"package.json", "AGENTS.md", "README.md"}
+#: Home's main.py goes to the board's root, with a line of its own.
+SKIP_FILES = {"package.json", "AGENTS.md", "README.md", "main.py"}
 
 
 def app_files(folder):
