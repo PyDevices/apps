@@ -496,6 +496,14 @@ class Recorder:
     def tick(self, buf):
         pass  # the recording thread takes its own frames
 
+    def close(self):
+        """Give back the H.264 encoder: the chip has one, and the next app
+        to open, or this one opened again, needs it."""
+        self.stop()
+        if self._enc is not None:
+            self._enc.close()
+            self._enc = None
+
     def stop(self):
         if not self.recording:
             return
@@ -827,7 +835,7 @@ def build(scope):
         mic = _mic_16k(mic)
     if mic is None:
         print("eyecam: no microphone: video has no sound")
-    recorder = Recorder(preview, storage, mic, work)
+    recorder = scope.adopt(Recorder(preview, storage, mic, work))
     recorder.prepare("1080P")  # the setting's default; control re-prepares on change
 
     def turn_screen(degrees):
