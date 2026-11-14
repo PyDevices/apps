@@ -10,7 +10,7 @@ through the sound module.
 [put Vamp on a board](guides/put-vamp-on-a-board.md), and
 [put a clock and the weather on your desk](guides/put-a-clock-on-your-desk.md).
 
-**Reference.** [The apps, and what each does](reference/apps.md). [What an appkit app must provide](reference/app-requirements.md). [The icons an app can use](reference/icons.md). [The sound module's MIDI](reference/sound-module-midi.md): banks,
+**Reference.** [The apps, and what each does](reference/apps.md). [What an appkit app must provide](reference/app-requirements.md). [The icons an app can use](reference/icons.md). [The model files](reference/models.md) that Wake word, Object detection and Camera need. [The sound module's MIDI](reference/sound-module-midi.md): banks,
 controllers, System Exclusive, and the `soundmodule.run` options. Vamp's
 options are listed at the top of
 [`programs/vamp/main.py`](../programs/vamp/main.py).

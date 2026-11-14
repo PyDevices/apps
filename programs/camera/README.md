@@ -56,7 +56,8 @@ mpftp put -r apps/eyecam /apps/eyecam
 
 and make `main.py` say `import eye_camera`. The app is about 1.4 MB with its
 pictures and fonts. [Putting the rest on the card and the board](docs/how-it-works.md#what-a-board-needs)
-(models, `mp4mux`, the Eye's own parts) is in the guide.
+(models, `mp4mux`, the Eye's own parts) is in the guide; the models are
+downloaded from [these links](../../docs/reference/models.md).
 
 Docs: [how it works](docs/how-it-works.md). Examples: [the shot lists](tools).
 Roadmap: [ROADMAP.md](../../ROADMAP.md).

@@ -16,7 +16,8 @@ noise elsewhere. Set WAKE_WORD to a microWakeWord model's manifest and a turn
 starts only with the word, so the room's talk stays home. That needs
 firmware with tflite and audiodsp. The model is looked for in a ``models``
 folder, as the Wake app does: ``/sd/models`` on the SD card (mounted just
-while it loads), ``/models`` on flash, then ``/data/models``.
+while it loads), ``/models`` on flash, then ``/data/models``. The model files, and where to download them, are at
+https://github.com/PyDevices/apps/blob/main/docs/reference/models.md
 
 Needs: a microphone and a speaker that boarddev.pcm_in() and pcm_out()
 reach, which a PyDevices board package or pydevices-desktop provides, and a

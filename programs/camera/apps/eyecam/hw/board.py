@@ -14,7 +14,8 @@ photos and video frames are cut
 and scaled by the PPA from the camera's own frame buffer; photos go through
 the hardware JPEG encoder, video through the H.264 encoder into an MP4 with
 the microphone's sound; detection runs esp-dl's pedestrian and face models,
-``pedestrian.espdl`` and ``face.espdl``, from a ``models`` folder.
+``pedestrian.espdl`` and ``face.espdl``, from a ``models`` folder. Where to
+download them: https://github.com/PyDevices/apps/blob/main/docs/reference/models.md
 
 Files follow `appkit.places`: photos in ``/sd/photos``, video in
 ``/sd/videos`` and models in ``/sd/models`` on the card, else the same
