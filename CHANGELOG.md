@@ -4,6 +4,7 @@
 
 ## 0.1.2.dev5
 
+- Clock shows local time before a place is chosen: when the board joins a network it looks up the timezone of its public IP address (ipwho.is), and again each day for daylight saving. A place chosen in Weather still wins.
 - touchkit installs deskkit, which sets the board's clock on joining a network; a board without it now reports the missing package instead of skipping the clock.
 
 ## 0.1.2.dev4
