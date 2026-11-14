@@ -155,6 +155,14 @@ class ClockOnJoinTest(unittest.TestCase):
         self.assertFalse(result)
         worker.submit.assert_not_called()
 
+    def test_a_missing_deskkit_is_an_error_not_a_skip(self):
+        fakes, worker, _ = self._net(connected=True, due=True)
+        del fakes["deskkit"], fakes["deskkit.localtime"]
+        fakes["deskkit"] = None  # an import of None raises ImportError
+        with self.assertRaises(ImportError):
+            self._up(fakes)
+        worker.submit.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()
