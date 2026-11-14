@@ -56,6 +56,9 @@ omip.install("github:PyDevices/apps/apps/system")
 omip.install("github:PyDevices/apps/apps/bit_world")
 ```
 
+The full list, with what each app does and needs, is in
+[the apps](../reference/apps.md); any folder there installs the same way.
+
 Each app lands in `/apps/<name>`, where Home looks, and what it imports goes in
 `/lib`: appkit and touchkit from the OmniPython index, vtterm for the REPL app,
 `requests` from micropython-lib for the apps that go online. Anything the

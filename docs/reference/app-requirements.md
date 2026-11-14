@@ -27,6 +27,7 @@
 |---|---|
 | `app.json` has `"script": "<module>"`; the script builds its own `App` | [`launcher.py`](../../lib/appkit/launcher.py) lines 626–628 |
 | Choosing a script restarts the program into it | [appkit README](../../lib/appkit/README.md#a-plain-script) |
+| While a script runs the board has no WebREPL: it starts before Wi-Fi and WebREPL come up, so connect again when the script quits | [`apps/home/main.py`](../../apps/home/main.py) |
 | A program that builds its own launcher calls `appkit.run_pending_script()` first in `main.py` | [appkit README](../../lib/appkit/README.md#a-plain-script) |
 | CircuitPython boards can't run scripts | [`launcher.py`](../../lib/appkit/launcher.py) line 375 |
 

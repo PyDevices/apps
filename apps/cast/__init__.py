@@ -352,11 +352,11 @@ def main(scope):
         import castif  # noqa: F401
     except ImportError as e:
         # The sender is the board's H.264 encoder and Miracast task. Nothing
-        # is scanned for here: a computer has no stream to send.
+        # is scanned for here: a device without castif has no stream to send.
         ui.missing(
             scope,
             "missing: castif",
-            "Cast needs castif, the board's H.264 encoder and Miracast sender, which this computer lacks: %s." % (e,),
+            "Cast needs castif, the board's H.264 encoder and Miracast sender, which this device lacks: %s." % (e,),
         )
         return
     from . import receivers
