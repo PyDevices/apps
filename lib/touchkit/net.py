@@ -13,6 +13,9 @@ The board joins a known network at boot (`boot`) and stays joined
 while apps come and go, like the display. An app that needs the network
 calls `up` from a timer until it says True. The hostname comes from
 ``settings.json`` (see ``touchkit.settings``).
+
+Once the board is on a network its clock gets set (`keep_time`), and
+again each day, so no app has to ask for it.
 """
 
 import sys
@@ -21,6 +24,10 @@ from . import settings
 
 _started = False
 _webrepl_on = False
+_clock_timer = None
+_clock_asked = False
+_CLOCK_CHECK_MS = 60_000
+_CLOCK_JOB = "touchkit.clock"
 
 
 def _host_ip():
@@ -93,6 +100,7 @@ def up():
     try:
         if wifi.radio.connected:
             start_webrepl()
+            keep_time()
             return True
     except Exception:
         pass
@@ -141,6 +149,7 @@ def boot():
             kw["hostname"] = settings.get("hostname")
         if wifi_manager.connect(**kw):
             start_webrepl()
+            keep_time()
             return
     except Exception as e:
         print("touchkit: wifi:", e)
@@ -150,8 +159,43 @@ def boot():
         if up():
             t.delete()
 
+    keep_time()
     up()
     lv.timer_create(poll, 5000, None)
+
+
+def _set_clock_if_due(_timer=None):
+    global _clock_asked
+    try:
+        import wifi
+        from appkit.worker import shared
+        from deskkit import localtime
+    except ImportError:
+        return  # a desktop keeps its own time
+    try:
+        joined = wifi.radio.connected
+    except Exception:
+        return
+    worker = shared()
+    if joined and localtime.due() and not worker.pending(_CLOCK_JOB):
+        # NTP, or a web server's Date header where NTP is blocked: it blocks.
+        _clock_asked = True
+        worker.submit(localtime.resync_if_due, key=_CLOCK_JOB)
+
+
+def keep_time():
+    """Set the board's clock as soon as the station has joined, then check
+    once a minute: a failed try is tried again, and the clock is set again
+    each day. The setting runs on the shared worker (`appkit.worker`), so the
+    screen keeps going. Call it on the main thread, as `boot` and `up` do;
+    once it has asked, calling it again leaves the rest to the timer."""
+    global _clock_timer
+    if _clock_timer is None:
+        import lvgl as lv
+
+        _clock_timer = lv.timer_create(_set_clock_if_due, _CLOCK_CHECK_MS, None)
+    if not _clock_asked:
+        _set_clock_if_due()
 
 
 def setup_job():
@@ -165,6 +209,7 @@ def setup_job():
             kw["hostname"] = settings.get("hostname")
         if wifi_manager.run(**kw):
             start_webrepl()
+            keep_time()
     except Exception as e:
         print("touchkit: wifi setup:", e)
 
