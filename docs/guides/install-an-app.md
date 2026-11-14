@@ -43,6 +43,20 @@ Each app lands in `/apps/<name>`, where Home looks, and what it imports goes in
 firmware has frozen in is skipped. On a WT32-SC01 Plus over Wi-Fi each of these
 took between 6 and 22 seconds.
 
+## Install a program that is an app
+
+Camera, the ESP32-P4 camera program, is an app too. Its line names the
+program's folder under [`programs/`](../../programs), and it lands in
+`/apps/eyecam`, where Home lists it:
+
+```python
+omip.install("github:PyDevices/apps/programs/camera")
+```
+
+It needs a firmware with the camera modules and, for detection, model files on
+the card: its [README](../../programs/camera/README.md#put-it-on-a-board) says
+which.
+
 ## Start Home when the board starts
 
 Home's `main.py` goes at the board's root:
@@ -54,6 +68,13 @@ omip.install("github:PyDevices/apps/apps/home/main.py", target="/")
 Reset the board. Home comes up with a tile for each app you installed, and the
 gear opens System. Installing Home doesn't touch `main.py`, so a board that
 starts something else keeps doing so until you run this line.
+
+A board that should start in Camera, as a camera does, takes Camera's
+`main.py` in its place:
+
+```python
+omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
+```
 
 ## Updating, and a particular version
 
