@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 0.1.2.dev3
+
+- Install any app on a board with one omip line: each app has its own package.json and installs to /apps/<name>.
+- REPL: the board's Python prompt as an app.
+- Bit World: a script app with an exit button; Home's main.py doesn't build Home over a script app that runs on timers.
+- Apps find and save their files on the SD card, then flash, then the data root.
+- Models: one page says which model files Wake word, Object detection and Camera need, and where to get them.
+- The libraries in the index declare what they import, so installing appkit brings iconkit; deskkit and programkit are published.
+
 ## 0.1.2.dev2
 
 - Camera: the camera app for any ESP32-P4 board and a USB camera.
