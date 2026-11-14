@@ -86,6 +86,9 @@ A board that should start in Camera, as a camera does, takes Camera's
 omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
 ```
 
+Like Home's, it joins the Wi-Fi in `secrets.py` and starts WebREPL once the
+picture is up. A board with no `secrets.py` starts Camera offline.
+
 ## Updating, and a particular version
 
 Running the same line again fetches the app's files afresh. Without

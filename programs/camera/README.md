@@ -66,6 +66,10 @@ To have the board start in Camera, full screen, as the Eye does, make Camera's
 omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
 ```
 
+With a `secrets.py` on the board, it joins that Wi-Fi network and starts
+WebREPL once Camera is on the screen, as Home does; while it joins, the
+preview keeps running. Without one it runs offline.
+
 On a board with Home installed, Home's `main.py` puts it back
 (`omip.install("github:PyDevices/apps/apps/home/main.py", target="/")`). Under
 Home, on a panel bigger than the Eye's, a press held in the top-left corner
