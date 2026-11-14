@@ -17,3 +17,4 @@ What each app in `apps/` does. These are the apps Home lists and appkit runs; th
 | [Sound card](../../apps/card) | The board is a USB speaker for a computer, with a spectrum of what plays. |
 | [System](../../apps/system) | Whether the board is well, at a glance: a turning arc and frame rate, a touch test, memory, boot, network, audio and what the board is; `stats()` gives the same from the REPL. |
 | [Wake word](../../apps/wake) | Listens on a USB microphone for "Hey Jarvis" and flashes on each detection. |
+| [Bit World](../../apps/bit_world) | Bit, a pixel-art robot, as a desk pet, in a platformer and on a reactor deck with a sequencer, scored with synthio. It plays itself until touched. |

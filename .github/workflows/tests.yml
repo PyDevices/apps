@@ -56,6 +56,7 @@ jobs:
       engines: ${{ steps.scope.outputs.engines }}
       synthstation: ${{ steps.scope.outputs.synthstation }}
       appkit: ${{ steps.scope.outputs.appkit }}
+      bit_world: ${{ steps.scope.outputs.bit_world }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -73,6 +74,7 @@ jobs:
             echo "engines=true" >> "$GITHUB_OUTPUT"
             echo "synthstation=true" >> "$GITHUB_OUTPUT"
             echo "appkit=true" >> "$GITHUB_OUTPUT"
+            echo "bit_world=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "$BASE...$GITHUB_SHA")
@@ -82,6 +84,7 @@ jobs:
           echo "engines=$(has '^(lib/|tests/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -190,6 +193,33 @@ jobs:
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: python -m unittest discover -s tests/appkit -p 'test_*.py' -v
+
+  # Bit World's tests on CPython, against the released pydevices, pygraphics
+  # and audiodsp, on a display with no window: the partial repaint matches a
+  # full redraw, and the exit button quits and closes the audio.
+  bit_world:
+    needs: scope
+    if: needs.scope.outputs.bit_world == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install pydevices, pygraphics and audiodsp for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-desktop pydevices-pygraphics omnipython-audiodsp
+
+      - name: Bit World's tests
+        working-directory: apps/bit_world
+        env:
+          SDL_VIDEODRIVER: dummy
+          SDL_AUDIODRIVER: dummy
+        run: python -m unittest discover -s tests -v
 
   # Vamp's engine check and link contract, and the sound module's contract,
   # on CPython and unix MicroPython, each with its planted faults. The
