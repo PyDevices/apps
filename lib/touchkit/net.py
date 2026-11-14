@@ -98,12 +98,13 @@ def up():
         return _host_ip() is not None
 
     try:
-        if wifi.radio.connected:
-            start_webrepl()
-            keep_time()
-            return True
+        joined = wifi.radio.connected
     except Exception:
-        pass
+        joined = False
+    if joined:
+        start_webrepl()
+        keep_time()  # outside the try: a missing deskkit must be seen
+        return True
     if not _started:
         _started = True
         try:
@@ -147,12 +148,14 @@ def boot():
         kw = {"setup": False}
         if settings.get("hostname"):
             kw["hostname"] = settings.get("hostname")
-        if wifi_manager.connect(**kw):
-            start_webrepl()
-            keep_time()
-            return
+        joined = wifi_manager.connect(**kw)
     except Exception as e:
         print("touchkit: wifi:", e)
+        joined = False
+    if joined:
+        start_webrepl()
+        keep_time()  # outside the try: a missing deskkit must be seen
+        return
     import lvgl as lv
 
     def poll(t):
@@ -168,10 +171,11 @@ def _set_clock_if_due(_timer=None):
     global _clock_asked
     try:
         import wifi
-        from appkit.worker import shared
-        from deskkit import localtime
     except ImportError:
         return  # a desktop keeps its own time
+    from appkit.worker import shared
+    from deskkit import localtime  # ImportError when deskkit isn't installed
+
     try:
         joined = wifi.radio.connected
     except Exception:
@@ -207,11 +211,13 @@ def setup_job():
         kw = {}
         if settings.get("hostname"):
             kw["hostname"] = settings.get("hostname")
-        if wifi_manager.run(**kw):
-            start_webrepl()
-            keep_time()
+        joined = wifi_manager.run(**kw)
     except Exception as e:
         print("touchkit: wifi setup:", e)
+        joined = False
+    if joined:
+        start_webrepl()
+        keep_time()  # outside the try: a missing deskkit must be seen
 
 
 def rssi():
