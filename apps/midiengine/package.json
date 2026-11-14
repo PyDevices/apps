@@ -1,0 +1,61 @@
+{
+  "description": "midiEngine, an app for Home",
+  "target": "apps/midiengine",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "banks.py",
+      "banks.py"
+    ],
+    [
+      "midiin.py",
+      "midiin.py"
+    ],
+    [
+      "player.py",
+      "player.py"
+    ],
+    [
+      "umidiparser.py",
+      "umidiparser.py"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "audioeffects",
+      "latest"
+    ],
+    [
+      "audioinstruments",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ],
+    [
+      "midiports",
+      "latest"
+    ],
+    [
+      "soundmodule",
+      "latest"
+    ],
+    [
+      "touchkit",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

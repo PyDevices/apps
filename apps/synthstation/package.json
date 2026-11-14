@@ -1,0 +1,49 @@
+{
+  "description": "Synth Station, an app for Home",
+  "target": "apps/synthstation",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "audio.py",
+      "audio.py"
+    ],
+    [
+      "catalog.py",
+      "catalog.py"
+    ],
+    [
+      "meters.py",
+      "meters.py"
+    ],
+    [
+      "midi.py",
+      "midi.py"
+    ],
+    [
+      "pads.py",
+      "pads.py"
+    ],
+    [
+      "station.py",
+      "station.py"
+    ]
+  ],
+  "deps": [
+    [
+      "audioinstruments",
+      "latest"
+    ],
+    [
+      "midiports",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

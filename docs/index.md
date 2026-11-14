@@ -4,7 +4,8 @@
 libraries they use, then [render a MIDI file](get-started/first-program.md)
 through the sound module.
 
-**Guides.** [Play the sound module from a DAW](guides/play-the-sound-module.md),
+**Guides.** [Install an app on a board](guides/install-an-app.md),
+[play the sound module from a DAW](guides/play-the-sound-module.md),
 [run Ostinato](guides/run-ostinato.md),
 [put Vamp on a board](guides/put-vamp-on-a-board.md), and
 [put a clock and the weather on your desk](guides/put-a-clock-on-your-desk.md).

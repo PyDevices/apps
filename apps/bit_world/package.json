@@ -1,0 +1,45 @@
+{
+  "description": "Bit World, an app for Home",
+  "target": "apps/bit_world",
+  "urls": [
+    [
+      "act_deck.py",
+      "act_deck.py"
+    ],
+    [
+      "act_game.py",
+      "act_game.py"
+    ],
+    [
+      "act_pet.py",
+      "act_pet.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "bit_palette.py",
+      "bit_palette.py"
+    ],
+    [
+      "bit_sound.py",
+      "bit_sound.py"
+    ],
+    [
+      "bit_sprites.py",
+      "bit_sprites.py"
+    ],
+    [
+      "bit_world.py",
+      "bit_world.py"
+    ]
+  ],
+  "deps": [
+    [
+      "pygraphics",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}
