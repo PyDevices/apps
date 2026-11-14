@@ -13,11 +13,13 @@ import appkit
 # run it in the background, this returns True and Home comes back when it quits.
 if not appkit.run_pending_script():
     from display_driver import app
-    from touchkit import shell
+    from touchkit import net, shell
 
     shell.quiet_app_timers(app)
     launcher = shell.TouchLauncher(app, home="home")
     launcher.scan("apps")
     launcher.shell = shell.TouchShell(launcher)
     launcher.boot("home")
+    # Join a known network and start WebREPL, now the display is up.
+    net.boot()
     appkit.serve()
