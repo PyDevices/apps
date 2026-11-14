@@ -27,6 +27,10 @@
     [
       "touchkit",
       "latest"
+    ],
+    [
+      "github:PyDevices/pydevices/packages/castdisplay",
+      "main"
     ]
   ],
   "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"

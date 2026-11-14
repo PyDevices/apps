@@ -16,8 +16,8 @@ live, and what the board is. The list fills as receivers are found (see
 ``receivers``). A Roku needs Screen mirroring on (Settings > System >
 Screen mirroring), and the first cast may ask on the receiver to allow it.
 
-It needs gallery's cast example in ``/lib/examples/cast`` and
-``/lib/examples/roku_hls``. ``config.json`` in its data folder:
+It casts with the ``castdisplay`` package, which installs with it.
+``config.json`` in its data folder:
 ``{"name": "Kitchen panel"}`` is the name the receiver shows, and
 ``{"prefer": "Bedroom"}`` picks the receiver whose name holds that text
 when there's no last one to go back to. The receivers cast to before are
@@ -39,7 +39,6 @@ FPS = 20
 BITRATE = 2_000_000
 DEFAULTS = {"name": "PyDevices", "prefer": None}
 HLS = {"name": "VLC or any HLS player", "host": None, "kind": "hls"}
-EXAMPLES = ("/lib/examples/cast", "/lib/examples/roku_hls")
 
 TILES = (
     ("Clock", lv.SYMBOL.BELL, 0x1E6F8C),
@@ -67,13 +66,6 @@ def _encoder_room():
     except Exception:
         return need, need
     return max((h[2] for h in heaps if h[0] < 1_000_000), default=0), need
-
-
-def _cast_path():
-    # The cast example's modules import each other by name.
-    for d in EXAMPLES:
-        if d not in sys.path:
-            sys.path.append(d)
 
 
 # -- the cast screen -------------------------------------------------------------
@@ -483,7 +475,6 @@ def main(scope):
         w.submit(receivers.announced, heard, key="announced")
 
     def start():
-        _cast_path()
         r = st["shown"][dd.get_selected()]
         kept["host"] = r["host"]
         have, need = _encoder_room()
@@ -496,12 +487,12 @@ def main(scope):
         st["busy"] = True
         try:
             if r["kind"] == "hls":
-                from hls_display import HlsDisplay
+                from castdisplay.hls_display import HlsDisplay
 
                 sink = HlsDisplay(tv=None, width=CAST_W, height=CAST_H, fps=FPS, bitrate=BITRATE, log=print)
                 msg.set_text("Open this in VLC (Media > Open Network Stream):\n" + sink.url)
             else:
-                from cast_display import CastDisplay
+                from castdisplay.cast_display import CastDisplay
 
                 receivers.remember(folder, r)  # now: no flash writes once the stream runs
                 if r["kind"] == "roku":
