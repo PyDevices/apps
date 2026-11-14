@@ -18,3 +18,4 @@ What each app in `apps/` does. These are the apps Home lists and appkit runs; th
 | [System](../../apps/system) | Whether the board is well, at a glance: a turning arc and frame rate, a touch test, memory, boot, network, audio and what the board is; `stats()` gives the same from the REPL. |
 | [REPL](../../apps/repl) | The board's own Python prompt on its screen, typed on a USB or Bluetooth LE keyboard. Needs [vtterm](https://github.com/PyDevices/pydevices/tree/main/packages/vtterm). |
 | [Wake word](../../apps/wake) | Listens on a USB microphone for "Hey Jarvis" and flashes on each detection. |
+| [Bit World](../../apps/bit_world) | Bit, a pixel-art robot, as a desk pet, in a platformer and on a reactor deck with a sequencer, scored with synthio. It plays itself until touched. |
