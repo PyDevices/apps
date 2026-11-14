@@ -21,18 +21,17 @@ CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
 appkit's Home and its apps draw with [iconkit](https://github.com/PyDevices/pydevices/tree/main/packages/iconkit), which lives in the pydevices repository as its own package (`omnipython-iconkit`). Including appkit's `manifest.py` in a firmware build freezes iconkit with it, from the folder you pass as `iconkit=` (pydevices' `packages/iconkit`) or, without that, from the omnipython-lib tree in `$PYDEVICES_LIBRARY`; with neither the build stops and says so. Getting appkit with `require("appkit", library="omnipython-lib")` brings iconkit along. Otherwise install iconkit the way you do pydevices itself.
 
-Or install the files from raw GitHub with `mip`, one file at a time:
+On a Wi-Fi board, `omip` installs appkit, or an app with
+everything it needs, into the folders appkit looks in:
 
 ```python
-import mip
-
-for name in ("__init__", "data", "foreground", "home", "index", "launcher", "scope", "shell", "worker"):
-    mip.install("github:PyDevices/apps/lib/appkit/%s.py" % name, target="/lib/appkit")
+import omip
+omip.install("appkit")
+omip.install("github:PyDevices/apps/apps/home")
 ```
 
-This was checked on MicroPython on Linux (with the absolute target) and on
-MicroPython for Windows (with a relative target, since its `mip` fails on drive
-letters). It hasn't run on a board yet.
+[Install an app](../../docs/guides/install-an-app.md) has the rest, and the
+`main.py` that starts Home at boot.
 
 ## An app
 

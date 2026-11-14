@@ -6,7 +6,16 @@ The apps for PyDevices: things you run on a board or a desktop. A Home app lives
 
 ## Install
 
-The apps are used from a clone, beside the libraries they build on:
+On a Wi-Fi board, one line installs an app with what it needs, and another
+starts Home at boot ([install an app](docs/guides/install-an-app.md)):
+
+```python
+import omip
+omip.install("github:PyDevices/apps/apps/home")
+omip.install("github:PyDevices/apps/apps/home/main.py", target="/")
+```
+
+On a computer, the apps are used from a clone, beside the libraries they build on:
 
 ```bash
 git clone https://github.com/PyDevices/apps
