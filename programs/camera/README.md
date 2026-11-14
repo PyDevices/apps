@@ -66,7 +66,7 @@ To have the board start in Camera, full screen, as the Eye does, make Camera's
 omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
 ```
 
-Home's `main.py` takes the board back to Home
+On a board with Home installed, Home's `main.py` puts it back
 (`omip.install("github:PyDevices/apps/apps/home/main.py", target="/")`). Under
 Home, on a panel bigger than the Eye's, a press held in the top-left corner
 goes back to Home.
