@@ -124,7 +124,7 @@ def degrees(fahrenheit):
 
 def _weekday(date):
     y, m, d = date.split("-")
-    return _DAYS[time.gmtime(time.mktime((int(y), int(m), int(d), 12, 0, 0, 0, 0, 0)))[6]]
+    return _DAYS[localtime.gmtime(time.mktime((int(y), int(m), int(d), 12, 0, 0, 0, 0, 0)))[6]]
 
 
 def parse(reply):

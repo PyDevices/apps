@@ -31,6 +31,10 @@ try:
 except ImportError:
     requests = None
 
+# CircuitPython has no time.gmtime. It keeps no timezone, so its localtime()
+# is UTC and does the same job.
+gmtime = getattr(time, "gmtime", time.localtime)
+
 _FIRST_VALID_YEAR = 2025
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _DATE_URL = "https://api.open-meteo.com/"
@@ -44,7 +48,7 @@ _synced_at = None
 
 def is_set():
     """Return True once the clock holds a real date."""
-    return time.gmtime()[0] >= _FIRST_VALID_YEAR
+    return gmtime()[0] >= _FIRST_VALID_YEAR
 
 
 def parse_http_date(text):
@@ -81,7 +85,7 @@ def _set_from_web():
     finally:
         resp.close()
     y, mo, d, h, mi, s = parse_http_date(value)
-    weekday = time.gmtime(time.mktime((y, mo, d, 12, 0, 0, 0, 0, 0)))[6]
+    weekday = gmtime(time.mktime((y, mo, d, 12, 0, 0, 0, 0, 0)))[6]
     machine.RTC().datetime((y, mo, d, weekday, h, mi, s, 0))
 
 
@@ -170,7 +174,7 @@ def now():
     """Return the local time as a ``time.gmtime``-style tuple."""
     if offset_s is None:
         return time.localtime()
-    return time.gmtime(time.time() + offset_s)
+    return gmtime(time.time() + offset_s)
 
 
 def clock_time():
