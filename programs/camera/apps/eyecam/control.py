@@ -446,7 +446,7 @@ class Eye:
             self.album.refresh()
             self.clear_page()
             lv.screen_load(self.album_scr)
-            (hide if self.sd_mounted else show)(self.album.sd_warning)
+            (hide if self.hw.storage.ready() else show)(self.album.sd_warning)
         elif page == USB:
             self.clear_page()
             lv.screen_load(self.usb_scr)
@@ -695,7 +695,7 @@ class Eye:
                 self.goto_page(self.page)
             self.clear_popup_window()
             return
-        if not self.sd_mounted:
+        if not self.hw.storage.ready():  # no card, and no flash behind it
             if self.page in (CAMERA, INTERVAL, VIDEO):
                 self.clear_page()
                 show(c.pop_sd)

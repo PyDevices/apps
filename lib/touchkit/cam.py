@@ -6,14 +6,15 @@ settings, and where photos go.
 
 Flip, mirror, light and brightness are the Camera app's, kept in its
 ``scope.store()`` while the board stays up, so Security, Detect and Cast
-see the camera as Camera left it. Photos go to the Camera app's data
-folder (``/data/camera/photos`` on the board); the SD card's
-``/sd/photos`` is only read.
+see the camera as Camera left it. Photos are in a ``photos`` folder
+(`appkit.places`): ``/sd/photos`` on the card, ``/photos`` on flash and
+``/data/photos``. They're read from all three and saved to the first that
+takes a file.
 """
 
 import os
 
-from appkit import data
+from appkit import data, places
 
 # The whole sensor, 2x2 binned: Flip and Mirror show the same picture turned
 # over (the 800x800 default is a window, and reads a different patch when
@@ -28,7 +29,7 @@ BRIGHT = 59
 # picture, with more grain. A middle step (0x1F8) made the auto exposure
 # hunt: the picture flickered.
 LIGHT = (("Normal", 0x0F8), ("Night", 0x3F8))
-SD_PHOTOS = "/sd/photos"
+PHOTOS = "photos"  # the folder name, on the card, flash and the data root
 
 
 class NoCameraPort(OSError):
@@ -91,50 +92,33 @@ def preview_size(cam, longest):
     return (longest, longest * ch // cw) if cw >= ch else (longest * cw // ch, longest)
 
 
-def photos_dir(scope):
-    """The flash folder photos go to, in the Camera app's data folder, made
-    if missing. *scope* is the asking app's (any of the camera apps)."""
-    return data.makedirs(data.join(scope.data_dir_of("camera"), "photos"))
-
-
 def mount_sd(readonly=True):
-    """Mount the SD card at ``/sd``: the card object (unmount it with
-    `unmount_sd`), True when someone else has it mounted, or False
-    without a card."""
-    try:
-        os.stat("/sd")
-        return True  # someone else's mount
-    except OSError:
-        pass
-    try:
-        import board_peripherals as bp
-
-        card = bp.sdcard()
-        os.mount(card, "/sd", readonly=readonly)
-        return card
-    except Exception as e:
-        print("camera: no SD card:", e)
-        return False
+    """Mount the SD card at ``/sd``: `appkit.places.mount_card`, for the camera apps."""
+    return places.mount_card(write=not readonly)
 
 
 def unmount_sd(card):
-    if card in (True, False, None):
-        return  # not ours
-    try:
-        os.umount("/sd")
-    finally:
-        card.deinit()
+    places.unmount_card(card)
 
 
-def photos(scope):
+#: Where a photo is, in its key: the card, flash or the data root.
+TAGS = ("card", "flash", "data")
+
+
+def _tagged():
+    folders = places.folders(PHOTOS)
+    return list(zip(TAGS[-len(folders):], folders))  # a desktop has the data root alone
+
+
+def photos(scope=None):
     """``[(key, path)]`` of every photo, newest name first. The key says
-    where it lives (``flash/IMG_0001.jpg``, ``card/...``), so the same name
-    in both places is two photos."""
+    where it lives (``card/IMG_0001.jpg``, ``flash/...``, ``data/...``), so
+    the same name in two places is two photos."""
     out = []
-    for d, tag in ((SD_PHOTOS, "card"), (photos_dir(scope), "flash")):
+    for tag, d in _tagged():
         try:
             for f in os.listdir(d):
-                if f.endswith(".jpg"):
+                if f.lower().endswith(".jpg"):
                     out.append((tag + "/" + f, d + "/" + f))
         except OSError:
             pass
@@ -142,12 +126,13 @@ def photos(scope):
     return out
 
 
-def next_name(scope):
-    """A new photo's path: numbered after the highest on the card or in
-    flash, so a name means one photo."""
-    folder = photos_dir(scope)
+def next_name(scope=None):
+    """A new photo's path, in `places.write_folder` (the card when it's
+    mounted for writing): numbered after the highest ``IMG_`` anywhere, so a
+    name means one photo. OSError when there's nowhere to write."""
+    folder = places.write_folder(PHOTOS)
     n = 0
-    for d in (SD_PHOTOS, folder):
+    for _, d in _tagged():
         try:
             names = os.listdir(d)
         except OSError:

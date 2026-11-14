@@ -14,18 +14,20 @@ on the right names what was found, in the colour of its box. Flip, mirror,
 light and brightness are the Camera app's.
 
 It needs a firmware with the ``espdl`` and ``image`` modules, and the model
-file, ``yolo11n_coco.espdl``, in the app's data folder (``/data/detect``) or
-in ``/models``. It checks for all three, and for the camera, when it opens,
-and says what's missing.
+file, ``yolo11n_coco.espdl``, in a ``models`` folder: ``/sd/models`` on the SD
+card (mounted while the app is open), ``/models`` on flash or
+``/data/models``, looked at in that order (`appkit.places`). It checks for
+all three, and for the camera, when it opens, and says what's missing.
 """
 
 import lvgl as lv
 from multimer import ticks_diff, ticks_ms
 
+from appkit import places
 from touchkit import cam, ui
 
 MODEL = "yolo11n_coco.espdl"
-FOLDERS = (None, "/models")  # None: the app's data folder
+MODELS = "models"  # the folder name, on the card, flash and the data root
 PREVIEW = 520
 SCORE = 0.15  # two clear bottles in a dim room scored 0.27 and 0.18
 LISTED = 8
@@ -56,16 +58,8 @@ def _rgb565(rgb):
 
 
 def _model(scope):
-    import os
-
-    for folder in FOLDERS:
-        path = (folder or scope.data_dir) + "/" + MODEL
-        try:
-            os.stat(path)
-            return path
-        except OSError:
-            pass
-    return None
+    places.hold_card(scope)
+    return places.find(MODELS, MODEL)
 
 
 def main(scope):
@@ -88,7 +82,7 @@ def main(scope):
         return
     path = _model(scope)
     if path is None:
-        missing("No model: put %s in %s or /models." % (MODEL, scope.data_dir))
+        missing("No model: put %s in %s." % (MODEL, places.where_text(MODELS)))
         return
     opts = cam.options(scope)
     try:

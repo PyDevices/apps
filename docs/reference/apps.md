@@ -10,7 +10,7 @@ What each app in `apps/` does. These are the apps Home lists and appkit runs; th
 | [Clock](../../apps/clock), [Weather](../../apps/weather) | An analog clock and a five-day forecast for a round screen on a desk. [Set one up](../guides/put-a-clock-on-your-desk.md). |
 | [Roku remote](../../apps/roku) | A TV remote over the LAN: d-pad, OK, Back, playback, volume and power. |
 | [midiEngine](../../apps/midiengine) | A General MIDI sound module: 16 parts from a SoundFont, played from a USB MIDI keyboard. |
-| [MP3 player](../../apps/mp3) | The songs on an SD card, with play, previous, next, volume and a spectrum. |
+| [MP3 player](../../apps/mp3) | The songs on the SD card or the board's flash, with play, previous, next, volume and a spectrum. |
 | [Camera](../../apps/camera), [Security camera](../../apps/security), [Object detection](../../apps/detect) | A camera preview, a camera stream, and object detection on the camera. |
 | [Cast](../../apps/cast) | A screen of its own on a Roku or a Windows PC over Miracast or HLS, with the panel as its remote. |
 | [Stompbox](../../apps/stompbox) | A guitar or a WAV clip through an airwindows effect, with its knobs on screen. Needs a firmware built with audioairwindows. |

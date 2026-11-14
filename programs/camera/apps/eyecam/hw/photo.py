@@ -31,7 +31,7 @@ class Photo:
         self._enc = jpegio.JpegEncoder(quality=QUALITY) if jpegio else None
 
     def take(self, magnify, resolution, flash):
-        if self._enc is None or not self.storage.mounted():
+        if self._enc is None or not self.storage.ready():
             return None
         self.lights.backlight(False)
         self.lights.flash(bool(flash))

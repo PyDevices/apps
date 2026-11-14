@@ -50,9 +50,9 @@ mpftp put lib/soundmodule /lib/soundmodule
 mpftp put programs/midi-module/midi_module.py /midi_module.py
 ```
 
-Put a General MIDI SoundFont (`.sf2`) in `/soundfonts` on the board, or in
-`/soundfonts` on its SD card, which is looked at first. The first by name is
-used. Then say which pin the optocoupler drives, in `/midi_module.json`:
+Put a General MIDI SoundFont (`.sf2`) in `/sd/soundfonts` on the SD card, or
+in `/soundfonts` or `/data/soundfonts` on the board, looked at in that order.
+The first by name is used. Then say which pin the optocoupler drives, in `/midi_module.json`:
 
 ```json
 {"uart": 1, "rx": 32}

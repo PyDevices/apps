@@ -5,8 +5,9 @@
 is set, else every ``.sf2`` in the folders below, each folder's in name
 order. On a desktop the folder is ``~/soundfonts``
 (``%USERPROFILE%\\soundfonts`` on Windows); on a board ``/sd/soundfonts``
-(the card, mounted while the app is open) and then ``/soundfonts`` on
-flash. With more than one, the app asks which.
+(the card, mounted while the app is open), then ``/soundfonts`` on flash,
+then ``/data/soundfonts`` (`appkit.places`). With more than one, the app
+asks which.
 
 No LVGL here, so the contract runs it on CPython and MicroPython alike.
 """
@@ -18,8 +19,7 @@ import sys
 #: operating system (micropython.exe, the unix port); appkit.data's test.
 DESKTOP = sys.implementation.name == "cpython" or sys.platform in (
     "linux", "darwin", "win32", "cygwin", "freebsd", "openbsd", "netbsd")
-SD_SOUNDFONTS = "/sd/soundfonts"
-FLASH_SOUNDFONTS = "/soundfonts"
+SOUNDFONTS = "soundfonts"  # the folder name, on the card, flash and the data root
 
 
 def getenv(name):
@@ -37,7 +37,16 @@ def folders(desktop):
     """Where to look, in order."""
     if desktop:
         return [home() + "/soundfonts"]
-    return [SD_SOUNDFONTS, FLASH_SOUNDFONTS]
+    from appkit import places  # a board's only: the contract runs the desktop side without appkit
+
+    return places.folders(SOUNDFONTS)
+
+
+def where_text():
+    """A board's SoundFont folders, for a message."""
+    from appkit import places
+
+    return places.where_text(SOUNDFONTS)
 
 
 def size_of(path):

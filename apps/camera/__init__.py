@@ -10,10 +10,11 @@ foreground loop, one frame per call, so LVGL and the timers keep going
 between frames.
 
 The shutter takes a JPEG on the P4's encoder (``capture_jpeg``) and saves it
-in the app's data folder (``/data/camera/photos`` on the board). The last
-shot shows on the right, and every shot is on a small web page on the
-board: open the address on the screen from a phone or a PC. Photos already
-on an SD card's ``/photos`` are listed too, read-only.
+in ``/sd/photos`` on the SD card, mounted while the app is open. Without a
+card it goes to ``/photos`` on flash, or ``/data/photos`` when flash won't
+take it (`appkit.places`). The last shot shows on the right, and every shot
+in all three folders is on a small web page on the board: open the address
+on the screen from a phone or a PC.
 
 Without a camera the app says so, and Home goes back as usual.
 """
@@ -96,7 +97,7 @@ def main(scope):
     info.set_pos(rx, top + 200 + THUMB + 4)
     info.set_width(rw)
 
-    sd = cam.mount_sd()
+    sd = cam.mount_sd(readonly=False)
     scope.on_close(lambda: cam.unmount_sd(sd))
 
     def show_opts():
@@ -155,7 +156,11 @@ def main(scope):
         if not img:
             status.set_text("no frame")
             return
-        path = cam.next_name(scope)
+        try:
+            path = cam.next_name(scope)
+        except OSError as e:
+            status.set_text("nowhere to save: %s" % (e,))
+            return
         if not _save(path, img):
             status.set_text("couldn't save the photo")
             return
@@ -205,10 +210,10 @@ def main(scope):
         parts = line.split()
         path = parts[1].decode() if len(parts) > 1 else "/"
         if parts and parts[0] == b"POST" and path.startswith("/delete/"):
-            # One photo, or "all": only flash ones (the card is read-only here).
+            # One photo, or "all" of them.
             key = path[8:]
             for k, p in cam.photos(scope):
-                if k.startswith("flash/") and (key == "all" or k == key):
+                if key == "all" or k == key:
                     try:
                         os.remove(p)
                     except OSError as e:
@@ -236,16 +241,14 @@ def main(scope):
                 k,
                 k.replace("/", ": "),
                 ' <form method=post action="/delete/{0}" onsubmit="return confirm(\'Delete {0}?\')">'
-                "<button>Delete</button></form>".format(k)
-                if k.startswith("flash/")
-                else "",
+                "<button>Delete</button></form>".format(k),
             )
             for k, p in photos
         )
-        if any(k.startswith("flash/") for k, p in photos):
+        if photos:
             rows = (
-                '<form method=post action="/delete/all" onsubmit="return confirm(\'Delete every photo on flash?\')">'
-                "<button class=all>Delete all on flash</button></form>"
+                '<form method=post action="/delete/all" onsubmit="return confirm(\'Delete every photo?\')">'
+                "<button class=all>Delete all</button></form>"
             ) + rows
         html = (
             "<!doctype html><meta name=viewport content='width=device-width'>"

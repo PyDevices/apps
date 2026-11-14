@@ -8,13 +8,17 @@ Everything comes through the board package: ``board_config.camera`` (cameraif,
 the OV2710 on the Eye), ``sdcard``, ``led``, ``accelerometer``, ``pcm_in`` and
 ``sleep``. A board that lacks one steps down quietly: no camera of its own
 means a USB camera, and then the test card; no accelerometer keeps the screen
-upright; no microphone records without sound; no card slot leaves the album
-saying there is no card; no sleep helper blanks the screen. The preview,
+upright; no microphone records without sound; no card slot saves photos and
+video on flash instead; no sleep helper blanks the screen. The preview,
 photos and video frames are cut
 and scaled by the PPA from the camera's own frame buffer; photos go through
 the hardware JPEG encoder, video through the H.264 encoder into an MP4 with
-the microphone's sound; detection runs esp-dl's pedestrian and face models
-from ``/pedestrian.espdl`` and ``/face.espdl``.
+the microphone's sound; detection runs esp-dl's pedestrian and face models,
+``pedestrian.espdl`` and ``face.espdl``, from a ``models`` folder.
+
+Files follow `appkit.places`: photos in ``/sd/photos``, video in
+``/sd/videos`` and models in ``/sd/models`` on the card, else the same
+folders on flash (``/photos``) and then the data root (``/data/photos``).
 """
 
 import _thread
@@ -22,6 +26,7 @@ import os
 import time
 import lvgl as lv
 import uctypes
+from appkit import places
 
 import machine
 import ppa
@@ -38,7 +43,7 @@ _here = __file__.rsplit("/", 1)[0] if "/" in __file__ else "."
 OUT = 240
 FPS = 25
 BITRATE = {"1080P": 6_000_000, "720P": 3_000_000, "480P": 1_500_000}
-MODELS = {"people": "/pedestrian.espdl", "faces": "/face.espdl"}
+MODELS = {"people": "pedestrian.espdl", "faces": "face.espdl"}  # in a models folder
 
 
 def _aligned(n, align=64):
@@ -110,7 +115,10 @@ class Preview:
 
 
 class Storage(_FolderStorage):
-    """The card at /sd, in the factory's folders, watched for insertion."""
+    """The card at /sd, watched for insertion, with flash behind it.
+
+    Photos and video go to the card when it's in, else to flash, else the
+    data root (`appkit.places`); the album shows all three."""
 
     def __init__(self, make_card, present=None):
         """*present* is the card-detect pin's reading. A board with no such
@@ -122,6 +130,7 @@ class Storage(_FolderStorage):
         self._make = make_card
         self._tries = 6 if present is None else 0
         self._present = present if present is not None else self._try
+        self._behind = None  # the folder on flash a photo goes to with no card, once asked
         self._fns = []
         self.bdev = None
         self._first_mount = []
@@ -196,15 +205,54 @@ class Storage(_FolderStorage):
     def mounted(self):
         return self.card_in
 
+    def ready(self):
+        """True when a photo can be saved: on the card, or on flash behind it."""
+        if self.card_in:
+            return True
+        if self._behind is None:
+            try:
+                self._behind = places.write_folder(self.PICS)
+            except OSError as e:
+                print("eyecam: nowhere to save without a card:", e)
+                self._behind = ""
+        return bool(self._behind)
+
     def free(self):
-        if not self.card_in:
+        if not self.ready():
             return 0
-        st = os.statvfs(SD)
+        st = os.statvfs(places.write_folder(self.PICS))
         return st[0] * st[3]
 
+    def _all_numbers(self, kind, prefix, suffix):
+        out = []
+        for path in places.files(kind, (suffix,)):
+            name = path.rsplit("/", 1)[1]
+            if name.startswith(prefix):
+                try:
+                    out.append(int(name[len(prefix):-len(suffix)]))
+                except ValueError:
+                    pass
+        return out
+
+    def photos(self):
+        found = []
+        for path in places.files(self.PICS, (".jpg",)):
+            name = path.rsplit("/", 1)[1]
+            if name.startswith("pic_"):
+                try:
+                    found.append((int(name[4:-4]), path))
+                except ValueError:
+                    pass
+        found.sort(reverse=True)
+        return [path for _, path in found]
+
+    def next_photo(self):
+        nums = self._all_numbers(self.PICS, "pic_", ".jpg")
+        return "%s/pic_%04d.jpg" % (places.write_folder(self.PICS), (max(nums) if nums else 0) + 1)
+
     def next_video(self):
-        nums = self._numbers(self.VIDS, "mp4_", ".mp4")
-        return "%s/%s/mp4_%d.mp4" % (self.root, self.VIDS, (max(nums) if nums else 0) + 1)
+        nums = self._all_numbers(self.VIDS, "mp4_", ".mp4")
+        return "%s/mp4_%d.mp4" % (places.write_folder(self.VIDS), (max(nums) if nums else 0) + 1)
 
 
 class Recorder:
@@ -654,12 +702,10 @@ class Detector:
                 self._models[kind] = False
                 print("eyecam: no vision module in this firmware: no detection")
                 return False
-            path = MODELS[kind]
-            try:
-                os.stat(path)
-            except OSError:
+            path = places.find("models", MODELS[kind])
+            if path is None:
                 self._models[kind] = False
-                print("eyecam: no %s model at %s" % (kind, path))
+                print("eyecam: no %s model: put %s in %s" % (kind, MODELS[kind], places.where_text("models")))
                 return False
             try:
                 m = espdl.PedestrianDetect(path) if kind == "people" else espdl.ESPDet(path, score=0.5)

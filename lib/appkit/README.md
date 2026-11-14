@@ -120,6 +120,12 @@ for an app that shows another's files. The data root is:
 `appkit.run(data_root="/sd/data")` (or the same argument to `Shell`) moves
 it everywhere. Without that, `APPKIT_DATA` moves it on a desktop.
 
+Files a person brings or keeps, like songs, SoundFonts, photos and models, go
+in a folder named for their kind, the same name on the SD card, on flash and
+in the data root: `/sd/music`, `/music` and `/data/music`. `appkit.places`
+reads all three and saves to the first that takes a file, and
+`places.hold_card(scope)` mounts the card while the app is open.
+
 `scope.store()` is the app's own dict, kept in RAM while the program runs;
 `scope.store("other")` is another app's. Nothing in it is written to flash,
 so save what must survive a reset to `data_dir`. Keep plain data in it:

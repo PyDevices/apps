@@ -21,7 +21,8 @@ python tools/vamp_files.py COM4
 
 That puts `vamp`, `songmodel` and `hmilink` into `/lib` and a song at
 `/vamp_song.json`; `--song FILE` picks a different song. Put the SoundFont on
-the SD card at `/sd/soundfonts/GeneralUser-GS.sf2`. Then, on the board:
+the SD card at `/sd/soundfonts/GeneralUser-GS.sf2`, or on the board in
+`/soundfonts` or `/data/soundfonts`. Then, on the board:
 
 ```python
 import vamp; vamp.run()

@@ -10,7 +10,8 @@ key, the touch screen or the Boot button silences every note, and a display,
 if the board has one, shows what's playing.
 
 The SoundFont is the first ``.sf2`` by name in ``/sd/soundfonts`` on the
-board's SD card, or else in ``/soundfonts`` on its flash. Settings go in
+board's SD card, or else in ``/soundfonts`` on its flash, or else in
+``/data/soundfonts`` (``/flash/...`` on an STM32). Settings go in
 ``/midi_module.json``; ``rx``, the pin the optocoupler drives, is the one
 you must give::
 
@@ -78,7 +79,8 @@ except (ImportError, OSError):
     pass
 
 # The card holds the SoundFont, and the libraries when flash has no room.
-folders = ["/soundfonts"]
+flash = "/flash" if sys.platform == "pyboard" else ""  # an STM32's / only holds mounts
+folders = [flash + "/soundfonts", flash + "/data/soundfonts"]
 if board.has("sdcard"):
     try:
         os.listdir("/sd")

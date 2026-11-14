@@ -12,20 +12,21 @@ if no mic turns up it starts again at full speed, which is how a
 full-speed mic behind the hub is reached. It needs pydevices' ``usb-core``,
 ``usb-host-audio`` and ``medialink``, and firmware built with ``tflite`` and
 audiodsp's ``audiofeatures``.
-The model, ``hey_jarvis.json``, loads from the app's data folder
-(``/data/wake``), ``/models``, or the SD card's ``/models`` (read-only,
-unmounted again at once: the model is read in before that).
+The model, ``hey_jarvis.json``, loads from a ``models`` folder: the SD card's
+``/sd/models``, then ``/models`` on flash, then ``/data/models``
+(`appkit.places`). The card is mounted read-only and unmounted again at
+once: the model is read in before that.
 """
-
-import os
 
 import lvgl as lv
 from multimer import ticks_diff, ticks_ms
+from appkit import places
 from touchkit import ui
 
 from . import feed
 
 MODEL = "hey_jarvis.json"
+MODELS = "models"  # the folder name, on the card, flash and the data root
 PHRASE = "Hey Jarvis"
 READ = 960  # bytes per read: 30 ms at 16 kHz, 10 ms at 48 kHz
 HIGH_SPEED_MS = 8000  # then full speed, for a full-speed mic behind the hub
@@ -37,30 +38,18 @@ MAX_BLOCKS = 12  # per tick, so a backlog can't hold the screen up
 state = None  # for the console
 
 
-def _load_model(folder):
+def _load_model():
+    """The detector. OSError when no ``models`` folder has the model."""
     from medialink.wakeword import MicroWakeWord
 
-    for where in (folder, "/models"):
-        try:
-            os.stat(where + "/" + MODEL)
-        except OSError:
-            continue
-        return MicroWakeWord(where + "/" + MODEL)
-    import board_peripherals as bp
-
+    card = places.mount_card()
     try:
-        os.listdir("/sd")
-        mounted = False
-    except OSError:
-        card = bp.sdcard()
-        os.mount(card, "/sd", readonly=True)
-        mounted = True
-    try:
-        return MicroWakeWord("/sd/models/" + MODEL)
+        path = places.find(MODELS, MODEL)
+        if path is None:
+            raise OSError("%s is in none of %s" % (MODEL, places.where_text(MODELS)))
+        return MicroWakeWord(path)
     finally:
-        if mounted:
-            os.umount("/sd")
-            card.deinit()
+        places.unmount_card(card)
 
 
 def main(scope):
@@ -136,9 +125,9 @@ def main(scope):
         if st["ww"] is None:
             status.set_text("loading the model")
             try:
-                st["ww"] = _load_model(scope.data_dir)
+                st["ww"] = _load_model()
             except Exception as e:
-                status.set_text("no model: %s in %s, /models or the SD card's /models" % (MODEL, scope.data_dir))
+                status.set_text("no model: put %s in %s" % (MODEL, places.where_text(MODELS)))
                 print("wake: model:", e)
                 t.deinit()
             return
