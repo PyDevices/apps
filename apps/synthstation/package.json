@@ -41,6 +41,10 @@
       "latest"
     ],
     [
+      "controlkit",
+      "latest"
+    ],
+    [
       "midiports",
       "latest"
     ]

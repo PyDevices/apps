@@ -56,6 +56,14 @@ INDEX = {
     "touchkit": "touchkit",
 }
 
+#: A module of an index package -> an index package it needs that the package
+#: itself leaves optional. The instrument and effect panels draw with controlkit,
+#: and load without it until a panel is built.
+OPTIONAL = {
+    "audioeffects.panel_view": "controlkit",
+    "audioinstruments.panel_view": "controlkit",
+}
+
 #: Import name -> a package.json in another repository, at its main branch.
 ELSEWHERE = {
     "castdisplay": "github:PyDevices/pydevices/packages/castdisplay",
@@ -103,17 +111,23 @@ def app_files(folder):
     return sorted(out)
 
 
-def imported(paths):
-    """The top-level names the Python files in *paths* import, leaving out relative imports."""
+def imported(paths, dotted=False):
+    """The top-level names the Python files in *paths* import, leaving out
+    relative imports. With *dotted*, every module named in full as well:
+    ``from a import b`` gives ``a`` and ``a.b``."""
     names = set()
     for path in paths:
         with open(path, encoding="utf-8") as f:
             tree = ast.parse(f.read(), path)
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
-                names.update(alias.name.split(".")[0] for alias in node.names)
+                names.update(alias.name if dotted else alias.name.split(".")[0] for alias in node.names)
             elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
-                names.add(node.module.split(".")[0])
+                if dotted:
+                    names.add(node.module)
+                    names.update(node.module + "." + alias.name for alias in node.names)
+                else:
+                    names.add(node.module.split(".")[0])
     return names
 
 
@@ -152,6 +166,9 @@ def needs(folder):
             upstream.add(UPSTREAM[module])
         else:
             unknown.add(module)
+    for module in imported(python_files(folder), dotted=True):
+        if module in OPTIONAL:
+            index.add(OPTIONAL[module])
     if unknown:
         raise SystemExit(
             "%s imports %s, which tools/app_packages.py doesn't know: add each to INDEX, "
