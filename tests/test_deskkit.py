@@ -96,6 +96,89 @@ class LocalTimeTest(unittest.TestCase):
             self.assertEqual(lt.clock_time()[:2], (21, 30))
 
 
+class IpZoneTest(unittest.TestCase):
+    """The timezone from the board's IP address, while no place is chosen."""
+
+    def _localtime(self, place=None, reply=None, error=None):
+        forecast, _ = _forecast()
+        lt = forecast.localtime
+        # localtime imports forecast when it asks for the place: give it this one.
+        here = {"deskkit": mock.MagicMock(), "deskkit.forecast": forecast}
+        patcher = mock.patch.dict(sys.modules, here)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        sys.modules["deskkit"].forecast = forecast
+        lt.machine = mock.MagicMock()  # as on a board
+        lt.requests = mock.MagicMock()
+        if error is not None:
+            lt.requests.get.side_effect = error
+        else:
+            lt.requests.get.return_value.json.return_value = reply
+        forecast.place = lambda: place
+        return lt
+
+    CHICAGO = {"success": True, "timezone": {"id": "America/Chicago", "offset": -21600}}
+
+    def test_a_reply_gives_the_zone_and_its_offset_now(self):
+        lt = self._localtime()
+        self.assertEqual(lt.parse_ip_zone(self.CHICAGO), ("America/Chicago", -21600))
+
+    def test_a_failed_reply_is_refused(self):
+        lt = self._localtime()
+        with self.assertRaisesRegex(ValueError, "Reserved"):
+            lt.parse_ip_zone({"success": False, "message": "Reserved range"})
+
+    def test_with_no_place_the_clock_takes_the_ips_zone(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        self.assertTrue(lt.follow_ip_zone())
+        self.assertEqual((lt.zone, lt.offset_s), ("America/Chicago", -21600))
+        with mock.patch.object(lt.time, "time", return_value=1793673000):  # 02:30 UTC
+            self.assertEqual(lt.clock_time()[:2], (20, 30))
+
+    def test_a_chosen_place_wins(self):
+        lt = self._localtime(place={"utc_offset": -18000}, reply=self.CHICAGO)
+        lt.offset_s = -18000
+        self.assertFalse(lt.follow_ip_zone())
+        lt.requests.get.assert_not_called()
+        self.assertEqual(lt.offset_s, -18000)
+        self.assertIsNone(lt.zone)
+
+    def test_a_failed_lookup_keeps_utc_and_says_so_once(self):
+        lt = self._localtime(error=OSError(110))
+        with mock.patch("builtins.print") as said:
+            self.assertFalse(lt.follow_ip_zone())
+        self.assertIsNone(lt.offset_s)
+        self.assertEqual(said.call_count, 1)
+        self.assertIn("keeping UTC", said.call_args[0][0])
+
+    def test_a_desktop_keeps_its_own_timezone(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        lt.machine = None
+        self.assertFalse(lt.follow_ip_zone())
+        lt.requests.get.assert_not_called()
+
+    def test_the_daily_resync_asks_again(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        lt.sync = mock.MagicMock(return_value=True)
+        lt._synced_at = None
+        lt.resync_if_due()
+        self.assertEqual(lt.offset_s, -21600)
+        lt.requests.get.return_value.json.return_value = {
+            "success": True,
+            "timezone": {"id": "America/Chicago", "offset": -18000},
+        }
+        lt._synced_at = 0  # a day and more ago
+        with mock.patch.object(lt, "is_set", return_value=True):
+            lt.resync_if_due()
+        self.assertEqual(lt.offset_s, -18000)  # daylight saving began
+
+    def test_no_lookup_when_the_clock_could_not_be_set(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        lt.sync = mock.MagicMock(return_value=False)
+        lt.resync_if_due()
+        lt.requests.get.assert_not_called()
+
+
 class IconsTest(unittest.TestCase):
     def test_every_weather_code_has_words(self):
         fakes = {"lvgl": mock.MagicMock()}

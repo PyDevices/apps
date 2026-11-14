@@ -33,7 +33,7 @@ def main(scope):
 
     scope.every(_TICK_MS, tick)
     tick()
-    # The board sets its clock when it joins a network (touchkit.net); the
-    # forecast's reply is what gives the chosen place's offset. Without a place
-    # the clock shows UTC.
+    # The board sets its clock and finds its timezone from its IP address when
+    # it joins a network (touchkit.net, deskkit.localtime). A place chosen in
+    # Weather wins: the forecast's reply gives that place's offset.
     forecast.keep_fresh(scope)
