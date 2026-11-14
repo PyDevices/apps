@@ -8,7 +8,8 @@ Flip, mirror, light and brightness are the Camera app's, kept in its
 ``scope.store()`` while the board stays up, so Security, Detect and Cast
 see the camera as Camera left it. Photos go to the Camera app's data
 folder (``/data/camera/photos`` on the board); the SD card's
-``/sd/photos`` is only read.
+``/sd/photos``, and ``/sd/esp32_p4_pic_save`` where the camera program
+saves, are only read.
 """
 
 import os
@@ -29,6 +30,7 @@ BRIGHT = 59
 # hunt: the picture flickered.
 LIGHT = (("Normal", 0x0F8), ("Night", 0x3F8))
 SD_PHOTOS = "/sd/photos"
+EYECAM_PHOTOS = "/sd/esp32_p4_pic_save"  # the camera program's, in its factory folder
 
 
 class NoCameraPort(OSError):
@@ -128,10 +130,10 @@ def unmount_sd(card):
 
 def photos(scope):
     """``[(key, path)]`` of every photo, newest name first. The key says
-    where it lives (``flash/IMG_0001.jpg``, ``card/...``), so the same name
-    in both places is two photos."""
+    where it lives (``flash/IMG_0001.jpg``, ``card/...``, ``eyecam/...``
+    for the camera program's), so the same name in two places is two photos."""
     out = []
-    for d, tag in ((SD_PHOTOS, "card"), (photos_dir(scope), "flash")):
+    for d, tag in ((SD_PHOTOS, "card"), (EYECAM_PHOTOS, "eyecam"), (photos_dir(scope), "flash")):
         try:
             for f in os.listdir(d):
                 if f.endswith(".jpg"):
