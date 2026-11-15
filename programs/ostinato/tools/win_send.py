@@ -4,7 +4,7 @@
 
 """Send a scenario into a Windows MIDI port in real time (runs under python.exe).
 
-    python.exe win_send.py "Ostinato Loopback" events.json sent.json
+    python.exe win_send.py "PyDevices Loopback" events.json sent.json
 
 tools/midi_play.py --real-midi stages this, midiports, uwin32 and
 adafruit_midi in C:\\temp\\ostinato-midi and runs it, so the installed app in

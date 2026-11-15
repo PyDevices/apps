@@ -4,7 +4,7 @@
 
 """A stand-in keyboard for the checks: plays MIDI into a port, on time.
 
-    python desktop/midi_send.py "Ostinato Loopback"     (the control socket starts it)
+    python desktop/midi_send.py "PyDevices Loopback"     (the control socket starts it)
 
 Each line on stdin is a JSON list of [ms from now, [status, d1, d2]]. It runs
 in a process of its own, as a real keyboard would be, so the app being busy
