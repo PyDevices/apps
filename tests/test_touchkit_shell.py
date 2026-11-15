@@ -105,7 +105,8 @@ class ClockOnJoinTest(unittest.TestCase):
         localtime = types.SimpleNamespace(due=lambda: due, resync_if_due=object())
         fakes = {
             "lvgl": mock.MagicMock(),
-            "wifi": types.SimpleNamespace(radio=radio, connect_from_secrets=mock.MagicMock()),
+            "wifi": types.SimpleNamespace(radio=radio),
+            "wifi_manager": types.SimpleNamespace(connect=mock.MagicMock(return_value=None)),
             "webrepl": mock.MagicMock(),
             "appkit.worker": types.SimpleNamespace(shared=lambda: worker),
             "deskkit": types.SimpleNamespace(localtime=localtime),
@@ -173,7 +174,7 @@ if __name__ == "__main__":
 class OfflineJoinTest(unittest.TestCase):
     """An offline board joins through wifi_manager, which CircuitPython has too."""
 
-    def _up(self, wifi, manager):
+    def _up(self, wifi, manager, cp=True):
         fakes = {
             "lvgl": mock.MagicMock(),
             "wifi": wifi,
@@ -186,6 +187,7 @@ class OfflineJoinTest(unittest.TestCase):
             sys.modules.pop("touchkit", None)
             from touchkit import net
 
+            net._CP = cp
             out = io.StringIO()
             with contextlib.redirect_stdout(out):
                 results = [net.up() for _ in range(3)]
@@ -200,6 +202,14 @@ class OfflineJoinTest(unittest.TestCase):
         self.assertEqual(results, [False, False, False])
         self.assertEqual(printed, "")
         self.assertEqual(manager.connect.call_args.kwargs["setup"], False)
+
+    def test_micropython_starts_one_join_in_the_background(self):
+        wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=False))
+        manager = types.SimpleNamespace(connect=mock.MagicMock(return_value=None))
+        results, printed = self._up(wifi, manager, cp=False)
+        self.assertEqual(results, [False, False, False])
+        self.assertEqual(printed, "")
+        manager.connect.assert_called_once_with(setup=False, wait=False)
 
     def test_circuitpython_waits_longer_after_each_failed_join(self):
         # Its join blocks for seconds: an app polling every 500 ms mustn't
@@ -218,6 +228,7 @@ class OfflineJoinTest(unittest.TestCase):
             sys.modules.pop("touchkit", None)
             from touchkit import net
 
+            net._CP = True  # this board runs CircuitPython
             with mock.patch.object(net, "_now_ms", lambda: now[0]):
                 tries = []
                 for step in range(0, 800_000, 500):  # a poll every 500 ms
@@ -241,7 +252,7 @@ class OfflineJoinTest(unittest.TestCase):
 class DroppedNetworkTest(unittest.TestCase):
     """CircuitPython's radio stops retrying, so the board's poll never stops."""
 
-    def _boot(self, wifi, joined):
+    def _boot(self, wifi, joined, cp=True):
         lvgl = mock.MagicMock()
         manager = types.SimpleNamespace(connect=mock.MagicMock(return_value="10.0.0.5" if joined else None))
         fakes = {
@@ -255,6 +266,7 @@ class DroppedNetworkTest(unittest.TestCase):
             sys.modules.pop("touchkit", None)
             from touchkit import net
 
+            net._CP = cp
             with mock.patch.object(net, "keep_time"), mock.patch.object(net, "start_webrepl"):
                 net.boot()
                 polls = lvgl.timer_create.call_args_list
@@ -278,7 +290,6 @@ class DroppedNetworkTest(unittest.TestCase):
         timer.delete.assert_not_called()
 
     def test_micropython_stops_polling_once_joined(self):
-        wifi = types.SimpleNamespace(radio=None, connect_from_secrets=lambda **kw: None)
-        wifi.radio = types.SimpleNamespace(connected=True)
-        poll, timer = self._boot(wifi, joined=False)
+        wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=True))
+        poll, timer = self._boot(wifi, joined=False, cp=False)
         timer.delete.assert_called_once()
