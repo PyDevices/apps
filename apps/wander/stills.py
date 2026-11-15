@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: MIT
 """The stills: each a name, a function that returns SVG text, and a width."""
 
+import chameleon_props
+import chameleon_shift
+import chameleon_views
 import crab
 import mascot_chameleon
 import mascot_firefly
@@ -37,6 +40,9 @@ STILLS = (
     + scene_bench.STILLS
     + scene_desk.STILLS
     + mascot_chameleon.STILLS
+    + chameleon_views.STILLS
+    + chameleon_props.STILLS
+    + chameleon_shift.STILLS
     + mascot_firefly.STILLS
     + mascot_hummingbird.STILLS
     + mascot_man.STILLS

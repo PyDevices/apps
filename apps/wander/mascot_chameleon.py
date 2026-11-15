@@ -10,7 +10,7 @@ y = 0, about 450 units wide and 260 tall. `draw` returns its shapes for a
 
 import math
 
-from vec import Doc, at, circle, ellipse, limb, line, path, rect, smooth
+from vec import Doc, at, circle, ellipse, group, limb, line, path, rect, smooth
 
 NAVY = 0x0B2A4A
 LIME = 0xC4DC4C
@@ -65,21 +65,32 @@ def _eye(doc, x, y, r, look, blink, happy, skin, shade, light, deep):
         out.append(circle(ox, oy, open_r, skin))
         out.append(path("M%.2f %.2fQ%.2f %.2f %.2f %.2f" % (ox - open_r * 0.72, oy + open_r * 0.22, ox, oy - open_r * 0.74, ox + open_r * 0.72, oy + open_r * 0.22), None, deep, r * 0.13))
         return "".join(out)
-    ry = open_r * (1 - blink)
-    if ry < open_r * 0.12:
+    if blink >= 0.88:
         out.append(circle(ox, oy, open_r, skin))
         out.append(path("M%.2f %.2fQ%.2f %.2f %.2f %.2f" % (ox - open_r * 0.8, oy, ox, oy + open_r * 0.34, ox + open_r * 0.8, oy), None, deep, r * 0.11))
         return "".join(out)
-    out.append(ellipse(ox, oy, open_r + r * 0.07, ry + r * 0.07, deep))
+    out.append(circle(ox, oy, open_r + r * 0.07, deep))
     white = doc.radial([(0, WHITE), (0.8, 0xF4F7FB), (1, 0xD3DCE8)])
-    out.append(ellipse(ox, oy, open_r, ry, white))
-    pr = min(open_r * 0.62, ry * 0.94)
-    px, py = ox + look[0] * open_r * 0.30, oy + look[1] * max(min(open_r * 0.28, ry - pr), 0)
+    out.append(circle(ox, oy, open_r, white))
+    pr = open_r * 0.62
+    # a heavy lid pushes the gaze down
+    px, py = ox + look[0] * open_r * 0.30, oy + look[1] * open_r * 0.28 + blink * open_r * 0.42
     iris = doc.radial([(0, 0x1F5E8F), (0.75, NAVY), (1, 0x061A30)], cx=0.5, cy=0.62)
     out.append(circle(px, py, pr, iris))
-    if ry > open_r * 0.4:
-        out.append(circle(px - pr * 0.36, py - pr * 0.40, pr * 0.30, WHITE))
-        out.append(circle(px + pr * 0.38, py + pr * 0.36, pr * 0.13, WHITE, opacity=0.8))
+    out.append(circle(px - pr * 0.36, py - pr * 0.40, pr * 0.30, WHITE))
+    out.append(circle(px + pr * 0.38, py + pr * 0.36, pr * 0.13, WHITE, opacity=0.8))
+    if blink > 0:
+        # the lid: a cap of skin drawn down over the top of the eye
+        lr = open_r + r * 0.07
+        drop = -lr + 2 * lr * blink
+        half = math.sqrt(max(lr * lr - drop * drop, 0))
+        out.append(
+            path(
+                "M%.2f %.2fA%.2f %.2f 0 %d 1 %.2f %.2fQ%.2f %.2f %.2f %.2fZ" % (ox - half, oy + drop, lr, lr, 1 if drop > 0 else 0, ox + half, oy + drop, ox, oy + drop + lr * 0.16, ox - half, oy + drop),
+                skin,
+            )
+        )
+        out.append(path("M%.2f %.2fQ%.2f %.2f %.2f %.2f" % (ox - half, oy + drop, ox, oy + drop + lr * 0.16, ox + half, oy + drop), None, deep, r * 0.09))
     return "".join(out)
 
 
@@ -105,6 +116,14 @@ def _hand(x, y, skin, deep, turn):
 
 def _perch(kind):
     out = []
+    if kind == "stem":
+        # a green stem, long enough to climb
+        out.append(limb(-360, 9, 360, 7, 0.004, 16, 12, 0x4F9A3A))
+        out.append(path("M-350 4Q0 6 350 2", None, 0x8CC152, 3))
+        for x, turn, flip in ((-250, -150, False), (-236, 150, True), (236, -40, False), (286, 36, True)):
+            leaf = path("M0 0C14 -22 44 -26 58 -8C40 6 14 8 0 0Z", 0x3F8F3A) + path("M0 0C14 -22 44 -26 58 -8C36 -12 16 -8 0 0Z", 0x6FC24B)
+            out.append(at(x, 8, leaf, rot=turn, flip=flip))
+        return "".join(out)
     if kind == "wire":
         # a jumper wire, pulled tight between two pins
         out.append(path("M-232 8Q0 16 232 6", None, 0xC8452F, 11))
@@ -125,43 +144,23 @@ def _perch(kind):
     return "".join(out)
 
 
-def draw(doc, look=(0.5, 0.1), look_far=None, blink=0, mood="calm", colors="leaf", hand=0, curl=1.0, perch="twig"):
-    """The chameleon's shapes, back to front.
+_HIP = (-78, -70)
+_NECK = (62, -128)
 
-    Args:
-        doc: The `vec.Doc` that holds the gradients.
-        look: Where the near eye points, each of x and y from -1 to 1.
-        look_far: Where the far eye points, or None for the same way.
-        blink (float): 0 with the eyes open, 1 closed.
-        mood (str): "calm", "happy", "curious" or "sleepy".
-        colors (str): A name from `COLORS`.
-        hand (float): 0 with both hands on the perch, 1 with one raised in a wave.
-        curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
-        perch (str): "twig", "wire", or None for no perch.
-    """
+
+def _upper(doc, colors, look, look_far, blink, mood, curl=1.0, nod=0, tongue=0, target=None, tail=True):
+    """Tail, body and head, in the units they were drawn in, before the crouch."""
     skin, shade, light, belly, spots, deep = COLORS[colors]
     happy = mood == "happy"
-    if look_far is None:
-        look_far = look
-    if mood == "sleepy":
-        blink = max(blink, 0.6)
-    legs = []
-    # far legs
-    legs.append(limb(92, -58, 116, -8, -0.22, 24, 17, shade))
-    legs.append(limb(-92, -48, -92, -8, 0.28, 26, 17, shade))
-    # everything it carries above its legs, drawn _CROUCH higher than it sits
     out = []
-
-    # the tail, wound like a watch spring behind it
-    turns = 1.25 + 0.3 * curl
-    tx, ty = -160, -96
-    out.append(limb(-86, -110, tx + 43, ty - 36, 0.10, 46, 32, skin))
-    out.append(_spiral(tx, ty, 56, 8, 32, 8, -40, turns, skin))
-    out.append(path(smooth(_spiral_points(tx, ty, 56, 8, -40, turns, -10, -2, 0.04, 0.9, 36)), None, shade, 4.5))
-    out.append(path(smooth(_spiral_points(tx, ty, 56, 8, -40, turns, 8, 2, 0.02, 0.42, 20)), None, light, 3))
-
-    # the far eye, half hidden behind the brow
-    out.append(_eye(doc, 150, -190, 28, look_far, blink, happy, shade, deep, skin, deep))
+    if tail:
+        # the tail, wound like a watch spring behind it
+        turns = 1.25 + 0.3 * curl
+        tx, ty = -160, -96
+        out.append(limb(-86, -110, tx + 43, ty - 36, 0.10, 46, 32, skin))
+        out.append(_spiral(tx, ty, 56, 8, 32, 8, -40, turns, skin))
+        out.append(path(smooth(_spiral_points(tx, ty, 56, 8, -40, turns, -10, -2, 0.04, 0.9, 36)), None, shade, 4.5))
+        out.append(path(smooth(_spiral_points(tx, ty, 56, 8, -40, turns, 8, 2, 0.02, 0.42, 20)), None, light, 3))
 
     # the crest along the back: a row of soft scallops
     back = ((-104, -126, 8), (-86, -144, 9), (-64, -158, 9.5), (-40, -168, 10), (-15, -174, 10), (10, -175, 10), (34, -171, 9.5))
@@ -180,55 +179,270 @@ def draw(doc, look=(0.5, 0.1), look_far=None, blink=0, mood="calm", colors="leaf
         out.append(circle(sx, sy, r, spots))
     out.append(path(smooth([(-52, -160), (-10, -169), (36, -164), (58, -152), (30, -158), (-10, -162)], True), light))
 
+    head = []
+    # the far eye, half hidden behind the brow
+    head.append(_eye(doc, 150, -190, 28, look_far, blink, happy, skin, shade, light, deep))
     # the head: a helmet with its casque at the back
-    out.append(path(smooth([(52, -112), (42, -160), (58, -214), (86, -240), (118, -222), (156, -178), (184, -144), (178, -116), (128, -92), (76, -94)], True), skin))
-    out.append(path(smooth([(50, -124), (42, -162), (58, -214), (86, -240), (74, -206), (64, -160), (62, -122)], True), shade))
-    out.append(limb(90, -232, 112, -204, -0.08, 7, 2.5, light))
+    head.append(path(smooth([(52, -112), (42, -160), (58, -214), (86, -240), (118, -222), (156, -178), (184, -144), (178, -116), (128, -92), (76, -94)], True), skin))
+    head.append(path(smooth([(50, -124), (42, -162), (58, -214), (86, -240), (74, -206), (64, -160), (62, -122)], True), shade))
+    head.append(limb(90, -232, 112, -204, -0.08, 7, 2.5, light))
     # the lower jaw, pale like the belly
-    out.append(path(smooth([(90, -116), (134, -111), (180, -128), (182, -118), (170, -104), (128, -91), (82, -95)], True), belly))
-    if happy:
+    head.append(path(smooth([(90, -116), (134, -111), (180, -128), (182, -118), (170, -104), (128, -91), (82, -95)], True), belly))
+    if tongue > 0:
+        # the mouth open, and the tongue on its way to the target
+        gx, gy = target if target else (360, -128)
+        ex, ey = 176 + (gx - 176) * tongue, -122 + (gy + 122) * tongue
+        head.append(path("M92 -120Q138 -108 182 -132Q180 -108 152 -100Q112 -97 92 -120Z", deep))
+        head.append(limb(150, -112, ex, ey, 0.03, 13, 8, 0xFF8F8F))
+        head.append(circle(ex, ey, 13, 0xFF8F8F))
+        head.append(circle(ex + 3, ey - 5, 4, 0xFFC0C0))
+        head.append(path("M92 -120Q84 -123 84 -131", None, deep, 4))
+    elif happy:
         # a wide open grin
-        out.append(path("M90 -121Q138 -104 182 -131Q176 -104 150 -99Q112 -96 90 -121Z", deep))
-        out.append(path("M118 -104Q140 -110 162 -104Q140 -98 118 -104Z", 0xFF8F8F))
-        out.append(path("M90 -121Q84 -124 84 -132", None, deep, 4))
+        head.append(path("M90 -121Q138 -104 182 -131Q176 -104 150 -99Q112 -96 90 -121Z", deep))
+        head.append(path("M118 -104Q140 -110 162 -104Q140 -98 118 -104Z", 0xFF8F8F))
+        head.append(path("M90 -121Q84 -124 84 -132", None, deep, 4))
     else:
-        out.append(path("M181 -130Q138 -106 92 -119Q84 -122 84 -131", None, deep, 4))
-    if mood == "curious":
+        head.append(path("M181 -130Q138 -106 92 -119Q84 -122 84 -131", None, deep, 4))
+    if mood == "curious" and tongue <= 0:
         # the tip of its tongue, tasting the air
-        out.append(limb(178, -127, 214, -124, 0.10, 7, 6, 0xFF8F8F))
-        out.append(circle(217, -124, 8.5, 0xFF8F8F))
-        out.append(circle(219, -127, 2.6, 0xFFC0C0))
-        out.append(path("M181 -130Q170 -124 160 -119", None, deep, 4))
-    out.append(circle(170, -148, 2.4, deep))
+        head.append(limb(178, -127, 214, -124, 0.10, 7, 6, 0xFF8F8F))
+        head.append(circle(217, -124, 8.5, 0xFF8F8F))
+        head.append(circle(219, -127, 2.6, 0xFFC0C0))
+        head.append(path("M181 -130Q170 -124 160 -119", None, deep, 4))
+    head.append(circle(170, -148, 2.4, deep))
     # the near eye
-    out.append(_eye(doc, 110, -164, 39, look, blink, happy, skin, shade, light, deep))
+    head.append(_eye(doc, 110, -164, 39, look, blink, happy, skin, shade, light, deep))
+    head = "".join(head)
+    if nod:
+        head = group(head, "rotate(%.2f %d %d)" % (nod, _NECK[0], _NECK[1]))
+    out.append(head)
+    return "".join(out)
 
-    out = legs + [at(0, _CROUCH, "".join(out))]
+
+def _gait(phase):
+    """A foot's place in its stride: ``(forward, lift)`` for a phase from 0 to 1."""
+    phase = phase % 1.0
+    if phase < 0.6:
+        # on the perch, carried back as the body moves on
+        return 19 * (1 - 2 * phase / 0.6), 0.0
+    q = (phase - 0.6) / 0.4
+    return -19 + 38 * q, math.sin(q * math.pi) * 18
+
+
+def grip(hand=1.0):
+    """Where the raised hand holds something, ``(x, y, turn)``.
+
+    The point is the palm between its two bundles of toes, in the units
+    `draw` uses, and the turn is the hand's in degrees: a prop drawn pointing
+    up from its own origin, placed there and turned so, stands in the hand.
+    """
+    return 78 + 76 * hand, -8 - 40 * hand, 38
+
+
+def draw(doc, look=(0.5, 0.1), look_far=None, blink=0, mood="calm", colors="leaf", hand=0, curl=1.0, perch="twig", step=None, nod=0, tongue=0, target=None):
+    """The chameleon's shapes, back to front.
+
+    Args:
+        doc: The `vec.Doc` that holds the gradients.
+        look: Where the near eye points, each of x and y from -1 to 1.
+        look_far: Where the far eye points, or None for the same way.
+        blink (float): 0 with the eyes open, 1 closed.
+        mood (str): "calm", "happy", "curious" or "sleepy".
+        colors (str): A name from `COLORS`.
+        hand (float): 0 with both hands on the perch, 1 with one raised in a wave.
+        curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
+        perch (str): "twig", "wire", "stem", or None for no perch.
+        step (float): Where it is in its walk, 0 to 1 and round again, or None standing.
+        nod (float): The head's tilt in degrees, positive chin down.
+        tongue (float): 0 with the tongue in, 1 with it shot out to *target*.
+        target: Where the tongue strikes, ``(x, y)`` in the head's own units.
+    """
+    skin, shade, light, belly, spots, deep = COLORS[colors]
+    if look_far is None:
+        look_far = look
+    if mood == "sleepy":
+        blink = max(blink, 0.5)
+    # the four feet: near front, far front, near hind, far hind, each (forward, lift)
+    if step is None:
+        nf = ff = nh = fh = (0, 0)
+        sway, bob = 0, 0
+    else:
+        # diagonal pairs move together, and the body rocks twice a stride
+        nf, fh = _gait(step), _gait(step + 0.04)
+        ff, nh = _gait(step + 0.5), _gait(step + 0.54)
+        sway = 4 * math.sin(step * 4 * math.pi)
+        bob = 2 * math.cos(step * 4 * math.pi)
+    out = []
+    # far legs
+    out.append(limb(92 + sway, -58 + bob, 116 + ff[0], -8 - ff[1], -0.22, 24, 17, shade))
+    out.append(limb(-92 + sway, -48 + bob, -92 + fh[0], -8 - fh[1], 0.28, 26, 17, shade))
+    out.append(at(sway, _CROUCH + bob, _upper(doc, colors, look, look_far, blink, mood, curl, nod, tongue, target)))
     # near hind leg, folded
-    out.append(limb(-70, -46, -42, -24, 0.34, 34, 23, skin))
-    out.append(limb(-42, -26, -56, -6, 0.22, 21, 17, skin))
+    kx, ky = -42 + nh[0] * 0.6 + sway * 0.4, -24 - nh[1] * 0.5
+    out.append(limb(-70 + sway, -46 + bob, kx, ky, 0.34, 34, 23, skin))
+    out.append(limb(kx, ky - 2, -56 + nh[0], -6 - nh[1], 0.22, 21, 17, skin))
     if perch:
         out.append(_perch(perch))
 
     # feet over the perch
-    out.append(_foot(118, 2, shade, deep))
-    out.append(_foot(-92, 4, shade, deep))
-    out.append(_foot(-58, 4, skin, deep))
+    out.append(_foot(118 + ff[0], 2 - ff[1], shade, deep, -ff[1]))
+    out.append(_foot(-92 + fh[0], 4 - fh[1], shade, deep, -fh[1]))
+    out.append(_foot(-58 + nh[0], 4 - nh[1], skin, deep, -nh[1]))
     # the near arm: on the perch, or raised in a wave
-    sx, sy = 60, -56
+    sx, sy = 60 + sway, -56 + bob
     if hand > 0:
-        hx, hy = 78 + 76 * hand, -8 - 40 * hand
+        hx, hy, turn = grip(hand)
         out.append(limb(sx, sy, hx, hy, -0.26 + 0.1 * hand, 28, 16, skin))
         if hand > 0.5:
-            out.append(_hand(hx, hy, skin, deep, 38))
+            out.append(_hand(hx, hy, skin, deep, turn))
         else:
             out.append(_foot(hx, hy + 8, skin, deep))
     else:
-        out.append(limb(sx, sy, 78, -10, -0.26, 28, 17, skin))
-        out.append(_foot(80, 3, skin, deep))
+        out.append(limb(sx, sy, 78 + nf[0], -10 - nf[1], -0.26, 28, 17, skin))
+        out.append(_foot(80 + nf[0], 3 - nf[1], skin, deep, -nf[1]))
     out.append(circle(sx, sy - 2, 15, skin))
-    out.append(path("M48 -46Q58 -37 72 -43", None, shade, 3.5))
+    out.append(path("M%.1f %.1fq10 9 24 3" % (sx - 12, sy + 10), None, shade, 3.5))
     return "".join(out)
+
+
+def _turned(point, turn, hip):
+    """Where a point of the body lands when the body turns about its hip to stand at *hip*."""
+    a = math.radians(turn)
+    x, y = point[0] - _HIP[0], point[1] - _HIP[1]
+    return hip[0] + x * math.cos(a) - y * math.sin(a), hip[1] + x * math.sin(a) + y * math.cos(a)
+
+
+def _body_at(body, turn, hip):
+    return group(body, "translate(%.2f %.2f) rotate(%.2f) translate(%d %d)" % (hip[0], hip[1], turn, -_HIP[0], -_HIP[1]))
+
+
+def draw_sit(doc, look=(0.0, 0.0), look_far=None, blink=0, mood="calm", colors="leaf", perch="twig", wave=0.0):
+    """Sitting up on its haunches, both hands free: how it idles on a desktop.
+
+    Args:
+        wave (float): 0 with the near hand held out, 1 with it lifted in a wave.
+        The others are as in `draw`.
+    """
+    skin, shade, light, belly, spots, deep = COLORS[colors]
+    if look_far is None:
+        look_far = look
+    if mood == "sleepy":
+        blink = max(blink, 0.5)
+    turn, hip = -52, (-36, -44)
+    out = []
+    # the tail, wound up on the perch behind it
+    tx, ty = -150, -58
+    out.append(limb(-62, -52, tx + 46, ty + 2, -0.12, 46, 32, skin))
+    out.append(_spiral(tx, ty, 46, 7, 30, 8, 0, 1.55, skin))
+    out.append(path(smooth(_spiral_points(tx, ty, 46, 7, 0, 1.55, -9, -2, 0.04, 0.9, 36)), None, shade, 4.5))
+    out.append(path(smooth(_spiral_points(tx, ty, 46, 7, 0, 1.55, 8, 2, 0.1, 0.5, 20)), None, light, 3))
+    # far limbs
+    fx, fy = _turned((84, -80), turn, hip)
+    out.append(limb(fx, fy, fx + 52, fy + 34, 0.22, 24, 15, shade))
+    out.append(_hand(fx + 52, fy + 34, shade, deep, 100))
+    out.append(limb(-16, -30, 44, -8, -0.2, 26, 18, shade))
+    out.append(_body_at(_upper(doc, colors, look, look_far, blink, mood, nod=46, tail=False), turn, hip))
+    # the near haunch, folded under it
+    out.append(ellipse(-26, -40, 38, 29, skin, rot=-24))
+    out.append(path("M-56 -30Q-30 -6 4 -22", None, shade, 3.5))
+    out.append(limb(-6, -24, 16, -8, -0.2, 22, 17, skin))
+    if perch:
+        out.append(_perch(perch))
+    out.append(_foot(46, 3, shade, deep))
+    out.append(_foot(18, 4, skin, deep))
+    # the near arm, held out or waving
+    sx, sy = _turned((60, -78), turn, hip)
+    hx, hy = sx + 58 + 40 * wave, sy + 30 - 22 * wave
+    out.append(limb(sx, sy, hx, hy, 0.26 - 0.06 * wave, 27, 16, skin))
+    out.append(_hand(hx, hy, skin, deep, 70 - 34 * wave))
+    out.append(circle(sx, sy, 14, skin))
+    return "".join(out)
+
+
+def draw_sleep(doc, colors="leaf", perch="twig"):
+    """Asleep on the perch: belly down, chin on its hand, tail wound tight."""
+    skin, shade, light, belly, spots, deep = COLORS[colors]
+    out = []
+    out.append(limb(96, -30, 112, -8, -0.2, 22, 17, shade))
+    out.append(at(0, 40, _upper(doc, colors, (0, 0), (0, 0), 1, "calm", curl=2, nod=14)))
+    # legs folded away: a haunch and an elbow
+    out.append(ellipse(-64, -22, 34, 22, skin, rot=-10))
+    out.append(path("M-94 -18Q-66 2 -34 -14", None, shade, 3.5))
+    out.append(limb(52, -34, 84, -10, -0.3, 26, 17, skin))
+    if perch:
+        out.append(_perch(perch))
+    out.append(_foot(116, 2, shade, deep))
+    out.append(_foot(-36, 4, skin, deep))
+    out.append(_foot(88, 3, skin, deep))
+    # sleep, rising off it
+    for zx, zy, zs, opa in ((206, -128, 1.0, 0.9), (226, -168, 1.35, 0.75), (252, -218, 1.75, 0.6)):
+        out.append(path("M%.1f %.1fh%.1fl%.1f %.1fh%.1f" % (zx, zy, 14 * zs, -14 * zs, 16 * zs, 14 * zs), None, LIME, 4.2 * zs ** 0.5, opacity=opa))
+    return "".join(out)
+
+
+def draw_hang(doc, look=(-0.2, 0.2), look_far=None, mood="happy", colors="leaf", perch="twig", wave=1.0):
+    """Hanging head down by its tail and hind feet, hands free.
+
+    The perch is still at y = 0; the body hangs about 330 units below it.
+    """
+    skin, shade, light, belly, spots, deep = COLORS[colors]
+    if look_far is None:
+        look_far = look
+    turn, hip = 82, (22, 62)
+    out = []
+    # the far hind leg, and the tail going up behind the perch
+    out.append(limb(hip[0] + 14, hip[1] + 6, -52, 6, 0.2, 26, 17, shade))
+    rx, ry = _turned((-108, -106), turn, hip)
+    out.append(limb(rx - 8, ry + 14, 96, -14, 0.24, 44, 26, skin))
+    # the far arm, dangling
+    fx, fy = _turned((84, -80), turn, hip)
+    out.append(limb(fx, fy, fx - 62, fy + 30, 0.2, 24, 15, shade))
+    out.append(_hand(fx - 62, fy + 30, shade, deep, -150))
+    out.append(_body_at(_upper(doc, colors, look, look_far, 0, mood, nod=-34, tail=False), turn, hip))
+    # the near hind leg, reaching up to hold on
+    out.append(limb(hip[0], hip[1], -18, 6, 0.24, 32, 18, skin))
+    if perch:
+        out.append(_perch(perch))
+    # three turns of tail round the perch, and its tip
+    for i in range(3):
+        cx = 96 + i * 21
+        out.append(limb(cx - 5, -9, cx + 6, 20, 0, 20 - i * 3, 18 - i * 3, skin))
+        out.append(limb(cx - 6, -8, cx - 1, 6, 0, 4, 3, light))
+    out.append(path("M162 22q16 6 20 -8q2 -12 -9 -12q-8 1 -7 8", None, skin, 9))
+    out.append(_foot(-52, 3, shade, deep, 180))
+    out.append(_foot(-18, 2, skin, deep, 180))
+    # the near arm, thrown wide
+    sx, sy = _turned((60, -78), turn, hip)
+    hx, hy = sx - 66, sy + 6 - 34 * wave
+    out.append(limb(sx, sy, hx, hy, -0.24, 27, 16, skin))
+    out.append(_hand(hx, hy, skin, deep, -70 + 30 * wave))
+    out.append(circle(sx, sy, 14, skin))
+    return "".join(out)
+
+
+def _bug(x, y, s=1.0):
+    """A small beetle, the kind a chameleon and a programmer both go after."""
+    return at(
+        x,
+        y,
+        ellipse(-9, -11, 12, 6, 0xCFE8FF, opacity=0.75, rot=-30)
+        + ellipse(9, -11, 12, 6, 0xCFE8FF, opacity=0.75, rot=30)
+        + line(-6, 6, -13, 11, 0x2B2B33, 2)
+        + line(6, 6, 13, 11, 0x2B2B33, 2)
+        + line(0, 8, 0, 14, 0x2B2B33, 2)
+        + ellipse(0, 0, 11, 9, 0xE4513D)
+        + path("M-11 0A11 9 0 0 1 11 0Z", 0x2B2B33)
+        + circle(-4, 3.5, 2, 0x2B2B33)
+        + circle(4, 3.5, 2, 0x2B2B33)
+        + circle(-4, -4, 1.6, WHITE)
+        + circle(4, -4, 1.6, WHITE),
+        scale=s,
+    )
+
+
+def _sparkle(x, y, r, color):
+    return path("M%.1f %.1fQ%.1f %.1f %.1f %.1fQ%.1f %.1f %.1f %.1fQ%.1f %.1f %.1f %.1fQ%.1f %.1f %.1f %.1fZ" % (x, y - r, x, y, x + r, y, x, y, x, y + r, x, y, x - r, y, x, y, x, y - r), color)
 
 
 def _study(view, ground=None, scale=1, lift=0, **pose):
@@ -243,13 +457,71 @@ def _study(view, ground=None, scale=1, lift=0, **pose):
     return build
 
 
+def _strip(view, frames, spacing):
+    """Several poses side by side: *frames* is a list of functions of a Doc."""
+
+    def build():
+        doc = Doc()
+        doc.add(rect(-3000, -3000, 9000, 6000, NAVY))
+        for i, frame in enumerate(frames):
+            doc.add(at(i * spacing, 0, frame(doc)))
+        return doc.svg(view)
+
+    return build
+
+
+def _pose(view, pose, turn=0, **options):
+    def build():
+        doc = Doc()
+        doc.add(rect(-3000, -3000, 6000, 6000, NAVY))
+        doc.add(at(0, 0, pose(doc, **options), rot=turn))
+        return doc.svg(view)
+
+    return build
+
+
+def _icon():
+    # the sitting pose in a round badge; a wide ring of the ground's colour trims what spills over
+    doc = Doc()
+    doc.add(rect(-1000, -1000, 2000, 2000, NAVY))
+    doc.add(circle(-40, -150, 244, 0x123F68))
+    doc.add(at(-18, 46, draw_sit(doc, look=(-0.2, 0.1), look_far=(0.5, -0.4), wave=1), scale=1.12))
+    doc.add(circle(-40, -150, 444, None, NAVY, 400))
+    doc.add(circle(-40, -150, 244, None, LIME, 7))
+    return doc.svg((-290, -400, 500, 500))
+
+
 _FULL = (-262, -326, 508, 420)
+_BUG = (360, -128)
 
 STILLS = [
     ("chameleon_full", _study(_FULL), 920),
     ("chameleon_face", _study((18, -238, 222, 185), look=(-0.5, 0.3), look_far=(0.7, -0.4), perch=None), 900),
     ("chameleon_happy", _study(_FULL, mood="happy", colors="brand", hand=1, perch="wire"), 920),
     ("chameleon_curious", _study(_FULL, mood="curious", colors="sunset", look=(0.9, 0.5), look_far=(-0.6, -0.7), curl=0), 920),
-    ("chameleon_sleepy", _study(_FULL, mood="sleepy", colors="board", look=(0.2, 0.8), curl=2, perch="wire"), 920),
-    ("chameleon_icon", _study((-262, -350, 500, 500), circle(-12, -100, 244, 0x123F68) + circle(-12, -100, 244, None, LIME, 6), 0.88, 26, colors="leaf", look=(-0.3, 0.2), look_far=(0.6, -0.5)), 400),
+    ("chameleon_sleepy", _study(_FULL, mood="sleepy", colors="board", look=(0.2, 0.6), curl=2, perch="wire"), 920),
+    ("chameleon_icon", _icon, 400),
+    (
+        "chameleon_walk",
+        _strip((-262, -300, 2080, 384), [lambda doc, s=s: draw(doc, step=s, look=(0.6, 0.2), look_far=(0.2 - s, -0.5)) for s in (0, 0.25, 0.5, 0.75)], 520),
+        1840,
+    ),
+    ("chameleon_climb", _pose((-389, -272, 640, 530), draw, -80, step=0.3, nod=38, perch="stem", look=(0.2, -0.6), look_far=(0.8, 0.2), colors="leaf"), 920),
+    ("chameleon_hang", _pose((-180, -76, 508, 420), draw_hang, colors="sunset"), 920),
+    ("chameleon_sleep", _pose(_FULL, draw_sleep, colors="board"), 920),
+    (
+        "chameleon_tongue",
+        _strip(
+            (-262, -330, 2010, 430),
+            [
+                lambda doc: draw(doc, look=(1, 0.0), look_far=(1, 0.3), nod=-4, colors="brand", perch="wire") + _bug(_BUG[0] + 4, _BUG[1] + 4, 1.4),
+                lambda doc: draw(doc, look=(1, 0.0), look_far=(1, 0.3), nod=-4, tongue=1, target=_BUG, colors="brand", perch="wire") + _bug(_BUG[0] + 4, _BUG[1] + 4, 1.4),
+                lambda doc: draw(doc, mood="happy", nod=-8, colors="brand", perch="wire") + _sparkle(250, -150, 15, LIME) + _sparkle(284, -112, 9, WHITE) + _sparkle(232, -98, 7, LIME),
+            ],
+            670,
+        ),
+        1840,
+    ),
+    ("chameleon_sit", _pose((-262, -366, 508, 420), draw_sit, colors="leaf", look=(-0.3, 0.1), look_far=(0.4, -0.3)), 920),
+    ("chameleon_sit_wave", _pose((-262, -366, 508, 420), draw_sit, colors="brand", mood="happy", wave=1, perch="wire"), 920),
 ]
