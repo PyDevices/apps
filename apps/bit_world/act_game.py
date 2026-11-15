@@ -56,7 +56,9 @@ from bit_palette import (
 class SkyRuinsAct:
     """Render and simulate Act 2: Bioluminescent Sky Ruins 2D Action Game."""
 
-    def __init__(self, layout, sprites, sound):
+    # *background* is a (bytearray, FrameBuffer) pair from make_fb at the panel's size to
+    # draw the static scene into; left as None, the act makes its own.
+    def __init__(self, layout, sprites, sound, background=None):
         self.lay = layout
         self.sprites = sprites
         self.sound = sound
@@ -103,7 +105,7 @@ class SkyRuinsAct:
         self._seed_world()
 
         # Pre-render the sky gradient, ringed planet, and distant stars into sky_fb.
-        self.sky_buf, self.sky_fb = make_fb(w, layout.h, VOID)
+        self.sky_buf, self.sky_fb = background or make_fb(w, layout.h, VOID)
         self._build_sky_backdrop()
 
     # Populate initial platforms, crystals, and patrol drones across the screen.

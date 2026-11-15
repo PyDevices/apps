@@ -14,6 +14,10 @@ file tool, leaving out `tests/` and `docs/`. Home shows it on the Desk page.
 It needs a display and the pygraphics, audiodsp and multimer libraries, and
 plays its music through the board's audio out when there is one.
 
+It turns a portrait panel to landscape when the display can turn what's
+drawn. A display that can't, such as the Arduino GIGA Display Shield's
+framebuffer, keeps its portrait layout.
+
 Choosing it restarts the board into Bit World alone, so it has the panel and
 the processor to itself. The X at the right of the stage bar, or Esc on a
 keyboard, quits back to Home.

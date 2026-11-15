@@ -99,7 +99,9 @@ ACTIONS = (
 class WorkshopAct:
     """Render and animate Act 1: Bit's Solarpunk Maker Lab and Companion HUD."""
 
-    def __init__(self, layout, sprites, sound):
+    # *background* is a (bytearray, FrameBuffer) pair from make_fb at the panel's size to
+    # draw the static scene into; left as None, the act makes its own.
+    def __init__(self, layout, sprites, sound, background=None):
         self.lay = layout
         self.sprites = sprites
         self.sound = sound
@@ -174,7 +176,7 @@ class WorkshopAct:
         self._init_spores()
 
         # Pre-render the static workshop interior into a background FrameBuffer.
-        self.bg_buf, self.bg_fb = make_fb(w, layout.h, VOID)
+        self.bg_buf, self.bg_fb = background or make_fb(w, layout.h, VOID)
         self._build_static_background()
 
         # The stars, the clock readout and the telemetry bars change in place, so the
