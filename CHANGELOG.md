@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.1.2.dev11
+
+- touchkit.net: a CircuitPython board rejoins its network after the access point drops, on the same 30 s to 5 minute schedule as a first join. MicroPython's poll still stops at the first join.
+- touchkit.net: an offline MicroPython board joins in the background through `wifi_manager.connect(wait=False)`, the route CircuitPython takes. It needs pydevices 0.8.0.dev19 or later.
+- touchkit: Home leaves a WebREPL that `boot.py` already started listening, so an open session isn't dropped, and CircuitPython no longer prints an error about the missing `webrepl` module at every boot.
+- midi-module: its install line names lib.omnipython.org.
+
 ## 0.1.2.dev10
 
 - touchkit.net: an offline CircuitPython board keeps its screen. A join there holds the screen for about 10 s, and one used to start on every poll; now a failed join waits 30 s before the next, doubling to 5 minutes. `keep_time()` raises a `RuntimeError` when LVGL hasn't started, where it used to crash the interpreter.
