@@ -5,7 +5,7 @@
 
     micropython -X heapsize=64M tools/still.py OUT_DIR [NAME ...]
 
-Run it from the app's folder. Each still in `stills.STILLS` is drawn by svgio
+Run it from the app's folder. Each still in `stills.STILLS` (tools/stills.py) is drawn by svgio
 and written as a 16-bit BMP, which any image tool opens.
 """
 
@@ -14,7 +14,7 @@ import time
 
 sys.path.insert(0, "..")
 
-from wander.studies import stills  # noqa: E402
+from wander.tools import stills  # noqa: E402
 from wander.vec import render  # noqa: E402
 
 

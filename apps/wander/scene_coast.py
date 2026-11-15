@@ -12,8 +12,7 @@ import math
 
 from . import chameleon_props
 from . import chameleon_shift  # noqa: F401  (its colour schemes)
-from . import crab
-from .vec import Doc, at, circle, ellipse, group, limb, line, mix, path, pts, rect, smooth, wash
+from .vec import at, circle, ellipse, group, limb, line, mix, path, pts, rect, smooth
 
 W, H = 800, 480
 HORIZON = 252
@@ -324,32 +323,6 @@ def _snowman(x, y):
     )
 
 
-def _scarf(color, stripe):
-    # around the crab, under its face, with one end hanging: in the crab's own units
-    out = [
-        limb(42, -56, 30, -20, -0.12, 15, 14, mix(color, 0x000000, 0.18)),
-        path("M22 -74Q70 -46 122 -72", None, color, 16),
-        path("M24 -77Q70 -50 120 -75", None, stripe, 2.6),
-        path("M26 -69Q70 -42 118 -67", None, stripe, 2.6),
-        line(24, -24, 36, -21, stripe, 3),
-    ]
-    return "".join(out)
-
-
-def _hat(color, stripe):
-    # a knitted hat on the tip of the shell
-    out = [
-        group(
-            path("M-30 6A30 34 0 0 1 30 6Z", color)
-            + rect(-33, 0, 66, 13, stripe, r=6)
-            + path("M-22 -14Q0 -24 22 -14", None, stripe, 4)
-            + circle(0, -29, 10, 0xFFFFFF),
-            "translate(-150 -292) rotate(-30)",
-        )
-    ]
-    return "".join(out)
-
-
 def _drift(season_name, night, rng):
     """What the air carries: petals, leaves, snow, or fireflies at night."""
     out = []
@@ -412,20 +385,18 @@ def _driftwood(x, y, s, night):
     return "".join(out)
 
 
-def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300, 446), crab_scale=0.62, drift=True, who="chameleon", hue_at=(322, 404), hue_scale=0.6):
+def draw(doc, season="summer", night=False, pose=None, colors=None, drift=True, who="chameleon", hue_at=(322, 404), hue_scale=0.6):
     """Add the coast to *doc*.
 
     Args:
         doc: The `vec.Doc` to draw into.
         season (str): "spring", "summer", "autumn" or "winter".
         night (bool): The same place after dark, the lighthouse lit.
-        pose (dict): Arguments for `crab.draw`, or None for the season's own.
-        shell (str): The crab's shell, or None for the season's own.
-        crab_at: Where the crab stands, or None for the place without it.
-        crab_scale (float): The crab's size.
+        pose (dict): Arguments for `mascot_chameleon.draw`, over the season's own.
+        colors (str): The chameleon's scheme, or None for the season's own.
         drift (bool): Draw what the air carries: petals, leaves, snow, fireflies.
         who (str): "chameleon", on a driftwood bough, "stage" for the bough alone,
-            "crab", or None for the place alone.
+            or None for the place without either.
         hue_at: Where the chameleon's perch is.
         hue_scale (float): The chameleon's size.
     """
@@ -478,55 +449,7 @@ def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300,
         scheme, prop, default = _HUE["night" if night else season]
         options = dict(default)
         options.update(pose or {})
-        body = chameleon_props.hold(doc, prop, perch=None, colors=shell or scheme, **options)
+        body = chameleon_props.hold(doc, prop, perch=None, colors=colors or scheme, **options)
         add(at(hue_at[0], hue_at[1], body, scale=hue_scale))
-    elif who == "crab" and crab_at is not None:
-        default = {
-            "spring": ("rose", {"mood": "calm", "wave": 30, "look": (0.5, -0.3)}),
-            "summer": ("sand", {"mood": "calm", "look": (0.6, 0.0)}),
-            "autumn": ("moss", {"mood": "curious", "look": (0.9, -0.5), "wave": 10}),
-            "winter": ("night", {"mood": "calm", "wave": 26, "look": (0.2, -0.4)}),
-        }[season]
-        if night:
-            default = (default[0], {"mood": "calm", "look": (0.7, -0.7)})
-        if night:
-            wash(0x12305C, 0.42)
-        body = crab.draw(doc, shell=shell or default[0], **(pose or default[1]))
-        if season == "winter":
-            body += _scarf(0xE4513D, 0xFFF1D6) + _hat(0xE4513D, 0xFFF1D6)
-        wash()
-        add(at(crab_at[0], crab_at[1], body, scale=crab_scale))
     if drift:
         add(_drift(season, night, rng))
-
-
-def _still(view, **options):
-    def build():
-        doc = Doc()
-        draw(doc, **options)
-        return doc.svg(view)
-
-    return build
-
-
-_WIDE = (0, 0, 800, 480)
-_MID = (150, 190, 480, 288)
-_CLOSE = (262, 270, 250, 150)
-
-STILLS = [
-    ("coast_hue_spring", _still(_WIDE, season="spring"), 800),
-    ("coast_hue_summer", _still(_WIDE, season="summer"), 800),
-    ("coast_hue_autumn", _still(_WIDE, season="autumn"), 800),
-    ("coast_hue_winter", _still(_WIDE, season="winter"), 800),
-    ("coast_hue_night", _still(_WIDE, season="summer", night=True), 800),
-    ("coast_hue_autumn_mid", _still((120, 170, 500, 300), season="autumn"), 800),
-    ("coast_hue_winter_close", _still((300, 250, 270, 162), season="winter"), 800),
-    ("coast_spring", _still(_WIDE, season="spring", who="crab"), 800),
-    ("coast_summer", _still(_WIDE, season="summer", who="crab"), 800),
-    ("coast_autumn", _still(_WIDE, season="autumn", who="crab"), 800),
-    ("coast_winter", _still(_WIDE, season="winter", who="crab"), 800),
-    ("coast_summer_night", _still(_WIDE, season="summer", night=True, who="crab"), 800),
-    ("coast_autumn_mid", _still(_MID, season="autumn", who="crab"), 800),
-    ("coast_winter_close", _still(_CLOSE, season="winter", who="crab", pose={"mood": "happy", "wave": 26}), 800),
-    ("coast_spring_night", _still(_WIDE, season="spring", night=True, who="crab"), 800),
-]

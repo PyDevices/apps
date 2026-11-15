@@ -6,8 +6,7 @@
 `draw` adds the whole scene to a `vec.Doc`, 800 by 480 units, at one of three
 times of day. The window, the lamp and the light on the desk follow the time,
 and the chameleon takes a pose, a place and the colours of where it stands, so
-one drawing gives a wide shot, a close-up and everything between. The crab can
-stand in for it.
+one drawing gives a wide shot, a close-up and everything between.
 """
 
 import math
@@ -15,15 +14,12 @@ import math
 from . import chameleon_props
 from . import chameleon_shift
 from . import chameleon_views
-from . import crab
 from . import mascot_chameleon
-from .vec import Doc, at, circle, ellipse, line, mix, path, pts, rect, smooth
+from .vec import at, circle, ellipse, line, mix, path, pts, rect, smooth
 
 W, H = 800, 480
 DESK_Y = 322  # the back edge of the desk top
 FRONT_Y = 458  # where the top meets the front face
-# where the crab stands, and how large
-CRAB_X, CRAB_Y, CRAB_SCALE = 164, 436, 0.6
 # where the chameleon perches: the middle of its feet, and how large
 SPOTS = {"books": (160, 391, 0.58), "monitor": (338, 75, 0.4)}
 
@@ -443,19 +439,18 @@ def _chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave,
     return shadow + at(x, y, body, scale=scale)
 
 
-def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None, wave=0, blink=0, shell="sand", bubble=False, pose="three_quarter", spot="books", colors=None, nod=0, prop=None):
+def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None, wave=0, blink=0, bubble=False, pose="three_quarter", spot="books", colors=None, nod=0, prop=None):
     """Add the desk and its company to *doc*.
 
     Args:
         doc: The `vec.Doc` to draw into.
-        who (str): "chameleon", or "crab" for the hermit crab beside the keyboard.
+        who (str): "chameleon", or "stage" for the desk without it.
         time (str): "day", "evening" or "night". The lamp is on after day.
         mood (str): "calm", "happy", "curious" or "sleepy".
         look: Where the near eye points, each of x and y from -1 to 1.
         look_far: Where the chameleon's other eye points, or None for the same way.
-        wave (float): The crab's claw lift in degrees, or the chameleon's raised hand, 0 to 1.
+        wave (float): The chameleon's raised hand, 0 to 1.
         blink (float): 0 with the eyes open, 1 closed.
-        shell (str): The crab's shell, a name from `crab.SHELLS`.
         bubble (bool): Draw a thought bubble.
         pose (str): The chameleon's: "three_quarter", "side", "front", "sit", "sleep" or "hold".
         spot (str): Where the chameleon perches, a name from `SPOTS`.
@@ -465,7 +460,6 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
     """
     tone = _toner(time)
     lit = time != "day"
-    hue = who in ("chameleon", "stage")
     if look is None:
         look = (0.3, 0.1)
     doc.add(_room(tone, time))
@@ -479,21 +473,15 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
     if who == "chameleon" and spot == "monitor":
         doc.add(_chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave, nod, prop))
     doc.add(_cable(tone))
-    if not (hue and prop == "mug"):
+    if prop != "mug":
         doc.add(_mug(tone))
     doc.add(_keyboard(tone))
     doc.add(at(664, 436, _board(doc, tone), rot=-7))
     if lit:
         doc.add(_lamp_light(time))
-    if hue:
-        # the books stand in the lamp's light, so they keep more of their colour
-        doc.add(_stack((lambda c: mix(tone(c), c, 0.5)) if lit else tone))
-    if not hue:
-        doc.add(at(CRAB_X, CRAB_Y, crab.draw(doc, look=look, blink=blink, mood=mood, wave=wave, shell=shell), scale=CRAB_SCALE))
-        if bubble:
-            doc.add(_bubble(150, 196))
-        return
-    if who == "stage":
+    # the books stand in the lamp's light, so they keep more of their colour
+    doc.add(_stack((lambda c: mix(tone(c), c, 0.5)) if lit else tone))
+    if who != "chameleon":
         x, y, scale = SPOTS["books"]
         doc.add(ellipse(x - 4, y + 2, 170 * scale, 5, 0x000000, opacity=0.16))
         return
@@ -502,30 +490,3 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
     if bubble:
         x, y, scale = SPOTS[spot]
         doc.add(_bubble(x - 76, y - 330 * scale))
-
-
-def _still(view, **options):
-    def build():
-        doc = Doc()
-        draw(doc, **options)
-        return doc.svg(view)
-
-    return build
-
-
-STILLS = [
-    ("desk_wide", _still((0, 0, 800, 480), who="crab", wave=20, look=(0.5, 0.2)), 800),
-    ("desk_mid", _still((0, 180, 490, 294), who="crab", look=(0.8, -0.7)), 980),
-    ("desk_close", _still((126, 286, 210, 126), who="crab", mood="happy", wave=20), 900),
-    ("desk_hello", _still((126, 286, 210, 126), who="crab", wave=20, look=(0.1, 0.15)), 900),
-    ("desk_thinking", _still((0, 130, 540, 324), who="crab", time="evening", mood="curious", look=(0.7, -0.8), bubble=True), 960),
-    ("desk_evening", _still((0, 0, 800, 480), who="crab", time="evening", wave=20, look=(0.6, 0.0)), 800),
-    ("desk_night", _still((0, 0, 800, 480), who="crab", time="night", mood="sleepy", look=(0.2, 0.6)), 800),
-    ("desk_hue_wide", _still((0, 0, 800, 480), look=(0.0, 0.1), look_far=(0.9, -0.5)), 800),
-    ("desk_hue_mid", _still((0, 180, 490, 294), look=(0.0, 0.1), look_far=(0.9, -0.5)), 980),
-    ("desk_hue_hello", _still((5, 222, 310, 186), pose="front", wave=1, look=(0.0, 0.1)), 900),
-    ("desk_hue_thinking", _still((150, -112, 480, 288), spot="monitor", pose="side", mood="curious", nod=10, look=(0.5, 0.8), look_far=(0.0, 0.0), bubble=True), 960),
-    ("desk_hue_evening", _still((0, 0, 800, 480), time="evening", pose="sit", wave=1, look=(0.0, 0.1), look_far=(0.8, -0.4)), 800),
-    ("desk_hue_night", _still((0, 0, 800, 480), time="night", pose="sleep"), 800),
-    ("desk_hue_coffee", _still((0, 180, 490, 294), time="evening", pose="hold", prop="mug", mood="happy", look=(0.2, 0.0)), 980),
-]

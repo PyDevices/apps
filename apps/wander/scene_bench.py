@@ -5,19 +5,17 @@
 
 `draw` adds the whole scene to a `vec.Doc`, 800 units wide and 480 tall.
 The chameleon solders from the bar of a helping-hands stand, looks out at you
-from the top of the board, or hangs from the wire rack; the crab fits a part
-with tweezers. Every still is a view of that one drawing, from the whole
-bench down to the board's parts.
+from the top of the board, or hangs from the wire rack. Every view is of that
+one drawing, from the whole bench down to the board's parts.
 """
 
 import math
 
 from . import chameleon_props
-from . import chameleon_shift
+from . import chameleon_shift  # noqa: F401  (its colour schemes)
 from . import chameleon_views
-from . import crab
 from . import mascot_chameleon
-from .vec import Doc, at, circle, ellipse, group, limb, line, path, pts, rect, smooth
+from .vec import at, circle, ellipse, group, limb, line, path, pts, rect, smooth
 
 WALL = 0x17364A
 PEG = 0xD6AD78
@@ -52,8 +50,6 @@ TEAL = 0x2BA6B8
 ORANGE = 0xF29A2E
 SHADOW = 0x000000
 
-# Where the crab stands and how big it is beside the board.
-CRAB_X, CRAB_Y, CRAB_SCALE = 299, 436, 0.62
 # The board's top-left corner; it is 204 wide and 130 tall.
 BOARD_X, BOARD_Y = 453, 262
 # The helping-hands bar the chameleon stands on: where its perch is, and its size.
@@ -577,22 +573,6 @@ def _parts():
     return "".join(out)
 
 
-# --- the crab and what it holds ----------------------------------------------
-
-
-def _tweezers():
-    # in the claw's frame: joined behind the palm, squeezed where the claw
-    # grips, the tips meeting on a part
-    out = [path(pts(((-8, 10), (57, 3), (150, 12), (150, 13.6), (57, 8.5), (-8, 13)), True), STEEL_LIGHT)]
-    out.append(path(pts(((-8, 13), (57, 17.5), (150, 13.6), (150, 15.2), (57, 23), (-8, 16)), True), STEEL_DARK))
-    out.append(path(pts(((57, 3), (150, 12), (150, 12.6), (57, 5)), True), 0xFFFFFF))
-    # the part: a small light for the empty footprint
-    out.append(rect(143, 7.5, 16, 11, STEEL))
-    out.append(rect(146, 7.5, 10, 11, 0xFFF3B0))
-    out.append(rect(147.5, 9.5, 6, 2.5, 0xFFFFFF))
-    return "".join(out)
-
-
 def _hands(x, y):
     # a helping-hands stand: a heavy foot, a post, and a bar with its top at
     # y, a lens on an arm at one end
@@ -669,13 +649,12 @@ def _chameleon(doc, pose, look, look_far, mood, blink, colors):
     return out + at(HUE_X, HUE_Y, body, scale=HUE_SCALE) + circle(BOARD_X + 34, BOARD_Y + 97.5, 7, glow)
 
 
-def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=None, blink=0, colors=None, wave=4, shell="night"):
+def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=None, blink=0, colors=None):
     """Add the workbench to *doc*, back to front.
 
     Args:
         doc: The `vec.Doc` to draw into.
-        who (str): "chameleon", "crab", or "stage" for the bench set for the
-            chameleon without it.
+        who (str): "chameleon", or "stage" for the bench without it.
         pose (str): What the chameleon is doing: "solder", standing on the
             helping hands with the iron on the board; "front", on top of the
             board, facing you; or "hang", head down from the wire rack.
@@ -686,53 +665,16 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
         colors (str): The chameleon's scheme, from `mascot_chameleon.COLORS`,
             or None for the one that suits where it is: "board" over the mat,
             "brand" on the board, "copper" against the pegboard.
-        wave (float): The crab's big claw's lift in degrees. The tweezers
-            follow it, and at the default their tips sit on the empty footprint.
-        shell (str): The crab's shell, a name from `crab.SHELLS`.
     """
-    hue = who in ("chameleon", "stage")
     doc.add(_pegboard(), _cabinet(58, 48), _succulent(206, 37), _screwdrivers(268, 102), _pliers(398, 78))
-    doc.add(_spool(470, 76, not hue), _tape(540, 72), _sticky(604, 44, 5))
-    if hue:
-        # the postcard moves over, out from behind whoever sits on the board
-        doc.add(_postcard(74, 186, -4), _rack(RACK_X, RACK_Y))
-    else:
-        doc.add(_postcard(500, 104, -4))
+    doc.add(_spool(470, 76, False), _tape(540, 72), _sticky(604, 44, 5))
+    doc.add(_postcard(74, 186, -4), _rack(RACK_X, RACK_Y))
     doc.add(_bench(), _mug(60, 344), _mat(), _lamp_arm(), _lamp_light())
     doc.add(_cable(), _holder(), at(BOARD_X, BOARD_Y, _board(doc)))
-    doc.add(_meter(712, 392), _leads(), _iron(112, 452, not (hue and pose == "solder")), _breadboard(), _wires())
-    if hue:
-        doc.add(_hands(HUE_X, HUE_Y), _parts())
-        if who == "chameleon":
-            doc.add(_chameleon(doc, pose, look, look_far, mood, blink, colors))
-        else:
-            doc.add(ellipse(HUE_X - 16, 446, 104, 9, SHADOW, opacity=0.16))
+    doc.add(_meter(712, 392), _leads(), _iron(112, 452, pose != "solder"), _breadboard(), _wires())
+    doc.add(_hands(HUE_X, HUE_Y), _parts())
+    if who == "chameleon":
+        doc.add(_chameleon(doc, pose, look, look_far, mood, blink, colors))
     else:
-        doc.add(_parts())
-        hx, hy, turn = crab.claw(wave)
-        held = at(hx, hy, _tweezers(), rot=turn)
-        body = crab.draw(doc, look=look or (0.95, 0.42), blink=blink, mood=mood or "curious", wave=wave, shell=shell, wear="goggles")
-        doc.add(at(CRAB_X, CRAB_Y, held + body, scale=CRAB_SCALE))
+        doc.add(ellipse(HUE_X - 16, 446, 104, 9, SHADOW, opacity=0.16))
     doc.add(_lamp_head())
-
-
-def _still(view, **options):
-    def build():
-        doc = Doc()
-        draw(doc, **options)
-        return doc.svg(view)
-
-    return build
-
-
-STILLS = [
-    ("bench_wide", _still((0, 0, 800, 480), who="crab"), 800),
-    ("bench_mid", _still((161, 174, 510, 306), who="crab"), 800),
-    ("bench_close", _still((262, 240, 290, 174), who="crab"), 800),
-    ("bench_board", _still((434, 252, 240, 144), who="crab"), 800),
-    ("bench_hue_wide", _still((0, 0, 800, 480)), 800),
-    ("bench_hue_mid", _still((163, 168, 520, 312)), 800),
-    ("bench_hue_close", _still((328, 222, 270, 162)), 800),
-    ("bench_hue_front", _still((428, 118, 290, 174), pose="front"), 800),
-    ("bench_hue_hang", _still((212, 167, 300, 180), pose="hang"), 800),
-]
