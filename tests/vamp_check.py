@@ -7,7 +7,7 @@
 Pulls the engine's output itself, so it owns the clock, and listens to what
 comes out: notes start on their frame however rarely the sequencer runs, an
 edit stops the notes it removed, mute silences, the master rack is in the
-path, and the keyboard plays at once.
+path, and the keyboard plays at once and a take writes what it played into the song.
 
     micropython -X heapsize=96M tests/vamp_check.py BANK.sf2 [--plant FAULT]
 
@@ -15,7 +15,7 @@ MICROPYPATH (or PYTHONPATH) needs the audio libraries (audioinstruments,
 audioeffects) and the apps repo's lib/. Any General MIDI bank with a closed and an
 open hi-hat in one exclusive class will do: tests/vamp_bank.py writes a small
 one. ``--plant`` breaks the engine one way (nodelay,
-nocancel, nomute, norack, nolive, nochoke) and the check must then fail.
+nocancel, nomute, norack, nolive, nochoke, norecord) and the check must then fail.
 """
 
 import sys
@@ -24,6 +24,7 @@ import time
 import audiocore
 
 from vamp import engine as be
+from vamp import record
 from songmodel import model
 
 SR = be.SR
@@ -118,6 +119,8 @@ def plant(name):
         be.BoxEngine.sync_master = lambda self: None
     elif name == "nolive":
         be.BoxEngine.live = lambda self, s, d1, d2: None
+    elif name == "norecord":
+        record.Take.on = lambda self, track, pitch, velocity, frame: None
     elif name == "nochoke":
         be.Track.defer_chokes = lambda self: None
     elif name:
@@ -238,6 +241,35 @@ def main(argv):
     after = rig.energy(closed + SR // 10, closed + SR // 5)
     check(ringing > 1000 and after < ringing / 20,
           "the open hat rings until the closed hat's frame, then stops (energy %d, then %d)" % (ringing, after))
+
+    # 8. A take: the armed track's keys become notes at the beats they were
+    # played on, snapped to sixteenths, and the song gets them.
+    rig = Rig(bank)
+    song = probe_song(beats)
+    rig.eng.apply({"op": "replace", "path": [], "value": song})
+    tid = song["tracks"][0]["id"]
+    posted = []
+    rig.eng.post = posted.append
+    rig.eng.selected = tid
+    rig.eng.take.armed = tid
+    rig.eng.play(START)
+    rig.eng.take.start()
+    rig.pull(START + SR // 2 + 600 - rig.frames)    # a beat in (tick 96) and a little late
+    rig.eng.live(0x99, be.PAD_BASE, 90)
+    rig.pull(SR // 10)
+    rig.eng.live(0x89, be.PAD_BASE, 0)
+    check(len(posted) == 1 and posted[0]["t"] == "recorded", "a take reports the note it saw (%s)" % posted)
+    if posted:
+        op = record.place(song, tid, posted[0]["start"], posted[0]["end"], posted[0]["pitch"], posted[0]["velocity"])
+        model.apply(song, op)
+        notes = song["tracks"][0]["patterns"][0]["notes"]
+        pitch = rig.eng.pads.get(tid, rig.eng.default_pads(tid))[0]
+        check([QUARTER, QUARTER // 4, pitch, 90] in notes[beats:],
+              "a pad hit a beat in lands on tick %d, a sixteenth long (%s)" % (QUARTER, notes[beats:]))
+    rig.eng.take.stop()
+    rig.eng.live(0x99, be.PAD_BASE, 90)
+    rig.eng.live(0x89, be.PAD_BASE, 0)
+    check(len(posted) == 1, "keys pressed outside a take record nothing")
 
     print("vamp check:", "FAILED " + ", ".join(FAILS) if FAILS else "all passed", "(plant: %s)" % fault)
     if FAILS:

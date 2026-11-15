@@ -32,8 +32,9 @@ import hmilink
 from hmilink import tcp
 
 from vamp import engine as be
+from vamp import record
 from songmodel import model as song
-from songmodel.link import SongModel
+from songmodel.link import SongModel, to_pointer
 
 START_MARGIN = be.SR * 3 // 20    # 150 ms: the transport starts this long after it's asked
 STATUS_MS = 33
@@ -62,6 +63,8 @@ class BoxDevice:
                 return apply(op)
 
             self.model.apply = dropped
+        if plant == "norecord":
+            self.record_note = lambda msg: None
         engine.project = self.model.doc
         engine.post = self.from_engine
         self.device = hmilink.Device(self.model, telemetry_hz=30)
@@ -105,10 +108,40 @@ class BoxDevice:
 
     def from_engine(self, msg):
         t = msg.get("t")
+        if t == "recorded":
+            self.record_note(msg)
+            return
         if t == "preloaded":
             self.model.samples[msg["track"]] = msg
             self.device.event("samples", cost=self.model.sample_cost())
         self.to_listeners({"t": "ev", "name": "engine", "msg": msg})
+
+    def record_note(self, msg):
+        """A finished note of the take goes into the song, and every panel sees it arrive."""
+        op = record.place(self.model.doc, msg["track"], msg["start"], msg["end"], msg["pitch"], msg["velocity"])
+        if op is not None:
+            self.edit(op)
+
+    def edit(self, op):
+        """Apply an op the box makes itself, and send it to every panel as a panel's would be."""
+        kind, pointer, value = to_pointer(self.model.doc, op)
+        done = self.model.apply({"op": kind, "path": pointer, "value": value})
+        self.device.seq += 1
+        out = {"t": "op", "seq": self.device.seq, "op": done["op"], "path": done["path"], "id": None, "from": None}
+        if done["op"] != "remove":
+            out["value"] = done.get("value")
+        self.device.broadcast(out)
+
+    def begin_take(self):
+        """A take starts. With overdub off, it replaces what the armed track's pattern held."""
+        eng = self.engine
+        eng.take.start()
+        doc = self.model.doc
+        track = song.find_track(doc, eng.take.armed)
+        if track is not None and not doc.get("overdub", True) and not doc.get("song_mode"):
+            index = song.shown_pattern(track)
+            for i in range(len(track["patterns"][index]["notes"]) - 1, -1, -1):
+                self.edit({"op": "remove", "path": song.track_path(track["id"], "patterns", index, "notes", i)})
 
     def to_listeners(self, msg):
         if not self.listening:
@@ -216,11 +249,13 @@ class BoxDevice:
         self.fresh = True
         return self.telemetry()
 
-    def transport(self, play, tick, by):
+    def transport(self, play, tick, by, record_on=False):
         eng = self.engine
         if play:
             eng.play(eng.clock() + START_MARGIN, tick)
             eng.sequence()                 # the first notes now, not after this pass's other messages
+            if record_on and eng.take.armed is not None:
+                self.begin_take()
         else:
             eng.stop()
         self.playing = play
@@ -230,9 +265,12 @@ class BoxDevice:
         t = msg.get("t")
         eng = self.engine
         if t == "transport":
-            if msg.get("record"):
-                self.from_engine({"t": "failed", "why": "The box doesn't record yet; playing instead"})
-            return self.transport(bool(msg.get("play")), float(msg.get("tick", 0.0)), by)
+            return self.transport(bool(msg.get("play")), float(msg.get("tick", 0.0)), by, bool(msg.get("record")))
+        if t == "record":
+            if msg.get("on") and self.playing and eng.take.armed is not None:
+                self.begin_take()
+            else:
+                eng.take.stop()
         if t == "pads":
             eng.pads = {}
             for k, v in msg.get("pads", {}).items():
@@ -240,6 +278,7 @@ class BoxDevice:
         elif t == "select":
             if msg.get("track") is not None:
                 eng.selected = msg["track"]
+            eng.take.armed = msg.get("armed", eng.take.armed)
         elif t == "audition":
             eng.audition(msg["track"], msg["pitch"], msg["velocity"], msg.get("seconds"))
         elif t == "render":
