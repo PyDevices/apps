@@ -54,6 +54,7 @@ INDEX = {
     "soundmodule": "soundmodule",
     "spectrum": "spectrum",
     "touchkit": "touchkit",
+    "usb_hid": "usb-hid",
 }
 
 #: A module of an index package -> an index package it needs that the package
@@ -95,7 +96,7 @@ BOARD = {
 #: The interpreter's own modules and the firmware's C modules. An app that
 #: imports an optional one says so on the screen when it's missing.
 FIRMWARE = {
-    "_audioif", "_thread", "array", "asyncio", "audioairwindows", "audiobiquad", "audiobusio", "audiocore",
+    "_audioif", "_thread", "_usbhost", "array", "asyncio", "audioairwindows", "audiobiquad", "audiobusio", "audiocore",
     "audiofeatures", "audiomixer", "audiomp3", "audiopump", "audiospeed", "cameraif", "castif", "earful",
     "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "image", "jpegio", "json", "lvgl", "machine",
     "math", "mdns", "micropython", "microcontroller", "network", "numpy", "os", "platform", "ppa", "random",
