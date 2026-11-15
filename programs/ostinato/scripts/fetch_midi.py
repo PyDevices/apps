@@ -58,7 +58,7 @@ def fetch(package_json, dest, skip=(), raw=RAW):
 
 
 def main():
-    fetch("midiports/package.json", DEST, SKIP,
+    fetch("packages/midiports/package.json", DEST, SKIP,
           "https://raw.githubusercontent.com/PyDevices/pydevices/%s/" % MIDIPORTS)
     # The engine process is an hmilink device and the UI one of its panels
     # (desktop/device.py, desktop/linkrunner.py).
