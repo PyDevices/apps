@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: MIT
 """touchkit's Home button: the board's boot script only makes a TouchShell."""
 
+import contextlib
+import io
 import os
 import sys
 import types
@@ -166,3 +168,36 @@ class ClockOnJoinTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class OfflineJoinTest(unittest.TestCase):
+    """An offline board joins through wifi_manager, which CircuitPython has too."""
+
+    def _up(self, wifi, manager):
+        fakes = {
+            "lvgl": mock.MagicMock(),
+            "wifi": wifi,
+            "wifi_manager": manager,
+            "webrepl": mock.MagicMock(),
+            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+        }
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                results = [net.up() for _ in range(3)]
+            sys.modules.pop("touchkit.net", None)
+        return results, out.getvalue()
+
+    def test_circuitpython_joins_through_wifi_manager_without_printing_an_error(self):
+        # CircuitPython's built-in wifi has a radio and nothing else.
+        wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=False))
+        manager = types.SimpleNamespace(connect=mock.MagicMock(return_value=None))
+        results, printed = self._up(wifi, manager)
+        self.assertEqual(results, [False, False, False])
+        self.assertEqual(printed, "")
+        self.assertEqual(manager.connect.call_count, 3)  # each poll tries again: the join blocks
+        self.assertEqual(manager.connect.call_args.kwargs["setup"], False)
