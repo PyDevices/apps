@@ -1,0 +1,57 @@
+{
+  "description": "Gamepad, an app for Home",
+  "target": "apps/gamepad",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "pad.py",
+      "pad.py"
+    ],
+    [
+      "watch.py",
+      "watch.py"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "deskkit",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ],
+    [
+      "touchkit",
+      "latest"
+    ],
+    [
+      "usb-hid",
+      "latest"
+    ]
+  ],
+  "upstream": [
+    [
+      "requests",
+      "latest"
+    ]
+  ],
+  "circuitpython": [
+    [
+      "adafruit_requests",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

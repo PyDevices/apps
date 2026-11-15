@@ -59,6 +59,7 @@ jobs:
       bit_world: ${{ steps.scope.outputs.bit_world }}
       camera: ${{ steps.scope.outputs.camera }}
       app_packages: ${{ steps.scope.outputs.app_packages }}
+      gamepad: ${{ steps.scope.outputs.gamepad }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -79,6 +80,7 @@ jobs:
             echo "bit_world=true" >> "$GITHUB_OUTPUT"
             echo "camera=true" >> "$GITHUB_OUTPUT"
             echo "app_packages=true" >> "$GITHUB_OUTPUT"
+            echo "gamepad=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "$BASE...$GITHUB_SHA")
@@ -91,6 +93,7 @@ jobs:
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -217,6 +220,45 @@ jobs:
 
       - name: The apps' package.json files are up to date
         run: python tools/app_packages.py --check
+
+  # The Gamepad app on CPython against pydevices' usb-hid and usb-host-hid from
+  # its main branch, on a display with no window: a press on the gamepad's
+  # screen is read back by the tester's.
+  gamepad:
+    needs: scope
+    if: needs.scope.outputs.gamepad == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: studio
+
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/pydevices
+          path: pydevices
+          sparse-checkout: |
+            lib
+            packages/usb
+            packages/iconkit/lib
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install LVGL for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl
+
+      - name: The Gamepad app's tests
+        working-directory: studio
+        env:
+          PYDEVICES_DIR: ${{ github.workspace }}/pydevices
+          GAMEPAD_REQUIRE: "1"
+          SDL_VIDEODRIVER: dummy
+        run: python -m unittest tests.test_gamepad -v
 
   # Bit World's tests on CPython, against the released pydevices, pygraphics
   # and audiodsp, on a display with no window: the partial repaint matches a
