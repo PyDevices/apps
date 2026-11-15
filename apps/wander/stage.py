@@ -190,26 +190,39 @@ class Stage:
         self.cues = []
         #: What the work cost, for whoever is timing it. Microseconds in
         #: ``build`` (the shapes and their text, in Python), ``tidy`` (the
-        #: collection before a parse), ``parse`` and ``draw`` (svgio); how many
-        #: ``scenes`` and ``poses`` were drawn; the longest tick while a place
-        #: was loading and while it was showing; milliseconds from opening to
-        #: the first place, the first pose and the first step of a walk; and
-        #: the most bytes of picture ever held.
+        #: collection as a place or the colours change), ``alloc`` (finding a
+        #: pose's buffer), ``parse`` and ``draw`` (svgio), with the longest
+        #: parse and draw of a pose; how many ``scenes`` and ``poses`` were
+        #: drawn; the longest tick while a place was loading and while it was
+        #: showing, how many showing ticks took over 150 ms, and what the
+        #: slowest was doing; milliseconds from the last change being asked for
+        #: to its picture and to the chameleon standing in it, and from opening
+        #: to the first tick, place, pose and step of a walk; and the most
+        #: bytes of picture ever held.
         self.stats = {
             "build": 0,
             "tidy": 0,
+            "alloc": 0,
+            "parse_max": 0,
+            "draw_max": 0,
             "parse": 0,
             "draw": 0,
             "scenes": 0,
             "poses": 0,
             "tick_load_us": 0,
             "tick_show_us": 0,
+            "slow_ticks": 0,
+            "slowest": None,
+            "picture_ms": None,
+            "change_ms": None,
+            "first_tick_ms": None,
             "first_picture_ms": None,
             "first_pose_ms": None,
             "first_walk_ms": None,
             "peak": 0,
         }
         self._born = time.ticks_ms()
+        self._asked = self._born  # when the change being drawn was asked for
         self._decoder = svgio.SvgDecoder()
         self._docs = {}  # (place, what the ground shows) -> its shapes
         self._doc_order = []
@@ -218,6 +231,9 @@ class Stage:
         self._bytes = 0
         self._shown = None
         self._made = None  # the last pose drawn that isn't kept
+        self._loose = None  # the pose on screen, when it isn't one of the kept
+        self._pool = {}  # size -> buffers let go, to draw into again
+        self._pooled = 0
         self._wanted = []  # poses to draw ahead, soonest first
         self._maker = None  # the pose being drawn, a step a tick
         self._making = None
@@ -229,18 +245,18 @@ class Stage:
         self._air = []
         self._air_kind = None
         self._ticks = 0
+        self._step = None  # what the pose being drawn did this tick, for `stats`
         #: True while a place, a variant or a view is being changed.
         self.busy = True
         #: The pose on screen, as `Stage` names poses, or None.
         self.pose = None
 
         # the place: one buffer, navy until the first one is drawn
+        # svgio fills it: a row at a time from Python takes seconds on a board
         self._ground = bytearray(self.w * (self.h + 2) * 2)
-        c = ((NAVY >> 8) & 0xF800) | ((NAVY >> 5) & 0x07E0) | ((NAVY >> 3) & 0x1F)
-        row = bytes((c & 255, c >> 8)) * self.w
-        rows = memoryview(self._ground)
-        for y in range(self.h + 2):
-            rows[y * self.w * 2 : (y + 1) * self.w * 2] = row
+        fill = '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d"><rect width="%d" height="%d" fill="#%06x"/></svg>'
+        self._decoder.open((fill % (self.w, self.h, self.w, self.h, NAVY)).encode())
+        self._decoder.decode(self._ground, stride=self.w)
         self._ground_dsc = self._descriptor(self._ground, self.w, self.h, lv.COLOR_FORMAT.RGB565)
         self.ground = lv.image(root)
         self.ground.set_src(self._ground_dsc)
@@ -279,7 +295,9 @@ class Stage:
 
     def held_bytes(self):
         """Bytes of picture held now: the place, the poses, the bug."""
-        total = len(self._ground) + self._bytes
+        total = len(self._ground) + self._bytes + self._pooled
+        if self._loose is not None:
+            total += len(self._loose[1])
         if self._bug_frame:
             total += len(self._bug_frame[1])
         if self._made is not None:
@@ -297,12 +315,35 @@ class Stage:
             self.stats[what] = time.ticks_diff(time.ticks_ms(), self._born)
 
     def _tidy(self):
-        # MicroPython looks for free memory from the first gap on, past everything
-        # used or dropped since the last collection. svgio's parse asks hundreds of
-        # times, so collecting first makes it quicker than the collection costs.
+        # svgio asks MicroPython for memory hundreds of times in a parse, and
+        # each request is looked for from the first free block on, past every
+        # picture held and everything dropped since the last collection: on an
+        # ESP32-P4 a place parsed in 0.8 s just after one and in 5 s without.
+        # A collection also reads every picture held (0.4 s for six megabytes
+        # of them), so the poses and spare buffers are let go first.
         t0 = time.ticks_us()
+        self._pool = {}
+        self._pooled = 0
         gc.collect()
         self._since(t0, "tidy")
+
+    def _buffer(self, size):
+        """A buffer of *size* bytes for a picture: one let go earlier, if there is one.
+
+        Poses of one kind are all one size, so taking them from a pool leaves
+        the heap as it was, where new megabytes each time would fill it with gaps.
+        """
+        spare = self._pool.get(size)
+        if spare:
+            self._pooled -= size
+            return spare.pop()
+        return bytearray(size)
+
+    def _spare(self, data):
+        size = len(data)
+        if self._pooled + size <= CACHE_BYTES:
+            self._pool.setdefault(size, []).append(data)
+            self._pooled += size
 
     # -- where things are -----------------------------------------------
 
@@ -339,7 +380,7 @@ class Stage:
         return (spec, self._facing < 0, scheme or self.scheme)
 
     def _make(self, spec, scheme=None, keep=True):
-        """Draw the pose *spec* in three steps: its shapes, the parse, the picture.
+        """Draw the pose *spec* in four steps: its shapes, the parse, its buffer, the picture.
 
         A generator: each ``next`` does one step. The pose is kept under its
         key, or left in ``_made`` when it isn't to be kept.
@@ -370,19 +411,28 @@ class Stage:
         text = doc.svg((rx, ry, rw, rh)).encode()
         doc = body = None
         self._since(t0, "build")
+        self._step = ("build", spec)
         yield
-        self._tidy()
         t0 = time.ticks_us()
         # a decoder of its own: the place may be parsed between these steps
         decoder = svgio.SvgDecoder()
         w, h = decoder.open(text, width=max(2, int(rw * k * s + 0.5)))
         text = None
+        self.stats["parse_max"] = max(self.stats["parse_max"], time.ticks_diff(time.ticks_us(), t0))
         self._since(t0, "parse")
+        self._step = ("parse", spec)
         yield
+        self._step = ("alloc", spec)
         t0 = time.ticks_us()
-        data = bytearray(w * h * 3)
+        data = self._buffer(w * h * 3)
+        self._since(t0, "alloc")
+        yield
+        self._step = ("draw", spec)
+        t0 = time.ticks_us()
         planes = memoryview(data)
         decoder.decode(planes[: w * h * 2], planes[w * h * 2 :])
+        planes = decoder = None
+        self.stats["draw_max"] = max(self.stats["draw_max"], time.ticks_diff(time.ticks_us(), t0))
         self._since(t0, "draw")
         self.stats["poses"] += 1
         frame = (self._descriptor(data, w, h, lv.COLOR_FORMAT.RGB565A8), data, round(rx * k * s), round(ry * k * s))
@@ -452,6 +502,7 @@ class Stage:
         frame = self._frames.pop(key)
         self._order.remove(key)
         self._bytes -= len(frame[1])
+        self._spare(frame[1])
         # LVGL may remember a picture by its address, which the next one could be given
         lv.image.cache_drop(frame[0])
         lv.image.header_cache_drop(frame[0])
@@ -473,6 +524,14 @@ class Stage:
             self._first("first_walk_ms")
 
     def _put(self, frame, spec):
+        if self._loose is not None and self._loose is not frame:
+            # the pose it was showing wasn't kept: its buffer can be used again
+            lv.image.cache_drop(self._loose[0])
+            lv.image.header_cache_drop(self._loose[0])
+            self._spare(self._loose[1])
+            self._loose = None
+        if frame not in self._frames.values():
+            self._loose = frame
         self._shown = frame
         self.pose = spec
         self.hue.set_src(frame[0])
@@ -528,9 +587,10 @@ class Stage:
     def _change(self, place, variant, view):
         """Go to a place, a variant of it and a view: the steps, one a tick.
 
-        The place takes three: its shapes are built, parsed, then drawn over
-        the old picture in one go. Where only the colours change, the
-        chameleon is redrawn part way to the new ones between those steps.
+        After a collection the place takes three: its shapes are built,
+        parsed, then drawn over the old picture in one go. Where only the colours change, the
+        chameleon is then redrawn part way to the new ones, twice, on its way
+        to them.
         """
         self.busy = True
         self._life = None
@@ -553,27 +613,24 @@ class Stage:
         rest = self._rest()
         blends = []
         if not moved and old_scheme and old_scheme != new_scheme and rest[0] != "sleep" and not was_asleep:
-            blends = [chameleon_shift.between(old_scheme, new_scheme, t) for t in (0.25, 0.5, 0.75)]
+            blends = [chameleon_shift.between(old_scheme, new_scheme, t) for t in (0.33, 0.67)]
         if old_scheme != new_scheme:
             # nothing drawn in the old colours will be wanted again
             self._forget()
+        if moved or old_scheme != new_scheme:
+            self._tidy()
+            yield
         if self._painted != (place, self._ground_key(), view):
             doc = self._shapes()
             yield
-            if blends:
-                yield from self._blend(rest, blends.pop(0))
             t0 = time.ticks_us()
             text = doc.svg(self._rect).encode()
             doc = None
-            self._since(t0, "build")
-            self._tidy()
-            t0 = time.ticks_us()
+            t0 = self._since(t0, "build")
             self._decoder.open(text, width=self.w)
             text = None
             self._since(t0, "parse")
             yield
-            if blends:
-                yield from self._blend(rest, blends.pop(0))
             t0 = time.ticks_us()
             self._decoder.decode(self._ground, stride=self.w)
             self._since(t0, "draw")
@@ -584,6 +641,7 @@ class Stage:
                 self._shown = self.pose = None
             self._painted = (place, self._ground_key(), view)
             self._first("first_picture_ms")
+            self.stats["picture_ms"] = time.ticks_diff(time.ticks_ms(), self._asked)
             self._set_air()
             yield
         else:
@@ -596,6 +654,7 @@ class Stage:
         self.scheme = new_scheme
         yield from self._make(rest)
         self._show(rest)
+        self.stats["change_ms"] = time.ticks_diff(time.ticks_ms(), self._asked)
         self._forget(new_scheme)
         self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
         # what it will want next, drawn ahead while it stands there
@@ -633,7 +692,8 @@ class Stage:
                 yield from self._ready(rest)
             self._show(rest)
             yield pause
-            pause = 12 + self.random.below(30)
+            # what it was asked to do comes promptly; its own ideas take their time
+            pause = 6 if self.cues else 12 + self.random.below(30)
             if self.cues:
                 what = self.cues.pop(0)
             else:
@@ -838,6 +898,7 @@ class Stage:
         """One step: part of a place or a pose drawn, a picture changed, the air moved."""
         t0 = time.ticks_us()
         self._ticks += 1
+        self._first("first_tick_ms")
         loading = self._loader is not None
         if loading:
             try:
@@ -860,6 +921,11 @@ class Stage:
         longest = "tick_load_us" if loading else "tick_show_us"
         if spent > self.stats[longest]:
             self.stats[longest] = spent
+        if spent > 150000 and not loading:
+            self.stats["slow_ticks"] += 1
+        if not loading and spent == self.stats["tick_show_us"]:
+            self.stats["slowest"] = (self._step, self.pose)
+        self._step = None
 
     def go(self, place=None, variant=None, view=None):
         """Show *place* (its first variant unless given), or another *view* of this one.
@@ -872,6 +938,7 @@ class Stage:
         place = place or self.place
         if variant is None:
             variant = self.variant if place == self.place else PLACES[place]["variants"][0]
+        self._asked = time.ticks_ms()
         self._loader = self._change(place, variant, view or self.view)
         return True
 
@@ -912,6 +979,8 @@ class Stage:
         self._wanted = []
         self._docs = {}
         self._doc_order = []
-        self._shown = self._made = self._bug_frame = self.pose = None
+        self._shown = self._made = self._loose = self._bug_frame = self.pose = None
+        self._pool = {}
+        self._pooled = 0
         self._bytes = 0
         self._air = []

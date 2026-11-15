@@ -108,7 +108,7 @@ class Film:
 
     def report(self):
         s = self.stage.stats
-        print("svgio: shapes and text built %d ms, garbage collected %d ms, parsed %d ms, drawn %d ms; %d scenes, %d poses" % (s["build"] // 1000, s["tidy"] // 1000, s["parse"] // 1000, s["draw"] // 1000, s["scenes"], s["poses"]))
+        print("svgio: shapes and text built %d ms, garbage collected %d ms, buffers found %d ms, parsed %d ms, drawn %d ms; %d scenes, %d poses" % (s["build"] // 1000, s["tidy"] // 1000, s["alloc"] // 1000, s["parse"] // 1000, s["draw"] // 1000, s["scenes"], s["poses"]))
         print("longest tick: %d us while a place loads, %d us while it shows" % (s["tick_load_us"], s["tick_show_us"]))
         print("from opening: first place %s ms, first pose %s ms, first step of a walk %s ms" % (s["first_picture_ms"], s["first_pose_ms"], s["first_walk_ms"]))
         print("LVGL frame: mean %d us, slowest %d us, over %d frames" % (self.lvgl_us // max(self.steps, 1), self.lvgl_max, self.steps))
