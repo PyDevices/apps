@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.2.dev10
+
+- touchkit.net: an offline CircuitPython board keeps its screen. A join there holds the screen for about 10 s, and one used to start on every poll; now a failed join waits 30 s before the next, doubling to 5 minutes. `keep_time()` raises a `RuntimeError` when LVGL hasn't started, where it used to crash the interpreter.
+- Bit World makes its four full-screen buffers first, so it fits on an 800x480 panel.
+
 ## 0.1.2.dev9
 
 - touchkit.net: an offline CircuitPython board joins Wi-Fi through wifi_manager, where it used to print an error every few seconds and never join.
