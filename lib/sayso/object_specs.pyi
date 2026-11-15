@@ -1,6 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-from _typeshed import Incomplete
+"""Declarative descriptions of the Spotify object classes."""
 
-SPOTIFY_OBJECT_SPECS: Incomplete
+from typing import Any
+
+SPOTIFY_OBJECT_SPECS: tuple[dict[str, Any], ...]

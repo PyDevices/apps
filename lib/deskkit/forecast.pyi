@@ -1,21 +1,40 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
+"""deskkit.forecast: the place you've chosen and its weather, from Open-Meteo."""
+from collections.abc import Callable
+from typing import Any, Protocol
+
 from . import localtime as localtime
-from _typeshed import Incomplete
 
-MAX_AGE_S: Incomplete
-RETRY_S: Incomplete
-latest: Incomplete
-last_error: Incomplete
-ip_place: Incomplete
+class _Worker(Protocol):
+    def submit(self, work: Callable[[], Any], done: Callable[[Any, Any], None] | None = None, *, key: str | None = None) -> Any: ...
 
-def place(): ...
-def current(): ...
-def choose(zip_code): ...
-def set_units(units) -> None: ...
-def degrees(fahrenheit): ...
-def parse(reply): ...
-def fetch(): ...
-def is_stale(): ...
-def keep_fresh(scope, on_update=None) -> None: ...
+class _AppScope(Protocol):
+    worker: _Worker
+    def every(self, ms: int, callback: Callable[..., None]) -> Any: ...
+
+MAX_AGE_S: int
+RETRY_S: int
+latest: dict[str, Any] | None
+last_error: BaseException | None
+ip_place: dict[str, Any] | None
+
+def place() -> dict[str, Any] | None:
+    """Return the saved place as a dict, or None before one is chosen."""
+def current() -> dict[str, Any] | None:
+    """Return the place the forecast is for: the chosen one, else the one from the board's IP address, else None."""
+def choose(zip_code: str) -> dict[str, Any]:
+    """Look up `zip_code` and make it the place. It blocks: call it from a worker."""
+def set_units(units: str) -> None:
+    """Show temperatures in `units`, `"F"` or `"C"`, from now on."""
+def degrees(fahrenheit: float) -> int:
+    """Return a Fahrenheit reading as whole degrees in the chosen units."""
+def parse(reply: dict[str, Any]) -> dict[str, Any]:
+    """Turn an Open-Meteo reply into the plain dict the apps show."""
+def fetch() -> bool:
+    """Get the forecast now, and keep the clock right. It blocks: call it from a worker."""
+def is_stale() -> bool:
+    """Return True when a fetch is due: the data is old and no try was recent."""
+def keep_fresh(scope: _AppScope, on_update: Callable[[], None] | None = None) -> None:
+    """Fetch whenever the forecast goes stale, for as long as `scope` is open."""

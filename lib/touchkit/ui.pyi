@@ -1,32 +1,53 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-from _typeshed import Incomplete
+"""The board's look, and the few widgets its apps build from."""
+
+from typing import Any, Callable
+
+from appkit.scope import AppScope
 
 HEADER: int
 HOME_W: int
-font: Incomplete
-small: Incomplete
-tiny: Incomplete
-big: Incomplete
-huge: Incomplete
-BG: Incomplete
-PANEL: Incomplete
-KEY: Incomplete
-ACCENT: Incomplete
-WARN: Incomplete
-BAD: Incomplete
-GOOD: Incomplete
-MUTED: Incomplete
-WHITE: Incomplete
+font: Any
+small: Any
+tiny: Any
+big: Any
+huge: Any
+BG: Any
+PANEL: Any
+KEY: Any
+ACCENT: Any
+WARN: Any
+BAD: Any
+GOOD: Any
+MUTED: Any
+WHITE: Any
 
-def apply_theme() -> None: ...
-def plain(obj): ...
-def status(scope): ...
-def missing(scope, short, text): ...
-def label(parent, text: str = '', font=None, color=None): ...
-def button(parent, text, cb, w=None, h=None, font=None, color=None): ...
-def box(parent, x, y, w, h, color=None): ...
-def frame(parent, x, y, w, h): ...
-def rgb565_image(img, pixels, w, h, keep) -> None: ...
-def decode_jpeg(data, max_w, max_h=None): ...
+def apply_theme() -> None:
+    """The dark theme in the board's colours, on the default display."""
+def plain(obj: Any) -> Any:
+    """`obj` with no style of its own and no scrolling: a bare area."""
+def status(scope: AppScope) -> Any:
+    """The app's status line label."""
+def missing(scope: AppScope, short: str, text: str) -> Any:
+    """Say an app can't run here: `short` on the status line and `text` in the middle."""
+def label(parent: Any, text: str = "", font: Any = None, color: Any = None) -> Any: ...
+def button(
+    parent: Any,
+    text: str,
+    cb: Callable[[], Any],
+    w: int | None = None,
+    h: int | None = None,
+    font: Any = None,
+    color: Any = None,
+) -> tuple[Any, Any]:
+    """A button that calls `cb()` when tapped. Returns `(button, label)`."""
+def box(parent: Any, x: int, y: int, w: int, h: int, color: Any = None) -> Any:
+    """A plain rectangle (a card or a panel) at a fixed place."""
+def frame(parent: Any, x: int, y: int, w: int, h: int) -> Any:
+    """A thin border round a picture drawn straight into the framebuffer."""
+def rgb565_image(img: Any, pixels: bytearray | bytes, w: int, h: int, keep: dict[int, Any]) -> None:
+    """Show `pixels` (RGB565, `w` x `h`) in LVGL image `img`; `keep` holds the buffer for as long as it shows."""
+def decode_jpeg(data: bytes | bytearray | memoryview, max_w: int, max_h: int | None = None) -> tuple[bytearray, int, int]:
+    """`(pixels, w, h)`: JPEG `data` decoded to RGB565, scaled down by halves to fit."""

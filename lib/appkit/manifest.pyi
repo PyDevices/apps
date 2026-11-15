@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-from _typeshed import Incomplete
+from importlib.machinery import ModuleSpec
+from types import ModuleType
 
-spec: Incomplete
-index: Incomplete
+spec: ModuleSpec | None
+index: ModuleType

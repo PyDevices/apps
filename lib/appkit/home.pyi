@@ -1,4 +1,8 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-def main(scope): ...
+"""The home screen: a button for each app."""
+
+from .scope import AppScope
+
+def main(scope: AppScope) -> None: ...

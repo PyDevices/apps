@@ -1,6 +1,6 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-from _typeshed import Incomplete
+"""Sleeping for milliseconds on every interpreter."""
 
-sleep_ms: Incomplete
+def sleep_ms(ms: int) -> None: ...

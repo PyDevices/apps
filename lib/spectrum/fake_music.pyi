@@ -1,31 +1,36 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
+"""Band levels that move like a band playing, with no audio."""
+
 from .spectrum_view import band_centres as band_centres
-from _typeshed import Incomplete
 
 BEAT: float
 LOOP: float
 FLOOR_DB: float
-CHORDS: Incomplete
-PENTA: Incomplete
+CHORDS: tuple[tuple[float, tuple[float, float, float]], ...]
+PENTA: tuple[float, ...]
 
 class XorShift:
-    s: Incomplete
-    def __init__(self, seed) -> None: ...
-    def next(self): ...
-    def uniform(self): ...
+    """A seeded xorshift random number generator."""
+
+    s: int
+    def __init__(self, seed: int) -> None: ...
+    def next(self) -> int: ...
+    def uniform(self) -> float: ...
 
 class FakeMusic:
-    n: Incomplete
-    seed: Incomplete
-    oct: Incomplete
-    bw_oct: Incomplete
-    sigma: Incomplete
-    tilt: Incomplete
-    snare_w: Incomplete
-    hat_w: Incomplete
-    room_w: Incomplete
-    kick_click_w: Incomplete
-    def __init__(self, bands, seed: int = 2026) -> None: ...
-    def levels(self, t): ...
+    """Band levels for time `t` seconds, over log-spaced bands."""
+
+    n: int
+    seed: int
+    oct: list[float]
+    bw_oct: float
+    sigma: float
+    tilt: list[float]
+    snare_w: list[float]
+    hat_w: list[float]
+    room_w: list[float]
+    kick_click_w: list[float]
+    def __init__(self, bands: int, seed: int = 2026) -> None: ...
+    def levels(self, t: float) -> list[float]: ...

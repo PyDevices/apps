@@ -1,17 +1,33 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-from . import localtime as localtime
-from _typeshed import Incomplete
-from appkit import Shell
+"""deskkit.shell: swipe between apps, drift back to the first, and sleep at night."""
+from typing import Any
 
-def is_awake(hour, weekday, awake, weekends): ...
-def tune_touch(indev) -> None: ...
+from appkit.shell import Shell
+from appkit.launcher import Launcher
+
+from . import localtime as localtime
+
+def is_awake(hour: int, weekday: int, awake: tuple[int, int] | None, weekends: bool) -> bool:
+    """Return True when the screen belongs on at this time."""
+def tune_touch(indev: Any) -> None:
+    """Make a one-finger swipe easy on `indev`."""
 
 class DeskShell(Shell):
-    apps: Incomplete
-    awake: Incomplete
-    weekends: Incomplete
-    idle_ms: Incomplete
-    def __init__(self, launcher, apps, *, awake, weekends, idle_ms) -> None: ...
-    def make_root(self, scope): ...
+    """Give each app the whole screen, with no buttons around it."""
+
+    apps: tuple[str, ...]
+    awake: tuple[int, int] | None
+    weekends: bool
+    idle_ms: int
+    def __init__(
+        self,
+        launcher: Launcher,
+        apps: tuple[str, ...],
+        *,
+        awake: tuple[int, int] | None,
+        weekends: bool,
+        idle_ms: int,
+    ) -> None: ...
+    def make_root(self, scope: Any) -> Any: ...

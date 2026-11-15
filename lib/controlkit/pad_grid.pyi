@@ -1,16 +1,33 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-from ._draw import box as box, fill as fill, plain as plain
-from ._safe import safe as safe
-from _typeshed import Incomplete
+"""A grid of illuminated pads, each lit in any colour, as a step or session grid."""
+from collections.abc import Callable
+from typing import Any
+
+from .theme import _Theme
 
 class PadGrid:
-    theme: Incomplete
-    cols: Incomplete
-    rows: Incomplete
-    on_press: Incomplete
-    colors: Incomplete
-    obj: Incomplete
-    def __init__(self, parent, x, y, width, height, theme, cols: int = 8, rows: int = 2, gap: int = 4, on_press=None) -> None: ...
-    def set_color(self, index, rgb) -> None: ...
+    """A grid of `cols` x `rows` pads in `width` x `height` at (`x`, `y`) in `parent`."""
+
+    theme: _Theme
+    cols: int
+    rows: int
+    on_press: Callable[[PadGrid, int], None] | None
+    colors: list[int | None]
+    obj: Any
+    def __init__(
+        self,
+        parent: Any,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        theme: _Theme,
+        cols: int = 8,
+        rows: int = 2,
+        gap: int = 4,
+        on_press: Callable[[PadGrid, int], None] | None = None,
+    ) -> None: ...
+    def set_color(self, index: int, rgb: int | None) -> None:
+        """Light pad `index` in `rgb`, or put it out with None."""
