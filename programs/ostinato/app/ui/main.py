@@ -41,6 +41,8 @@ from files import Files
 ENGINES = int(os.environ.get("ENGINES", "1"))
 DEBUG = bool(os.environ.get("OSTINATO_DEBUG"))
 BASE = os.environ.get("BASE", "")
+# Device pixels to a CSS pixel (the page's devicePixelRatio): what tells a phone from a small window.
+DPR = float(os.environ.get("DPR", "1"))
 
 W = board_config.display_drv.width
 H = board_config.display_drv.height
@@ -122,9 +124,9 @@ class Ostinato:
         from tracks import TrackList
         from transport import TransportBar
 
-        L = layout.pick(W, H)
+        L = layout.pick(W, H, DPR)
         self.layout = L
-        theme.setup(L["scale"])
+        theme.setup(L["scale"], L.get("touch", 0))
         self.screen.clean()
         from tooltip import Tips
         self.tips = Tips(self.screen)
@@ -136,6 +138,12 @@ class Ostinato:
         self.inspector = Inspector(self.screen, L["inspector"], self)
         self.keyboard = Keyboard(self.screen, L["keys"], self)
         self.status = StatusBar(self.screen, L["status"])
+        self.pages = L.get("pages", ())
+        self.page = None
+        if self.pages:
+            from tabs import Tabs
+            self.tab_bar = Tabs(self.screen, L["tabs"], self)
+            self.show_page(self.pages[0])
         self.tracks.show_selected(self.selected)
         self.inspector.show(self.selected)
         self.editor.show(self.selected)
@@ -407,6 +415,29 @@ class Ostinato:
             self.editor.root.remove_flag(lv.OBJ_FLAG.HIDDEN)
             if self.song_view is not None:
                 self.song_view.root.add_flag(lv.OBJ_FLAG.HIDDEN)
+        if self.page is not None:
+            self.show_page(self.page)
+
+    def page_roots(self, name):
+        """The panels page ``name`` shows (the editor's is the song's scenes while they're up)."""
+        if name == "editor":
+            return [self.song_view.root if self.song_shown and self.song_view is not None else self.editor.root]
+        return [{"tracks": self.tracks, "inspector": self.inspector, "keys": self.keyboard}[name].root]
+
+    def show_page(self, name):
+        """On a phone: show one page (``layout.phone``'s ``pages``) and hide the rest."""
+        self.page = name
+        shown = self.page_roots(name)
+        hidden = [r for n in self.pages for r in self.page_roots(n) if r not in shown]
+        if self.song_view is not None and self.song_view.root not in shown:
+            hidden.append(self.song_view.root)
+        if self.editor.root not in shown:
+            hidden.append(self.editor.root)
+        for r in hidden:
+            r.add_flag(lv.OBJ_FLAG.HIDDEN)
+        for r in shown:
+            r.remove_flag(lv.OBJ_FLAG.HIDDEN)
+        self.tab_bar.show(name)
 
     def playing_scene(self):
         """The scene under the playhead, or None (stopped, or not in song mode)."""
@@ -716,7 +747,10 @@ class Ostinato:
         g["status_right"] = self.status.right.get_text()
         g["selection"] = sorted(self.editor.selection)
         g["canvas"] = [W, H]
-        g["regions"] = {k: list(v) for k, v in self.layout.items() if k != "scale"}
+        g["regions"] = {k: list(v) for k, v in self.layout.items() if k in REGIONS}
+        g["dpr"], g["touch"], g["page"] = DPR, self.layout.get("touch", 0), self.page
+        if self.page is not None:
+            g["tabs"] = [rect(b.obj) for b in self.tab_bar.buttons]
         g["pans"] = [rect(r["pan"].root) for r in self.tracks.rows if r.get("pan") is not None]
         g["note_info"] = self.editor.note_info.get_text() if getattr(self.editor, "note_info", None) else None
         g["knob_rects"] = [rect(k.root) for k in self.inspector.knobs]
@@ -787,6 +821,7 @@ class Ostinato:
         self.transport.show_history(bool(self.history.undo_steps), bool(self.history.redo_steps))
 
 
+REGIONS = ("top", "tracks", "editor", "inspector", "keys", "tabs", "status")
 NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
 
 

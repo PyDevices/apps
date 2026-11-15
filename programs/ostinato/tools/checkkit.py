@@ -41,10 +41,11 @@ PORT = 8770
 
 
 class Session:
-    def __init__(self, cdp="", port=PORT, size=None):
+    def __init__(self, cdp="", port=PORT, size=None, dpr=None):
         self.cdp = cdp
         self.port = port
         self.size = size       # "WxH": the headless browser's window, instead of 1920x1080
+        self.dpr = dpr         # device pixels to a CSS pixel (a phone's is 2 or 3), instead of 1
         self.log = []          # the page's console lines with errors in them
         self.navigations = 0   # page loads, the checks' own and any other (a window resize reloads)
         self.expected = 0      # of those, the ones a check asked for
@@ -62,7 +63,8 @@ class Session:
         else:
             self.browser = self.pw.chromium.launch(args=["--autoplay-policy=no-user-gesture-required"])
             width, height = (int(n) for n in (self.size or "1920x1080").split("x"))
-            self.ctx = self.browser.new_context(viewport={"width": width, "height": height})
+            self.ctx = self.browser.new_context(viewport={"width": width, "height": height},
+                                                device_scale_factor=self.dpr or 1)
         for script in ("fake_webmidi.js", "fake_pickers.js"):
             self.ctx.add_init_script(path=str(ROOT / "tools" / script))
         self.page = self.ctx.new_page()
@@ -276,6 +278,8 @@ def add_session_args(ap):
                     help="run against the desktop app (python -m ostinato) with this runner instead of a browser")
     ap.add_argument("--size", default=None,
                     help="a WxH window: on the desktop instead of maximised, in the headless browser instead of 1920x1080")
+    ap.add_argument("--dpr", type=float, default=None,
+                    help="the headless browser's device pixels to a CSS pixel (a phone's is 2 or 3), instead of 1")
 
 
 def session(a):
@@ -284,7 +288,7 @@ def session(a):
         from desktopkit import DesktopSession
 
         return DesktopSession(a.desktop, size=getattr(a, "size", None))
-    return Session(a.cdp, size=getattr(a, "size", None))
+    return Session(a.cdp, size=getattr(a, "size", None), dpr=getattr(a, "dpr", None))
 
 
 def report(name, results):

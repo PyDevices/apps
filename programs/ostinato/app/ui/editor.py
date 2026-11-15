@@ -14,7 +14,7 @@ import catalog
 import fonts
 from songmodel import model
 import theme
-from theme import px
+from theme import px, tap
 
 BARS = (1, 2, 4)
 NOTE_NAMES = ("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
@@ -25,6 +25,11 @@ class Editor:
         self.app = app
         self.rect = rect
         self.root = theme.panel(parent, rect)
+        if theme.T:
+            # A phone: rows a fingertip tall run past the screen, a bar of steps
+            # fills its width, and the page scrolls down and across to the rest.
+            self.root.add_flag(lv.OBJ_FLAG.SCROLLABLE)
+            self.root.set_scroll_dir(lv.DIR.ALL)
         self.view = None
         self.track_id = None
         self.low = 48                 # piano roll's lowest visible pitch
@@ -66,42 +71,52 @@ class Editor:
         idx = self.app.project["tracks"].index(t)
         self.colour = theme.track_colour(idx)
         head_h = px(52)
+        bh = tap(36)
+        # On a phone the piano roll's tools and the note's words get a second row.
+        second = bool(theme.T) and t["kind"] != "drums"
         title = theme.label(self.root, "%s   pattern %s" % (t["name"], "ABCDEFGH"[self.slot()]),
                             "title")
         title.set_pos(px(16), (head_h - px(26)) // 2)
         if self.app.project.get("song_mode"):
             # Editing one of the song's patterns: a way back to the scenes.
-            back = theme.button(self.root, "Song", icon="chevron_left", w=px(100), h=px(36))
+            back = theme.button(self.root, "Song", icon="chevron_left", w=px(100), h=bh)
             title.update_layout()
-            back.obj.set_pos(px(16) + title.get_width() + px(16), (head_h - px(36)) // 2)
+            back.obj.set_pos(px(16) + title.get_width() + px(16), (head_h - bh) // 2)
             back.on(lv.EVENT.CLICKED, lambda: (self.app.show_song(True), self.app.transport.refresh()))
         at = w - px(16)
-        clear = theme.button(self.root, "Clear", icon="delete", w=px(104), h=px(36))
+        if theme.T:
+            # A phone held upright: the buttons start after the title, and
+            # the page scrolls across to the rest.
+            title.update_layout()
+            start = px(16) + title.get_width() + px(16 + 116 if self.app.project.get("song_mode") else 16)
+            at = max(at, start + px(104 + 106) + px(84) * len(BARS))
+        clear = theme.button(self.root, "Clear", icon="delete", w=px(104), h=bh)
         at -= px(104)
-        clear.obj.set_pos(at, (head_h - px(36)) // 2)
+        clear.obj.set_pos(at, (head_h - bh) // 2)
         clear.on(lv.EVENT.CLICKED, self.clear)
-        copy = theme.button(self.root, "Copy", icon="content_copy", w=px(100), h=px(36))
+        copy = theme.button(self.root, "Copy", icon="content_copy", w=px(100), h=bh)
         at -= px(106)
-        copy.obj.set_pos(at, (head_h - px(36)) // 2)
+        copy.obj.set_pos(at, (head_h - bh) // 2)
         self.bar_buttons = {}
         copy.on(lv.EVENT.CLICKED, self.app.duplicate_pattern)
         self.copy_button = copy.obj
         for b in reversed(BARS):
-            btn = theme.button(self.root, "%d bar%s" % (b, "" if b == 1 else "s"), w=px(78), h=px(36), checkable=True)
+            btn = theme.button(self.root, "%d bar%s" % (b, "" if b == 1 else "s"), w=px(78), h=bh, checkable=True)
             at -= px(84)
-            btn.obj.set_pos(at, (head_h - px(36)) // 2)
+            btn.obj.set_pos(at, (head_h - bh) // 2)
             btn.checked = pat["bars"] == b
             btn.on(lv.EVENT.CLICKED, (lambda n: lambda: self.set_bars(n))(b))
             self.bar_buttons[b] = btn.obj
         self.note_info = None
         self.note_hint = "Shift-drag a note: velocity"
         if t["kind"] != "drums":
-            tools = self._roll_tools(at, head_h)
+            row_y = head_h if second else 0
+            tools = self._roll_tools(w - px(16) + px(20) if second else at, row_y, head_h)
             # The selected note, in words: pitch, length, velocity.
             self.note_info = theme.label(self.root, self.note_hint, "muted")
             title.update_layout()
-            info_x = px(16) + title.get_width() + px(130 if self.app.project.get("song_mode") else 20)
-            self.note_info.set_pos(info_x, (head_h - px(18)) // 2)
+            info_x = px(16) if second else px(16) + title.get_width() + px(130 if self.app.project.get("song_mode") else 20)
+            self.note_info.set_pos(info_x, row_y + (head_h - px(18)) // 2)
             self.note_info.update_layout()
             room = tools - px(8) - info_x
             if self.note_info.get_width() > room:
@@ -111,31 +126,34 @@ class Editor:
                 self.note_hint = ""
                 self.note_info.set_long_mode(lv.label.LONG_MODE.WRAP)
                 self.note_info.set_size(max(1, room), 2 * lh)
-                self.note_info.set_y((head_h - 2 * lh) // 2)
+                self.note_info.set_y(row_y + (head_h - 2 * lh) // 2)
             self.show_note_info()
+        if second:
+            head_h *= 2
         body = (0, head_h, w, h - head_h)
         if t["kind"] == "drums":
             self.view = StepGrid(self, body)
         else:
             self.view = PianoRoll(self, body)
 
-    def _roll_tools(self, at, head_h):
-        y = (head_h - px(36)) // 2
+    def _roll_tools(self, at, row_y, head_h):
+        bh = tap(36)
+        y = row_y + (head_h - bh) // 2
         items = [(None, "expand_more", "Show lower notes (or the mouse wheel)", lambda: self.shift(-12)),
                  (None, "expand_less", "Show higher notes (or the mouse wheel)", lambda: self.shift(12)),
                  ("Vel -", None, None, lambda: self.velocity(-16)), ("Vel +", None, None, lambda: self.velocity(16))]
         for label, icon, tip, fn in reversed(items):
-            b = theme.button(self.root, label or "", icon=icon, w=px(70) if label else px(44), h=px(36))
-            at -= px(76) if label else px(50)
+            b = theme.button(self.root, label or "", icon=icon, w=px(70) if label else tap(44), h=bh)
+            at -= px(76) if label else px(50) + tap(44) - px(44)
             b.obj.set_pos(at - px(20), y)
             b.on(lv.EVENT.CLICKED, fn)
             if tip:
                 self.app.tips.add(b.obj, tip)
-        rm = theme.button(self.root, icon="close", w=px(40), h=px(36))
+        rm = theme.button(self.root, icon="close", w=tap(40), h=bh)
         self.app.tips.add(rm.obj, "Delete the selected note")
-        rm.obj.set_pos(at - px(70), y)
+        rm.obj.set_pos(at - px(70) - (tap(40) - px(40)), y)
         rm.on(lv.EVENT.CLICKED, self.delete_selected)
-        return at - px(70)                # where the tools start: the note's words stop short of it
+        return at - px(70) - (tap(40) - px(40))   # where the tools start: the note's words stop short of it
 
     def show_note_info(self):
         if self.note_info is None:
@@ -342,11 +360,15 @@ class StepGrid:
         names = dict((n, name) for n, name in info["notes"])
         self.pads = [[n, names.get(n, str(n))] for n in catalog.pad_notes(t)]
         self.steps = pat["bars"] * 16
-        names_w = px(150)
+        # On a phone the names take only the room they need: the steps want every pixel across.
+        names_w = 0 if theme.T else px(150)
         self.box = theme.box(editor.root, x, y, w, h)
         rows = len(self.pads)
         top = px(8) + px(RULER)
-        row_h = min(px(44), (h - top - px(8)) // max(1, rows))
+        # On a phone every row is a fingertip tall, and the editor's page scrolls to the rest.
+        row_h = theme.T or min(px(44), (h - top - px(8)) // max(1, rows))
+        if theme.T:
+            self.box.set_height(max(h, top + row_h * rows + px(8)))
         for r, (note, name) in enumerate(self.pads):
             lb = theme.label(self.box, name, "muted")
             lb.set_pos(px(16), top + r * row_h + (row_h - px(18)) // 2)
@@ -367,6 +389,9 @@ class StepGrid:
         self.grid.set_map(self.map)
         self.grid.set_button_ctrl_all(lv.buttonmatrix.CTRL.CHECKABLE)
         gw = w - names_w - px(16)
+        if theme.T and self.steps > 16:
+            gw = gw * self.steps // 16
+            self.box.set_width(names_w + gw + px(16))
         self.grid.set_size(gw, row_h * rows)
         self.grid.set_pos(names_w, top)
         self.grid.set_style_bg_opa(0, 0)
@@ -517,9 +542,16 @@ class PianoRoll:
         keys_w = px(70)
         self.box = theme.box(editor.root, x, y, w, h)
         self.row_h = (h - px(16) - px(RULER)) // self.ROWS
+        if theme.T:
+            # A phone: rows a fingertip tall, and the page scrolls to the rest.
+            self.row_h = theme.T
+            self.box.set_height(max(h, px(16) + px(RULER) + self.ROWS * self.row_h))
         self.grid_x = keys_w
         self.grid_y = px(8) + px(RULER)
         self.grid_w = w - keys_w - px(16)
+        if theme.T and self.steps > 16:
+            self.grid_w = self.grid_w * self.steps // 16
+            self.box.set_width(keys_w + self.grid_w + px(16))
         self.cell_w = self.grid_w / self.steps
         low = editor.low
         for r in range(self.ROWS):
@@ -539,6 +571,8 @@ class PianoRoll:
         # The grid's hit area sits over the bands and takes every press.
         self.hit = theme.box(self.box, keys_w, self.grid_y, self.grid_w, self.ROWS * self.row_h)
         self.hit.add_flag(lv.OBJ_FLAG.CLICKABLE)
+        if theme.T:
+            self.hit.remove_flag(lv.OBJ_FLAG.SCROLL_CHAIN)      # a drag here moves a note, not the page
         self.hit.add_event_cb(lambda e: self.pressed(), lv.EVENT.PRESSED, None)
         self.hit.add_event_cb(lambda e: self.pressing(), lv.EVENT.PRESSING, None)
         self.hit.add_event_cb(lambda e: self.released(), lv.EVENT.RELEASED, None)

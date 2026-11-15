@@ -51,6 +51,12 @@ class Files:
         a = lv.area_t()
         anchor.get_coords(a)
         self.menu.set_pos(a.x1, a.y2 + px(4))
+        room = self.app.screen.get_height() - (a.y2 + px(4)) - px(8)
+        if self.menu.get_height() > room:
+            # A short screen (a phone on its side): the menu scrolls.
+            self.menu.set_height(room)
+            self.menu.add_flag(lv.OBJ_FLAG.SCROLLABLE)
+            self.menu.set_scroll_dir(lv.DIR.VER)
         for i, (label, icon, fn) in enumerate(items):
             b = theme.button(self.menu, label, icon=icon, w=w, h=h)
             b.obj.set_pos(px(6), px(6) + i * (h + px(4)))
