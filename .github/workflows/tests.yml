@@ -60,6 +60,7 @@ jobs:
       camera: ${{ steps.scope.outputs.camera }}
       app_packages: ${{ steps.scope.outputs.app_packages }}
       gamepad: ${{ steps.scope.outputs.gamepad }}
+      perch: ${{ steps.scope.outputs.perch }}
       midicontroller: ${{ steps.scope.outputs.midicontroller }}
     steps:
       - uses: actions/checkout@v7
@@ -82,6 +83,7 @@ jobs:
             echo "camera=true" >> "$GITHUB_OUTPUT"
             echo "app_packages=true" >> "$GITHUB_OUTPUT"
             echo "gamepad=true" >> "$GITHUB_OUTPUT"
+            echo "perch=true" >> "$GITHUB_OUTPUT"
             echo "midicontroller=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -96,6 +98,7 @@ jobs:
           echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "perch=$(has '^(apps/perch/|tests/(test_perch|perch_contract|perch_drawings|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "midicontroller=$(has '^(apps/midicontroller/|lib/(touchkit|appkit|controlkit)/|tests/(test_midicontroller|midicontroller_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
@@ -223,6 +226,31 @@ jobs:
 
       - name: The apps' package.json files are up to date
         run: python tools/app_packages.py --check
+
+  # Huey's Perch on CPython, on a display with no window, with svgio's
+  # desktop stand-in. Its MicroPython half needs a unix build with LVGL and
+  # svgio, so it skips here, loudly.
+  perch:
+    needs: scope
+    if: needs.scope.outputs.perch == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install LVGL, svgio and iconkit for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl pydevices-desktop pydevices omnipython-iconkit resvg_py pillow
+
+      - name: Perch's tests
+        env:
+          SDL_VIDEODRIVER: dummy
+        run: python -m unittest tests.test_perch -v
 
   # The Gamepad app on CPython against pydevices' usb-hid and usb-host-hid from
   # its main branch, on a display with no window: a press on the gamepad's

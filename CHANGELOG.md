@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Huey's Perch: a new app of vector art drawn by svgio. Huey, a chameleon, walks, catches bugs and changes colour at the coast, a workbench and a desk. It needs firmware with `svgio`.
+
 ## 0.1.2.dev12
 
 - Gamepad: a new app that makes the board a USB game controller, or tests a gamepad plugged into its USB host port. It needs pydevices 0.8.0.dev20 or later, and firmware that freezes `usb.host.hid_generic` for the host side.

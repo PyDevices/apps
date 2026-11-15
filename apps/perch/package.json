@@ -1,0 +1,57 @@
+{
+  "description": "Huey's Perch, an app for Home",
+  "target": "apps/perch",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "huey.py",
+      "huey.py"
+    ],
+    [
+      "huey_props.py",
+      "huey_props.py"
+    ],
+    [
+      "huey_shift.py",
+      "huey_shift.py"
+    ],
+    [
+      "huey_views.py",
+      "huey_views.py"
+    ],
+    [
+      "scene_bench.py",
+      "scene_bench.py"
+    ],
+    [
+      "scene_coast.py",
+      "scene_coast.py"
+    ],
+    [
+      "scene_desk.py",
+      "scene_desk.py"
+    ],
+    [
+      "stage.py",
+      "stage.py"
+    ],
+    [
+      "vec.py",
+      "vec.py"
+    ]
+  ],
+  "deps": [
+    [
+      "iconkit",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}
