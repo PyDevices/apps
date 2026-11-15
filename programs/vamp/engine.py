@@ -39,6 +39,7 @@ import audioinstruments._rack.soundfont as sf
 import audiomixer
 
 from songmodel import model
+from vamp import record
 
 SR = 48000
 BLOCK = 256
@@ -283,6 +284,7 @@ class BoxEngine:
         self.chokes = []          # (frame, player, exclusive class, serial): stops still to come
         self.notes_changed = True
         self.selected = None      # the track live MIDI plays
+        self.take = record.Take(self.tick_at)
         self.pads = {}            # drum track id -> its notes in grid order
         self.held = {}            # (track id, pitch) -> note id, live notes
         self._nid = 0
@@ -423,6 +425,7 @@ class BoxEngine:
 
     def stop(self):
         self.transport["playing"] = False
+        self.take.stop()
         self.stop_notes()
 
     def stop_notes(self):
@@ -635,8 +638,13 @@ class BoxEngine:
         inst = tr.inst
         if kind == 0x90 and d2:
             inst.note_on(d1, d2)
+            self.take.on(target, d1, d2, self.clock())
         elif kind in (0x80, 0x90):
             inst.note_off(d1)
+            done = self.take.off(target, d1, self.clock())
+            if done is not None:
+                self.post({"t": "recorded", "track": target, "start": done[0], "end": done[1],
+                           "pitch": d1, "velocity": done[3]})
         elif kind == 0xE0:
             inst.pitch_bend(d1 | (d2 << 7))
         elif kind == 0xB0:

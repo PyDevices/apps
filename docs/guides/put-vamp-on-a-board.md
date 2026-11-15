@@ -50,6 +50,20 @@ Every panel sees the same song, and an edit on one shows on the others while
 the box keeps playing. The options (`--port`, `--midi`, `--lookahead-ms`,
 `--seconds`) are listed at the top of [`programs/vamp/main.py`](../../programs/vamp/main.py).
 
+## Record a take
+
+Arm a track in a panel and press Record with Play, and the box writes what
+the keyboard on its USB host port plays into that track's pattern: on the
+sixteenths when the song's quantise is on, replacing the pattern when overdub
+is off, and skipping notes played in a count-in.
+
+To try it without a keyboard on Windows, make a MIDI loopback with Windows MIDI
+Services, `midi basic-loopback create --name "PyDevices Loopback"`, and play
+into it from any program. [`tools/vamp_midi_loopback_check.py`](../../tools/vamp_midi_loopback_check.py)
+does that: it runs the box on MicroPython for Windows, plays a known phrase
+into the loopback from a second process, and compares the notes in the song
+with what was played.
+
 ## Check that a box is behaving
 
 [`tools/vamp_link_check.py`](../../tools/vamp_link_check.py) drives a running

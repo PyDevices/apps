@@ -5,7 +5,7 @@
 engine whose output this check pulls, so it owns the clock) and two panels
 on hmilink TCP, the way Ostinato's window and the browser page drive it.
 
-    micropython -X heapsize=64M tests/vamp_link_contract.py BANK.sf2 [--plant nomute]
+    micropython -X heapsize=64M tests/vamp_link_contract.py BANK.sf2 [--plant nomute|norecord]
     python tests/vamp_link_contract.py BANK.sf2
 
 MICROPYPATH (or PYTHONPATH) needs the apps repo's programs/ and lib/, hmilink and the audio
@@ -159,6 +159,21 @@ def main(argv):
     rig.run(blocks=400)
     check(rig.eng.stats["notes"] > notes, "the box kept playing through the edits (%d notes)" % rig.eng.stats["notes"])
     check(rig.eng.pool.late == 0, "no late notes (%d)" % rig.eng.pool.late)
+
+    # A take, as the window starts one: arm the track, play with record on,
+    # and a keyboard on the box plays a note a beat in.
+    lead = rig.dev.model.doc["tracks"][1]["id"]
+    p.command("engines", msg={"t": "select", "track": lead, "armed": lead}, by=p.me)
+    p.command("engines", msg={"t": "transport", "play": True, "at": 0, "tick": 0.0, "record": True}, by=p.me)
+    rig.settle(lambda: rig.dev.engine.take.recording)
+    rig.run(blocks=100)
+    rig.dev.midi(0x90, 72, 100)
+    rig.run(blocks=20)
+    rig.dev.midi(0x80, 72, 0)
+    heard = [n for n in rig.dev.model.doc["tracks"][1]["patterns"][0]["notes"] if n[2] == 72]
+    check(len(heard) == 1 and heard[0][3] == 100 and heard[0][0] % model.STEP == 0,
+          "a take: the box's keyboard note is in the armed track, on a sixteenth (%s)" % heard)
+    check(rig.settle(lambda: rig.same(p)), "a take: the panel has the recorded note")
 
     p.command("stop", by=p.me)
     check(rig.settle(lambda: not rig.eng.transport["playing"]), "stop: the box stops")
