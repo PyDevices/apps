@@ -20,7 +20,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 
 # The desktop app's MIDI port and its link between processes (hmilink, and
 # the song as its model): scripts/fetch_midi.py fetches them beside the rest.
-DESKTOP_ONLY = ("vendor/lib/midiports/windows.py", "vendor/lib/midiports/loopback.py", "vendor/lib/hmilink/", "lib/songmodel/link.py")
+DESKTOP_ONLY = ("vendor/lib/midiports/windows.py", "vendor/lib/midiports/loopback.py", "vendor/lib/hmilink/", "lib/songmodel/link.py", "lib/songmodel/page_data.py")
 # songmodel (the song model Ostinato shares with Vamp) is in the apps repo's lib/, two
 # folders up; iconkit (its icons) is in the pydevices repo, where tools/iconkit_lib.py
 # finds it. The page fetches both as lib/<package>/...: tools/serve.py serves them

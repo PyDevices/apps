@@ -33,7 +33,7 @@ OSTINATO = os.path.join(ROOT, "programs", "ostinato")
 # Each package, its files, and the folder they come from in this checkout.
 PACKAGES = {
     "vamp": (["__init__.py", "engine.py", "device.py", "record.py", "main.py"], "programs"),
-    "songmodel": (["__init__.py", "model.py", "link.py", "page.html"], "lib"),
+    "songmodel": (["__init__.py", "model.py", "link.py", "page_data.py"], "lib"),
 }
 PANEL = {
     "vamp": (["__init__.py", "panel.py", "panel_view.py", "panel_main.py"], "programs"),
