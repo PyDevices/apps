@@ -236,3 +236,49 @@ class OfflineJoinTest(unittest.TestCase):
                 net.up()
                 self.assertEqual(net._retry_ms, net._CP_RETRY_MS)
             sys.modules.pop("touchkit.net", None)
+
+
+class DroppedNetworkTest(unittest.TestCase):
+    """CircuitPython's radio stops retrying, so the board's poll never stops."""
+
+    def _boot(self, wifi, joined):
+        lvgl = mock.MagicMock()
+        manager = types.SimpleNamespace(connect=mock.MagicMock(return_value="10.0.0.5" if joined else None))
+        fakes = {
+            "lvgl": lvgl,
+            "wifi": wifi,
+            "wifi_manager": manager,
+            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+        }
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            with mock.patch.object(net, "keep_time"), mock.patch.object(net, "start_webrepl"):
+                net.boot()
+                polls = lvgl.timer_create.call_args_list
+                poll = polls[0].args[0] if polls else None
+                timer = mock.MagicMock()
+                if poll:
+                    poll(timer)
+            sys.modules.pop("touchkit.net", None)
+        return poll, timer
+
+    def test_circuitpython_keeps_polling_after_joining_at_boot(self):
+        wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=True))
+        poll, timer = self._boot(wifi, joined=True)
+        self.assertIsNotNone(poll)
+        timer.delete.assert_not_called()
+
+    def test_circuitpython_keeps_polling_after_a_late_join(self):
+        wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=True))
+        poll, timer = self._boot(wifi, joined=False)
+        self.assertIsNotNone(poll)
+        timer.delete.assert_not_called()
+
+    def test_micropython_stops_polling_once_joined(self):
+        wifi = types.SimpleNamespace(radio=None, connect_from_secrets=lambda **kw: None)
+        wifi.radio = types.SimpleNamespace(connected=True)
+        poll, timer = self._boot(wifi, joined=False)
+        timer.delete.assert_called_once()

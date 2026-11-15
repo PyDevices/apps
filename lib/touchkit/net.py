@@ -145,6 +145,17 @@ def up():
     return False
 
 
+def _needs_polling():
+    """True on CircuitPython, where a network that drops is rejoined only by a
+    call to `up`: the radio gives up retrying a few seconds after the access
+    point goes, and stays off when it comes back."""
+    try:
+        import wifi
+    except ImportError:
+        return False
+    return hasattr(wifi, "radio") and not hasattr(wifi, "connect_from_secrets")
+
+
 def _joined():
     global _retry_ms, _retry_at
     _retry_ms = 0
@@ -206,16 +217,20 @@ def boot():
     if joined:
         start_webrepl()
         keep_time()  # outside the try: a missing deskkit must be seen
-        return
-    _join_failed()  # where a join blocks, the next waits a while
+        if not _needs_polling():
+            return
+    else:
+        _join_failed()  # where a join blocks, the next waits a while
+        keep_time()
+        up()
     import lvgl as lv
 
     def poll(t):
-        if up():
+        # On CircuitPython the timer outlives the first join: it is what
+        # notices a dropped access point and tries again.
+        if up() and not _needs_polling():
             t.delete()
 
-    keep_time()
-    up()
     lv.timer_create(poll, 5000, None)
 
 
