@@ -171,6 +171,43 @@ if __name__ == "__main__":
     unittest.main()
 
 
+class StartWebreplTest(unittest.TestCase):
+    """WebREPL is started once, never over one that is listening, never on CircuitPython."""
+
+    def _start(self, webrepl, implementation="micropython"):
+        fakes = {
+            "lvgl": mock.MagicMock(),
+            "webrepl": webrepl,
+            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+        }
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            out = io.StringIO()
+            with mock.patch.object(net.sys, "implementation", types.SimpleNamespace(name=implementation)):
+                with contextlib.redirect_stdout(out):
+                    net.start_webrepl()
+            sys.modules.pop("touchkit.net", None)
+        return out.getvalue()
+
+    def test_it_starts_webrepl_when_nothing_has(self):
+        web = types.SimpleNamespace(listen_s=None, start=mock.MagicMock())
+        self._start(web)
+        web.start.assert_called_once_with()
+
+    def test_it_leaves_a_listener_boot_py_started_alone(self):
+        web = types.SimpleNamespace(listen_s=object(), start=mock.MagicMock())
+        self._start(web)
+        web.start.assert_not_called()
+
+    def test_circuitpython_skips_it_without_a_word(self):
+        web = mock.MagicMock()
+        self.assertEqual(self._start(web, "circuitpython"), "")
+        web.start.assert_not_called()
+
+
 class OfflineJoinTest(unittest.TestCase):
     """An offline board joins through wifi_manager, which CircuitPython has too."""
 

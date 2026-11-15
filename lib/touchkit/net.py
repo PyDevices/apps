@@ -181,9 +181,16 @@ def _now_ms():
 
 
 def start_webrepl():
-    """WebREPL, once, when ``settings.json`` doesn't turn it off."""
+    """WebREPL, once, when ``settings.json`` doesn't turn it off.
+
+    Does nothing when something already started it (``boot.py`` may have:
+    starting it again would drop the listener it opened), and on CircuitPython,
+    which has no WebREPL: its remote access is the web workflow that
+    ``settings.toml`` turns on."""
     global _webrepl_on
     if _webrepl_on or not settings.get("webrepl", True):
+        return
+    if sys.implementation.name == "circuitpython" or webrepl_on():
         return
     try:
         import webrepl
