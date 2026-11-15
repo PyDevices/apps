@@ -14,14 +14,14 @@ import math
 import sys
 import time
 
-sys.path.insert(0, ".")
+sys.path.insert(0, "..")
 sys.path.insert(0, "tools")
 
-import crab  # noqa: E402
-import scene_coast  # noqa: E402
+from wander import crab  # noqa: E402
+from wander import scene_coast  # noqa: E402
 import svgio  # noqa: E402
 from still import write_bmp  # noqa: E402
-from vec import Doc, ellipse, render  # noqa: E402
+from wander.vec import Doc, ellipse, render  # noqa: E402
 
 FRAMES = 48
 SCALE = 0.62
@@ -53,7 +53,7 @@ def main():
     out = sys.argv[1]
     season = sys.argv[2] if len(sys.argv) > 2 else "spring"
     doc = Doc()
-    scene_coast.draw(doc, season=season, crab_at=None, drift=False)
+    scene_coast.draw(doc, season=season, who=None, drift=False)
     t0 = time.ticks_us()
     background, _, w, h = render(doc.svg((0, 0, 800, 480)), 800, 0)
     print("background %d ms" % (time.ticks_diff(time.ticks_us(), t0) // 1000))

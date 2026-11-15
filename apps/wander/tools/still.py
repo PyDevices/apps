@@ -12,10 +12,10 @@ and written as a 16-bit BMP, which any image tool opens.
 import sys
 import time
 
-sys.path.insert(0, ".")
+sys.path.insert(0, "..")
 
-import stills  # noqa: E402
-from vec import render  # noqa: E402
+from wander import stills  # noqa: E402
+from wander.vec import render  # noqa: E402
 
 
 def write_bmp(name, pixels, w, h):

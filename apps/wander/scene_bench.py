@@ -1,17 +1,23 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The workbench: the crab fits a part to a board under the lamp.
+"""The workbench: a board in a vise under the lamp, and someone working on it.
 
 `draw` adds the whole scene to a `vec.Doc`, 800 units wide and 480 tall.
-Every still is a view of that one drawing, from the whole bench down to the
-board's parts.
+The chameleon solders from the bar of a helping-hands stand, looks out at you
+from the top of the board, or hangs from the wire rack; the crab fits a part
+with tweezers. Every still is a view of that one drawing, from the whole
+bench down to the board's parts.
 """
 
 import math
 
-import crab
-from vec import Doc, at, circle, ellipse, group, limb, line, path, pts, rect, smooth
+from . import chameleon_props
+from . import chameleon_shift
+from . import chameleon_views
+from . import crab
+from . import mascot_chameleon
+from .vec import Doc, at, circle, ellipse, group, limb, line, path, pts, rect, smooth
 
 WALL = 0x17364A
 PEG = 0xD6AD78
@@ -50,6 +56,10 @@ SHADOW = 0x000000
 CRAB_X, CRAB_Y, CRAB_SCALE = 299, 436, 0.62
 # The board's top-left corner; it is 204 wide and 130 tall.
 BOARD_X, BOARD_Y = 453, 262
+# The helping-hands bar the chameleon stands on: where its perch is, and its size.
+HUE_X, HUE_Y, HUE_SCALE = 322, 404, 0.6
+# The wire rack on the pegboard that it hangs from: the rod's left end and top.
+RACK_X, RACK_Y = 210, 188
 
 
 def _dots(x0, y, x1, pitch, size, color):
@@ -129,10 +139,11 @@ def _pliers(x, y):
     return "".join(out)
 
 
-def _spool(x, y):
+def _spool(x, y, loose=True):
     # a reel of solder on a peg, a loose end hanging
     out = [circle(x - 5, y + 5, 27, SHADOW, opacity=0.13)]
-    out.append(path("M%s %sC%s %s %s %s %s %sS%s %s %s %s" % (x + 21, y + 6, x + 30, y + 30, x + 12, y + 44, x + 22, y + 60, x + 34, y + 70, x + 26, y + 78), None, STEEL, 2.2))
+    if loose:
+        out.append(path("M%s %sC%s %s %s %s %s %sS%s %s %s %s" % (x + 21, y + 6, x + 30, y + 30, x + 12, y + 44, x + 22, y + 60, x + 34, y + 70, x + 26, y + 78), None, STEEL, 2.2))
     out.append(circle(x, y, 27, 0x2F6FA8))
     out.append(circle(x, y, 27, None, 0x245A8B, 3))
     out.append(circle(x, y, 20, STEEL))
@@ -493,10 +504,12 @@ def _leads():
     return "".join(out)
 
 
-def _iron(x, y):
-    # a soldering iron in its stand, a wisp of smoke rising
+def _iron(x, y, home=True):
+    # a soldering iron in its stand, a wisp of smoke rising; the stand alone
+    # when the iron is out
     out = [ellipse(x - 6, y + 6, 66, 10, SHADOW, opacity=0.2)]
-    out.append(path("M%s %sC%s %s %s %s %s %sS%s %s %s %s" % (x - 30, y - 78, x - 70, y - 60, x - 96, y - 20, x - 78, y + 4, x - 84, y + 30, x - 110, y + 30), None, 0x10151C, 4))
+    if home:
+        out.append(path("M%s %sC%s %s %s %s %s %sS%s %s %s %s" % (x - 30, y - 78, x - 70, y - 60, x - 96, y - 20, x - 78, y + 4, x - 84, y + 30, x - 110, y + 30), None, 0x10151C, 4))
     out.append(rect(x - 50, y - 8, 104, 15, IRON, r=5))
     out.append(rect(x - 50, y - 8, 104, 4, IRON_LIGHT, r=2))
     out.append(rect(x - 42, y - 15, 30, 9, 0xE8C440, r=3))
@@ -507,12 +520,15 @@ def _iron(x, y):
     iron += rect(-6, -52, 12, 10, STEEL_DARK, r=2)
     iron += rect(-9, -112, 18, 62, 0x2F6FA8, r=8) + rect(1, -106, 5, 50, 0x5B9BD5, r=2.5)
     iron += rect(-9, -74, 18, 22, BLACK, r=3) + rect(-9, -68, 18, 2, 0x343C48) + rect(-9, -62, 18, 2, 0x343C48)
-    out.append(group(iron, turn))
+    if home:
+        out.append(group(iron, turn))
     spring = ""
     for i in range(6):
         spring += ellipse(0, -6 - i * 6.2, 9.5 - i * 0.5, 4, None, STEEL_LIGHT if i % 2 else STEEL, 2.4)
     out.append(group(spring, turn))
     out.append(limb(x + 26, y - 6, x + 26, y - 14, 0, 6, 6, IRON))
+    if not home:
+        return "".join(out)
     for points, width, opacity in (
         (((x + 30, y - 22), (x + 40, y - 50), (x + 26, y - 78), (x + 40, y - 108), (x + 30, y - 136)), 3.2, 0.34),
         (((x + 34, y - 26), (x + 50, y - 62), (x + 42, y - 92), (x + 54, y - 118)), 2.2, 0.22),
@@ -577,42 +593,141 @@ def _tweezers():
     return "".join(out)
 
 
-def draw(doc, look=(0.95, 0.42), mood="curious", blink=0, wave=4, shell="night"):
+def _hands(x, y):
+    # a helping-hands stand: a heavy foot, a post, and a bar with its top at
+    # y, a lens on an arm at one end
+    out = [ellipse(x - 54, 444, 74, 11, SHADOW, opacity=0.2)]
+    out.append(ellipse(x - 44, 440, 56, 12, IRON))
+    out.append(ellipse(x - 44, 436, 56, 11, IRON_LIGHT))
+    out.append(ellipse(x - 40, 435, 38, 6, 0x6B7885))
+    out.append(rect(x - 49, y + 6, 10, 30, STEEL_DARK))
+    out.append(rect(x - 43, y + 6, 4, 30, STEEL))
+    # the lens on its arm, at the far end
+    out.append(limb(x - 166, y + 4, x - 190, y - 42, -0.12, 5, 5, STEEL_DARK))
+    out.append(circle(x - 198, y - 70, 27, 0xBFE9FF, opacity=0.28))
+    out.append(circle(x - 198, y - 70, 27, None, MUSTARD_DARK, 7))
+    out.append(circle(x - 198, y - 70, 28.5, None, MUSTARD, 3.5))
+    out.append(path("M%s %sA18 18 0 0 1 %s %s" % (x - 215, y - 75, x - 203, y - 88), None, 0xFFFFFF, 3.5, opacity=0.85))
+    out.append(circle(x - 190, y - 42, 5, IRON))
+    # the bar
+    out.append(rect(x - 168, y, 256, 8, STEEL_DARK, r=4))
+    out.append(rect(x - 166, y, 252, 3.2, STEEL_LIGHT, r=1.6))
+    out.append(circle(x - 166, y + 4, 7, IRON) + circle(x - 167, y + 3, 2.6, IRON_LIGHT))
+    out.append(rect(x + 80, y - 2, 14, 12, BLACK, r=3) + rect(x + 80, y - 2, 14, 3, 0x343C48, r=1.5))
+    out.append(rect(x - 54, y - 3, 20, 14, IRON, r=3) + rect(x - 54, y - 3, 20, 4, IRON_LIGHT, r=2))
+    out.append(circle(x - 44, y + 4, 3.4, MUSTARD))
+    return "".join(out)
+
+
+def _rack(x0, y):
+    # a rod on two pegboard hooks, reels of hook-up wire on it
+    out = [rect(x0 - 2, y + 6, 226, 6, SHADOW, r=3, opacity=0.14)]
+    for x in (x0 + 12, x0 + 214):
+        out.append(path("M%s %sL%s %sQ%s %s %s %s" % (x, y - 14, x, y + 6, x, y + 12, x + 7, y + 11), None, STEEL_DARK, 3.4))
+        out.append(circle(x, y - 14, 3, IRON))
+    reels = ""
+    for dx, color, dark, drop in ((40, RED, 0xB93A2E, 30), (68, MUSTARD, MUSTARD_DARK, 18), (198, TEAL, 0x1B7F8E, 26)):
+        x = x0 + dx
+        reels += path("M%s %sq-5 %s 2 %s" % (x + 7, y + 16, drop * 0.5, drop), None, color, 2.2)
+        reels += rect(x - 12, y - 14, 24, 35, 0x2A313B, r=3)
+        reels += rect(x - 8, y - 12, 16, 31, color)
+        reels += rect(x - 8, y - 12, 5, 31, dark)
+        for i in range(1, 6):
+            reels += line(x - 8, y - 12 + i * 5.2, x + 8, y - 12 + i * 5.2, dark, 0.9)
+        reels += rect(x - 12, y - 14, 3.5, 35, 0x475260, r=1.5)
+    out.append(rect(x0, y, 226, 7, 0xB98452, r=3.5))
+    out.append(rect(x0 + 2, y, 222, 2.6, 0xDDAE7A, r=1.3))
+    out.append(reels)
+    return "".join(out)
+
+
+def _chameleon(doc, pose, look, look_far, mood, blink, colors):
+    # the chameleon, staged for one of its three places on the bench
+    if pose == "front":
+        # on the top edge of the board, facing out, one hand up
+        body = chameleon_views.front(doc, look=look or (0.0, 0.2), look_other=look_far, blink=blink, mood=mood or "calm", colors=colors or "brand", hand=1, perch=None)
+        return at(BOARD_X + 96, BOARD_Y + 1, body, scale=0.44)
+    if pose == "hang":
+        # head down from the wire rack, by its tail and hind feet
+        body = mascot_chameleon.draw_hang(doc, look=look or (0.5, 0.6), look_far=look_far, mood=mood or "happy", colors=colors or "copper", perch=None)
+        return at(RACK_X + 108, RACK_Y, body, scale=0.4)
+    # on the bar of the helping hands, iron in hand, its tip on the joint
+    body = chameleon_props.hold(
+        doc,
+        "iron",
+        lean=80,
+        look=look or (0.9, 0.55),
+        look_far=look_far or (0.75, 0.35),
+        blink=blink,
+        mood=mood or "calm",
+        colors=colors or "board",
+        perch=None,
+        nod=6,
+    )
+    out = ellipse(HUE_X - 16, 446, 104, 9, SHADOW, opacity=0.16)
+    glow = doc.radial([(0, 0xFFF3B0, 0.9), (0.5, 0xFFB26B, 0.45), (1, 0xFFB26B, 0)])
+    return out + at(HUE_X, HUE_Y, body, scale=HUE_SCALE) + circle(BOARD_X + 34, BOARD_Y + 97.5, 7, glow)
+
+
+def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=None, blink=0, colors=None, wave=4, shell="night"):
     """Add the workbench to *doc*, back to front.
 
     Args:
         doc: The `vec.Doc` to draw into.
-        look: Where the crab's eyes point; the default is the board.
-        mood (str): The crab's mood, as `crab.draw` takes it.
+        who (str): "chameleon" or "crab".
+        pose (str): What the chameleon is doing: "solder", standing on the
+            helping hands with the iron on the board; "front", on top of the
+            board, facing you; or "hang", head down from the wire rack.
+        look: Where the eyes point, or None for the pose's own.
+        look_far: Where the chameleon's other eye points, or None.
+        mood (str): The mood, as the mascot takes it, or None for the pose's own.
         blink (float): 0 with the eyes open, 1 closed.
-        wave (float): The big claw's lift in degrees. The tweezers follow
-            it, and at the default their tips sit on the empty footprint.
-        shell (str): A name from `crab.SHELLS`.
+        colors (str): The chameleon's scheme, from `mascot_chameleon.COLORS`,
+            or None for the one that suits where it is: "board" over the mat,
+            "brand" on the board, "copper" against the pegboard.
+        wave (float): The crab's big claw's lift in degrees. The tweezers
+            follow it, and at the default their tips sit on the empty footprint.
+        shell (str): The crab's shell, a name from `crab.SHELLS`.
     """
+    hue = who == "chameleon"
     doc.add(_pegboard(), _cabinet(58, 48), _succulent(206, 37), _screwdrivers(268, 102), _pliers(398, 78))
-    doc.add(_spool(470, 76), _tape(540, 72), _postcard(500, 104, -4), _sticky(604, 44, 5))
+    doc.add(_spool(470, 76, not hue), _tape(540, 72), _sticky(604, 44, 5))
+    if hue:
+        # the postcard moves over, out from behind whoever sits on the board
+        doc.add(_postcard(74, 186, -4), _rack(RACK_X, RACK_Y))
+    else:
+        doc.add(_postcard(500, 104, -4))
     doc.add(_bench(), _mug(60, 344), _mat(), _lamp_arm(), _lamp_light())
     doc.add(_cable(), _holder(), at(BOARD_X, BOARD_Y, _board(doc)))
-    doc.add(_meter(712, 392), _leads(), _iron(112, 452), _breadboard(), _wires(), _parts())
-    hx, hy, turn = crab.claw(wave)
-    held = at(hx, hy, _tweezers(), rot=turn)
-    body = crab.draw(doc, look=look, blink=blink, mood=mood, wave=wave, shell=shell, wear="goggles")
-    doc.add(at(CRAB_X, CRAB_Y, held + body, scale=CRAB_SCALE))
+    doc.add(_meter(712, 392), _leads(), _iron(112, 452, not (hue and pose == "solder")), _breadboard(), _wires())
+    if hue:
+        doc.add(_hands(HUE_X, HUE_Y), _parts(), _chameleon(doc, pose, look, look_far, mood, blink, colors))
+    else:
+        doc.add(_parts())
+        hx, hy, turn = crab.claw(wave)
+        held = at(hx, hy, _tweezers(), rot=turn)
+        body = crab.draw(doc, look=look or (0.95, 0.42), blink=blink, mood=mood or "curious", wave=wave, shell=shell, wear="goggles")
+        doc.add(at(CRAB_X, CRAB_Y, held + body, scale=CRAB_SCALE))
     doc.add(_lamp_head())
 
 
-def _still(view):
+def _still(view, **options):
     def build():
         doc = Doc()
-        draw(doc)
+        draw(doc, **options)
         return doc.svg(view)
 
     return build
 
 
 STILLS = [
-    ("bench_wide", _still((0, 0, 800, 480)), 800),
-    ("bench_mid", _still((161, 174, 510, 306)), 800),
-    ("bench_close", _still((262, 240, 290, 174)), 800),
-    ("bench_board", _still((434, 252, 240, 144)), 800),
+    ("bench_wide", _still((0, 0, 800, 480), who="crab"), 800),
+    ("bench_mid", _still((161, 174, 510, 306), who="crab"), 800),
+    ("bench_close", _still((262, 240, 290, 174), who="crab"), 800),
+    ("bench_board", _still((434, 252, 240, 144), who="crab"), 800),
+    ("bench_hue_wide", _still((0, 0, 800, 480)), 800),
+    ("bench_hue_mid", _still((163, 168, 520, 312)), 800),
+    ("bench_hue_close", _still((328, 222, 270, 162)), 800),
+    ("bench_hue_front", _still((428, 118, 290, 174), pose="front"), 800),
+    ("bench_hue_hang", _still((212, 167, 300, 180), pose="hang"), 800),
 ]

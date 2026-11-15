@@ -10,7 +10,7 @@ the head alone, for an icon.
 
 import math
 
-from vec import Doc, at, circle, ellipse, group, lerp, limb, line, path, rect, smooth
+from .vec import Doc, at, circle, ellipse, group, lerp, limb, line, path, rect, smooth
 
 FUR = 0x7A4C33
 FUR_LIGHT = 0x99694A

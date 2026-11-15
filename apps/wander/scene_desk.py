@@ -1,24 +1,31 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The desk: a place to write code, with the crab beside the keyboard.
+"""The desk: a place to write code, with the chameleon keeping you company.
 
 `draw` adds the whole scene to a `vec.Doc`, 800 by 480 units, at one of three
 times of day. The window, the lamp and the light on the desk follow the time,
-and the crab takes a pose, so one drawing gives a wide shot, a close-up and
-everything between.
+and the chameleon takes a pose, a place and the colours of where it stands, so
+one drawing gives a wide shot, a close-up and everything between. The crab can
+stand in for it.
 """
 
 import math
 
-import crab
-from vec import Doc, at, circle, ellipse, line, mix, path, pts, rect, smooth
+from . import chameleon_props
+from . import chameleon_shift
+from . import chameleon_views
+from . import crab
+from . import mascot_chameleon
+from .vec import Doc, at, circle, ellipse, line, mix, path, pts, rect, smooth
 
 W, H = 800, 480
 DESK_Y = 322  # the back edge of the desk top
 FRONT_Y = 458  # where the top meets the front face
 # where the crab stands, and how large
 CRAB_X, CRAB_Y, CRAB_SCALE = 164, 436, 0.6
+# where the chameleon perches: the middle of its feet, and how large
+SPOTS = {"books": (160, 391, 0.58), "monitor": (338, 75, 0.4)}
 
 NAVY = 0x0B2A4A
 LIME = 0xC4DC4C
@@ -76,7 +83,8 @@ def _toner(time):
 
 
 def _room(tone, time):
-    out = [rect(0, 0, W, DESK_Y + 2, tone(WALL))]
+    # the wall goes on above the picture, for a view that follows something up the monitor
+    out = [rect(0, -200, W, DESK_Y + 202, tone(WALL))]
     if time != "night":
         # the window's light, thrown down the wall to the left
         glow = 0xFFF4C8 if time == "day" else 0xFFB37A
@@ -389,21 +397,77 @@ def _bubble(x, y):
     return "".join(out)
 
 
-def draw(doc, time="day", mood="calm", look=(0.3, 0.1), wave=0, blink=0, shell="sand", bubble=False):
-    """Add the desk and the crab to *doc*.
+def _stack(tone):
+    # two books by the keyboard: somewhere to stand
+    out = [ellipse(160, 441, 150, 9, 0x000000, opacity=0.16)]
+    out.append(rect(26, 414, 250, 25, tone(0x23466B), r=3))
+    out.append(rect(26, 414, 250, 4, tone(0x3A6491), r=2))
+    out.append(rect(44, 421, 8, 18, tone(LIME)))
+    out.append(rect(58, 421, 3, 18, tone(LIME)))
+    out.append(rect(186, 424, 62, 4, tone(0x7FA3C9), r=2))
+    out.append(rect(44, 391, 218, 23, tone(0xEFE6D2), r=3))
+    out.append(rect(44, 410, 218, 4, tone(0xCDBFA3), r=2))
+    out.append(rect(224, 391, 9, 23, tone(CORAL)))
+    out.append(rect(70, 399, 74, 4, tone(0xB9AB90), r=2))
+    out.append(rect(70, 406, 44, 3, tone(0xB9AB90), r=1.5))
+    return "".join(out)
+
+
+def _scheme(time, spot):
+    # it takes its colours from where it stands
+    if time == "night":
+        return "night"
+    if spot == "monitor":
+        return "brand" if time == "day" else chameleon_shift.between("brand", "sunset", 0.35)
+    return "leaf" if time == "day" else "sunset"
+
+
+def _chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave, nod, prop):
+    x, y, scale = SPOTS[spot]
+    if colors is None:
+        colors = _scheme(time, spot)
+    if pose == "front":
+        body = chameleon_views.front(doc, look=look, look_other=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None)
+    elif pose == "three_quarter":
+        body = chameleon_views.three_quarter(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None)
+    elif pose == "sit":
+        body = mascot_chameleon.draw_sit(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None, wave=wave)
+    elif pose == "sleep":
+        body = mascot_chameleon.draw_sleep(doc, colors=colors, perch=None)
+    elif pose == "hold":
+        body = chameleon_props.hold(doc, prop, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None)
+    else:
+        body = mascot_chameleon.draw(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None, nod=nod)
+    # its shadow lies on what it stands on
+    shadow = ellipse(x - 4, y + 2, 170 * scale, 5, 0x000000, opacity=0.16) if spot == "books" else ""
+    return shadow + at(x, y, body, scale=scale)
+
+
+def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None, wave=0, blink=0, shell="sand", bubble=False, pose="three_quarter", spot="books", colors=None, nod=0, prop=None):
+    """Add the desk and its company to *doc*.
 
     Args:
         doc: The `vec.Doc` to draw into.
+        who (str): "chameleon", or "crab" for the hermit crab beside the keyboard.
         time (str): "day", "evening" or "night". The lamp is on after day.
-        mood (str): The crab's mood, as `crab.draw` takes it.
-        look: Where the crab's eyes point, each of x and y from -1 to 1.
-        wave (float): The big claw's lift in degrees.
+        mood (str): "calm", "happy", "curious" or "sleepy".
+        look: Where the near eye points, each of x and y from -1 to 1.
+        look_far: Where the chameleon's other eye points, or None for the same way.
+        wave (float): The crab's claw lift in degrees, or the chameleon's raised hand, 0 to 1.
         blink (float): 0 with the eyes open, 1 closed.
-        shell (str): A name from `crab.SHELLS`.
-        bubble (bool): Draw a thought bubble over the crab.
+        shell (str): The crab's shell, a name from `crab.SHELLS`.
+        bubble (bool): Draw a thought bubble.
+        pose (str): The chameleon's: "three_quarter", "side", "front", "sit", "sleep" or "hold".
+        spot (str): Where the chameleon perches, a name from `SPOTS`.
+        colors (str): A scheme from `mascot_chameleon.COLORS`, or None for the one that suits the time and the spot.
+        nod (float): The chameleon's head tilt in the "side" pose, in degrees, positive chin down.
+        prop (str): What it holds in the "hold" pose, a name from `chameleon_props.PROPS`.
     """
     tone = _toner(time)
     lit = time != "day"
+    hue = who == "chameleon"
+    if look is None:
+        look = (0.3, 0.1)
     doc.add(_room(tone, time))
     doc.add(_picture(tone))
     doc.add(_window(tone, time))
@@ -412,15 +476,28 @@ def draw(doc, time="day", mood="calm", look=(0.3, 0.1), wave=0, blink=0, shell="
     doc.add(_plant(tone))
     doc.add(_monitor(tone, time))
     doc.add(_notes(tone))
+    if hue and spot == "monitor":
+        doc.add(_chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave, nod, prop))
     doc.add(_cable(tone))
-    doc.add(_mug(tone))
+    if not (hue and prop == "mug"):
+        doc.add(_mug(tone))
     doc.add(_keyboard(tone))
     doc.add(at(664, 436, _board(doc, tone), rot=-7))
     if lit:
         doc.add(_lamp_light(time))
-    doc.add(at(CRAB_X, CRAB_Y, crab.draw(doc, look=look, blink=blink, mood=mood, wave=wave, shell=shell), scale=CRAB_SCALE))
+    if hue:
+        # the books stand in the lamp's light, so they keep more of their colour
+        doc.add(_stack((lambda c: mix(tone(c), c, 0.5)) if lit else tone))
+    if not hue:
+        doc.add(at(CRAB_X, CRAB_Y, crab.draw(doc, look=look, blink=blink, mood=mood, wave=wave, shell=shell), scale=CRAB_SCALE))
+        if bubble:
+            doc.add(_bubble(150, 196))
+        return
+    if spot != "monitor":
+        doc.add(_chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave, nod, prop))
     if bubble:
-        doc.add(_bubble(150, 196))
+        x, y, scale = SPOTS[spot]
+        doc.add(_bubble(x - 76, y - 330 * scale))
 
 
 def _still(view, **options):
@@ -433,11 +510,18 @@ def _still(view, **options):
 
 
 STILLS = [
-    ("desk_wide", _still((0, 0, 800, 480), wave=20, look=(0.5, 0.2)), 800),
-    ("desk_mid", _still((0, 180, 490, 294), look=(0.8, -0.7)), 980),
-    ("desk_close", _still((126, 286, 210, 126), mood="happy", wave=20), 900),
-    ("desk_hello", _still((126, 286, 210, 126), wave=20, look=(0.1, 0.15)), 900),
-    ("desk_thinking", _still((0, 130, 540, 324), time="evening", mood="curious", look=(0.7, -0.8), bubble=True), 960),
-    ("desk_evening", _still((0, 0, 800, 480), time="evening", wave=20, look=(0.6, 0.0)), 800),
-    ("desk_night", _still((0, 0, 800, 480), time="night", mood="sleepy", look=(0.2, 0.6)), 800),
+    ("desk_wide", _still((0, 0, 800, 480), who="crab", wave=20, look=(0.5, 0.2)), 800),
+    ("desk_mid", _still((0, 180, 490, 294), who="crab", look=(0.8, -0.7)), 980),
+    ("desk_close", _still((126, 286, 210, 126), who="crab", mood="happy", wave=20), 900),
+    ("desk_hello", _still((126, 286, 210, 126), who="crab", wave=20, look=(0.1, 0.15)), 900),
+    ("desk_thinking", _still((0, 130, 540, 324), who="crab", time="evening", mood="curious", look=(0.7, -0.8), bubble=True), 960),
+    ("desk_evening", _still((0, 0, 800, 480), who="crab", time="evening", wave=20, look=(0.6, 0.0)), 800),
+    ("desk_night", _still((0, 0, 800, 480), who="crab", time="night", mood="sleepy", look=(0.2, 0.6)), 800),
+    ("desk_hue_wide", _still((0, 0, 800, 480), look=(0.0, 0.1), look_far=(0.9, -0.5)), 800),
+    ("desk_hue_mid", _still((0, 180, 490, 294), look=(0.0, 0.1), look_far=(0.9, -0.5)), 980),
+    ("desk_hue_hello", _still((5, 222, 310, 186), pose="front", wave=1, look=(0.0, 0.1)), 900),
+    ("desk_hue_thinking", _still((150, -112, 480, 288), spot="monitor", pose="side", mood="curious", nod=10, look=(0.5, 0.8), look_far=(0.0, 0.0), bubble=True), 960),
+    ("desk_hue_evening", _still((0, 0, 800, 480), time="evening", pose="sit", wave=1, look=(0.0, 0.1), look_far=(0.8, -0.4)), 800),
+    ("desk_hue_night", _still((0, 0, 800, 480), time="night", pose="sleep"), 800),
+    ("desk_hue_coffee", _still((0, 180, 490, 294), time="evening", pose="hold", prop="mug", mood="happy", look=(0.2, 0.0)), 980),
 ]

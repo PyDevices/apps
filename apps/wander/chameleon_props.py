@@ -11,8 +11,8 @@ handle.
 
 import math
 
-import mascot_chameleon
-from vec import Doc, at, circle, ellipse, group, line, path, pts, rect, smooth
+from . import mascot_chameleon
+from .vec import Doc, at, circle, ellipse, group, line, path, pts, rect, smooth
 
 NAVY = 0x0B2A4A
 LIME = 0xC4DC4C

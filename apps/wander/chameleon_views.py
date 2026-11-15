@@ -8,9 +8,9 @@ x to the right, y down, the top of the perch at y = 0. Each returns its
 shapes for a `vec.Doc` and takes the same colours, moods and eyes.
 """
 
-import mascot_chameleon
-from mascot_chameleon import COLORS, NAVY, _eye, _foot, _hand, _perch, _spiral, _spiral_points
-from vec import Doc, at, circle, ellipse, limb, path, rect, smooth
+from . import mascot_chameleon
+from .mascot_chameleon import COLORS, NAVY, _eye, _foot, _hand, _perch, _spiral, _spiral_points
+from .vec import Doc, at, circle, ellipse, limb, path, rect, smooth
 
 _PINK = 0xFF8F8F
 

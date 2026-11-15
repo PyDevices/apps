@@ -10,7 +10,7 @@ y = 0, about 450 units wide and 260 tall. `draw` returns its shapes for a
 
 import math
 
-from vec import Doc, at, circle, ellipse, group, limb, line, path, rect, smooth
+from .vec import Doc, at, circle, ellipse, group, limb, line, path, rect, smooth
 
 NAVY = 0x0B2A4A
 LIME = 0xC4DC4C

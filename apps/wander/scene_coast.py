@@ -10,8 +10,10 @@ same season to night.
 
 import math
 
-import crab
-from vec import Doc, at, circle, ellipse, group, limb, line, mix, path, pts, rect, smooth, wash
+from . import chameleon_props
+from . import chameleon_shift  # noqa: F401  (its colour schemes)
+from . import crab
+from .vec import Doc, at, circle, ellipse, group, limb, line, mix, path, pts, rect, smooth, wash
 
 W, H = 800, 480
 HORIZON = 252
@@ -369,7 +371,48 @@ def _drift(season_name, night, rng):
     return "".join(out)
 
 
-def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300, 446), crab_scale=0.62, drift=True):
+# The chameleon in each season: its colour scheme, what it holds, its pose.
+_HUE = {
+    "spring": ("blossom", "flower", {"mood": "happy", "look": (0.6, -0.3), "look_far": (-0.5, 0.2)}),
+    "summer": ("leaf", "plane", {"mood": "calm", "look": (0.7, -0.4), "look_far": (0.2, 0.5)}),
+    "autumn": ("sunset", "sparkler", {"mood": "happy", "look": (0.8, -0.6), "look_far": (-0.6, -0.5)}),
+    "winter": ("snow", "mug", {"mood": "happy", "look": (0.3, 0.2)}),
+    "night": ("night", "lantern", {"mood": "calm", "look": (0.8, -0.2), "look_far": (0.1, -0.8)}),
+}
+
+_WOOD = 0xCFC2AC
+_WOOD_SHADE = 0x9D8D78
+_WOOD_LIGHT = 0xEEE5D3
+
+
+def _driftwood(x, y, s, night):
+    """A sea-bleached bough propped on the sand, its top where the chameleon's perch is."""
+    wood, shade, light = _dim(_WOOD, night), _dim(_WOOD_SHADE, night), _dim(_WOOD_LIGHT, night)
+    top = y + 8 * s
+    left, right = x - 262 * s, x + 262 * s
+    out = [
+        ellipse(x - 30 * s, y + 80 * s, 240 * s, 14 * s, 0x000000, opacity=0.16),
+        # it stands on its root end, and its far end rests on the dune
+        limb(left + 40 * s, top + 8 * s, left - 6 * s, top + 76 * s, 0.16, 40 * s, 56 * s, shade),
+        limb(left + 4 * s, top + 60 * s, left - 44 * s, top + 80 * s, 0.2, 18 * s, 7 * s, shade),
+        limb(left + 30 * s, top + 56 * s, left + 70 * s, top + 82 * s, -0.2, 16 * s, 6 * s, shade),
+        # the bough
+        limb(left, top + 8 * s, right + 40 * s, top - 2 * s, 0.014, 40 * s, 20 * s, wood),
+        path("M%.1f %.1fQ%.1f %.1f %.1f %.1f" % (left + 16 * s, top + 21 * s, x, top + 22 * s, right + 10 * s, top + 7 * s), None, shade, 6 * s),
+        path("M%.1f %.1fQ%.1f %.1f %.1f %.1f" % (left + 30 * s, top - 4 * s, x - 60 * s, top - 6 * s, x + 40 * s, top - 7 * s), None, light, 3.2 * s),
+        path("M%.1f %.1fq%.1f %.1f %.1f 0" % (x - 150 * s, top + 8 * s, 14 * s, -5 * s, 30 * s), None, shade, 2 * s),
+        path("M%.1f %.1fq%.1f %.1f %.1f 0" % (x + 60 * s, top + 4 * s, 12 * s, 4 * s, 26 * s), None, shade, 2 * s),
+        # a snapped side branch, and the rings of the cut end
+        limb(right - 80 * s, top - 6 * s, right - 30 * s, top - 56 * s, 0.14, 14 * s, 6 * s, wood),
+        limb(left + 90 * s, top + 16 * s, left + 120 * s, top + 44 * s, -0.1, 12 * s, 5 * s, shade),
+        ellipse(left - 2 * s, top + 8 * s, 11 * s, 19 * s, light),
+        ellipse(left - 2 * s, top + 8 * s, 6.5 * s, 12 * s, None, shade, 1.6 * s),
+        ellipse(left - 2 * s, top + 8 * s, 2 * s, 4 * s, shade),
+    ]
+    return "".join(out)
+
+
+def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300, 446), crab_scale=0.62, drift=True, who="chameleon", hue_at=(322, 404), hue_scale=0.6):
     """Add the coast to *doc*.
 
     Args:
@@ -381,6 +424,9 @@ def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300,
         crab_at: Where the crab stands, or None for the place without it.
         crab_scale (float): The crab's size.
         drift (bool): Draw what the air carries: petals, leaves, snow, fireflies.
+        who (str): "chameleon", on a driftwood bough, "crab", or None for the place alone.
+        hue_at: Where the chameleon's perch is.
+        hue_scale (float): The chameleon's size.
     """
     s = SEASONS[season]
     rng = _Random(101)
@@ -403,13 +449,15 @@ def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300,
     add(_tree(s, night, 676, 306))
     light, sand, wet = (_dim(c, night) for c in s["sand"])
     # what lies on the sand
-    add(ellipse(96, 440, 26, 8, wet), ellipse(92, 437, 24, 8, _dim(0x9AA7B4, night)), ellipse(96, 434, 9, 3, _dim(0xC3CCD6, night)))
+    pebble = 30 if who == "chameleon" else 96
+    add(ellipse(pebble, 440, 26, 8, wet), ellipse(pebble - 4, 437, 24, 8, _dim(0x9AA7B4, night)), ellipse(pebble, 434, 9, 3, _dim(0xC3CCD6, night)))
     add(ellipse(470, 462, 9, 3.4, wet), ellipse(52, 468, 6, 2.4, wet), ellipse(246, 470, 5, 2, wet))
+    star_x, star_y = (232, 470) if who == "chameleon" else (180, 456)
     if season == "summer":
-        add(_sandcastle(430, 450, sand, wet))
-        add(_starfish(180, 456, 15, _dim(0xF58B2A, night), 20))
+        add(_sandcastle(118 if who == "chameleon" else 430, 456 if who == "chameleon" else 450, sand, wet))
+        add(_starfish(star_x, star_y, 15, _dim(0xF58B2A, night), 20))
     elif season == "spring":
-        add(_starfish(180, 456, 15, _dim(0xF27A9B, night), 20))
+        add(_starfish(star_x, star_y, 15, _dim(0xF27A9B, night), 20))
         for fx, fy, color in ((610, 330, 0xFFFFFF), (628, 352, 0xFFE066), (700, 318, 0xFF8FB1), (756, 332, 0xFFFFFF), (668, 380, 0xFFE066), (736, 392, 0xFF8FB1)):
             add(line(fx, fy, fx + 1, fy - 12, _dim(0x5E9E3E, night), 1.6))
             for i in range(5):
@@ -417,12 +465,19 @@ def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300,
                 add(circle(fx + 1 + math.cos(a) * 3.6, fy - 13 + math.sin(a) * 3.6, 2.6, _dim(color, night)))
             add(circle(fx + 1, fy - 13, 2, _dim(0xF5A623, night)))
     elif season == "autumn":
-        add(_starfish(180, 456, 15, _dim(0xC9482B, night), 20))
+        add(_starfish(star_x, star_y, 15, _dim(0xC9482B, night), 20))
         for _ in range(16):
             add(ellipse(rng.between(520, 790), rng.between(330, 470), 5.5, 2.6, _dim((0xFFC83D, 0xF58B2A, 0xC9482B)[int(rng.between(0, 2.99))], night), rot=rng.between(0, 180)))
     else:
-        add(_snowman(500, 452))
-    if crab_at is not None:
+        add(_snowman(112 if who == "chameleon" else 500, 458 if who == "chameleon" else 452))
+    if who == "chameleon":
+        add(_driftwood(hue_at[0], hue_at[1], hue_scale, night))
+        scheme, prop, default = _HUE["night" if night else season]
+        options = dict(default)
+        options.update(pose or {})
+        body = chameleon_props.hold(doc, prop, perch=None, colors=shell or scheme, **options)
+        add(at(hue_at[0], hue_at[1], body, scale=hue_scale))
+    elif who == "crab" and crab_at is not None:
         default = {
             "spring": ("rose", {"mood": "calm", "wave": 30, "look": (0.5, -0.3)}),
             "summer": ("sand", {"mood": "calm", "look": (0.6, 0.0)}),
@@ -456,12 +511,19 @@ _MID = (150, 190, 480, 288)
 _CLOSE = (262, 270, 250, 150)
 
 STILLS = [
-    ("coast_spring", _still(_WIDE, season="spring"), 800),
-    ("coast_summer", _still(_WIDE, season="summer"), 800),
-    ("coast_autumn", _still(_WIDE, season="autumn"), 800),
-    ("coast_winter", _still(_WIDE, season="winter"), 800),
-    ("coast_summer_night", _still(_WIDE, season="summer", night=True), 800),
-    ("coast_autumn_mid", _still(_MID, season="autumn"), 800),
-    ("coast_winter_close", _still(_CLOSE, season="winter", pose={"mood": "happy", "wave": 26}), 800),
-    ("coast_spring_night", _still(_WIDE, season="spring", night=True), 800),
+    ("coast_hue_spring", _still(_WIDE, season="spring"), 800),
+    ("coast_hue_summer", _still(_WIDE, season="summer"), 800),
+    ("coast_hue_autumn", _still(_WIDE, season="autumn"), 800),
+    ("coast_hue_winter", _still(_WIDE, season="winter"), 800),
+    ("coast_hue_night", _still(_WIDE, season="summer", night=True), 800),
+    ("coast_hue_autumn_mid", _still((120, 170, 500, 300), season="autumn"), 800),
+    ("coast_hue_winter_close", _still((300, 250, 270, 162), season="winter"), 800),
+    ("coast_spring", _still(_WIDE, season="spring", who="crab"), 800),
+    ("coast_summer", _still(_WIDE, season="summer", who="crab"), 800),
+    ("coast_autumn", _still(_WIDE, season="autumn", who="crab"), 800),
+    ("coast_winter", _still(_WIDE, season="winter", who="crab"), 800),
+    ("coast_summer_night", _still(_WIDE, season="summer", night=True, who="crab"), 800),
+    ("coast_autumn_mid", _still(_MID, season="autumn", who="crab"), 800),
+    ("coast_winter_close", _still(_CLOSE, season="winter", who="crab", pose={"mood": "happy", "wave": 26}), 800),
+    ("coast_spring_night", _still(_WIDE, season="spring", night=True, who="crab"), 800),
 ]

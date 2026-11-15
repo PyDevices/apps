@@ -9,7 +9,7 @@ about 330 units wide and 300 tall. `draw` returns its shapes for a `vec.Doc`.
 
 import math
 
-from vec import at, circle, ellipse, group, limb, mix, path, smooth
+from .vec import at, circle, ellipse, group, limb, mix, path, smooth
 
 CORAL_LIGHT = 0xFF9A76
 CORAL = 0xF46A45

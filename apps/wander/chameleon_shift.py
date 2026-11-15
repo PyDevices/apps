@@ -8,9 +8,9 @@ of colour is a handful of redraws. Each scheme here comes with the ground it
 was made for.
 """
 
-import mascot_chameleon
-from mascot_chameleon import COLORS
-from vec import Doc, at, mix, rect
+from . import mascot_chameleon
+from .mascot_chameleon import COLORS
+from .vec import Doc, at, mix, rect
 
 # More schemes, in mascot_chameleon's order: skin, shade, light, belly, spots, deep.
 COLORS.update(
