@@ -13,7 +13,9 @@ one.
 
 `Output.load` reads the pump's status block: how long a block of
 audio took to render, as a share of how long it lasts, and how many times
-the speaker ran dry since the instrument started.
+the speaker ran dry since the instrument started. Where ``audio_out`` plays
+through the pump, it reads the pump's own status block, so a board that
+plays that way gets the same readout and the same voice cap.
 """
 
 import struct
@@ -45,7 +47,7 @@ TAP_FRAMES = 8192
 
 _BLOCKS_FOREVER = 0x7FFFFFFF
 # The status block's words (audiodsp's audiopump).
-_BLOCKS, _BYTES, _PULL_US, _SINK_BYTES, _MAX_PULL_US = 0, 1, 12, 15, 20
+_BLOCKS, _BYTES, _PULL_US, _SINK_BYTES, _MAX_PULL_US, _DMA_BYTES = 0, 1, 12, 15, 20, 21
 
 
 class Output:
@@ -73,6 +75,8 @@ class Output:
         self._base = 0
         self._last = None
         self._gov = None
+        self._block_us = None
+        self._owner = None
         self._tap = None
         self._level_buf = None
         self.underruns = 0
@@ -112,6 +116,8 @@ class Output:
         self._base = 0
         self._last = None
         self._gov = None
+        self._block_us = None
+        self._owner = None
         self.load_pct = None
         self.worst_pct = None
         if self._wire is not None:
@@ -214,16 +220,28 @@ class Output:
             return self._audioif.i2s_dma_bytes()
         return 0
 
-    def _status_block(self):
-        if self._status is not None:
-            return self._status
+    def _pump_owner(self):
+        """audiodev's pump owner, once ``audio_out`` plays through the pump."""
         out = self._out
         if out is None or not getattr(out, "pumped", False):
             return None
-        try:
-            from audiodev import pump
+        if self._owner is None:
+            try:
+                from audiodev import pump
 
-            return pump.owner().status()
+                self._owner = pump.owner()
+            except Exception:
+                return None
+        return self._owner
+
+    def _status_block(self):
+        if self._status is not None:
+            return self._status
+        owner = self._pump_owner()
+        if owner is None:
+            return None
+        try:
+            return owner.status()
         except Exception:
             return None
 
@@ -252,10 +270,15 @@ class Output:
             if block_frames:
                 self.worst_pct = w[_MAX_PULL_US] * self.rate // (block_frames * 10000)
         if self._status is not None:
+            dma = self._dma() - self._dma_at_start
+        else:
+            # Through audio_out the pump counts what its own I2S clocked out;
+            # a desktop's pump never touches I2S and leaves this at 0.
+            dma = w[_DMA_BYTES] if self._pump.STATUS_WORDS > _DMA_BYTES else 0
+        if dma:
             # On a board the DMA clocks out silence when the pump is late:
             # bytes it sent that the pump never wrote are a gap you heard.
-            dma = self._dma() - self._dma_at_start
-            gap = dma - w[_SINK_BYTES] if dma else 0
+            gap = dma - w[_SINK_BYTES]
             if gap > self._starved:
                 self._starved = gap
                 # The ring clocks silence before the first block lands:
@@ -265,32 +288,44 @@ class Output:
                 else:
                     self._base = gap
         else:
-            try:
-                from audiodev import pump
-
-                self.underruns = pump.owner().health().get("dropped", 0)
-            except Exception:
-                pass
+            owner = self._pump_owner()
+            if owner is not None:
+                try:
+                    self.underruns = owner.health().get("dropped", 0)
+                except Exception:
+                    pass
         return self.load_pct, self.worst_pct, self.underruns
 
     def pull_us(self):
         """Mean render time of a block since the last call, in microseconds.
 
-        None when the pump isn't running on a board, or no block has landed
+        None when nothing plays through the pump, or no block has landed
         since the last call. The pump renders on its own core, so this is
         what the instrument costs, whoever is late.
         """
-        if self._status is None:
+        status = self._status_block()
+        if status is None or self._pump is None:
             return None
-        w = struct.unpack_from("<%dQ" % self._pump.STATUS_WORDS, self._status)
+        w = struct.unpack_from("<%dQ" % self._pump.STATUS_WORDS, status)
         last = self._gov
-        self._gov = (w[_BLOCKS], w[_PULL_US])
+        self._gov = (w[_BLOCKS], w[_PULL_US], w[_BYTES])
         if last is None or w[_BLOCKS] <= last[0]:
             return None
-        return (w[_PULL_US] - last[1]) // (w[_BLOCKS] - last[0])
+        blocks = w[_BLOCKS] - last[0]
+        frames = (w[_BYTES] - last[2]) // (self.channels * 2 * blocks)
+        if frames > 0 and self._status is None:
+            # audio_out chose the block; on our own I2S it's DMA_FRAME.
+            self._block_us = frames * 1000000 // self.rate
+        return (w[_PULL_US] - last[1]) // blocks
 
     def block_us(self):
-        """How long one block of the pump lasts, in microseconds."""
+        """How long one block of the pump lasts, in microseconds.
+
+        Measured from the blocks `pull_us` last read; until then, the block
+        this drives I2S with itself.
+        """
+        if self._block_us is not None:
+            return self._block_us
         return DMA_FRAME * 1000000 // self.rate
 
     def starved_ms(self):

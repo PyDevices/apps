@@ -3,10 +3,14 @@
 # SPDX-License-Identifier: MIT
 """Synth Station's voice cap, read for read, from what a DEV-KIT measured.
 
+Then the readings it works from, on a board that plays through ``audio_out``
+(``synthstation_output_check.py``), on CPython and unix MicroPython.
+
     python -m unittest tests.test_synthstation_govern
 """
 
 import os
+import subprocess
 import sys
 import types
 import unittest
@@ -81,6 +85,35 @@ class VoiceCapTest(unittest.TestCase):
     def test_the_first_voice_still_sets_the_cap_before_a_chord(self):
         rig = _Rig(voices=16)
         self.assertEqual(rig.read(1, 1292), 4)
+
+
+class AudioOutReadingsTest(unittest.TestCase):
+    """The cost and underrun readings through ``audio_out``, on each interpreter."""
+
+    def _run(self, cmd, env):
+        check = os.path.join(ROOT, "tests", "synthstation_output_check.py")
+        r = subprocess.run(cmd + [check], env=env, capture_output=True, text=True, timeout=120)
+        out = r.stdout + r.stderr
+        self.assertEqual(r.returncode, 0, out)
+        self.assertIn("RESULT OK", r.stdout, out)
+
+    def test_cpython(self):
+        env = dict(os.environ)
+        env["PYTHONPATH"] = os.path.join(ROOT, "apps")
+        self._run([sys.executable], env)
+
+    def test_micropython(self):
+        sys.path.insert(0, os.path.join(ROOT, "tests"))
+        from test_engine import _find
+
+        exe = _find("PYDEVICES_MICROPYTHON", "micropython")
+        if exe is None:
+            message = "no micropython: the audio_out readings did NOT run on it"
+            sys.stderr.write("\n*** %s ***\n" % message)
+            self.skipTest(message)
+        env = dict(os.environ)
+        env["MICROPYPATH"] = os.path.join(ROOT, "apps")
+        self._run([exe], env)
 
 
 if __name__ == "__main__":
