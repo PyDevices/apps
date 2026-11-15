@@ -286,12 +286,31 @@ def _start_host():
     return usb.core
 
 
+def _free_port():
+    """Stop a USB host that holds the one USB port of an ESP32-S2 or S3.
+
+    The device has to start after the host stops: started while a host
+    runs, it never enumerates, and stopping the host afterwards doesn't
+    bring it back until the board resets.
+    """
+    if not any(chip in getattr(sys.implementation, "_machine", "") for chip in ("ESP32S2", "ESP32S3")):
+        return
+    try:
+        import usb.core
+    except ImportError:
+        return
+    if usb.core.running():
+        usb.core.stop()
+        print("midicontroller: stopped the USB host, which shares this board's USB port")
+
+
 def open_link(key):
     """Open the way out named *key*, one of `choices`' keys."""
     if key == "usb":
         import usb.device
         from midiports import usb_device
 
+        _free_port()
         itf = usb_device.MIDIPortsInterface()
         usb.device.get().init(itf, builtin_driver=True)
 

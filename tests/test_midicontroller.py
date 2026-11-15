@@ -377,6 +377,37 @@ class WebLinksTest(unittest.TestCase):
                     sys.modules, {"bledev": bledev, "bledev.auto": bledev.auto, "bledev.midi": bledev.midi}):
                 self.assertEqual(("ble", "Bluetooth LE") in links.choices(), offered)
 
+    def test_usb_device_stops_a_host_that_holds_an_s3s_one_port(self):
+        calls = []
+
+        class Core:
+            def running(self):
+                return True
+
+            def stop(self):
+                calls.append("host stopped")
+
+        class Dev:
+            def init(self, *args, **kw):
+                calls.append("device started")
+
+        itf = types.SimpleNamespace(ports=(None, None))
+        usb = types.ModuleType("usb")
+        usb.__path__ = []
+        usb.core = Core()
+        usb.device = types.SimpleNamespace(get=lambda: Dev())
+        midiports = sys.modules["midiports"]
+        midiports.usb_device = types.SimpleNamespace(MIDIPortsInterface=lambda: itf)
+        for machine, expected in (("ESP32S3 module with ESP32S3", ["host stopped", "device started"]),
+                                  ("ESP32-P4 board with ESP32P4", ["device started"])):
+            calls.clear()
+            impl = types.SimpleNamespace(_machine=machine)
+            with self.subTest(machine=machine), mock.patch.object(links.sys, "implementation", impl, create=True), \
+                    mock.patch.dict(sys.modules, {"usb": usb, "usb.core": usb.core, "usb.device": usb.device,
+                                                  "midiports.usb_device": midiports.usb_device}):
+                links.open_link("usb")
+                self.assertEqual(calls, expected)
+
     def test_a_page_without_web_midi_output_says_so(self):
         del self.webmidi.page_out
         self.assertEqual(links.choices(), [])
