@@ -486,6 +486,16 @@ class Stage:
                 old = self._order[1]
             self._drop(old)
 
+    def _beside(self, steps):
+        """One step of the change of colours *steps*, taken beside another job; None once it is done."""
+        if steps is not None:
+            try:
+                next(steps)
+                return steps
+            except StopIteration as e:
+                self._shifted = e.value
+        return None
+
     def _recolour(self, rest, old, new):
         """Take the resting pose from scheme *old* to *new* by swapping its colours.
 
@@ -777,8 +787,13 @@ class Stage:
             self._tidy()
             tidy = False
             yield
+        # Where the colours change, the chameleon turns through them while the
+        # place is painted, a step of each a tick, not after it.
+        shift = self._recolour(rest, old_scheme, new_scheme) if blends else None
+        self._shifted = False
         if self._painted != (place, self._ground_key(), view):
             doc = self._shapes()
+            shift = self._beside(shift)
             yield
             t0 = ticks_us()
             text = doc.source(self._rect)
@@ -787,6 +802,7 @@ class Stage:
             self._decoder.open(text, width=self.w)
             text = None
             self._since(t0, "parse")
+            shift = self._beside(shift)
             yield
             if self._bands:
                 # a band a tick, so the picture arrives down the screen and
@@ -807,6 +823,7 @@ class Stage:
                     area.y1, area.y2 = top + y0, top + y1 - 1
                     self.ground.invalidate_area(area)
                     if y1 < self.h:
+                        shift = self._beside(shift)
                         yield
             else:
                 t0 = ticks_us()
@@ -828,7 +845,11 @@ class Stage:
         if tidy:
             self._tidy()
             yield
-        if blends and not (yield from self._recolour(rest, old_scheme, new_scheme)):
+        while shift is not None:
+            shift = self._beside(shift)
+            if shift is not None:
+                yield
+        if blends and not self._shifted:
             # an svgio that draws only the colours it parsed: each step is a
             # pose built and parsed afresh
             for t in blends:
