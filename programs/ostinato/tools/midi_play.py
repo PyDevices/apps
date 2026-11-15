@@ -119,7 +119,7 @@ def main():
     ap.add_argument("--no-tap", action="store_true")
     ap.add_argument("--real-midi", default="", metavar="PORT",
                     help="no fake keyboard: send from Windows Python into this Windows MIDI port "
-                         "(e.g. 'PyDevices Loopback'); needs --cdp to a Windows Chrome")
+                         "(e.g. the name midiports.LOOPBACK holds); needs --cdp to a Windows Chrome")
     ap.add_argument("--page", default="index.html", help="spike page: index.html (LVGL on the page) or "
                     "ui_worker.html (LVGL in its own worker)")
     ap.add_argument("--lead", type=float, default=0, help="ms: play every message this long after its key press, "

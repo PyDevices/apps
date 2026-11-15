@@ -29,6 +29,7 @@ import os
 import sys
 
 import ostinato  # noqa: F401  (the paths; also what a spawned engine process imports first)
+import midiports
 
 
 def parse(argv):
@@ -38,7 +39,7 @@ def parse(argv):
     ap.add_argument("--count", type=int, default=4, help="how many engines (default 4, one a track)")
     ap.add_argument("--midi", action="append", default=[],
                     help="MIDI inputs to open, by part of their name (repeat it; default every input)")
-    ap.add_argument("--midi-out", default="PyDevices Loopback", help="where the control socket's MIDI goes")
+    ap.add_argument("--midi-out", default=midiports.LOOPBACK, help="where the control socket's MIDI goes")
     ap.add_argument("--fresh", action="store_true", help="start without the last session or the first-run guide")
     ap.add_argument("--data", default=None, help="where the autosave and cached fonts live")
     ap.add_argument("--control", type=int, default=0, help="open the control socket on this port")
