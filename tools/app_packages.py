@@ -54,6 +54,7 @@ INDEX = {
     "soundmodule": "soundmodule",
     "spectrum": "spectrum",
     "touchkit": "touchkit",
+    "usb_hid": "usb-hid",
 }
 
 #: A module of an index package -> an index package it needs that the package
