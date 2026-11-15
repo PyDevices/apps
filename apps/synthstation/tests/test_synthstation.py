@@ -64,11 +64,11 @@ class Sink:
     def control(self, controller, value, channel):
         self.got.append(("cc", controller, value, channel))
 
-    def bend(self, value):
-        self.got.append(("bend", value))
+    def bend(self, value, channel):
+        self.got.append(("bend", value, channel))
 
-    def program(self, number):
-        self.got.append(("program", number))
+    def program(self, number, channel):
+        self.got.append(("program", number, channel))
 
 
 def parse(*chunks):
@@ -82,8 +82,9 @@ def parse(*chunks):
 
 class MidiParser(unittest.TestCase):
     def test_messages_on_any_channel(self):
-        got = parse([0x90, 60, 100, 0x83, 60, 0, 0xB9, 74, 12, 0xE0, 0, 64, 0xC5, 7])
-        self.assertEqual(got, [("on", 60, 100, 0), ("off", 60, 3), ("cc", 74, 12, 9), ("bend", 8192), ("program", 7)])
+        got = parse([0x90, 60, 100, 0x83, 60, 0, 0xB9, 74, 12, 0xE2, 0, 64, 0xC5, 7])
+        self.assertEqual(
+            got, [("on", 60, 100, 0), ("off", 60, 3), ("cc", 74, 12, 9), ("bend", 8192, 2), ("program", 7, 5)])
 
     def test_running_status_and_velocity_zero(self):
         got = parse([0x90, 60, 100, 62, 90, 60, 0])

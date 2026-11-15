@@ -31,6 +31,10 @@
       "pads.py"
     ],
     [
+      "parts.py",
+      "parts.py"
+    ],
+    [
       "station.py",
       "station.py"
     ]

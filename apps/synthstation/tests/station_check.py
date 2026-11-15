@@ -9,8 +9,10 @@ was given (the script pulls the audio from it), and a stand-in keyboard the
 script plays. For each instrument it chooses it, checks the panel shows the
 instrument's name, macros and patches, plays a note and checks the output
 isn't silent, turns a knob and sends a program change and checks the panel
-follows. Then it opens a drum machine and a synth with no
-keyboard at all and plays them from the pads.
+follows. It gives three MIDI channels an instrument each and checks that
+every channel's notes, knobs and program changes reach its own. Then it opens
+a drum machine and a synth with no keyboard at all and plays them from the
+pads.
 
     python station_check.py [NAME ...]
 
@@ -304,18 +306,28 @@ class _Adapter:
         self.instrument = _Instrument()
 
 
+class _Part:
+    def __init__(self, macros):
+        self.adapter = _Adapter(macros)
+        self.knobs = {}
+
+
 class _Keyboard:
     """Station.control's only reads, for controllers no instrument here reaches."""
 
     loading = False
 
     def __init__(self, macros):
-        self.adapter = _Adapter(macros)
-        self._knobs = {}
+        self.part = _Part(macros)
+        self.adapter = self.part.adapter
+        self._knobs = self.part.knobs
         self._volume = None
         self._held = {}
         self._patch_step = 0
         self._instrument_step = 0
+
+    def _part(self, channel):
+        return self.part
 
 
 def check_knob_map():
@@ -592,6 +604,179 @@ def check_drum_pads(app, scope):
     check(got == [("on", 60), ("off", 60)], "pads play a synth's notes as they are (%r)" % (got,))
 
 
+def sounding(app):
+    """How many voices each channel's own instrument is sounding, by channel."""
+    return {channel: part.adapter.instrument.voice_pool.sounding() for channel, part in app.parts.items()}
+
+
+def pick(menu, at, scope):
+    """Choose entry *at* of a drop-down, as a touch on it would."""
+    menu.set_selected(at)
+    menu.send_event(lv.EVENT.VALUE_CHANGED, None)
+    scope.run(5)
+
+
+def check_channels(app, scope):
+    """An instrument each on channels 1, 2 and 10, and what's played on each."""
+    def entry(name):
+        return [module for module, _ in app.instruments].index(name)
+
+    def quiet():
+        """Pull audio until every release has rung out, a kit's longest sound included."""
+        for _ in range(400):
+            if not any(sounding(app).values()):
+                return
+            scope.run(2)
+            peak_of(Peripherals.outs[-1].sample, 8)
+        check(False, "the instruments fall silent (%r)" % (sounding(app),))
+
+    def held(status, note):
+        """The voices sounding per channel while *note* is held on *status*'s channel."""
+        quiet()
+        keyboard.send(status, note, 100)
+        scope.run(4)
+        got = sounding(app)
+        peak = peak_of(Peripherals.outs[-1].sample, 4)
+        keyboard.send(status & 0x8F, note, 0)
+        scope.run(2)
+        return got, peak
+
+    open_instrument(app, scope, "poly106")
+    check(sorted(app.parts) == [0] and app.channel == 0, "one instrument, on channel 1, to start with")
+    check(app.menu.get_option_count() == len(app.instruments), "channel 1's menu is the instruments")
+    got, peak = held(0x94, 60)
+    check(got == {0: 1}, "a channel with no instrument plays channel 1's (%r)" % (got,))
+
+    # Channel 2 from the two drop-downs, as a finger would.
+    pick(app.channels, 1, scope)
+    check(app.channel == 1 and app.name == "poly106", "showing channel 2 shows what it plays: channel 1's")
+    check(app.menu.get_option_count() == len(app.instruments) + 1 and app.menu.get_selected() == 0,
+          "channel 2's menu starts with %r" % station.FOLLOW)
+    out = Peripherals.outs[-1]
+    check(out.sample is app.parts[0].adapter.instrument.output, "showing a channel leaves the sound playing")
+    pick(app.menu, entry("tonewheel3") + 1, scope)
+    check(sorted(app.parts) == [0, 1] and app.parts[1].name == "tonewheel3", "the menu gives channel 2 its own instrument")
+    check(app.name == "tonewheel3" and app.adapter is app.parts[1].adapter, "the panel shows channel 2's")
+    check(app.panel is not None and app.panel.title.get_text().startswith("TONE"), "the panel is the tonewheel's")
+    check(app.menu.get_selected() == entry("tonewheel3") + 1, "the menu shows channel 2's instrument")
+    mix = Peripherals.outs[-1].sample
+    check(mix is not app.parts[0].adapter.instrument.output and mix is not app.parts[1].adapter.instrument.output,
+          "two instruments play through a mix")
+    app.show(9)
+    scope.run(5)
+    app.choose("rhythm808")
+    scope.run(5)
+    check(sorted(app.parts) == [0, 1, 9], "channel 10 has its own too (%r)" % (sorted(app.parts),))
+    check([p.name for _, p in sorted(app.parts.items())] == ["poly106", "tonewheel3", "rhythm808"], "each channel's instrument")
+
+    # Notes: each channel's reach its own instrument and no other.
+    for status, note, want, what in (
+        (0x90, 60, {0: 1, 1: 0, 9: 0}, "channel 1"),
+        (0x91, 60, {0: 0, 1: 1, 9: 0}, "channel 2"),
+        (0x99, 36, {0: 0, 1: 0, 9: 1}, "channel 10"),
+        (0x95, 60, {0: 1, 1: 0, 9: 0}, "channel 6, which has none of its own,"),
+    ):
+        got, peak = held(status, note)
+        check(got == want, "a note on %s sounds only its instrument (%r)" % (what, got))
+        check(peak > 0, "a note on %s is heard in the mix (peak %d)" % (what, peak))
+        print("ok  channels             a note on %-38s voices %r  peak %5d" % (what, got, peak))
+    quiet()
+    keyboard.send(0x90, 60, 100, 0x91, 64, 100, 0x99, 36, 100)
+    scope.run(4)
+    got = sounding(app)
+    keyboard.send(0x80, 60, 0, 0x81, 64, 0, 0x89, 36, 0)
+    scope.run(4)
+    check(got == {0: 1, 1: 1, 9: 1}, "three channels at once sound three instruments (%r)" % (got,))
+
+    # A pad on channel 10 plays that channel's kit, one sound per pad.
+    hit = []
+    kit = app.parts[9].adapter
+    kit.note_on = lambda note, velocity: hit.append(note)
+    keyboard.send(0x99, 37, 100, 0x89, 37, 0)
+    scope.run(2)
+    del kit.note_on
+    check(hit == [pads.pad_notes("rhythm808", None)[1]], "channel 10's pads are laid out for its own kit (%r)" % (hit,))
+
+    # Program changes and knobs go to the channel they came on.
+    synth, organ = app.parts[0].adapter, app.parts[1].adapter
+    keys = sorted(organ.instrument.patches)
+    was = synth.patch_index
+    want = keys[1] if organ.patch_index != keys[1] else keys[0]
+    keyboard.send(0xC1, want)
+    scope.run(3)
+    check(organ.patch_index == want and synth.patch_index == was, "a program change on channel 2 is channel 2's alone")
+    before = int(synth.instrument.get_macro(0))
+    target = 23 if int(organ.instrument.get_macro(0)) != 23 else 87
+    keyboard.send(0xB1, 70, target)
+    scope.run(3)
+    check(int(organ.instrument.get_macro(0)) == target and int(synth.instrument.get_macro(0)) == before,
+          "a knob on channel 2 moves channel 2's macro alone")
+    app.show(1)
+    scope.run(5)
+    check(app.panel.encoders[0].value == target and app.panel.patch == want, "channel 2's panel shows its knob and patch")
+    target = 31 if int(synth.instrument.get_macro(0)) != 31 else 95
+    keyboard.send(0xB0, 70, target)
+    scope.run(3)
+    check(int(synth.instrument.get_macro(0)) == target and app.panel.encoders[0].value != target,
+          "a knob on channel 1 leaves channel 2's panel alone")
+    if shots:
+        keyboard.send(0x91, 60, 100)
+        scope.run(60)
+        shot(shots + "/channel2.raw")
+        keyboard.send(0x81, 60, 0)
+        app.channels.open()
+        scope.run(30)
+        shot(shots + "/channels.raw")
+        app.channels.close()
+        scope.run(5)
+        app.show(0)
+        scope.run(5)
+        app.menu.open()
+        scope.run(30)
+        shot(shots + "/instruments.raw")
+        app.menu.close()
+        scope.run(5)
+
+    # Close the app and open it again: every channel comes back.
+    for fn in scope.closes:
+        fn()
+    check(not app.parts, "close lets every instrument go")
+    store = scope._store
+    scope = Scope()
+    scope._store = store
+    app = station.Station(scope)
+    scope.run(10)
+    check([(c, p.name) for c, p in sorted(app.parts.items())] == [(0, "poly106"), (1, "tonewheel3"), (9, "rhythm808")],
+          "the channels' instruments come back when the app opens again (%r)" % (sorted(app.parts),))
+    check(app.channel == 0 and app.name == "poly106", "it opens on channel 1")
+    check(app.parts[1].adapter.patch_index == want, "channel 2 comes back on its patch")
+    got, peak = held(0x91, 60)
+    check(got == {0: 0, 1: 1, 9: 0} and peak > 0, "and channel 2 still plays its own (%r, peak %d)" % (got, peak))
+
+    # RELOAD on one channel leaves the others playing through a new mix.
+    old = app.parts[0].adapter.instrument
+    app.panel.adapter.request_reload()
+    scope.run(4)
+    check(app.parts[0].adapter.instrument is not old, "RELOAD builds channel 1's instrument again")
+    got, peak = held(0x90, 60)
+    check(got == {0: 1, 1: 0, 9: 0} and peak > 0, "channel 1 sounds after RELOAD (%r, peak %d)" % (got, peak))
+    got, peak = held(0x91, 60)
+    check(got == {0: 0, 1: 1, 9: 0} and peak > 0, "channel 2 sounds after channel 1's RELOAD (%r, peak %d)" % (got, peak))
+
+    # Take them away again: every channel is back on channel 1's.
+    for channel in (1, 9):
+        pick(app.channels, channel, scope)
+        pick(app.menu, 0, scope)
+    check(sorted(app.parts) == [0], "%r takes a channel's instrument away" % station.FOLLOW)
+    check(app.name == "poly106" and app.panel is not None, "the panel shows channel 1's again")
+    check(Peripherals.outs[-1].sample is app.parts[0].adapter.instrument.output, "one instrument plays with no mix")
+    got, peak = held(0x91, 60)
+    check(got == {0: 1}, "channel 2 plays channel 1's again (%r)" % (got,))
+    pick(app.channels, 0, scope)
+    check(app.channel == 0 and scope._store.get("parts") == {}, "nothing is kept for the channels that follow")
+    return scope, app
+
+
 def play_pad(app, scope, note):
     keyboard.send(0x99, note, 110)
     sample = Peripherals.outs[-1].sample
@@ -621,6 +806,7 @@ def main(names, shots=None):
     check_menu_and_buttons(app, scope)
     check_drum_pads(app, scope)
     check_meters(app, scope)
+    scope, app = check_channels(app, scope)
 
     # With no keyboard, bank A plays notes and the patches move up a bank.
     with_keyboard[0] = False
