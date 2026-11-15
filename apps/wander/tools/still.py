@@ -59,4 +59,5 @@ def main():
         print("%-24s %4dx%-4d svg %6d bytes, built %d ms, drawn %d ms" % (name, w, h, len(text), time.ticks_diff(t1, t0), time.ticks_diff(t2, t1)))
 
 
-main()
+if __name__ == "__main__":
+    main()

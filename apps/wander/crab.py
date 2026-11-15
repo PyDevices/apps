@@ -108,6 +108,9 @@ def _eye(doc, x, y, r, look, lid, happy):
             y + min(drop, 0),
         )
         out.append(path(d, CORAL))
+        if lid >= 0.95:
+            # closed: the lashes' line, curving down
+            out.append(path("M%.2f %.2fQ%.2f %.2f %.2f %.2f" % (x - r * 0.7, y + r * 0.1, x, y + r * 0.62, x + r * 0.7, y + r * 0.1), None, CORAL_DEEP, r * 0.16))
     return "".join(out)
 
 
@@ -162,7 +165,7 @@ def claw(wave=0):
 
 
 def _goggles(ex0, ey0, ex1, ey1):
-    out = [path("M%.1f %.1fL%.1f %.1f" % (ex0, ey0, ex1, ey1), None, 0x2B2B33, 7)]
+    out = [path("M%.1f %.1fL%.1f %.1f" % (ex0 + 30, ey0, ex1 - 28, ey1), None, 0x2B2B33, 9)]
     for x, y, r in ((ex0, ey0, 31), (ex1, ey1, 29)):
         out.append(circle(x, y, r, None, 0x2B2B33, 7))
         out.append(circle(x, y, r, None, 0xF2B632, 3))

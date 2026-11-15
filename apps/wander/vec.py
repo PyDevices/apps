@@ -37,12 +37,30 @@ def lerp(a, b, t):
     return a + (b - a) * t
 
 
+_wash = None
+
+
+def wash(color=None, amount=0.0):
+    """Mix every colour drawn from now on toward *color*: moonlight, dusk, fog.
+
+    Call it with no arguments to draw in true colours again.
+    """
+    global _wash
+    _wash = (color, amount) if color is not None and amount > 0 else None
+
+
+def _hex(color):
+    if _wash:
+        color = mix(color, _wash[0], _wash[1])
+    return "#%06x" % color
+
+
 def _paint(value):
     # a colour as an int, or a gradient's "url(#id)" from a Doc
     if value is None:
         return "none"
     if isinstance(value, int):
-        return "#%06x" % value
+        return _hex(value)
     return value
 
 
@@ -207,7 +225,7 @@ class Doc:
         for stop in stops:
             offset, color = stop[0], stop[1]
             opacity = stop[2] if len(stop) > 2 else 1
-            s = '<stop offset="%s" stop-color="#%06x"' % (_n(offset), color)
+            s = '<stop offset="%s" stop-color="%s"' % (_n(offset), _hex(color))
             if opacity < 1:
                 s += ' stop-opacity="%s"' % _n(opacity)
             out.append(s + "/>")
