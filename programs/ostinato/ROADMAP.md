@@ -1,7 +1,7 @@
 # Roadmap
 
-- A layout for 1280x720 and one for phones: the layout is a table of
-  regions, so each is a new table.
+- A layout for phones: the layout is a table of regions, so it's a new
+  table, with controls big enough for a finger.
 - Resizing without a reload: today a resize saves and reloads at the new size.
 - Filter sweeps over held notes, once the instruments' macros reach
   sounding notes.
