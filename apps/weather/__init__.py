@@ -3,12 +3,13 @@
 # SPDX-License-Identifier: MIT
 """Weather: conditions and five days ahead, laid out to fit a round screen.
 
-Swipe up for the five days and down to come back. Hold your finger on the
-screen to change the ZIP code or the units.
+Until you choose a place it shows the city the board's IP address is in,
+marked with a location pin. Swipe up for the five days and down to come back.
+Hold your finger on the screen to choose a ZIP code or change the units.
 """
 
 import lvgl as lv
-from deskkit import forecast
+from deskkit import forecast, localtime
 
 from . import icons
 from .zippad import ZipPad
@@ -76,11 +77,15 @@ class _Screen:
         """Draw what's known. Rebuilt whole: it changes twice an hour at most."""
         self._drop("now")
         self._drop("days")
-        place = forecast.place()
+        place = forecast.current()
         data = forecast.latest
         if self.pad is not None:
             return
         if place is None:
+            if localtime.finding():
+                self.notice.remove_flag(lv.obj.FLAG.HIDDEN)
+                self.notice.set_text("Finding where you are")
+                return
             self.ask_for_zip()
             return
         if data is None:
@@ -100,7 +105,10 @@ class _Screen:
     def _build_now(self, place, data, background):
         panel = self.now = self._panel(background)
         name = _label(panel, lv.font_montserrat_16, _SOFT)
-        name.set_text(place["name"])
+        if place.get("from_ip"):
+            name.set_text(lv.SYMBOL.GPS + " " + place["name"])
+        else:
+            name.set_text(place["name"])
         name.align(lv.ALIGN.TOP_MID, 0, self.h * 8 // 100)
 
         icon = icons.make(panel, data["code"], data["is_day"], _ICON, background)
