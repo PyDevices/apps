@@ -183,10 +183,10 @@ def _now_ms():
 def start_webrepl():
     """WebREPL, once, when ``settings.json`` doesn't turn it off.
 
-    Does nothing when something already started it (``boot.py`` may have:
-    starting it again would drop the listener it opened), and on CircuitPython,
-    which has no WebREPL: its remote access is the web workflow that
-    ``settings.toml`` turns on."""
+    Does nothing without a webrepl module (a desktop), when something already
+    started it (``boot.py`` may have: starting it again would drop the listener
+    it opened), and on CircuitPython, which has no WebREPL: its remote access is
+    the web workflow that ``settings.toml`` turns on."""
     global _webrepl_on
     if _webrepl_on or not settings.get("webrepl", True):
         return
@@ -197,6 +197,8 @@ def start_webrepl():
 
         webrepl.start()
         _webrepl_on = True
+    except ImportError:
+        pass  # a desktop, or firmware without WebREPL: nothing to start
     except Exception as e:
         print("touchkit: webrepl:", e)
 

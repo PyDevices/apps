@@ -202,6 +202,10 @@ class StartWebreplTest(unittest.TestCase):
         self._start(web)
         web.start.assert_not_called()
 
+    def test_a_desktop_without_webrepl_is_quiet(self):
+        with mock.patch.dict(sys.modules, {"webrepl": None}):
+            self.assertEqual(self._start(None), "")
+
     def test_circuitpython_skips_it_without_a_word(self):
         web = mock.MagicMock()
         self.assertEqual(self._start(web, "circuitpython"), "")
