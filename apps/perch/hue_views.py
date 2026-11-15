@@ -108,7 +108,7 @@ def front(doc, look=(0.0, 0.15), look_other=None, blink=0, mood="calm", colors="
     # the turret eyes, standing out past the sides of the head
     out.append(_eye(doc, -70, -192, 39, look, blink, happy, skin, shade, light, deep))
     out.append(_eye(doc, 70, -192, 39, look_other, blink, happy, skin, shade, light, deep))
-    return "".join(out)
+    return b"".join(out)
 
 
 def three_quarter(doc, look=(0.4, 0.1), look_far=None, blink=0, mood="calm", colors="leaf", curl=1.0, perch="twig"):
@@ -174,7 +174,7 @@ def three_quarter(doc, look=(0.4, 0.1), look_far=None, blink=0, mood="calm", col
         out.append(limb(150, -112, 172, -98, 0.1, 7, 6, _PINK))
         out.append(circle(175, -96, 8.5, _PINK) + circle(177, -99, 2.6, 0xFFC0C0))
     out.append(_eye(doc, 78, -176, 41, look, blink, happy, skin, shade, light, deep))
-    return "".join(out)
+    return b"".join(out)
 
 
 def back(doc, look=(-0.7, 0.3), blink=0, mood="calm", colors="leaf", curl=1.0, perch="twig"):
@@ -210,7 +210,7 @@ def back(doc, look=(-0.7, 0.3), blink=0, mood="calm", colors="leaf", curl=1.0, p
         head.append(limb(178, -127, 214, -124, 0.10, 7, 6, _PINK) + circle(217, -124, 8.5, _PINK))
     head.append(circle(170, -148, 2.4, deep))
     head.append(_eye(doc, 110, -164, 39, look, blink, happy, skin, shade, light, deep))
-    out.append(at(-52, -66, "".join(head), scale=0.86))
+    out.append(at(-52, -66, b"".join(head), scale=0.86))
     # the body from behind: a wide pear, the spine down its middle
     out.append(path(smooth([(0, -196), (50, -178), (86, -116), (78, -52), (0, -30), (-78, -52), (-86, -116), (-50, -178)], True), skin))
     out.append(path(smooth([(-50, -178), (-86, -116), (-78, -52), (-34, -35), (-58, -62), (-64, -116), (-40, -166)], True), shade))
@@ -233,7 +233,7 @@ def back(doc, look=(-0.7, 0.3), blink=0, mood="calm", colors="leaf", curl=1.0, p
     # the tail comes toward you and winds up in front
     out.append(limb(0, -66, 32, -36, -0.2, 40, 27, skin))
     out.append(_tail(-2, -4, 50, 30, -40, 1.25 + 0.3 * curl, skin, shade, light))
-    return "".join(out)
+    return b"".join(out)
 
 
 def above(doc, look=(0.6, 0.0), look_other=None, blink=0, mood="calm", colors="leaf", curl=1.0, leaf=True):
@@ -293,4 +293,4 @@ def above(doc, look=(0.6, 0.0), look_other=None, blink=0, mood="calm", colors="l
         out.append(limb(220, -2, 252, -4, 0.1, 7, 6, _PINK) + circle(255, -4, 8.5, _PINK))
     out.append(_eye(doc, 140, -38, 24, look, blink, happy, skin, shade, light, deep))
     out.append(_eye(doc, 140, 36, 24, look_other, blink, happy, skin, shade, light, deep))
-    return "".join(out)
+    return b"".join(out)

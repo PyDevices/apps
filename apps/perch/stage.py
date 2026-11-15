@@ -436,7 +436,7 @@ class Stage:
             bottom = min(ry + rh, (vy + vh - y) / k)
             rx, ry, rw, rh = left, top, max(right - left, 1), max(bottom - top, 1)
         doc.add(body)
-        text = doc.svg((rx, ry, rw, rh)).encode()
+        text = doc.source((rx, ry, rw, rh))
         doc = body = None
         self._since(t0, "build")
         self._step = ("build", spec)
@@ -655,7 +655,7 @@ class Stage:
             doc = self._shapes()
             yield
             t0 = time.ticks_us()
-            text = doc.svg(self._rect).encode()
+            text = doc.source(self._rect)
             doc = None
             t0 = self._since(t0, "build")
             self._decoder.open(text, width=self.w)
@@ -809,7 +809,7 @@ class Stage:
             t0 = time.ticks_us()
             doc = Doc()
             doc.add(hue._bug(0, 0, 1.4))
-            text = doc.svg((-30, -30, 60, 60)).encode()
+            text = doc.source((-30, -30, 60, 60))
             t0 = self._since(t0, "build")
             w, h = self._decoder.open(text, width=max(2, int(60 * k * s + 0.5)))
             t0 = self._since(t0, "parse")

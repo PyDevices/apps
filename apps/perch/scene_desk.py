@@ -94,17 +94,17 @@ def _room(tone, time):
         out.append(line(x0, y, x0 + length, y, grain, 2, opacity=0.35))
     out.append(rect(0, FRONT_Y, W, H - FRONT_Y, tone(WOOD_FRONT)))
     out.append(rect(0, FRONT_Y, W, 4, tone(WOOD_DARK)))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _sunlight(time):
     # the window's two halves, laid across the desk by the sun
     if time == "night":
-        return ""
+        return b""
     color = 0xFFF4C8 if time == "day" else 0xFFB37A
     out = [path(pts(((452, DESK_Y), (566, DESK_Y), (470, FRONT_Y), (320, FRONT_Y)), True), color, opacity=0.26)]
     out.append(path(pts(((578, DESK_Y), (690, DESK_Y), (630, FRONT_Y), (486, FRONT_Y)), True), color, opacity=0.26))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _window(tone, time):
@@ -161,7 +161,7 @@ def _window(tone, time):
     out.append(rect(x0, y0 + 67, w, 2, shade))
     out.append(rect(x0 - 26, y0 + h + 12, w + 52, 13, frame, r=3))
     out.append(rect(x0 - 20, y0 + h + 25, w + 40, 5, tone(mix(WALL, NAVY, 0.22))))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _picture(tone):
@@ -177,7 +177,7 @@ def _picture(tone):
         spiral.append((cx + math.cos(a) * r, cy + math.sin(a) * r * 0.92))
     out.append(path(smooth(spiral), None, tone(0xFFF6E0), 4.2))
     out.append(circle(spiral[0][0], spiral[0][1], 3.6, tone(LIME)))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _monitor(tone, time):
@@ -235,7 +235,7 @@ def _monitor(tone, time):
     out.append(circle(mid, y0 + h - 7, 2.2, LIME))
     if time == "night":
         out.append(ellipse(mid, DESK_Y + 44, 170, 30, 0x6EC6FF, opacity=0.10))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _notes(tone):
@@ -244,7 +244,7 @@ def _notes(tone):
         body = rect(-17, 0, 34, 34, tone(c)) + path("M17 34L5 34L17 22Z", tone(dark))
         body += rect(-11, 8, 22, 2.6, tone(dark), r=1.3) + rect(-11, 15, 15, 2.6, tone(dark), r=1.3)
         out.append(at(x, y, body, rot=rot))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _keyboard(tone):
@@ -273,7 +273,7 @@ def _keyboard(tone):
                 c = LIME
             out.append(rect(kx0, y0 + 1.4, kx1 - kx0, y1 - y0, tone(KEYS_SHADE), r=1.8))
             out.append(rect(kx0, y0, kx1 - kx0, y1 - y0 - 0.6, tone(c), r=1.8))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _mug(tone):
@@ -290,7 +290,7 @@ def _mug(tone):
         x1, y1 = x + dx, y - 46 - lift
         d = "M%d %dC%d %d %d %d %d %dC%d %d %d %d %d %d" % (x1, y1, x1 - 8, y1 - 10, x1 + 8, y1 - 18, x1, y1 - 28, x1 - 7, y1 - 36, x1 + 5, y1 - 42, x1 + 1, y1 - 50)
         out.append(path(d, None, WHITE, 3.4, opacity=0.42))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _leaf(x, y, length, width, rot, light, dark):
@@ -325,7 +325,7 @@ def _plant(tone):
     out.append(rect(693, 264, 70, 11, tone(0xFFFBF2), r=3))
     out.append(rect(693, 264, 20, 11, tone(0xE4DCCD), r=3))
     out.append(rect(706, 296, 44, 5, tone(CORAL)))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _lamp(tone, on):
@@ -342,7 +342,7 @@ def _lamp(tone, on):
     head += rect(-9, -17, 18, 10, tone(CASE), r=3)
     head += ellipse(0, 32, 34, 6, 0xFFF6D2 if on else dark)
     out.append(at(78, 178, head, rot=-24))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _lamp_light(time):
@@ -372,7 +372,7 @@ def _board(doc, tone):
     halo = doc.radial([(0, LIME, 0.75), (1, LIME, 0)])
     out.append(circle(43, -3, 11, halo))
     out.append(circle(43, -3, 3, 0xF4FFB0))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _cable(tone):
@@ -390,7 +390,7 @@ def _bubble(x, y):
         out.append(circle(cx, cy, r, WHITE))
     for i, c in enumerate((NAVY, NAVY, CORAL)):
         out.append(circle(x - 20 + i * 20, y + 2, 5.6, c))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _stack(tone):
@@ -406,7 +406,7 @@ def _stack(tone):
     out.append(rect(224, 391, 9, 23, tone(CORAL)))
     out.append(rect(70, 399, 74, 4, tone(0xB9AB90), r=2))
     out.append(rect(70, 406, 44, 3, tone(0xB9AB90), r=1.5))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _scheme(time, spot):
@@ -435,7 +435,7 @@ def _chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave,
     else:
         body = hue.draw(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None, nod=nod)
     # its shadow lies on what it stands on
-    shadow = ellipse(x - 4, y + 2, 170 * scale, 5, 0x000000, opacity=0.16) if spot == "books" else ""
+    shadow = ellipse(x - 4, y + 2, 170 * scale, 5, 0x000000, opacity=0.16) if spot == "books" else b""
     return shadow + at(x, y, body, scale=scale)
 
 

@@ -73,7 +73,7 @@ def _pegboard():
     while y < 318:
         out.append(_dots(48, y, 760, 22, 5.5, PEG_HOLE))
         y += 22
-    return "".join(out)
+    return b"".join(out)
 
 
 def _cabinet(x, y):
@@ -94,7 +94,7 @@ def _cabinet(x, y):
     out.append(rect(x - 16, y + 112, 212, 9, WOOD_DARK, r=2))
     out.append(rect(x - 16, y + 112, 212, 3, WOOD_LIGHT, r=1))
     out.append(rect(x - 16, y + 119, 212, 2.5, FRAME, r=1))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _succulent(x, y):
@@ -103,7 +103,7 @@ def _succulent(x, y):
         out.append(limb(x + dx * 0.3, y - 6, x + dx, y + tip, 0.12 if dx < 0 else -0.12, 13, 3, color))
     out.append(path(pts(((x - 15, y - 8), (x + 15, y - 8), (x + 11, y + 12), (x - 11, y + 12)), True), 0xC96A45))
     out.append(rect(x - 17, y - 11, 34, 6, 0xDE8159, r=2))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _screwdrivers(x, y):
@@ -119,7 +119,7 @@ def _screwdrivers(x, y):
         out.append(rect(cx - 8, y - 12, 16, 6, BLACK, opacity=0.35))
     out.append(rect(x - 4, y - 4, 96, 10, IRON, r=3))
     out.append(rect(x - 4, y - 4, 96, 3, IRON_LIGHT, r=1.5))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _pliers(x, y):
@@ -132,7 +132,7 @@ def _pliers(x, y):
     out.append(limb(x - 6, y + 26, x - 18, y + 70, -0.08, 3, 3, 0xFF8C7A))
     out.append(circle(x, y + 6, 8, STEEL_DARK))
     out.append(circle(x, y + 6, 3.2, STEEL_LIGHT))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _spool(x, y, loose=True):
@@ -148,7 +148,7 @@ def _spool(x, y, loose=True):
     out.append(circle(x, y, 8, 0x2F6FA8))
     out.append(circle(x, y, 3.5, BLACK))
     out.append(path("M%s %sA22 22 0 0 1 %s %s" % (x + 4, y - 23.5, x + 21, y - 9), None, 0x7FB4E0, 2.5))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _tape(x, y):
@@ -157,7 +157,7 @@ def _tape(x, y):
     out.append(circle(x, y, 20.5, None, 0xB87118, 1.2))
     out.append(path("M%s %sA16 16 0 0 1 %s %s" % (x + 2, y - 16, x + 15, y - 5), None, 0xF4B55A, 3))
     out.append(circle(x, y - 13, 2.6, IRON))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _postcard(x, y, rot):
@@ -173,7 +173,7 @@ def _postcard(x, y, rot):
     out.append(rect(19, 20, 2, 3, RED))
     out.append(circle(42, 3, 3.2, RED))
     out.append(circle(41, 2, 1.1, 0xFF9A8C))
-    return at(x, y, "".join(out), rot=rot)
+    return at(x, y, b"".join(out), rot=rot)
 
 
 def _sticky(x, y, rot):
@@ -182,7 +182,7 @@ def _sticky(x, y, rot):
     for i, w in enumerate((30, 34, 22)):
         out.append(line(7, 12 + i * 9, 7 + w, 12 + i * 9, 0x8A7420, 1.6))
     out.append(rect(14, -4, 18, 9, 0xBFE0EA, opacity=0.8))
-    return at(x, y, "".join(out), rot=rot)
+    return at(x, y, b"".join(out), rot=rot)
 
 
 def _mug(x, y):
@@ -199,7 +199,7 @@ def _mug(x, y):
     out.append(rect(x - 20, y - 26, 40, 8, LIME))
     out.append(rect(x - 20, y - 26, 9, 8, 0xA8C038))
     out.append(ellipse(x, y - 44, 20, 4.5, 0x4A3A30))
-    return "".join(out)
+    return b"".join(out)
 
 
 # --- the bench ---------------------------------------------------------------
@@ -209,7 +209,7 @@ def _bench():
     out = [rect(0, 322, 800, 158, WOOD), rect(0, 322, 800, 5, WOOD_LIGHT), rect(0, 327, 800, 2, WOOD_DARK, opacity=0.5)]
     for x, y, length in ((14, 342, 70), (700, 338, 84), (748, 352, 40), (6, 372, 38), (10, 420, 30), (764, 470, 30), (2, 462, 44)):
         out.append(line(x, y, x + length, y, WOOD_DARK, 1.6, opacity=0.6))
-    return "".join(out)
+    return b"".join(out)
 
 
 _MAT = ((118, 350), (736, 350), (792, 478), (56, 478))
@@ -236,7 +236,7 @@ def _mat():
         x0, y0 = _mat_pt(0.012, v)
         x1, y1 = _mat_pt(0.988, v)
         out.append(line(x0, y0, x1, y1, MAT_LINE, 1.1, opacity=0.55))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _lamp_arm():
@@ -245,7 +245,7 @@ def _lamp_arm():
     out.append(limb(782, 176, 704, 86, 0, 9, 9, MUSTARD))
     out.append(circle(782, 176, 9, IRON))
     out.append(circle(782, 176, 3.5, IRON_LIGHT))
-    return "".join(out)
+    return b"".join(out)
 
 
 _LAMP_TURN = 120.5
@@ -266,7 +266,7 @@ def _lamp_head():
     out.append(ellipse(52, 0, 3.5, 22, 0xFFFFFF))
     out.append(circle(-4, 0, 6, IRON))
     out.append(circle(-4, 0, 2.4, IRON_LIGHT))
-    return at(704, 86, "".join(out), rot=_LAMP_TURN)
+    return at(704, 86, b"".join(out), rot=_LAMP_TURN)
 
 
 # --- the board ---------------------------------------------------------------
@@ -279,7 +279,7 @@ def _header(x, y, pins):
         out.append(rect(px, y + 4, 5, 5, GOLD_DARK))
         out.append(rect(px + 1, y + 4, 4, 4, GOLD))
         out.append(rect(px + 2.6, y + 4.6, 1.8, 1.8, 0xFFE9A0))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _passive(x, y, body, upright=False):
@@ -398,7 +398,7 @@ def _board(doc):
     # the maker's mark in silk: a faceted square
     out.append(path("M112 90L120 94L120 102L112 106L104 102L104 94Z", None, LIME, 1.1))
     out.append(path("M104 94L112 98L120 94M112 98L112 106", None, LIME, 1.1))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _holder():
@@ -416,7 +416,7 @@ def _holder():
         out.append(rect(x + 9, 298, 3.5, 100, IRON_LIGHT, r=1.7))
     out.append(circle(684, 400.5, 9, MUSTARD_DARK))
     out.append(circle(685, 399.5, 7, MUSTARD))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _cable():
@@ -454,7 +454,7 @@ def _digit(x, y, w, h, char, color):
         "e": (x, y + half + t * 0.4, t, half - t),
         "c": (x + w - t, y + half + t * 0.4, t, half - t),
     }
-    return "".join(rect(*(bars[s] + (color,))) for s in _SEGS[char])
+    return b"".join(rect(*(bars[s] + (color,))) for s in _SEGS[char])
 
 
 def _meter(x, y):
@@ -483,7 +483,7 @@ def _meter(x, y):
         out.append(circle(jx, 43, 4.2, color))
         out.append(circle(jx, 43, 1.8, 0x10151C))
     out.append(rect(31, -52, 3.5, 100, 0xFFD05E, r=1.7))
-    return at(x, y, "".join(out))
+    return at(x, y, b"".join(out))
 
 
 def _leads():
@@ -497,7 +497,7 @@ def _leads():
         x0, y0, x1, y1 = tip
         out.append(limb(x0, y0, x1, y1, 0, 8, 5, color))
         out.append(limb(x1, y1, x1 - 20, y1 - 4, 0, 2, 1, STEEL))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _iron(x, y, home=True):
@@ -518,19 +518,19 @@ def _iron(x, y, home=True):
     iron += rect(-9, -74, 18, 22, BLACK, r=3) + rect(-9, -68, 18, 2, 0x343C48) + rect(-9, -62, 18, 2, 0x343C48)
     if home:
         out.append(group(iron, turn))
-    spring = ""
+    spring = b""
     for i in range(6):
         spring += ellipse(0, -6 - i * 6.2, 9.5 - i * 0.5, 4, None, STEEL_LIGHT if i % 2 else STEEL, 2.4)
     out.append(group(spring, turn))
     out.append(limb(x + 26, y - 6, x + 26, y - 14, 0, 6, 6, IRON))
     if not home:
-        return "".join(out)
+        return b"".join(out)
     for points, width, opacity in (
         (((x + 30, y - 22), (x + 40, y - 50), (x + 26, y - 78), (x + 40, y - 108), (x + 30, y - 136)), 3.2, 0.34),
         (((x + 34, y - 26), (x + 50, y - 62), (x + 42, y - 92), (x + 54, y - 118)), 2.2, 0.22),
     ):
         out.append(path(smooth(points), None, 0xFFFFFF, width, opacity=opacity))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _breadboard():
@@ -542,7 +542,7 @@ def _breadboard():
     out.append(line(403, 469, 541, 469, 0x2F6FA8, 1.1))
     for y, inset in ((454.5, 5), (459, 4), (464, 3)):
         out.append(_dots(408 + 6 - inset, y, 538 + inset - 6, 7.2, 2.4, 0x8E8676))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _wires():
@@ -554,7 +554,7 @@ def _wires():
         out.append(rect(x1 - 4.6, BOARD_Y + 114, 9.2, 15, 0x2A313B, r=1.5))
         out.append(rect(x1 - 4.6, BOARD_Y + 114, 3, 15, 0x475260, r=1.5))
         out.append(rect(x0 - 2.5, 455, 5, 6, BLACK, r=1))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _parts():
@@ -570,7 +570,7 @@ def _parts():
     out.append(line(371, 466, 366, 476, STEEL, 1.4) + line(376, 466, 379, 477, STEEL, 1.4))
     out.append(path("M366 467L366 458A7.5 7.5 0 0 1 381 458L381 467Z", RED) + rect(364, 465, 19, 3.5, 0xB93A2E, r=1.5))
     out.append(path("M369 458A4.5 4.5 0 0 1 373.5 453.5", None, 0xFF9A8C, 1.8))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _hands(x, y):
@@ -596,7 +596,7 @@ def _hands(x, y):
     out.append(rect(x + 80, y - 2, 14, 12, BLACK, r=3) + rect(x + 80, y - 2, 14, 3, 0x343C48, r=1.5))
     out.append(rect(x - 54, y - 3, 20, 14, IRON, r=3) + rect(x - 54, y - 3, 20, 4, IRON_LIGHT, r=2))
     out.append(circle(x - 44, y + 4, 3.4, MUSTARD))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _rack(x0, y):
@@ -605,7 +605,7 @@ def _rack(x0, y):
     for x in (x0 + 12, x0 + 214):
         out.append(path("M%s %sL%s %sQ%s %s %s %s" % (x, y - 14, x, y + 6, x, y + 12, x + 7, y + 11), None, STEEL_DARK, 3.4))
         out.append(circle(x, y - 14, 3, IRON))
-    reels = ""
+    reels = b""
     for dx, color, dark, drop in ((40, RED, 0xB93A2E, 30), (68, MUSTARD, MUSTARD_DARK, 18), (198, TEAL, 0x1B7F8E, 26)):
         x = x0 + dx
         reels += path("M%s %sq-5 %s 2 %s" % (x + 7, y + 16, drop * 0.5, drop), None, color, 2.2)
@@ -618,7 +618,7 @@ def _rack(x0, y):
     out.append(rect(x0, y, 226, 7, 0xB98452, r=3.5))
     out.append(rect(x0 + 2, y, 222, 2.6, 0xDDAE7A, r=1.3))
     out.append(reels)
-    return "".join(out)
+    return b"".join(out)
 
 
 def _chameleon(doc, pose, look, look_far, mood, blink, colors):

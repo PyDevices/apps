@@ -131,7 +131,7 @@ def board(turn=0):
     out.append(circle(10, -22, 13, LIME, opacity=0.22))
     out.append(circle(10, -22, 8, LIME, opacity=0.35))
     out.append(rect(5, -25, 10, 6, 0xF6FFC4, r=1.5))
-    return "".join(out)
+    return b"".join(out)
 
 
 def lantern(turn=0, color=LIME):
@@ -193,7 +193,7 @@ def umbrella(turn=0):
         path("M22 -122Q44 -112 54 -98", None, 0xFF8A70, 3.5),
         line(0, -129, 0, -140, _INK, 4),
     ]
-    return "".join(out)
+    return b"".join(out)
 
 
 def leaf(turn=0):
@@ -214,7 +214,7 @@ def flower(turn=0):
         out.append(group(ellipse(0, -21, 8.5, 15, WHITE if i % 2 else 0xF1E9F7), "translate(0 -62) rotate(%d)" % (i * 40)))
     out.append(circle(0, -62, 12, _GOLD))
     out.append(circle(3, -65, 5.5, 0xFFD778))
-    return "".join(out)
+    return b"".join(out)
 
 
 def plane(turn=0):
@@ -272,7 +272,7 @@ def sparkler(turn=0):
         else:
             out.append(circle(math.cos(a + 0.3) * (r1 + 12), -78 + math.sin(a + 0.3) * (r1 + 12), 1.8, _GOLD))
     out.append(circle(0, -78, 8, WHITE))
-    return "".join(out)
+    return b"".join(out)
 
 
 def balloon(turn=0):
@@ -382,4 +382,4 @@ def hold(doc, prop, wear=None, lean=None, size=1.25, **pose):
         gy = y - math.cos(math.radians(turn)) * 9 - math.cos(math.radians(lean)) * 10 * size
         out.append(at(gx, gy, shape(lean), rot=lean, scale=size))
         out.append(at(x, y, _fist(skin, shade, deep), rot=turn))
-    return "".join(out)
+    return b"".join(out)

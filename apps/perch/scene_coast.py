@@ -130,7 +130,7 @@ def _sky(season, night):
     else:
         out.append(circle(sx, sy, 62, 0xFFFFFF, opacity=0.35))
         out.append(circle(sx, sy, 40, season["sun"]))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _cloud(x, y, s, colors):
@@ -145,7 +145,7 @@ def _cloud(x, y, s, colors):
         circle(x + 33 * s, y - 1 * s, 13 * s, light),
         rect(x - 46 * s, y - 2 * s, 92 * s, 14 * s, light, r=7 * s),
     ]
-    return "".join(out)
+    return b"".join(out)
 
 
 def _headland(season, night, beam):
@@ -166,7 +166,7 @@ def _headland(season, night, beam):
     out.append(rect(x - 11, y - 70, 22, 5, _dim(0x3A3F4B, night), r=1))
     out.append(rect(x - 7, y - 86, 14, 16, 0xFFF3B0 if beam else _dim(0xBFE4F2, night)))
     out.append(path(pts([(x - 10, y - 86), (x, y - 98), (x + 10, y - 86)], True), red))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _sea(season, night):
@@ -188,7 +188,7 @@ def _sea(season, night):
             out.append(rect(x, y, w, 2.6, glint, r=1.3, opacity=bars.between(0.35, 0.8)))
         y += 9
         half += 5
-    return "".join(out)
+    return b"".join(out)
 
 
 def _shore(season, night):
@@ -200,7 +200,7 @@ def _shore(season, night):
     out.append(path(smooth([(x, y - 4) for x, y in edge]) + "L820 480L-20 480Z", wet))
     out.append(path(smooth([(x, y + 14 + 6 * math.sin(x / 90)) for x, y in edge]) + "L820 480L-20 480Z", sand))
     out.append(path(smooth([(-20, 452), (160, 436), (360, 452), (560, 440), (820, 458)]) + "L820 480L-20 480Z", light))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _dune(season, night):
@@ -218,7 +218,7 @@ def _dune(season, night):
             tall = tufts.between(16, 38)
             x = cx + tufts.between(-12, 12)
             out.append(limb(x, cy, x + lean, cy - tall, lean / 60, 3.2, 0.8, green if tufts.next() > 0.45 else dark))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _tree(season, night, x, y):
@@ -264,7 +264,7 @@ def _tree(season, night, x, y):
         # snow lying along the branch tips
         for tx, ty in tips:
             out.append(ellipse(tx, ty - 3, 7, 3, _dim(0xFFFFFF, night)))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _gull(x, y, s, color):
@@ -303,7 +303,7 @@ def _sandcastle(x, y, sand, shade):
     out.append(path("M%d %dA6 9 0 0 1 %d %dZ" % (x - 6, y, x + 6, y), shade))
     out.append(line(x, y - 50, x, y - 72, 0x7A5440, 1.6))
     out.append(path(pts([(x, y - 72), (x + 15, y - 67), (x, y - 62)], True), 0xE4513D))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _snowman(x, y):
@@ -341,7 +341,7 @@ def _drift(season_name, night, rng):
             out.append(circle(x, y, 7, 0xE8FF8A, opacity=0.18))
             out.append(circle(x, y, 3.4, 0xE8FF8A, opacity=0.35))
             out.append(circle(x, y, 1.5, 0xFDFFE0))
-    return "".join(out)
+    return b"".join(out)
 
 
 # The chameleon in each season: its colour scheme, what it holds, its pose.
@@ -382,7 +382,7 @@ def _driftwood(x, y, s, night):
         ellipse(left - 2 * s, top + 8 * s, 6.5 * s, 12 * s, None, shade, 1.6 * s),
         ellipse(left - 2 * s, top + 8 * s, 2 * s, 4 * s, shade),
     ]
-    return "".join(out)
+    return b"".join(out)
 
 
 def draw(doc, season="summer", night=False, pose=None, colors=None, drift=True, who="chameleon", hue_at=(322, 404), hue_scale=0.6):

@@ -47,7 +47,7 @@ def _spiral(cx, cy, r0, r1, w0, w1, start, turns, fill, steps=40):
     inner = _spiral_points(cx, cy, r0, r1, start, turns, -w0 / 2, -w1 / 2, 0, 1, steps)
     inner.reverse()
     tip = ((outer[-1][0] + inner[0][0]) / 2, (outer[-1][1] + inner[0][1]) / 2)
-    d = smooth(outer) + "L" + smooth(inner)[1:] + "Z"
+    d = smooth(outer) + "L" + smooth(inner).tail() + "Z"
     return path(d, fill) + circle(tip[0], tip[1], w1 / 2, fill)
 
 
@@ -64,11 +64,11 @@ def _eye(doc, x, y, r, look, blink, happy, skin, shade, light, deep):
     if happy:
         out.append(circle(ox, oy, open_r, skin))
         out.append(path("M%.2f %.2fQ%.2f %.2f %.2f %.2f" % (ox - open_r * 0.72, oy + open_r * 0.22, ox, oy - open_r * 0.74, ox + open_r * 0.72, oy + open_r * 0.22), None, deep, r * 0.13))
-        return "".join(out)
+        return b"".join(out)
     if blink >= 0.88:
         out.append(circle(ox, oy, open_r, skin))
         out.append(path("M%.2f %.2fQ%.2f %.2f %.2f %.2f" % (ox - open_r * 0.8, oy, ox, oy + open_r * 0.34, ox + open_r * 0.8, oy), None, deep, r * 0.11))
-        return "".join(out)
+        return b"".join(out)
     out.append(circle(ox, oy, open_r + r * 0.07, deep))
     white = doc.radial([(0, WHITE), (0.8, 0xF4F7FB), (1, 0xD3DCE8)])
     out.append(circle(ox, oy, open_r, white))
@@ -91,7 +91,7 @@ def _eye(doc, x, y, r, look, blink, happy, skin, shade, light, deep):
             )
         )
         out.append(path("M%.2f %.2fQ%.2f %.2f %.2f %.2f" % (ox - half, oy + drop, ox, oy + drop + lr * 0.16, ox + half, oy + drop), None, deep, r * 0.09))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _foot(x, y, skin, deep, turn=0):
@@ -123,7 +123,7 @@ def _perch(kind):
         for x, turn, flip in ((-250, -150, False), (-236, 150, True), (236, -40, False), (286, 36, True)):
             leaf = path("M0 0C14 -22 44 -26 58 -8C40 6 14 8 0 0Z", 0x3F8F3A) + path("M0 0C14 -22 44 -26 58 -8C36 -12 16 -8 0 0Z", 0x6FC24B)
             out.append(at(x, 8, leaf, rot=turn, flip=flip))
-        return "".join(out)
+        return b"".join(out)
     if kind == "wire":
         # a jumper wire, pulled tight between two pins
         out.append(path("M-232 8Q0 16 232 6", None, 0xC8452F, 11))
@@ -132,7 +132,7 @@ def _perch(kind):
             out.append(at(x, y, rect(-22, -8, 44, 16, 0x2B2B33, r=3) + rect(-18, -5, 30, 3, 0x4A4A55, r=1.5), rot=turn))
         out.append(rect(-270, 5.5, 20, 5, 0xD9DEE6, r=2))
         out.append(rect(250, 3.5, 20, 5, 0xD9DEE6, r=2))
-        return "".join(out)
+        return b"".join(out)
     out.append(limb(120, 6, 204, -36, 0.12, 9, 5, _BARK_DARK))
     out.append(limb(-236, 12, 240, 5, 0.012, 19, 13, _BARK))
     out.append(path("M-226 15Q0 22 236 9", None, _BARK_DARK, 4, opacity=0.8))
@@ -141,7 +141,7 @@ def _perch(kind):
     # a leaf or two at the tip of the side shoot
     out.append(at(204, -37, path("M0 0C14 -22 44 -26 58 -8C40 6 14 8 0 0Z", 0x5E9E3E) + path("M0 0C14 -22 44 -26 58 -8C36 -12 16 -8 0 0Z", 0x8CC152) + path("M2 -1Q28 -12 54 -8", None, 0x3F7D32, 1.6), rot=-28))
     out.append(at(170, -19, path("M0 0C8 -14 26 -16 34 -5C22 4 8 5 0 0Z", 0x5E9E3E) + path("M0 0C8 -14 26 -16 34 -5C20 -7 9 -5 0 0Z", 0x8CC152), rot=-96))
-    return "".join(out)
+    return b"".join(out)
 
 
 _HIP = (-78, -70)
@@ -192,7 +192,7 @@ def _trunk(colors, curl, tail):
         out.append(circle(sx, sy, r, spots))
     out.append(path(smooth([(-52, -160), (-10, -169), (36, -164), (58, -152), (30, -158), (-10, -162)], True), light))
 
-    return "".join(out)
+    return b"".join(out)
 
 
 def _skull(colors):
@@ -205,7 +205,7 @@ def _skull(colors):
     head.append(limb(90, -232, 112, -204, -0.08, 7, 2.5, light))
     # the lower jaw, pale like the belly
     head.append(path(smooth([(90, -116), (134, -111), (180, -128), (182, -118), (170, -104), (128, -91), (82, -95)], True), belly))
-    return "".join(head)
+    return b"".join(head)
 
 
 def _upper(doc, colors, look, look_far, blink, mood, curl=1.0, nod=0, tongue=0, target=None, tail=True):
@@ -243,11 +243,11 @@ def _upper(doc, colors, look, look_far, blink, mood, curl=1.0, nod=0, tongue=0, 
     head.append(circle(170, -148, 2.4, deep))
     # the near eye
     head.append(_eye(doc, 110, -164, 39, look, blink, happy, skin, shade, light, deep))
-    head = "".join(head)
+    head = b"".join(head)
     if nod:
         head = group(head, "rotate(%.2f %d %d)" % (nod, _NECK[0], _NECK[1]))
     out.append(head)
-    return "".join(out)
+    return b"".join(out)
 
 
 def _gait(phase):
@@ -333,7 +333,7 @@ def draw(doc, look=(0.5, 0.1), look_far=None, blink=0, mood="calm", colors="leaf
         out.append(_foot(80 + nf[0], 3 - nf[1], skin, deep, -nf[1]))
     out.append(circle(sx, sy - 2, 15, skin))
     out.append(path("M%.1f %.1fq10 9 24 3" % (sx - 12, sy + 10), None, shade, 3.5))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _turned(point, turn, hip):
@@ -387,7 +387,7 @@ def draw_sit(doc, look=(0.0, 0.0), look_far=None, blink=0, mood="calm", colors="
     out.append(limb(sx, sy, hx, hy, 0.26 - 0.06 * wave, 27, 16, skin))
     out.append(_hand(hx, hy, skin, deep, 70 - 34 * wave))
     out.append(circle(sx, sy, 14, skin))
-    return "".join(out)
+    return b"".join(out)
 
 
 def draw_sleep(doc, colors="leaf", perch="twig"):
@@ -408,7 +408,7 @@ def draw_sleep(doc, colors="leaf", perch="twig"):
     # sleep, rising off it
     for zx, zy, zs, opa in ((206, -128, 1.0, 0.9), (226, -168, 1.35, 0.75), (252, -218, 1.75, 0.6)):
         out.append(path("M%.1f %.1fh%.1fl%.1f %.1fh%.1f" % (zx, zy, 14 * zs, -14 * zs, 16 * zs, 14 * zs), None, LIME, 4.2 * zs ** 0.5, opacity=opa))
-    return "".join(out)
+    return b"".join(out)
 
 
 def draw_hang(doc, look=(-0.2, 0.2), look_far=None, mood="happy", colors="leaf", perch="twig", wave=1.0):
@@ -448,7 +448,7 @@ def draw_hang(doc, look=(-0.2, 0.2), look_far=None, mood="happy", colors="leaf",
     out.append(limb(sx, sy, hx, hy, -0.24, 27, 16, skin))
     out.append(_hand(hx, hy, skin, deep, -70 + 30 * wave))
     out.append(circle(sx, sy, 14, skin))
-    return "".join(out)
+    return b"".join(out)
 
 
 def _bug(x, y, s=1.0):
