@@ -8,8 +8,8 @@
 Run it from the app's folder, in a checkout of the apps repository. SCRIPT is
 "tour" (the default: every frame of a twelve-second tour, as f0000.bmp and
 on), or "stills" (named pictures of each place and view). Frames are 16-bit
-BMP files. The timings printed at the end are this machine's: what svgio
-spent building, parsing and drawing, and LVGL on each frame.
+BMP files. The timings printed at the end are this machine's: `Stage.stats`,
+and what LVGL spent on each frame.
 """
 
 import sys
@@ -56,11 +56,10 @@ class Film:
         self.lvgl_us = 0
         self.lvgl_max = 0
         self.steps = 0
-        self.tick_max = 0
+        self.poses = []
 
     def step(self, save=None):
         """One tick of the app, one LVGL frame, and maybe one picture written."""
-        t0 = time.ticks_us()
         for tick in self.scope.ticks:
             tick()
         t1 = time.ticks_us()
@@ -69,8 +68,9 @@ class Film:
         spent = time.ticks_diff(time.ticks_us(), t1)
         self.lvgl_us += spent
         self.lvgl_max = max(self.lvgl_max, spent)
-        self.tick_max = max(self.tick_max, time.ticks_diff(t1, t0))
         self.steps += 1
+        if self.stage.pose is not None and (not self.poses or self.poses[-1][1] != self.stage.pose):
+            self.poses.append((self.count, self.stage.pose))
         if save is True:
             write_bmp("%s/f%04d.bmp" % (self.out, self.count), self.frame, self.w, self.h)
             self.count += 1
@@ -108,33 +108,34 @@ class Film:
 
     def report(self):
         s = self.stage.stats
-        print("svgio: text built %d ms, garbage collected %d ms, parsed %d ms, drawn %d ms; %d poses, %d bands" % (s["text"] // 1000, s["tidy"] // 1000, s["parse"] // 1000, s["draw"] // 1000, s["poses"], s["bands"]))
-        print("slowest band %d us, slowest pose %d us, slowest tick %d us" % (s["band_us"], s["pose_us"], self.tick_max))
+        print("svgio: shapes and text built %d ms, garbage collected %d ms, parsed %d ms, drawn %d ms; %d scenes, %d poses" % (s["build"] // 1000, s["tidy"] // 1000, s["parse"] // 1000, s["draw"] // 1000, s["scenes"], s["poses"]))
+        print("longest tick: %d us while a place loads, %d us while it shows" % (s["tick_load_us"], s["tick_show_us"]))
+        print("from opening: first place %s ms, first pose %s ms, first step of a walk %s ms" % (s["first_picture_ms"], s["first_pose_ms"], s["first_walk_ms"]))
         print("LVGL frame: mean %d us, slowest %d us, over %d frames" % (self.lvgl_us // max(self.steps, 1), self.lvgl_max, self.steps))
         print("pictures held: now %d KB, peak %d KB" % (self.stage.held_bytes() // 1024, s["peak"] // 1024))
+        print("poses, by the frame each first showed in:", " ".join("%d:%s" % (n, "-".join(str(part) for part in pose)) for n, pose in self.poses))
 
 
 def tour(film):
-    """Twelve seconds: a walk, a blink, the tongue, new colours, another place, a closer view."""
+    """Twelve seconds: a blink, a walk, the tongue, new colours, another place, a closer view."""
     stage = film.stage
     film.settle(True)
-    stage.cues[:] = ["blink", "stroll", "tongue"]
-    stage._wait = 4
-    while stage.cues:
-        film.step(True)
-    film.run(28, True)
+    # what it does first at the coast: a blink, a stroll, a bug
+    for last in (("happy",), ("stand", 0, 0)):
+        while stage.cues or stage.pose != last:
+            film.step(True)
+    film.run(14, True)
     film.press(1, True)  # autumn: the colours come over it as the coast is redrawn
     film.settle(True)
-    film.run(22, True)
+    film.run(12, True)
     film.touch(*film.on_hue(), save=True)  # a finger on it
-    film.run(30, True)
+    film.run(26, True)
     film.press(0, True)  # the workbench
     film.settle(True)
-    stage.cues[:] = ["look"]
-    film.run(40, True)
+    film.run(34, True)
     film.press(2, True)  # closer
     film.settle(True)
-    film.run(30, True)
+    film.run(20, True)
 
 
 def stills(film):

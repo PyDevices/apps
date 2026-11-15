@@ -31,25 +31,20 @@ PLANT = os.getenv("WANDER_PLANT")
 PLANTS = ("no_paint", "hidden", "same_colours", "no_walk", "deaf", "hoard", "leak")
 
 # a small allowance, so keeping to it is tested without drawing megabytes
-ALLOWED = 400 * 1024
+ALLOWED = 700 * 1024
 stagemod.CACHE_BYTES = ALLOWED
 Stage = stagemod.Stage
 
 if PLANT == "no_paint":
-
-    def _paint(self):
-        self._painted = (self.place, self._ground_key(), self.view)
-        yield
-
-    Stage._paint = _paint
+    Stage._shapes = lambda self: stagemod.Doc()
 elif PLANT == "hidden":
-    _show = Stage._show
+    _put = Stage._put
 
-    def _shown_nowhere(self, spec, scheme=None, keep=True):
-        _show(self, spec, scheme, keep)
+    def _put_nowhere(self, frame, spec):
+        _put(self, frame, spec)
         self.hue.add_flag(lv.obj.FLAG.HIDDEN)
 
-    Stage._show = _shown_nowhere
+    Stage._put = _put_nowhere
 elif PLANT == "same_colours":
     for place in stagemod.PLACES.values():
         if place["schemes"]:
@@ -153,14 +148,23 @@ check(not [n for n in stagemod.mascot_chameleon.COLORS if ">" in n], "the blende
 # A walk carries it along the perch, and it ends standing.
 start = stage.hue.get_x()
 stage.cues[:] = ["stroll"]
-step(140)
-check(abs(stage.hue.get_x() - start) > W // 30, "a stroll moves the chameleon along its perch")
+furthest = 0
+walked = False
+for _ in range(160):
+    step()
+    furthest = max(furthest, abs(stage.hue.get_x() - start))
+    walked = walked or (stage.pose is not None and stage.pose[0] == "walk")
+check(walked and furthest > W // 30, "a stroll moves the chameleon along its perch")
+check(stage.stats["first_walk_ms"] is not None, "the stage notes when it first walked")
+stage.cues[:] = []
+step(60)
 
 # A finger on it is answered; a finger elsewhere brings the buttons.
 ox, oy = stage._origin()
 check(dock.left == 0, "the buttons are away until the screen is touched")
 tap(int(ox), int(oy - H * 0.12))
-check(stage._shown is stage._frames.get((("happy",), stage._facing < 0, stage.scheme)), "touched, the chameleon is pleased")
+step(12)
+check(stage.pose == ("happy",), "touched, the chameleon is pleased")
 check(dock.left == 0, "a touch on the chameleon doesn't bring the buttons")
 tap(6, 6)
 check(dock.left > 0 and not dock.bar.has_flag(lv.obj.FLAG.HIDDEN), "a touch anywhere else brings the buttons")
@@ -190,7 +194,7 @@ check(stage.stats["peak"] <= allowance, "the most ever held stayed within the al
 # The desk, where it sleeps at night and a finger doesn't wake it.
 stage.go("desk", "night")
 settle()
-check(stage._shown is stage._frames.get((("sleep",), False, "night")), "at the desk at night it is asleep")
+check(stage.pose == ("sleep",), "at the desk at night it is asleep")
 
 # Closing lets go of every picture.
 for fn in scope.closers:

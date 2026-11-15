@@ -3,11 +3,13 @@
 # SPDX-License-Identifier: MIT
 """Put a place and the chameleon on an LVGL screen, and keep them moving.
 
-A `Stage` draws the place once, in bands, into one RGB565 buffer behind an
-``lv.image``. The chameleon is a second image over it: each pose is drawn by
-svgio into its own RGB565A8 buffer the first time it is wanted and kept, so a
-walk, a blink or a wave is a change of picture and a move, which LVGL blends.
-Everything is a step in one timer tick, so nothing holds the screen for long.
+A `Stage` draws the place once into one RGB565 buffer behind an ``lv.image``.
+The chameleon is a second image over it: each pose is drawn by svgio into its
+own RGB565A8 buffer and kept, so a walk, a blink or a wave is a change of
+picture and a move, which LVGL blends. The poses it will want are drawn ahead,
+a step a tick, while it stands there. Building the shapes, parsing them and
+drawing them are separate steps, each in its own timer tick, so nothing holds
+the screen for long; `Stage.stats` says how long each took.
 """
 
 import gc
@@ -17,12 +19,12 @@ import lvgl as lv
 import svgio
 
 from . import chameleon_props, chameleon_shift, chameleon_views, mascot_chameleon, scene_bench, scene_coast, scene_desk
-from .vec import Doc, at
+from .vec import Doc, at, circle
 
 TICK_MS = 40
 SCENE_W, SCENE_H = 800, 480
 NAVY = 0x0B2A4A
-BANDS = 4  # the place is drawn in this many strips, one a tick
+DOCS_KEPT = 3  # places whose shapes are kept, so going back to one skips building it
 CACHE_BYTES = 6 * 1024 * 1024  # poses kept, beside the one on screen and the one just drawn
 STRIDE = 63.3  # how far a full turn of the walk carries the body, in its own units
 
@@ -43,6 +45,12 @@ _LOOKS = (
 # at the bench: on the joint, one eye up at you, both on you
 _WORK_LOOKS = (((0.9, 0.55), (0.75, 0.35)), ((0.9, 0.55), (-0.6, -0.3)), ((-0.5, 0.1), (0.75, 0.35)))
 _BUG = (300, -150)  # where a bug hovers and the tongue strikes, in the head's units
+# the solder joint on the workbench's board, in the chameleon's units: x, y, radius
+_JOINT = (
+    (scene_bench.BOARD_X + 34 - scene_bench.HUE_X) / scene_bench.HUE_SCALE,
+    (scene_bench.BOARD_Y + 97.5 - scene_bench.HUE_Y) / scene_bench.HUE_SCALE,
+    7 / scene_bench.HUE_SCALE,
+)
 _HELD = ("flower", "flag", "sparkler", "magnifier", "balloon", "mug")
 _CHOICES = ("blink", "blink", "look", "look", "stroll", "tongue", "turn", "hold")
 
@@ -63,15 +71,16 @@ def _desk(doc, variant):
 # Each place: its variants (the first is where it opens), how to draw one, the
 # colours the chameleon takes there (None when the variant is the scheme),
 # where its perch is and how large it stands, how far along the perch it may
-# walk, and what it does there.
+# walk, what it does there, and what it does first.
 PLACES = {
     "coast": {
         "variants": ("summer", "autumn", "winter", "night", "spring"),
         "build": _coast,
         "schemes": {"spring": "blossom", "summer": "leaf", "autumn": "sunset", "winter": "snow", "night": "night"},
         "at": (322, 404, 0.6),
-        "walk": (-36, 44),
+        "walk": (-40, 76),
         "life": "stroll",
+        "first": ("blink", "stroll", "tongue"),
     },
     "bench": {
         "variants": ("board", "brand", "copper", "leaf"),
@@ -80,6 +89,7 @@ PLACES = {
         "at": (scene_bench.HUE_X, scene_bench.HUE_Y, scene_bench.HUE_SCALE),
         "walk": None,
         "life": "work",
+        "first": ("blink", "look"),
     },
     "desk": {
         "variants": ("day", "evening", "night"),
@@ -88,6 +98,7 @@ PLACES = {
         "at": scene_desk.SPOTS["books"],
         "walk": (-22, 26),
         "life": "desk",
+        "first": ("blink", "turn", "stroll"),
     },
 }
 ORDER = ("coast", "bench", "desk")
@@ -148,7 +159,10 @@ def _pose(doc, spec, scheme):
     if kind == "work":
         look, far = _WORK_LOOKS[spec[1]]
         nod = 0 if spec[1] == 2 else 6
-        return chameleon_props.hold(doc, "iron", lean=80, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None, nod=nod), _HOLD
+        body = chameleon_props.hold(doc, "iron", lean=80, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None, nod=nod)
+        # the joint glows where the iron's tip rests on the board
+        glow = doc.radial([(0, 0xFFF3B0, 0.9), (0.5, 0xFFB26B, 0.45), (1, 0xFFB26B, 0)])
+        return body + circle(_JOINT[0], _JOINT[1], _JOINT[2], glow), _HOLD
     if kind == "hold":
         mood = "happy" if spec[2] else "calm"
         return chameleon_props.hold(doc, spec[1], look=(0.4, -0.2), look_far=(-0.5, 0.1), mood=mood, colors=scheme, perch=None), _HOLD
@@ -174,15 +188,40 @@ class Stage:
         self.root = root
         self.random = _Random(seed)
         self.cues = []
-        #: Microseconds spent building SVG text, collecting garbage before a
-        #: parse, parsing and drawing; how many poses and bands were drawn and
-        #: the slowest of each; and the most bytes of picture ever held.
-        self.stats = {"text": 0, "tidy": 0, "parse": 0, "draw": 0, "poses": 0, "bands": 0, "band_us": 0, "pose_us": 0, "peak": 0}
+        #: What the work cost, for whoever is timing it. Microseconds in
+        #: ``build`` (the shapes and their text, in Python), ``tidy`` (the
+        #: collection before a parse), ``parse`` and ``draw`` (svgio); how many
+        #: ``scenes`` and ``poses`` were drawn; the longest tick while a place
+        #: was loading and while it was showing; milliseconds from opening to
+        #: the first place, the first pose and the first step of a walk; and
+        #: the most bytes of picture ever held.
+        self.stats = {
+            "build": 0,
+            "tidy": 0,
+            "parse": 0,
+            "draw": 0,
+            "scenes": 0,
+            "poses": 0,
+            "tick_load_us": 0,
+            "tick_show_us": 0,
+            "first_picture_ms": None,
+            "first_pose_ms": None,
+            "first_walk_ms": None,
+            "peak": 0,
+        }
+        self._born = time.ticks_ms()
         self._decoder = svgio.SvgDecoder()
+        self._docs = {}  # (place, what the ground shows) -> its shapes
+        self._doc_order = []
         self._frames = {}  # (spec, flip, scheme) -> (descriptor, buffer, x offset, y offset)
         self._order = []  # the same keys, least lately used first
         self._bytes = 0
         self._shown = None
+        self._made = None  # the last pose drawn that isn't kept
+        self._wanted = []  # poses to draw ahead, soonest first
+        self._maker = None  # the pose being drawn, a step a tick
+        self._making = None
+        self._quiet = False  # nothing is drawn while it walks or strikes
         self._life = None
         self._wait = 0
         self._facing = 1
@@ -192,8 +231,10 @@ class Stage:
         self._ticks = 0
         #: True while a place, a variant or a view is being changed.
         self.busy = True
+        #: The pose on screen, as `Stage` names poses, or None.
+        self.pose = None
 
-        # the place: one buffer, navy until its first band lands
+        # the place: one buffer, navy until the first one is drawn
         self._ground = bytearray(self.w * (self.h + 2) * 2)
         c = ((NAVY >> 8) & 0xF800) | ((NAVY >> 5) & 0x07E0) | ((NAVY >> 3) & 0x1F)
         row = bytes((c & 255, c >> 8)) * self.w
@@ -241,29 +282,27 @@ class Stage:
         total = len(self._ground) + self._bytes
         if self._bug_frame:
             total += len(self._bug_frame[1])
+        if self._made is not None:
+            total += len(self._made[1])
         return total
+
+    def _since(self, t0, phase):
+        """Add the microseconds since *t0* to a phase of `stats`; return now."""
+        now = time.ticks_us()
+        self.stats[phase] += time.ticks_diff(now, t0)
+        return now
+
+    def _first(self, what):
+        if self.stats[what] is None:
+            self.stats[what] = time.ticks_diff(time.ticks_ms(), self._born)
 
     def _tidy(self):
         # MicroPython looks for free memory from the first gap on, past everything
         # used or dropped since the last collection. svgio's parse asks hundreds of
-        # times, so collecting first makes it several times faster.
+        # times, so collecting first makes it quicker than the collection costs.
         t0 = time.ticks_us()
         gc.collect()
-        self.stats["tidy"] += time.ticks_diff(time.ticks_us(), t0)
-
-    def _sprite(self, text, width):
-        """SVG text drawn *width* pixels wide into one RGB565A8 buffer."""
-        text = text.encode()
-        self._tidy()
-        t0 = time.ticks_us()
-        w, h = self._decoder.open(text, width=max(2, width))
-        t1 = time.ticks_us()
-        data = bytearray(w * h * 3)
-        planes = memoryview(data)
-        self._decoder.decode(planes[: w * h * 2], planes[w * h * 2 :])
-        self.stats["parse"] += time.ticks_diff(t1, t0)
-        self.stats["draw"] += time.ticks_diff(time.ticks_us(), t1)
-        return self._descriptor(data, w, h, lv.COLOR_FORMAT.RGB565A8), data, w, h
+        self._since(t0, "tidy")
 
     # -- where things are -----------------------------------------------
 
@@ -296,16 +335,21 @@ class Stage:
 
     # -- poses ----------------------------------------------------------
 
-    def _frame(self, spec, scheme=None, keep=True):
-        """The pose *spec* as a picture, drawn now if it hasn't been."""
+    def _key(self, spec, scheme=None):
+        return (spec, self._facing < 0, scheme or self.scheme)
+
+    def _make(self, spec, scheme=None, keep=True):
+        """Draw the pose *spec* in three steps: its shapes, the parse, the picture.
+
+        A generator: each ``next`` does one step. The pose is kept under its
+        key, or left in ``_made`` when it isn't to be kept.
+        """
         scheme = scheme or self.scheme
         flip = self._facing < 0
         key = (spec, flip, scheme)
-        frame = self._frames.get(key)
-        if frame is not None:
-            self._order.remove(key)
-            self._order.append(key)
-            return frame
+        if keep and key in self._frames:
+            return
+        self._making = key
         x, y, k = PLACES[self.place]["at"]
         vx, vy, vw, vh = self._rect
         s = self.w / vw
@@ -323,13 +367,29 @@ class Stage:
             bottom = min(ry + rh, (vy + vh - y) / k)
             rx, ry, rw, rh = left, top, max(right - left, 1), max(bottom - top, 1)
         doc.add(body)
-        text = doc.svg((rx, ry, rw, rh))
-        self.stats["text"] += time.ticks_diff(time.ticks_us(), t0)
-        dsc, data, w, h = self._sprite(text, int(rw * k * s + 0.5))
+        text = doc.svg((rx, ry, rw, rh)).encode()
+        doc = body = None
+        self._since(t0, "build")
+        yield
+        self._tidy()
+        t0 = time.ticks_us()
+        # a decoder of its own: the place may be parsed between these steps
+        decoder = svgio.SvgDecoder()
+        w, h = decoder.open(text, width=max(2, int(rw * k * s + 0.5)))
+        text = None
+        self._since(t0, "parse")
+        yield
+        t0 = time.ticks_us()
+        data = bytearray(w * h * 3)
+        planes = memoryview(data)
+        decoder.decode(planes[: w * h * 2], planes[w * h * 2 :])
+        self._since(t0, "draw")
         self.stats["poses"] += 1
-        self.stats["pose_us"] = max(self.stats["pose_us"], time.ticks_diff(time.ticks_us(), t0))
-        frame = (dsc, data, round(rx * k * s), round(ry * k * s))
-        if keep:
+        frame = (self._descriptor(data, w, h, lv.COLOR_FORMAT.RGB565A8), data, round(rx * k * s), round(ry * k * s))
+        self._making = None
+        if not keep:
+            self._made = frame
+        elif key not in self._frames:
             self._frames[key] = frame
             self._order.append(key)
             self._bytes += len(data)
@@ -338,8 +398,55 @@ class Stage:
                 if self._frames[old] is self._shown:
                     old = self._order[1]
                 self._drop(old)
-        self.stats["peak"] = max(self.stats["peak"], self.held_bytes() + (0 if keep else len(data)))
-        return frame
+        self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
+
+    def _frame(self, spec):
+        """The kept pose *spec*, drawn here and now if it hasn't been."""
+        key = self._key(spec)
+        if key not in self._frames:
+            for _ in self._make(spec):
+                pass
+        else:
+            self._order.remove(key)
+            self._order.append(key)
+        return self._frames[key]
+
+    def _have(self, spec):
+        return self._key(spec) in self._frames
+
+    def _ready(self, *specs):
+        """Wait, a tick at a time, until every pose in *specs* is drawn.
+
+        A generator for the chameleon's life to ``yield from``. It puts the
+        poses at the head of the queue and gives True once they are all
+        there, or False if they can't all be kept at once.
+        """
+        for _ in range(40 + 12 * len(specs)):
+            missing = [spec for spec in specs if not self._have(spec)]
+            if not missing:
+                return True
+            for spec in reversed(missing):
+                if self._key(spec) != self._making:
+                    if spec in self._wanted:
+                        self._wanted.remove(spec)
+                    self._wanted.insert(0, spec)
+            yield 1
+        return False
+
+    def _work(self):
+        """One step of drawing a pose ahead: the next in the queue, or the one begun."""
+        if self._maker is None:
+            while self._wanted:
+                spec = self._wanted.pop(0)
+                if not self._have(spec):
+                    self._maker = self._make(spec)
+                    break
+            else:
+                return
+        try:
+            next(self._maker)
+        except StopIteration:
+            self._maker = None
 
     def _drop(self, key):
         frame = self._frames.pop(key)
@@ -351,18 +458,27 @@ class Stage:
 
     def _forget(self, keep_scheme=None):
         """Drop the kept poses, all of them or all but one scheme's."""
+        self._wanted = []
+        self._maker = self._making = None
         for key in list(self._order):
             if self._frames[key] is self._shown:
                 continue
             if keep_scheme is None or key[2] != keep_scheme:
                 self._drop(key)
 
-    def _show(self, spec, scheme=None, keep=True):
-        frame = self._frame(spec, scheme, keep)
+    def _show(self, spec):
+        """Put the kept pose *spec* on the screen."""
+        self._put(self._frame(spec), spec)
+        if spec[0] == "walk":
+            self._first("first_walk_ms")
+
+    def _put(self, frame, spec):
         self._shown = frame
+        self.pose = spec
         self.hue.set_src(frame[0])
         self._place_hue()
         self.hue.remove_flag(lv.obj.FLAG.HIDDEN)
+        self._first("first_pose_ms")
 
     def _place_hue(self):
         if self._shown is None:
@@ -372,39 +488,26 @@ class Stage:
 
     # -- the place ------------------------------------------------------
 
-    def _paint(self):
-        """Draw the place into its buffer, a band a step, top to bottom."""
-        t0 = time.ticks_us()
-        doc = Doc()
-        PLACES[self.place]["build"](doc, self.variant)
-        vx, vy, vw, vh = self._rect
-        s = self.w / vw
-        self.stats["text"] += time.ticks_diff(time.ticks_us(), t0)
-        yield
-        for i in range(BANDS):
-            y0, y1 = i * self.h // BANDS, (i + 1) * self.h // BANDS
-            t0 = time.ticks_us()
-            text = doc.svg((vx, vy + y0 / s, vw, (y1 - y0) / s))
-            text = text.encode()
-            t1 = time.ticks_us()
-            self._tidy()
-            self.stats["text"] += time.ticks_diff(t1, t0)
-            t1 = time.ticks_us()
-            self._decoder.open(text, width=self.w)
-            t2 = time.ticks_us()
-            self._decoder.decode(self._ground, x=0, y=y0, stride=self.w)
-            t3 = time.ticks_us()
-            self.stats["parse"] += time.ticks_diff(t2, t1)
-            self.stats["draw"] += time.ticks_diff(t3, t2)
-            self.stats["band_us"] = max(self.stats["band_us"], time.ticks_diff(t3, t0))
-            self.stats["bands"] += 1
-            self.ground.invalidate()
-            yield
-        self._painted = (self.place, self._ground_key(), self.view)
-
     def _ground_key(self):
         # the bench is the same bench whatever colours the chameleon wears
         return self.variant if PLACES[self.place]["schemes"] else None
+
+    def _shapes(self):
+        """The place's shapes, built now or kept from the last time it was shown."""
+        key = (self.place, self._ground_key())
+        doc = self._docs.get(key)
+        if doc is None:
+            t0 = time.ticks_us()
+            doc = Doc()
+            PLACES[self.place]["build"](doc, self.variant)
+            self._since(t0, "build")
+            self._docs[key] = doc
+            while len(self._doc_order) >= DOCS_KEPT:
+                del self._docs[self._doc_order.pop(0)]
+        else:
+            self._doc_order.remove(key)
+        self._doc_order.append(key)
+        return doc
 
     def _rest(self):
         """The pose it comes back to in this place."""
@@ -415,10 +518,23 @@ class Stage:
             return ("sleep",)
         return ("stand", 0, 0)
 
+    def _blend(self, rest, scheme):
+        """Draw the resting pose in a scheme part way to the next, and show it."""
+        yield from self._make(rest, scheme, keep=False)
+        self._put(self._made, rest)
+        self._made = None
+        yield
+
     def _change(self, place, variant, view):
-        """Go to a place, a variant of it and a view: the steps, one a tick."""
+        """Go to a place, a variant of it and a view: the steps, one a tick.
+
+        The place takes three: its shapes are built, parsed, then drawn over
+        the old picture in one go. Where only the colours change, the
+        chameleon is redrawn part way to the new ones between those steps.
+        """
         self.busy = True
         self._life = None
+        self._quiet = False
         self.bug.add_flag(lv.obj.FLAG.HIDDEN)
         old_scheme = self.scheme
         schemes = PLACES[place]["schemes"]
@@ -426,19 +542,14 @@ class Stage:
         moved = place != self.place or view != self.view
         was_asleep = self.place is not None and self._rest() == ("sleep",)
         if moved:
-            # somewhere else, or seen from somewhere else: it leaves, and comes back there
-            self.hue.add_flag(lv.obj.FLAG.HIDDEN)
-            self._shown = None
+            # somewhere else, or seen from somewhere else: it stays in the old
+            # picture until the new one is drawn, then comes back there
             self._forget()
             self._bug_frame = None
             self._walked = 0.0
             self._facing = 1
         self.place, self.variant, self.view = place, variant, view
         self._rect = self._fit(place, view)
-        self._set_air()
-        painting = None
-        if self._painted != (place, self._ground_key(), view):
-            painting = self._paint()
         rest = self._rest()
         blends = []
         if not moved and old_scheme and old_scheme != new_scheme and rest[0] != "sleep" and not was_asleep:
@@ -446,27 +557,66 @@ class Stage:
         if old_scheme != new_scheme:
             # nothing drawn in the old colours will be wanted again
             self._forget()
-        # the new colours come over it while the place is redrawn around it
-        while painting is not None or blends:
+        if self._painted != (place, self._ground_key(), view):
+            doc = self._shapes()
+            yield
             if blends:
-                self._show(rest, blends.pop(0), keep=False)
-                yield
-                yield
-            if painting is not None:
-                try:
-                    next(painting)
-                except StopIteration:
-                    painting = None
-                yield
+                yield from self._blend(rest, blends.pop(0))
+            t0 = time.ticks_us()
+            text = doc.svg(self._rect).encode()
+            doc = None
+            self._since(t0, "build")
+            self._tidy()
+            t0 = time.ticks_us()
+            self._decoder.open(text, width=self.w)
+            text = None
+            self._since(t0, "parse")
+            yield
+            if blends:
+                yield from self._blend(rest, blends.pop(0))
+            t0 = time.ticks_us()
+            self._decoder.decode(self._ground, stride=self.w)
+            self._since(t0, "draw")
+            self.stats["scenes"] += 1
+            self.ground.invalidate()
+            if moved:
+                self.hue.add_flag(lv.obj.FLAG.HIDDEN)
+                self._shown = self.pose = None
+            self._painted = (place, self._ground_key(), view)
+            self._first("first_picture_ms")
+            self._set_air()
+            yield
+        else:
+            self._set_air()
+        while blends:
+            yield from self._blend(rest, blends.pop(0))
         for name in list(mascot_chameleon.COLORS):
             if ">" in name:
                 del mascot_chameleon.COLORS[name]
         self.scheme = new_scheme
-        self._forget(new_scheme)
+        yield from self._make(rest)
         self._show(rest)
+        self._forget(new_scheme)
+        self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
+        # what it will want next, drawn ahead while it stands there
+        wide = view == "wide"
+        ahead = []
+        if rest[0] != "sleep":
+            ahead.append((rest[0], rest[1], 1))
+            if PLACES[place]["walk"] is not None and wide and rest[0] == "stand":
+                ahead.extend(("walk", n) for n in range(8))
+            if rest[0] == "work":
+                ahead.extend((("work", 1, 0), ("work", 2, 0)))
+            else:
+                ahead.extend(("stand", n, 0) for n in range(1, len(_LOOKS)))
+                if wide:
+                    ahead.extend((("aim",), ("tongue", 0.5), ("tongue", 1), ("happy",)))
+        self._wanted = ahead
+        if not self.cues:
+            self.cues.extend(PLACES[place]["first"])
         self.busy = False
         self._life = self._live()
-        self._wait = 6
+        self._wait = 4
 
     # -- what it does ---------------------------------------------------
 
@@ -475,9 +625,15 @@ class Stage:
         life = PLACES[self.place]["life"]
         rest = self._rest()
         can_walk = PLACES[self.place]["walk"] is not None and self.view == "wide" and rest[0] == "stand"
+        pause = 6
         while True:
+            self._quiet = False
+            if rest[0] == "stand" and not self._have(rest):
+                # it has turned round: the same pose, facing the other way
+                yield from self._ready(rest)
             self._show(rest)
-            yield 12 + self.random.below(30)
+            yield pause
+            pause = 12 + self.random.below(30)
             if self.cues:
                 what = self.cues.pop(0)
             else:
@@ -485,14 +641,18 @@ class Stage:
             if rest[0] == "sleep":
                 continue
             if what == "blink":
-                self._show((rest[0], rest[1], 1))
-                yield 3
+                shut = (rest[0], rest[1], 1)
+                if (yield from self._ready(shut)):
+                    self._show(shut)
+                    yield 4
             elif what == "look":
                 if life == "work":
-                    self._show(("work", 1 + self.random.below(2), 0))
+                    spec = ("work", 1 + self.random.below(2), 0)
                 else:
-                    self._show(("stand", 1 + self.random.below(len(_LOOKS) - 1), 0))
-                yield 20 + self.random.below(25)
+                    spec = ("stand", 1 + self.random.below(len(_LOOKS) - 1), 0)
+                if (yield from self._ready(spec)):
+                    self._show(spec)
+                    yield 20 + self.random.below(25)
             elif what == "stroll" and can_walk:
                 yield from self._stroll()
             elif what == "tongue" and rest[0] == "stand" and self.view != "close" and self._facing > 0:
@@ -501,24 +661,26 @@ class Stage:
                 yield from self._greet()
             elif what == "hold" and rest[0] == "stand" and self._facing > 0:
                 prop = _HELD[self.random.below(len(_HELD))]
-                self._show(("hold", prop, 0))
-                yield 30
-                self._show(("hold", prop, 1))
-                yield 45
+                if (yield from self._ready(("hold", prop, 0), ("hold", prop, 1))):
+                    self._show(("hold", prop, 0))
+                    yield 30
+                    self._show(("hold", prop, 1))
+                    yield 45
 
     def _stroll(self):
-        """A walk to the other end of the perch."""
+        """A walk to the other end of the perch, once every step of it is drawn."""
         low, high = PLACES[self.place]["walk"]
         goal = high if self._walked < (low + high) / 2 else low
         facing = 1 if goal > self._walked else -1
         if facing != self._facing:
             self._facing = facing
+            if not (yield from self._ready(("stand", 0, 0))):
+                return
             self._show(("stand", 0, 0))
             yield 6
-        # the walk's pictures, one a tick, before the first step
-        for n in range(8):
-            self._frame(("walk", n))
-            yield 1
+        if not (yield from self._ready(*[("walk", n) for n in range(8)])):
+            return
+        self._quiet = True
         phase = 0
         per_tick = STRIDE / 8 / 3  # three ticks a picture, eight pictures a stride
         while (goal - self._walked) * facing > 0:
@@ -528,17 +690,31 @@ class Stage:
             phase += 1
             yield 1
         self._show(("stand", 0, 0))
+        self._quiet = False
         yield 8
 
     def _catch(self):
         """A bug drifts in ahead of it, and the tongue takes it."""
+        if not (yield from self._ready(("aim",), ("tongue", 0.5), ("tongue", 1), ("happy",))):
+            return
         x, y, k = PLACES[self.place]["at"]
         s = self.w / self._rect[2]
         if self._bug_frame is None:
+            t0 = time.ticks_us()
             doc = Doc()
             doc.add(mascot_chameleon._bug(0, 0, 1.4))
-            self._bug_frame = self._sprite(doc.svg((-30, -30, 60, 60)), int(60 * k * s + 0.5))
+            text = doc.svg((-30, -30, 60, 60)).encode()
+            t0 = self._since(t0, "build")
+            w, h = self._decoder.open(text, width=max(2, int(60 * k * s + 0.5)))
+            t0 = self._since(t0, "parse")
+            data = bytearray(w * h * 3)
+            planes = memoryview(data)
+            self._decoder.decode(planes[: w * h * 2], planes[w * h * 2 :])
+            self._since(t0, "draw")
+            self._bug_frame = (self._descriptor(data, w, h, lv.COLOR_FORMAT.RGB565A8), data, w, h)
             self.bug.set_src(self._bug_frame[0])
+            yield 1
+        self._quiet = True
         half = self._bug_frame[2] // 2
         ox, oy = self._origin()
         bx = ox + (_BUG[0] + 4) * k * s
@@ -550,10 +726,6 @@ class Stage:
             self.bug.set_pos(int(bx + i * 5 * s + wobble) - half, int(by - i * 3.2 * s + wobble * 2) - half)
             if i == 14:
                 self._show(("aim",))
-            elif i == 8:
-                self._frame(("tongue", 0.5))
-            elif i == 4:
-                self._frame(("tongue", 1))
             yield 1
         yield 6
         self._show(("tongue", 0.5))
@@ -564,16 +736,19 @@ class Stage:
         self._show(("tongue", 0.5))
         yield 1
         self._show(("happy",))
+        self._quiet = False
         yield 22
 
     def _greet(self):
         """It turns to face you, waves, and turns back."""
+        if not (yield from self._ready(("front", 0, 0), ("front", 1, 0), ("front", 1, 1))):
+            return
         self._show(("front", 0, 0))
         yield 10
         self._show(("front", 1, 0))
         yield 26
         self._show(("front", 1, 1))
-        yield 3
+        yield 4
         self._show(("front", 1, 0))
         yield 18
 
@@ -585,9 +760,10 @@ class Stage:
         elif life == "desk":
             yield from self._greet()
         elif life == "work":
-            self._show(("work", 2, 0))
-            yield 30
-        else:
+            if (yield from self._ready(("work", 2, 0))):
+                self._show(("work", 2, 0))
+                yield 30
+        elif (yield from self._ready(("happy",))):
             self._show(("happy",))
             yield 34
         self._life = self._live()
@@ -659,22 +835,31 @@ class Stage:
     # -- from outside ---------------------------------------------------
 
     def tick(self, timer=None):
-        """One step: a band or a pose drawn, a picture changed, the air moved."""
+        """One step: part of a place or a pose drawn, a picture changed, the air moved."""
+        t0 = time.ticks_us()
         self._ticks += 1
-        if self._loader is not None:
+        loading = self._loader is not None
+        if loading:
             try:
                 next(self._loader)
             except StopIteration:
                 self._loader = None
-        elif self._life is not None:
-            if self._wait > 0:
-                self._wait -= 1
-            else:
-                try:
-                    self._wait = (next(self._life) or 1) - 1
-                except StopIteration:
-                    self._life = self._live()
+        else:
+            if not self._quiet:
+                self._work()
+            if self._life is not None:
+                if self._wait > 0:
+                    self._wait -= 1
+                else:
+                    try:
+                        self._wait = (next(self._life) or 1) - 1
+                    except StopIteration:
+                        self._life = self._live()
         self._move_air()
+        spent = time.ticks_diff(time.ticks_us(), t0)
+        longest = "tick_load_us" if loading else "tick_show_us"
+        if spent > self.stats[longest]:
+            self.stats[longest] = spent
 
     def go(self, place=None, variant=None, view=None):
         """Show *place* (its first variant unless given), or another *view* of this one.
@@ -715,14 +900,18 @@ class Stage:
             return False
         self._life = self._react()
         self._wait = 0
+        self._quiet = False
         self.bug.add_flag(lv.obj.FLAG.HIDDEN)
         return True
 
     def close(self):
         """Let go of every buffer, once the images are deleted or about to be."""
-        self._loader = self._life = None
+        self._loader = self._life = self._maker = None
         self._frames = {}
         self._order = []
-        self._shown = self._bug_frame = None
+        self._wanted = []
+        self._docs = {}
+        self._doc_order = []
+        self._shown = self._made = self._bug_frame = self.pose = None
         self._bytes = 0
         self._air = []

@@ -79,13 +79,9 @@ def _style(fill, stroke, width, opacity, extra):
 
 
 def _n(v):
-    # two decimals is finer than a pixel at any size a board draws
-    if isinstance(v, int):
-        return "%d" % v
-    s = "%.2f" % v
-    if "." in s:
-        s = s.rstrip("0").rstrip(".")
-    return s
+    # five figures is finer than a pixel at any size a board draws, and one
+    # format is the cheapest way to write a number
+    return "%.5g" % v
 
 
 def circle(cx, cy, r, fill=None, stroke=None, width=1, opacity=None, extra=""):
