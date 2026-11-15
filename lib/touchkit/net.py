@@ -15,7 +15,8 @@ calls `up` from a timer until it says True. The hostname comes from
 ``settings.json`` (see ``touchkit.settings``).
 
 Once the board is on a network its clock gets set (`keep_time`), and
-again each day, so no app has to ask for it.
+again each day, so no app has to ask for it. That works on CircuitPython
+too, through ``appkit.net``.
 """
 
 import sys
@@ -255,7 +256,6 @@ def ip():
 
 def ntp(timeout=2):
     """Set the clock from NTP (a blocking call: run it on the worker)."""
-    import ntptime
+    from appkit import net as appnet
 
-    ntptime.timeout = timeout
-    ntptime.settime()
+    appnet.ntp(timeout)

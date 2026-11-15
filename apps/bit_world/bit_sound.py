@@ -137,6 +137,10 @@ class SoundEngine:
 
         # The music plays behind the animation, so a buffered output is fine. It
         # carries the sound through a garbage collection, which a busy frame causes.
+        if getattr(board_peripherals_mod, "audio_out", None) is None:
+            self._warned = True
+            print("bit_world: no board_peripherals.audio_out on this board, running silent")
+            return
         try:
             self.audio_out = board_peripherals_mod.audio_out(latency="buffered")
             if app is not None and hasattr(self.audio_out, "attach"):

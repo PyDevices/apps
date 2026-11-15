@@ -21,17 +21,7 @@ a ZIP code, and the board asks again at the next resync.
 
 import time
 
-try:
-    import machine
-    import ntptime
-except ImportError:  # a desktop: the host keeps the time
-    machine = None
-    ntptime = None
-
-try:
-    import requests
-except ImportError:
-    requests = None
+from appkit import net
 
 # CircuitPython has no time.gmtime. It keeps no timezone, so its localtime()
 # is UTC and does the same job.
@@ -83,7 +73,7 @@ def parse_http_date(text):
 
 
 def _set_from_web():
-    resp = requests.get(_DATE_URL, timeout=10)
+    resp = net.requests().get(_DATE_URL, timeout=10)
     try:
         for name, value in resp.headers.items():
             if name.lower() == "date":
@@ -92,9 +82,7 @@ def _set_from_web():
             raise ValueError("no Date header")
     finally:
         resp.close()
-    y, mo, d, h, mi, s = parse_http_date(value)
-    weekday = gmtime(time.mktime((y, mo, d, 12, 0, 0, 0, 0, 0)))[6]
-    machine.RTC().datetime((y, mo, d, weekday, h, mi, s, 0))
+    net.set_clock(*parse_http_date(value))
 
 
 def sync():
@@ -104,11 +92,10 @@ def sync():
         bool: True when the clock was set, or the host keeps its own time.
     """
     global _synced_at
-    if machine is None:
+    if not net.sets_clock():
         return True
     try:
-        ntptime.timeout = 3
-        ntptime.settime()
+        net.ntp(3)
     except Exception as exc:
         print("deskkit: NTP failed (%r), asking a web server" % (exc,))
         try:
@@ -172,7 +159,7 @@ def follow_ip_zone():
         bool: True when the offset now comes from the IP.
     """
     global offset_s, zone
-    if machine is None:
+    if not net.sets_clock():
         return False
     from . import forecast  # here: forecast imports this module
 
@@ -180,7 +167,7 @@ def follow_ip_zone():
         zone = None
         return False  # a chosen place wins
     try:
-        resp = requests.get(_IP_URL, timeout=10)
+        resp = net.requests().get(_IP_URL, timeout=10)
         try:
             reply = resp.json()
         finally:
@@ -212,7 +199,7 @@ def resync_if_due():
 
 def finding():
     """Return True while a board hasn't yet tried to find where it is."""
-    return machine is not None and not _looked
+    return net.sets_clock() and not _looked
 
 
 def now():

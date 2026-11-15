@@ -9,22 +9,20 @@ an app closes. The TV must have "Control by mobile apps" on (it is by
 default).
 """
 
-import socket
 from multimer import ticks_add, ticks_diff, ticks_ms
+
+from appkit import net
 
 PORT = 8060
 
 
-def _addr(host):
-    return socket.getaddrinfo(host, PORT)[0][-1]
-
-
 def request(host, method, path, timeout=3):
     """``(status, body)`` of one HTTP request to the Roku at *host*."""
-    s = socket.socket()
+    pool = net.sockets()
+    s = pool.socket(pool.AF_INET, pool.SOCK_STREAM)
     try:
         s.settimeout(timeout)
-        s.connect(_addr(host))
+        s.connect(pool.getaddrinfo(host, PORT)[0][-1])
         s.send(
             (
                 "%s %s HTTP/1.1\r\nHost: %s:%d\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
@@ -33,7 +31,7 @@ def request(host, method, path, timeout=3):
         )
         data = b""
         while len(data) < 16384:
-            chunk = s.recv(2048)
+            chunk = net.recv(s, 2048)
             if not chunk:
                 break
             data += chunk
@@ -83,17 +81,18 @@ def discover(seconds=2.5):
         b"M-SEARCH * HTTP/1.1\r\nHost: 239.255.255.250:1900\r\nMan: \"ssdp:discover\"\r\n"
         b"ST: roku:ecp\r\nMX: 2\r\n\r\n"
     )
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    pool = net.sockets()
+    s = pool.socket(pool.AF_INET, pool.SOCK_DGRAM)
     hosts = []
     try:
         s.settimeout(0.3)
-        dest = socket.getaddrinfo("239.255.255.250", 1900)[0][-1]
+        dest = pool.getaddrinfo("239.255.255.250", 1900)[0][-1]
         for _ in range(2):
             s.sendto(msg, dest)
         end = ticks_add(ticks_ms(), int(seconds * 1000))
         while ticks_diff(end, ticks_ms()) > 0:
             try:
-                data = s.recv(1024)
+                data = net.recv(s, 1024)
             except OSError:
                 continue
             for line in data.split(b"\r\n"):

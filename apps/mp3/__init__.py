@@ -51,7 +51,13 @@ def main(scope):
     except ImportError as e:
         ui.missing(scope, "missing: audiomp3", "The MP3 player needs audiomp3, the board's MP3 decoder, and an SD card: %s." % (e,))
         return
-    import board_peripherals as bp
+    try:
+        import board_peripherals as bp
+    except ImportError:
+        bp = None
+    if getattr(bp, "audio_out", None) is None:
+        ui.missing(scope, "missing: audio out", "The MP3 player needs a board_peripherals module with an audio_out role, which this board's config doesn't have.")
+        return
     from audiodev import AudioFormat
 
     scr = scope.root

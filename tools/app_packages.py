@@ -76,6 +76,16 @@ UPSTREAM = {
     "requests": "requests",
 }
 
+#: An index package -> what it needs over HTTP (see appkit.net): requests from
+#: micropython-lib on MicroPython, and on CircuitPython adafruit_requests from
+#: Adafruit's library bundle, since CircuitPython's core has no HTTP client.
+#: omip skips the first where the firmware has it frozen in, and reads the
+#: second only on CircuitPython.
+HTTP = {
+    "deskkit": (("requests",), ("adafruit_requests",)),
+    "sayso": (("requests",), ("adafruit_requests",)),
+}
+
 #: pydevices, which every board config installs, and the board config itself.
 BOARD = {
     "appdev", "audiodev", "backends", "board_config", "board_peripherals", "boarddev", "display_driver",
@@ -150,7 +160,7 @@ def lib_needs(name, seen):
 
 
 def needs(folder):
-    """``(deps, upstream)`` for the app in *folder*, as package.json lists them."""
+    """``(deps, upstream, circuitpython)`` for the app in *folder*, as package.json lists them."""
     local = {path.split("/")[0].rpartition(".py")[0] or path.split("/")[0] for path in app_files(folder)}
     index, elsewhere, upstream, unknown = set(), set(), set(), set()
     for module in imported(python_files(folder)):
@@ -181,7 +191,10 @@ def needs(folder):
         lib_needs(package, closure)
     deps = [[package, "latest"] for package in sorted(closure)]
     deps += [[url, "main"] for url in sorted(elsewhere)]
-    return deps, [[package, "latest"] for package in sorted(upstream)]
+    for package in closure:
+        upstream.update(HTTP.get(package, ((), ()))[0])
+    bundle = sorted({name for package in closure for name in HTTP.get(package, ((), ()))[1]})
+    return deps, [[package, "latest"] for package in sorted(upstream)], [[name, "latest"] for name in bundle]
 
 
 def render(folder, prefix=""):
@@ -190,7 +203,7 @@ def render(folder, prefix=""):
     name = os.path.basename(folder)
     with open(os.path.join(folder, "app.json"), encoding="utf-8") as f:
         info = json.load(f)
-    deps, upstream = needs(folder)
+    deps, upstream, circuitpython = needs(folder)
     body = {
         "description": "%s, an app for Home" % info.get("title", name),
         "target": "apps/" + name,
@@ -199,6 +212,8 @@ def render(folder, prefix=""):
     }
     if upstream:
         body["upstream"] = upstream
+    if circuitpython:
+        body["circuitpython"] = circuitpython
     body["generated"] = "by tools/app_packages.py from the app's folder; edit the app, not this"
     return json.dumps(body, indent=2) + "\n"
 
