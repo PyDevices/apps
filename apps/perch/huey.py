@@ -17,11 +17,15 @@ LIME = 0xC4DC4C
 WHITE = 0xFFFFFF
 
 # The colours it can take: (skin, shade, light, belly, spots, deep).
+# No two colours of a scheme are the same number, nor the same as a colour
+# drawn whatever the scheme (the lime, white, a glow): a change of scheme
+# redraws a pose by swapping each colour for its counterpart, which needs one
+# to be told from another. Where two would be alike, one is a step away.
 COLORS = {
     "leaf": (0x6FC24B, 0x3E9440, 0xA9E36B, 0xE4F5A8, 0xFFE25A, 0x25663A),
-    "brand": (0x3F8FD6, 0x2767AC, 0x7DBBF0, 0xC4DC4C, 0xC4DC4C, 0x1A4A80),
-    "sunset": (0xF47C4C, 0xCC4A33, 0xFFB26B, 0xFFE3A6, 0x8A3F78, 0x8E2B2B),
-    "board": (0x239468, 0x146B4B, 0x56C492, 0xF4CD52, 0xF4CD52, 0x0C4A35),
+    "brand": (0x3F8FD6, 0x2767AC, 0x7DBBF0, 0xC4DC4D, 0xC5DC4C, 0x1A4A80),
+    "sunset": (0xF47C4C, 0xCC4A33, 0xFFB26A, 0xFFE3A6, 0x8A3F78, 0x8E2B2B),
+    "board": (0x239468, 0x146B4B, 0x56C492, 0xF4CD52, 0xF4CD53, 0x0C4A35),
 }
 
 _CROUCH = 22

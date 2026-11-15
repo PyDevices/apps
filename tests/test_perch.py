@@ -70,6 +70,10 @@ class PerchTest(unittest.TestCase):
         done = _run("loose_number", script="perch_drawings.py", heap="128M")
         self.assertNotEqual(done.returncode, 0, "the drawings matched with numbers written loosely")
         self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
+        if "none compared" not in done.stdout:
+            done = _run("half_table", script="perch_drawings.py", heap="128M")
+            self.assertNotEqual(done.returncode, 0, "a pose matched with half its colours swapped")
+            self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
 
 
 def _cpython_has():

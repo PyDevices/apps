@@ -12,8 +12,13 @@ The text svgio makes of the records must be, character for character, the
 text the other helpers wrote. Every fourth one is then drawn both ways, from
 the records and from the text, and the pixels compared.
 
+Where svgio swaps colours as it draws, a pose in one scheme drawn with its
+colours swapped for another's must be, byte for byte, the pose built in the
+other: that is how the stage changes colours without parsing again.
+
 ``PERCH_PLANT=loose_number`` writes the text's numbers to four figures, not
-five, which must fail; test_perch.py runs it. An svgio that doesn't read the
+five, and ``half_table`` swaps only some of a pose's colours; each must fail,
+and test_perch.py runs them. An svgio that doesn't read the
 compact form has nothing to compare: the script says so and passes.
 """
 
@@ -26,7 +31,7 @@ sys.path[:0] = [_HERE + "/../apps"]
 import svgio
 
 PLANT = os.getenv("PERCH_PLANT")
-if PLANT not in (None, "loose_number"):
+if PLANT not in (None, "loose_number", "half_table"):
     raise SystemExit("no such plant: %r" % PLANT)
 
 if not hasattr(svgio, "expand"):
@@ -49,7 +54,7 @@ def drawings(module):
     from perch import vec
     from perch.tools import stills
 
-    if PLANT and not vec.COMPACT:
+    if PLANT == "loose_number" and not vec.COMPACT:
         vec._n = lambda v: "%.4g" % v
     sources = []
     source = vec.Doc.source
@@ -94,4 +99,58 @@ for count, ((name, text), (_, drawing)) in enumerate(zip(as_text, as_records)):
         drawn += 1
 check(drawn >= 12, "enough were drawn")
 print("%d drawings, %d of them drawn both ways" % (count + 1, drawn))
+
+# Colours swapped at decode against the pose built in the other scheme.
+from perch import huey, vec
+from perch import stage as stagemod
+
+probe = svgio.SvgDecoder()
+probe.open(as_text[0][1])
+try:
+    probe.decode(bytearray(8), rows=(0, 0), colors={})
+    swaps = True
+except TypeError:
+    swaps = False
+    print("this svgio doesn't swap colours: none compared")
+POSES = (("stand", 0, 0), ("walk", 3), ("tongue", 1), ("work", 1, 0), ("hold", "mug", 1), ("front", 1, 0), ("sleep",))
+schemes = sorted(huey.COLORS)
+check(len(schemes) >= 8, "the season's schemes are there with the four the chameleon wears")
+
+
+def built(spec, scheme):
+    """A pose as svgio opens it, and every colour drawn in it, in order."""
+    huey._kept_text.clear()
+    noted = vec.colours()
+    doc = vec.Doc()
+    body, view = stagemod._pose(doc, spec, scheme)
+    vec.colours(False)
+    doc.add(body)
+    return doc.source(view), noted
+
+
+swapped = 0
+for n, spec in enumerate(POSES):
+    for m, old in enumerate(schemes):
+        new = schemes[(m + 1 + n) % len(schemes)]
+        if new == old:
+            continue
+        (source, was), (wanted, now) = built(spec, old), built(spec, new)
+        check(len(was) == len(now) > 20, "%r draws as many colours in %s as in %s" % (spec, old, new))
+        table = {}
+        for a, b in zip(was, now):
+            check(table.setdefault(a, b) == b, "%r: each colour of %s has one counterpart in %s (%06x)" % (spec, old, new, a))
+        if not swaps:
+            continue
+        if PLANT == "half_table":
+            for a in sorted(table)[::2]:
+                del table[a]
+        w, h = probe.open(source, width=300)
+        pixels, alpha = bytearray(w * h * 2), bytearray(w * h)
+        probe.decode(pixels, alpha, colors=table)
+        check(probe.open(wanted, width=300) == (w, h), "%r is one size in every scheme" % (spec,))
+        pixels2, alpha2 = bytearray(w * h * 2), bytearray(w * h)
+        probe.decode(pixels2, alpha2)
+        check(pixels == pixels2 and alpha == alpha2, "%r in %s with its colours swapped is the pose built in %s" % (spec, old, new))
+        swapped += 1
+print("%d poses drawn in one scheme as another" % swapped)
 print("ok")
