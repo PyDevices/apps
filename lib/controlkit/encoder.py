@@ -8,6 +8,13 @@ The cap and the unlit ring are one shared image. What moves is the pointer
 hidden or dimmed). A change of value touches only the LEDs whose brightness
 changed and the pointer, so LVGL redraws a few small rectangles.
 
+The ring shows the value in one of three ways, chosen with `mode=`:
+
+- `"fill"`, the default, lights the ring from its start up to the value;
+- `"bipolar"` lights it from the middle out to the value, for a control that
+  rests in the centre such as pan or detune. The two middle LEDs stay lit;
+- `"dot"` lights only the LED at the value, for a choice among steps.
+
 Feel:
 
 - drag up or right to raise, down or left to lower; about 200 pixels of
@@ -27,6 +34,7 @@ from ._safe import safe
 
 LEDS = 16
 MAX = 127
+MODES = ("fill", "bipolar", "dot")
 _START = 135
 _SWEEP = 270
 _FAST_MS = 60
@@ -54,13 +62,19 @@ def geometry(width, height, scale):
 
 
 class Encoder:
-    """One macro's encoder, at (*x*, *y*) in *parent*, *width* x *height*."""
+    """One macro's encoder, at (*x*, *y*) in *parent*, *width* x *height*.
 
-    def __init__(self, panel, parent, index, label, x, y, width, height, geom, theme, enabled=True):
+    *mode* is how the ring shows the value: one of `MODES`.
+    """
+
+    def __init__(self, panel, parent, index, label, x, y, width, height, geom, theme, enabled=True, mode="fill"):
+        if mode not in MODES:
+            raise ValueError("mode must be one of %s, not %r" % (", ".join(MODES), mode))
         self.panel = panel
         self.index = index
         self.value = 0
         self.enabled = enabled
+        self.mode = mode
         self._theme = theme
         self._levels = [0] * LEDS
         self._drag = None
@@ -154,11 +168,8 @@ class Encoder:
         if value == self.value and not force:
             return
         self.value = value
-        # Sixteen LEDs over 0..127: each fills over 1/16 of the range, so the
-        # leading one fades in and the ring moves smoothly through all 128.
-        fill = value * LEDS / MAX
         for i in range(LEDS):
-            level = fill - i
+            level = self._level(i, value) if self.enabled else 0
             level = 0 if level <= 0 else (255 if level >= 1 else int(level * 255))
             if level < 24:
                 level = 0
@@ -174,6 +185,24 @@ class Encoder:
             self._levels[i] = level
         angle = _START + _SWEEP * value / MAX - 270
         self.pointer.set_rotation(int(angle * 10) % 3600)
+
+    def _level(self, i, value):
+        """How bright LED *i* is at *value* in this mode: 0 or less is dark, 1 or more is full."""
+        if self.mode == "dot":
+            # The dot crosses from one LED to the next, so it moves through all 128.
+            away = value * (LEDS - 1) / MAX - i
+            return 1 - (away if away >= 0 else -away)
+        # Sixteen LEDs over 0..127: each fills over 1/16 of the range, so the
+        # leading one fades in and the ring moves smoothly through all 128.
+        fill = value * LEDS / MAX
+        if self.mode == "bipolar":
+            # Sixteen LEDs have no middle one, so the two either side of the
+            # top mark the centre and the ring grows away from them.
+            half = LEDS // 2
+            if i >= half:
+                return 1 if i == half else fill - i
+            return 1 if i == half - 1 else i + 1 - fill
+        return fill - i
 
     def lit(self):
         """How bright each LED is, 0 to 255."""

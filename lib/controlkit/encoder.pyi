@@ -8,6 +8,7 @@ from .theme import _Theme
 
 LEDS: int
 MAX: int
+MODES: tuple[str, ...]
 
 class _EncoderPanel(Protocol):
     travel: float
@@ -26,6 +27,7 @@ class Encoder:
     index: int
     value: int
     enabled: bool
+    mode: str
     obj: Any
     legend: Any
     cx: int
@@ -44,6 +46,7 @@ class Encoder:
         geom: dict[str, float],
         theme: _Theme,
         enabled: bool = True,
+        mode: str = 'fill',
     ) -> None: ...
     def set_value(self, value: float) -> None:
         """Show `value` (0 to 127). Never reports back to the panel."""

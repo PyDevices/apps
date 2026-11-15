@@ -36,6 +36,13 @@ Every control takes a theme, a parent and coordinates in its parent. The
 slider, the meter, the lamp button and the pad grid each have a short
 docstring that says what the host calls.
 
+An encoder's ring shows its value in one of three ways. Pass `mode=` when you
+build it: `"fill"` (the default) lights the ring up to the value, `"bipolar"`
+lights it from the middle out, for pan or detune, and `"dot"` lights only the
+LED at the value.
+
+![Three rows of five encoders at 0, 32, 64, 96 and 127: the ring filled from its start, filled from the middle, and a single lit LED](docs/images/encoder-modes.png)
+
 ```python
 from controlkit import LampButton, LedMeter, PadGrid, Slider
 from controlkit.theme import BLACK

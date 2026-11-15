@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Run controls_contract.py on CPython and on unix MicroPython.
 
-The slider, the LED meter, the lamp button and the pad grid, built on a
+The slider, the LED meter, the lamp button, the pad grid and the encoder's
+three ring modes, built on a
 display with no window and driven by hand and by a host. The planted run
 stops a slider from reporting its changes and must fail the callback checks.
 
