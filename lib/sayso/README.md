@@ -326,6 +326,16 @@ The report lists endpoints missing from the client, client-only paths, and (with
 example, `GET /me/tracks` maps to `saved_tracks()`, not a method named after
 the URL path.
 
+It also lists every method whose endpoint Spotify removed for Development Mode
+apps, with the method to use instead, and marks those paths in the map:
+
+```text
+GET /users/{user_id} user() -> me()
+GET /markets available_markets() -> no replacement
+```
+
+Each of those methods says the same in its docstring.
+
 ## Implemented Client Areas
 
 The client currently includes object-returning methods for:
@@ -342,6 +352,7 @@ The client currently includes object-returning methods for:
 - `snapshot_id(result)` helper for playlist mutation responses
 - Playback controls including transfer, play/pause, skip, seek, repeat, shuffle, volume, and queue add
 - Write helpers accept strings or Spotify objects with matching `id`/`uri` fields where appropriate
+- Spotify's documented limits are checked before a request is sent: the most IDs or URIs a method takes, a page `limit`, the seeds for `recommendations()` and the size of a playlist cover. Going over raises `ValueError` and nothing is sent
 - Generic `next_page(page)` and `previous_page(page)` navigation for Spotify paging URLs
 - First-class methods for all OpenAPI paths currently reported by Spotify's schema
 - Low-level HTTP helpers on `SpotifyClient` are private; the public surface is endpoint methods such as `track()`, `pause()`, and `saved_tracks()`
