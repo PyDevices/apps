@@ -113,7 +113,6 @@ class ReplScrollbackTest(unittest.TestCase):
                 "board_config": types.SimpleNamespace(display_drv=self.display),
             }),
             mock.patch.object(os, "dupterm", dupterm, create=True),
-            mock.patch("vtterm.keyboards.start_all", lambda: ([self.keyboard], [])),
         ]
         sys.path.insert(0, str(ROOT))
         self.addCleanup(sys.path.remove, str(ROOT))
