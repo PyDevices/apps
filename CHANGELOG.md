@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.2.dev7
+
+- Weather shows a forecast straight away: until you choose a ZIP code it uses the city the board's public IP address is in (ipwho.is), marked with a location pin, in °F in the US and °C elsewhere. A place you choose wins and is the one saved; if the lookup fails, Weather asks for a ZIP code as before.
+
 ## 0.1.2.dev6
 
 - deskkit: the clock runs on CircuitPython, which has no time.gmtime, so Clock shows local time there too.
