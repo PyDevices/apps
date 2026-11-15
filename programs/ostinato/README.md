@@ -16,9 +16,9 @@ instruments and 44 effects make the sound, and `midiports` and
 Every command here runs from this folder, `programs/ostinato` in the apps repo.
 
 ```bash
+bash scripts/vendor_pyscript.sh               # Pyodide, which fetch_wheels.py reads numpy's name from
 .venv/bin/python scripts/fetch_wheels.py      # the PyDevices wheels it runs on
 .venv/bin/python scripts/fetch_midi.py        # midiports, adafruit_midi, the board config
-bash scripts/vendor_pyscript.sh               # Pyodide
 .venv/bin/python tools/gen_boot.py            # what each worker loads
 .venv/bin/python tools/serve.py               # http://127.0.0.1:8765/
 ```
@@ -146,6 +146,7 @@ Run them all in one app session, about four minutes:
 | `tools/workflow2_check.py` | each track's own pattern, switching at the bar (Shift: every track); scene duplicate and picker; pads play the grid's rows; mute out of undo, pan and slider bank B; velocity by Shift-drag; overdub off replaces a take, and song takes land in the scene's pattern; effects reorder; Delete and wheel scrolling; knob drag, reset and instrument stepping; Save, Ctrl+S and Save first; the keyboard's Forward, Loop and Rewind, Learn, and octave keys |
 | `tools/demo_check.py` | the demo song loads on the first run and from the menu, swing and the scene list work, it exports with every track heard |
 | `tools/soundfont_check.py` | (desktop, also `--desktop split`) the SoundFont song opens, exports with every track heard and plays; `--no-bank`: without a `.sf2` the tracks stay silent and the status line says so |
+| `tools/layout_check.py --size 1280x720` | a window of that size gets the layout made for it: on the song, a drum grid and a piano roll, every control is inside its region and none overlap; `--out` saves the three screens to look at |
 | `tools/instrument_sweep.mjs`, `tools/effect_sweep.mjs` | every instrument's pitch, every effect on and bypassed |
 | `tools/offline_check.py`, `tools/check_no_links.py` | starts offline; nothing navigates away |
 | `tools/split_check.py` | (desktop, `--split`) the window and a browser on the engines' process: a song the window opens shows on the page with what its samples cost; the page's step, mute and tempo reach the window, the window's swing reaches the page; Play from the page plays through the mixer |

@@ -6,10 +6,16 @@
 beside them, and a song to start with.
 
     python tools/vamp_files.py DEVICE [--hmilink DIR] [--song FILE]
+    python tools/vamp_files.py DEVICE --panel [--hmilink DIR]
 
 DEVICE is what mpftp takes (COM4, ws://<board-address>). Then, on the board::
 
     import vamp; vamp.run()
+
+``--panel`` puts the front panel there instead, for a board with a touch
+screen that joins a box somewhere else::
+
+    import vamp; vamp.run_panel("<the box's address>")
 
 ``--hmilink`` names the hmilink package to copy (the folder holding
 ``__init__.py``); the default is a pydevices checkout beside this one, else
@@ -26,8 +32,12 @@ OSTINATO = os.path.join(ROOT, "programs", "ostinato")
 
 # Each package, its files, and the folder they come from in this checkout.
 PACKAGES = {
-    "vamp": (["__init__.py", "engine.py", "device.py", "main.py"], "programs"),
-    "songmodel": (["__init__.py", "model.py", "link.py", "page.html"], "lib"),
+    "vamp": (["__init__.py", "engine.py", "device.py", "record.py", "main.py"], "programs"),
+    "songmodel": (["__init__.py", "model.py", "link.py", "page_data.py"], "lib"),
+}
+PANEL = {
+    "vamp": (["__init__.py", "panel.py", "panel_view.py", "panel_main.py"], "programs"),
+    "songmodel": (["__init__.py", "model.py"], "lib"),
 }
 HMILINK = ["__init__.py", "tcp.py"]
 SONG = os.path.join(OSTINATO, "songs", "sketches", "soundfont_check.json")
@@ -37,9 +47,10 @@ def _hmilink():
     parent = ROOT
     for _ in range(3):
         parent = os.path.dirname(parent)
-        p = os.path.join(parent, "pydevices", "hmilink", "hmilink")
-        if os.path.isfile(os.path.join(p, "__init__.py")):
-            return p
+        for inside in (("packages", "hmilink", "hmilink"), ("hmilink", "hmilink")):
+            p = os.path.join(parent, "pydevices", *inside)
+            if os.path.isfile(os.path.join(p, "__init__.py")):
+                return p
     return os.path.join(OSTINATO, "vendor", "lib", "hmilink")
 
 
@@ -61,11 +72,15 @@ def main(argv):
             mpftp("mkdir", "-d", device, d)
         except SystemExit:
             pass                    # there already; a put into a missing one fails below
-    for package, (names, source) in PACKAGES.items():
+    panel = "--panel" in argv
+    for package, (names, source) in (PANEL if panel else PACKAGES).items():
         for name in names:
             mpftp("put", "-d", device, os.path.join(ROOT, source, package, name), "/lib/%s/%s" % (package, name))
     for name in HMILINK:
         mpftp("put", "-d", device, os.path.join(hmi, name), "/lib/hmilink/" + name)
+    if panel:
+        print("Vamp's front panel is on %s: import vamp; vamp.run_panel(\"<the box's address>\")" % device)
+        return
     mpftp("put", "-d", device, song, "/vamp_song.json")
     print("Vamp is on %s: import vamp; vamp.run()" % device)
 

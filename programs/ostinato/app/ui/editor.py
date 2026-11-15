@@ -11,6 +11,7 @@ every change can be undone. The playhead moves across whichever is showing.
 import lvgl as lv
 
 import catalog
+import fonts
 from songmodel import model
 import theme
 from theme import px
@@ -93,13 +94,24 @@ class Editor:
             btn.on(lv.EVENT.CLICKED, (lambda n: lambda: self.set_bars(n))(b))
             self.bar_buttons[b] = btn.obj
         self.note_info = None
+        self.note_hint = "Shift-drag a note: velocity"
         if t["kind"] != "drums":
-            self._roll_tools(at, head_h)
+            tools = self._roll_tools(at, head_h)
             # The selected note, in words: pitch, length, velocity.
-            self.note_info = theme.label(self.root, "", "muted")
+            self.note_info = theme.label(self.root, self.note_hint, "muted")
             title.update_layout()
-            self.note_info.set_pos(px(16) + title.get_width() + px(130 if self.app.project.get("song_mode") else 20),
-                                   (head_h - px(18)) // 2)
+            info_x = px(16) + title.get_width() + px(130 if self.app.project.get("song_mode") else 20)
+            self.note_info.set_pos(info_x, (head_h - px(18)) // 2)
+            self.note_info.update_layout()
+            room = tools - px(8) - info_x
+            if self.note_info.get_width() > room:
+                # A small window: the words get two short lines in the room
+                # there is, and the hint, which needs three, stays in Help.
+                lh = fonts.t(px(14)).line_height
+                self.note_hint = ""
+                self.note_info.set_long_mode(lv.label.LONG_MODE.WRAP)
+                self.note_info.set_size(max(1, room), 2 * lh)
+                self.note_info.set_y((head_h - 2 * lh) // 2)
             self.show_note_info()
         body = (0, head_h, w, h - head_h)
         if t["kind"] == "drums":
@@ -123,6 +135,7 @@ class Editor:
         self.app.tips.add(rm.obj, "Delete the selected note")
         rm.obj.set_pos(at - px(70), y)
         rm.on(lv.EVENT.CLICKED, self.delete_selected)
+        return at - px(70)                # where the tools start: the note's words stop short of it
 
     def show_note_info(self):
         if self.note_info is None:
@@ -133,7 +146,7 @@ class Editor:
             self.note_info.set_text("%d notes selected" % len(self.selection))
             return
         if i is None or not pat or i >= len(pat["notes"]):
-            self.note_info.set_text("Shift-drag a note: velocity")
+            self.note_info.set_text(self.note_hint)
             return
         s_, l_, p_, v_ = pat["notes"][i]
         steps = max(1, round(l_ / model.STEP))
@@ -337,6 +350,10 @@ class StepGrid:
         for r, (note, name) in enumerate(self.pads):
             lb = theme.label(self.box, name, "muted")
             lb.set_pos(px(16), top + r * row_h + (row_h - px(18)) // 2)
+            # In a small window the longest names are wider than the design's
+            # column: text stops shrinking first, so the column grows to hold them.
+            lb.update_layout()
+            names_w = max(names_w, px(16) + lb.get_width() + px(8))
             lb.add_flag(lv.OBJ_FLAG.CLICKABLE)
             lb.set_ext_click_area(px(6))
             lb.add_event_cb((lambda n: lambda e: editor.app.audition(n, HIT, seconds=0.4))(note),
@@ -529,6 +546,7 @@ class PianoRoll:
         # How many notes lie above and below the two octaves shown.
         self.above = theme.label(self.box, "", "muted", theme.ACCENT)
         self.below = theme.label(self.box, "", "muted", theme.ACCENT)
+        self.above_right = keys_w + self.grid_w
         self.above.set_pos(keys_w + self.grid_w - px(90), self.grid_y + px(2))
         self.below.set_pos(keys_w + self.grid_w - px(90), self.grid_y + self.ROWS * self.row_h - px(22))
         self.notes = []
@@ -561,6 +579,13 @@ class PianoRoll:
             o.remove_flag(lv.OBJ_FLAG.CLICKABLE)
             self.notes.append(o)
         self.notes = [o for o in self.notes]
+
+        for lb in (self.above, self.below):
+            # Each ends inside the grid's right edge, however wide its words
+            # are, and stays readable over a note drawn in its corner.
+            lb.update_layout()
+            lb.set_x(self.above_right - max(px(90), lb.get_width() + px(6)))
+            lb.move_foreground()
 
     def note_rect(self, start, length, pitch):
         r = self.editor.low + self.ROWS - 1 - pitch

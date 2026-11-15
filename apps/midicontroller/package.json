@@ -1,0 +1,65 @@
+{
+  "description": "MIDI Controller, an app for Home",
+  "target": "apps/midicontroller",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "links.py",
+      "links.py"
+    ],
+    [
+      "surface.py",
+      "surface.py"
+    ]
+  ],
+  "deps": [
+    [
+      "appkit",
+      "latest"
+    ],
+    [
+      "bledev",
+      "latest"
+    ],
+    [
+      "controlkit",
+      "latest"
+    ],
+    [
+      "deskkit",
+      "latest"
+    ],
+    [
+      "iconkit",
+      "latest"
+    ],
+    [
+      "midiports",
+      "latest"
+    ],
+    [
+      "touchkit",
+      "latest"
+    ]
+  ],
+  "upstream": [
+    [
+      "requests",
+      "latest"
+    ]
+  ],
+  "circuitpython": [
+    [
+      "adafruit_requests",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

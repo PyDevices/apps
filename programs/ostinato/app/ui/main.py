@@ -123,6 +123,7 @@ class Ostinato:
         from transport import TransportBar
 
         L = layout.pick(W, H)
+        self.layout = L
         theme.setup(L["scale"])
         self.screen.clean()
         from tooltip import Tips
@@ -715,6 +716,8 @@ class Ostinato:
         g["status_right"] = self.status.right.get_text()
         g["selection"] = sorted(self.editor.selection)
         g["canvas"] = [W, H]
+        g["regions"] = {k: list(v) for k, v in self.layout.items() if k != "scale"}
+        g["pans"] = [rect(r["pan"].root) for r in self.tracks.rows if r.get("pan") is not None]
         g["note_info"] = self.editor.note_info.get_text() if getattr(self.editor, "note_info", None) else None
         g["knob_rects"] = [rect(k.root) for k in self.inspector.knobs]
         g["fx_moves"] = [rect(b) for b in getattr(self.inspector, "move_buttons", [])]

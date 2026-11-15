@@ -60,6 +60,7 @@ jobs:
       camera: ${{ steps.scope.outputs.camera }}
       app_packages: ${{ steps.scope.outputs.app_packages }}
       gamepad: ${{ steps.scope.outputs.gamepad }}
+      midicontroller: ${{ steps.scope.outputs.midicontroller }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -81,19 +82,21 @@ jobs:
             echo "camera=true" >> "$GITHUB_OUTPUT"
             echo "app_packages=true" >> "$GITHUB_OUTPUT"
             echo "gamepad=true" >> "$GITHUB_OUTPUT"
+            echo "midicontroller=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "$BASE...$GITHUB_SHA")
           echo "$files"
           has() { grep -qE "$1" <<< "$files" && echo true || echo false; }
           echo "ostinato=$(has '^(programs/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "engines=$(has '^(lib/|tests/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "engines=$(has '^(lib/|tests/|programs/vamp/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "midicontroller=$(has '^(apps/midicontroller/|lib/(touchkit|appkit|controlkit)/|tests/(test_midicontroller|midicontroller_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -242,6 +245,7 @@ jobs:
             lib
             packages/usb
             packages/iconkit/lib
+            packages/_boardname
 
       - uses: actions/setup-python@v7
         with:
@@ -259,6 +263,46 @@ jobs:
           GAMEPAD_REQUIRE: "1"
           SDL_VIDEODRIVER: dummy
         run: python -m unittest tests.test_gamepad -v
+
+  # The MIDI Controller app on CPython against pydevices' midiports from its
+  # main branch, on a display with no window: each touch is read back as the
+  # bytes on the USB wire, and what comes in moves the controls.
+  midicontroller:
+    needs: scope
+    if: needs.scope.outputs.midicontroller == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          path: studio
+
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/pydevices
+          path: pydevices
+          sparse-checkout: |
+            lib
+            packages/midiports
+            packages/iconkit/lib
+            packages/_boardname
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install LVGL for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl
+
+      - name: The MIDI Controller app's tests
+        working-directory: studio
+        env:
+          PYDEVICES_DIR: ${{ github.workspace }}/pydevices
+          MIDICONTROLLER_REQUIRE: "1"
+          SDL_VIDEODRIVER: dummy
+        run: python -m unittest tests.test_midicontroller -v
 
   # Bit World's tests on CPython, against the released pydevices, pygraphics
   # and audiodsp, on a display with no window: the partial repaint matches a

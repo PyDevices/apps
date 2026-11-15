@@ -43,36 +43,54 @@ def main():
 
     schema = load_schema(args.schema)
     client_endpoints = extract_client_endpoints(args.client)
-    report = endpoint_coverage(schema, client_endpoints)
+    report = endpoint_coverage(schema, client_endpoints, removed_endpoints(args.client))
+    for line in report_lines(report, show_map=args.map):
+        print(line)
 
-    print("openapi endpoints:", len(report["openapi"]))
-    print("client endpoints:", len(report["client"]))
-    print("covered endpoints:", len(report["covered"]))
-    print("missing from client:", len(report["missing"]))
-    print("client-only (not in schema):", len(report["extra"]))
+
+def report_lines(report, show_map=False):
+    """The report as lines of text, with the method map when asked for or when something is missing."""
+    lines = [
+        "openapi endpoints: {}".format(len(report["openapi"])),
+        "client endpoints: {}".format(len(report["client"])),
+        "covered endpoints: {}".format(len(report["covered"])),
+        "missing from client: {}".format(len(report["missing"])),
+        "client-only (not in schema): {}".format(len(report["extra"])),
+        "removed for Development Mode apps: {}".format(len(report["removed"])),
+    ]
 
     if report["missing"]:
-        print()
-        print("missing from client:")
+        lines.append("")
+        lines.append("missing from client:")
         for method, path, operation_id in report["missing"]:
-            label = operation_id or ""
-            print(method, path, label)
+            lines.append("{} {} {}".format(method, path, operation_id or "").rstrip())
 
     if report["extra"]:
-        print()
-        print("client-only (not in schema):")
+        lines.append("")
+        lines.append("client-only (not in schema):")
         for method, path, client_methods in report["extra"]:
-            print(method, path, format_methods(client_methods))
+            lines.append("{} {} {}".format(method, path, format_methods(client_methods)))
 
-    if args.map or report["missing"]:
-        print()
-        print("openapi path -> SpotifyClient method(s):")
+    if report["removed"]:
+        lines.append("")
+        lines.append("removed for Development Mode apps (SpotifyClient method -> what to use):")
+        for method, path, client_method, replacement in report["removed"]:
+            lines.append("{} {} {}() -> {}".format(method, path, client_method, format_replacement(replacement)))
+
+    if show_map or report["missing"]:
+        removed_methods = set(client_method for method, path, client_method, replacement in report["removed"])
+        lines.append("")
+        lines.append("openapi path -> SpotifyClient method(s):")
         for method, path, operation_id, client_methods in report["mapping"]:
-            label = operation_id or ""
-            print("{} {} -> {}  {}".format(method, path, format_methods(client_methods), label).rstrip())
+            line = "{} {} -> {}  {}".format(method, path, format_methods(client_methods), operation_id or "").rstrip()
+            if client_methods and removed_methods.issuperset(client_methods):
+                line += "  [removed for Development Mode apps]"
+            lines.append(line)
+
+    return lines
 
 
-def endpoint_coverage(schema, client_endpoints):
+def endpoint_coverage(schema, client_endpoints, removed=None):
     openapi = openapi_endpoints(schema)
     openapi_keys = set((method, path) for method, path, operation_id in openapi)
 
@@ -99,7 +117,15 @@ def endpoint_coverage(schema, client_endpoints):
     for key in sorted(client_keys - openapi_keys):
         extra.append((key[0], key[1], sorted(client_by_key[key])))
 
+    removed_rows = []
+    for client_method in sorted(removed or {}):
+        endpoint, replacement = removed[client_method]
+        method, path = endpoint.split(" ", 1)
+        removed_rows.append((method, path, client_method, replacement))
+    removed_rows.sort()
+
     return {
+        "removed": tuple(removed_rows),
         "openapi": openapi,
         "client": tuple(sorted(client_keys)),
         "covered": tuple(covered),
@@ -121,6 +147,26 @@ def client_methods_for_openapi(client_by_key, method, path):
         return methods
 
     return set()
+
+
+def removed_endpoints(client_path):
+    """The client's own table of methods Spotify removed for Development Mode apps.
+
+    Returns:
+        A dict of method name to `(endpoint, replacement)`, where `endpoint` is
+        like `"GET /tracks"` and `replacement` is a method name or None.
+    """
+    with open(client_path) as file:
+        tree = ast.parse(file.read())
+
+    for node in tree.body:
+        if not isinstance(node, ast.Assign):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name) and target.id == "_REMOVED_ENDPOINTS":
+                return ast.literal_eval(node.value)
+
+    raise ValueError("no _REMOVED_ENDPOINTS table in {}".format(client_path))
 
 
 def extract_client_endpoints(client_path):
@@ -288,6 +334,12 @@ def openapi_endpoints(schema):
             if operation is not None:
                 endpoints.append((method, path, operation.get("operationId")))
     return tuple(endpoints)
+
+
+def format_replacement(replacement):
+    if replacement is None:
+        return "no replacement"
+    return replacement + "()"
 
 
 def format_methods(methods):

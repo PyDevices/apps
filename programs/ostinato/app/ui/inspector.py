@@ -15,6 +15,7 @@ they're bound.
 import lvgl as lv
 
 import catalog
+import fonts
 from songmodel import model
 import theme
 from knob import Knob
@@ -153,7 +154,7 @@ class Inspector:
         for i, label in enumerate(info["macros"]):
             r, c = divmod(i, 4)
             bipolar = i < len(info["modes"]) and info["modes"][i] == "BIPOLAR"
-            k = Knob(self.body, pad + c * size, top + r * (size + px(40)), size, label, colour,
+            k = Knob(self.body, pad + c * size, top + r * (size + knob_gap()), size, label, colour,
                      (lambda n: lambda v: self.set_macro(n, v))(i), bipolar,
                      default=defaults[i] if i < len(defaults) else 64, app=self.app)
             k.bound(["macro", self.track_id, i] in bound)
@@ -161,7 +162,7 @@ class Inspector:
             k.on_touch = (lambda n: lambda kn: self.touched(["macro", self.track_id, n], kn))(i)
             self.knobs.append(k)
         rows = (len(info["macros"]) + 3) // 4
-        fx_top = top + rows * (size + px(40)) + px(10)
+        fx_top = top + rows * (size + knob_gap()) + px(10)
         if not info["macros"]:
             theme.label(self.body, "This instrument has no knobs.", "muted").set_pos(pad, top)
             fx_top = top + px(40)
@@ -235,7 +236,7 @@ class Inspector:
             size = (w - 2 * pad) // 4
             for i, label in enumerate(info["macros"]):
                 r, c = divmod(i, 4)
-                k = Knob(self.body, pad + c * size, y + px(6) + r * (size + px(40)), size, label, colour,
+                k = Knob(self.body, pad + c * size, y + px(6) + r * (size + knob_gap()), size, label, colour,
                          (lambda n: lambda v: self.set_effect_macro(n, v))(i),
                          default=fx_defaults[i] if i < len(fx_defaults) else 64, app=self.app)
                 k.bound(self.fx_target(self.fx_index, i) in list(self.app.project.get("bindings", {}).values()))
@@ -469,3 +470,9 @@ def title_of(name):
     """An instrument's name in the list, marked when it plays one note at a time."""
     info = catalog.instrument(name)
     return info["title"] + ("  (mono)" if info.get("voices") == 1 else "")
+
+
+def knob_gap():
+    """The room under a knob for its name before the next row of knobs: two lines of it, even in a
+    small window, where text stops shrinking before the design's 40 pixels do."""
+    return max(px(40), 2 * fonts.t(px(14)).line_height)
