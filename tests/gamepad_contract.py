@@ -95,6 +95,7 @@ def _module(name, **attrs):
 class _Host:
     started = []
     stopped = 0
+    running = False
     pad = None
 
 
@@ -111,10 +112,12 @@ def _start(full_speed=False, classes=None, force=False):
 
 def _stop():
     _Host.stopped += 1
+    _Host.running = False
 
 
 usb = _module("usb", __path__=[os.path.join(_USB, "usb-host-hid", "usb")])
-core = _module("usb.core", USBError=USBError, USBTimeoutError=USBTimeoutError, find=_find, start=_start, stop=_stop)
+core = _module("usb.core", USBError=USBError, USBTimeoutError=USBTimeoutError, find=_find, start=_start, stop=_stop,
+               running=lambda: _Host.running)
 usb.core = core
 usb_device = _module("usb.device", get=lambda: _device)
 usb.device = usb_device
@@ -482,6 +485,24 @@ scope.run()
 check(st["view"] is None and "went" in w.status, "unplugging it says so and waits again: %r" % (w.status,))
 scope.close()
 check(_Host.stopped == 1, "closing the tester stops the host")
+
+# -- On a board with one USB port, the gamepad takes it from the host ------------
+
+_Host.running = True
+stopped = _Host.stopped
+scope = Scope()
+gamepad.be_gamepad(scope)
+check(_Host.stopped == stopped, "where host and device have their own ports, the host keeps running")
+scope.close()
+_one_port = gamepad._one_port
+gamepad._one_port = lambda: True
+scope = Scope()
+gamepad.be_gamepad(scope)
+check(_Host.stopped == stopped + 1 and not _Host.running,
+      "where they share one port, the gamepad stops the host before it starts the device")
+scope.close()
+gamepad._one_port = _one_port
+_Host.running = False
 
 # -- One side only ---------------------------------------------------------------
 

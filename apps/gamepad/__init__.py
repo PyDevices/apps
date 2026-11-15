@@ -62,6 +62,31 @@ def sides():
     return out
 
 
+def _one_port():
+    """Whether the USB host and device share this board's one USB port, as
+    on the ESP32-S2 and S3."""
+    import sys
+
+    m = getattr(sys.implementation, "_machine", "")
+    return "ESP32S2" in m or "ESP32S3" in m
+
+
+def _free_port():
+    """Stop a USB host that holds the port the gamepad needs. Returns True
+    if one was running."""
+    if not _one_port():
+        return False
+    try:
+        import usb.core
+    except ImportError:
+        return False
+    if not usb.core.running():
+        return False
+    usb.core.stop()
+    print("gamepad: stopped the USB host, which shares this board's USB port")
+    return True
+
+
 def _margin(W):
     return max(8, W // 60)
 
@@ -158,6 +183,7 @@ def be_gamepad(scope):
         _missing(scope, "missing: usb-hid", 'The gamepad needs usb-hid:\nomip.install("usb-hid")')
         return None
     status, row = _status_row(scope)
+    _free_port()
     usb_hid.enable((usb_hid.Device.GAMEPAD,))
     scope.on_close(usb_hid.disable)  # the port is the board's serial port alone again
 
