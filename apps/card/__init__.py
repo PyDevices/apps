@@ -54,7 +54,9 @@ def main(scope):
         return
     ring = audiopump.Ring(sample_rate=48000, channel_count=2, frames=480, capacity=8)
     spk = SpeakerInterface(sink=ring)
-    usb.device.get().init(spk, builtin_driver=True)
+    import boarddev
+
+    usb.device.get().init(spk, builtin_driver=True, product_str=boarddev.name())  # the PC lists the board's name
     while transport is not None and getattr(transport, "wire", None) is None:
         transport = getattr(transport, "_inner", None)
     driver = pump.BusioDriver(transport.wire, fmt, power=getattr(transport, "audio_power", None),

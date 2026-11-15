@@ -32,11 +32,12 @@ def _say(lv, text):
     return label
 
 
-def run(*, hostname="deskclock", apps=APPS, awake=(7, 18), weekends=False, idle_ms=60_000):
+def run(*, hostname=None, apps=APPS, awake=(7, 18), weekends=False, idle_ms=60_000):
     """Join Wi-Fi, set the clock and run *apps* until the program ends.
 
     Args:
-        hostname (str): The name the board answers to on the network.
+        hostname (str): The name the board answers to on the network, for
+            this run. None is the board's name, ``boarddev.name()``.
         apps (tuple): The apps to swipe between, first one the home screen.
             Each is a folder under ``apps/``.
         awake (tuple): The hours the screen stays lit, as ``(from, until)``,

@@ -111,7 +111,9 @@ class ClockOnJoinTest(unittest.TestCase):
             "appkit.worker": types.SimpleNamespace(shared=lambda: worker),
             "deskkit": types.SimpleNamespace(localtime=localtime),
             "deskkit.localtime": localtime,
-            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+            "touchkit.settings": types.SimpleNamespace(
+                get=lambda key, default=None: default, move_hostname=lambda: None
+            ),
         }
         return fakes, worker, localtime
 
@@ -178,7 +180,9 @@ class StartWebreplTest(unittest.TestCase):
         fakes = {
             "lvgl": mock.MagicMock(),
             "webrepl": webrepl,
-            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+            "touchkit.settings": types.SimpleNamespace(
+                get=lambda key, default=None: default, move_hostname=lambda: None
+            ),
         }
         with mock.patch.dict(sys.modules, fakes):
             sys.modules.pop("touchkit.net", None)
@@ -221,7 +225,9 @@ class OfflineJoinTest(unittest.TestCase):
             "wifi": wifi,
             "wifi_manager": manager,
             "webrepl": mock.MagicMock(),
-            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+            "touchkit.settings": types.SimpleNamespace(
+                get=lambda key, default=None: default, move_hostname=lambda: None
+            ),
         }
         with mock.patch.dict(sys.modules, fakes):
             sys.modules.pop("touchkit.net", None)
@@ -262,7 +268,9 @@ class OfflineJoinTest(unittest.TestCase):
             "lvgl": mock.MagicMock(),
             "wifi": wifi,
             "wifi_manager": manager,
-            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+            "touchkit.settings": types.SimpleNamespace(
+                get=lambda key, default=None: default, move_hostname=lambda: None
+            ),
         }
         with mock.patch.dict(sys.modules, fakes):
             sys.modules.pop("touchkit.net", None)
@@ -300,7 +308,9 @@ class DroppedNetworkTest(unittest.TestCase):
             "lvgl": lvgl,
             "wifi": wifi,
             "wifi_manager": manager,
-            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+            "touchkit.settings": types.SimpleNamespace(
+                get=lambda key, default=None: default, move_hostname=lambda: None
+            ),
         }
         with mock.patch.dict(sys.modules, fakes):
             sys.modules.pop("touchkit.net", None)

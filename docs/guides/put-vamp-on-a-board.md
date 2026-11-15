@@ -57,9 +57,9 @@ the keyboard on its USB host port plays into that track's pattern: on the
 sixteenths when the song's quantise is on, replacing the pattern when overdub
 is off, and skipping notes played in a count-in.
 
-To try it without a keyboard on Windows, make a MIDI loopback with Windows MIDI
-Services, `midi basic-loopback create --name "PyDevices Loopback"`, and play
-into it from any program. [`tools/vamp_midi_loopback_check.py`](../../tools/vamp_midi_loopback_check.py)
+To try it without a keyboard on Windows, run `python -m midiports.loopback` to
+make a MIDI loopback port (`midiports.LOOPBACK`, which needs Windows MIDI
+Services), and play into it from any program. [`tools/vamp_midi_loopback_check.py`](../../tools/vamp_midi_loopback_check.py)
 does that: it runs the box on MicroPython for Windows, plays a known phrase
 into the loopback from a second process, and compares the notes in the song
 with what was played.

@@ -211,6 +211,12 @@ round screen it's a small round button on the diagonal, inside the circle.
 [`examples/appkit_simpletest`](examples/appkit_simpletest) is an app set of
 two apps, a counter and a greeter, laid out this way.
 
+With a mouse, buttons, list rows, tabs, sliders and switches show a thin
+outline while the pointer is over them, in every app, because `Shell` adds
+one hover style to the display's theme. A finger never hovers: the display
+driver lifts the pointer off the screen when a touch ends, so a tap doesn't
+leave its button lit.
+
 ## Plain scripts
 
 A script that builds its own `App` when it's imported, like a game, can sit
