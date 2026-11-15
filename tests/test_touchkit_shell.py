@@ -252,7 +252,7 @@ class OfflineJoinTest(unittest.TestCase):
 class DroppedNetworkTest(unittest.TestCase):
     """CircuitPython's radio stops retrying, so the board's poll never stops."""
 
-    def _boot(self, wifi, joined, cp=True):
+    def _boot(self, wifi, joined, cp=True, no_clock=False):
         lvgl = mock.MagicMock()
         manager = types.SimpleNamespace(connect=mock.MagicMock(return_value="10.0.0.5" if joined else None))
         fakes = {
@@ -267,6 +267,8 @@ class DroppedNetworkTest(unittest.TestCase):
             from touchkit import net
 
             net._CP = cp
+            if no_clock:
+                net._now_ms = mock.MagicMock(side_effect=AttributeError("monotonic"))
             with mock.patch.object(net, "keep_time"), mock.patch.object(net, "start_webrepl"):
                 net.boot()
                 polls = lvgl.timer_create.call_args_list
@@ -288,6 +290,12 @@ class DroppedNetworkTest(unittest.TestCase):
         poll, timer = self._boot(wifi, joined=False)
         self.assertIsNotNone(poll)
         timer.delete.assert_not_called()
+
+    def test_a_desktop_without_time_monotonic_boots_offline(self):
+        # Windows MicroPython has no time.monotonic: only CircuitPython needs it.
+        wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=False))
+        poll, _ = self._boot(wifi, joined=False, cp=False, no_clock=True)
+        self.assertIsNotNone(poll)
 
     def test_micropython_stops_polling_once_joined(self):
         wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=True))

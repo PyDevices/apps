@@ -223,7 +223,8 @@ def boot():
         if not _needs_polling():
             return
     else:
-        _join_failed()  # where a join blocks, the next waits a while
+        if _CP:
+            _join_failed()  # where a join blocks, the next waits a while
         keep_time()
         up()
     import lvgl as lv
