@@ -12,7 +12,7 @@
 The same calls as checkkit.Session (the browser's), over the app's control
 socket (desktop/control.py) instead of Chrome's DevTools: UI messages and
 their answers, the mouse posted to the window, keys into its event stream,
-MIDI played into "Ostinato Loopback", and the mixer's tap for listening.
+MIDI played into "PyDevices Loopback", and the mixer's tap for listening.
 It starts the app with tools/win_run.sh, fresh, on its own data folder, with
 a folder standing in for the file dialogs, and stops it at the end.
 """
@@ -249,7 +249,7 @@ class DesktopSession:
         # "split": the engines and the song in a device process, the window its panel (--split).
         runner = "processes" if self.runner == "split" else self.runner
         args = [str(ROOT / "tools" / "win_run.sh"), runner, "--control", str(self.port),
-                "--midi", "Ostinato Loopback", "--midi-out", "Ostinato Loopback",
+                "--midi", "PyDevices Loopback", "--midi-out", "PyDevices Loopback",
                 "--test-files", win("files"), "--data", win("data")]
         if self.runner == "split":
             args.append("--split")
