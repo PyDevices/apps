@@ -15,7 +15,8 @@ other apps keep going. A board's one dupterm slot is shared with WebREPL:
 while a WebREPL client is connected, the app waits for it to leave.
 
 It needs vtterm (``mip.install("github:PyDevices/pydevices/packages/vtterm")``)
-and firmware whose palettes has its ANSI palette.
+and firmware whose palettes has its ANSI palette. Shift+Page Up and Page Down
+page back through what scrolled off the screen.
 """
 
 import sys
@@ -26,7 +27,7 @@ from palettes.ansi import AnsiPalette
 from vtterm import Terminal
 from vtterm.console import Console
 from vtterm.keyboards import start_all
-from vtterm.keys import key_bytes
+from vtterm.keys import key_bytes, scroll_key
 
 #: How often keys are read and output drawn, in ms.
 TICK_MS = 20
@@ -135,6 +136,8 @@ def main(scope):
                 src.status = str(e)
             for e in evs:
                 if e.type == KEYDOWN:
+                    if scroll_key(console.terminal.screen, e.key, e.mod):
+                        continue
                     b = key_bytes(e.key, e.mod, app_cursor)
                     if b:
                         out = b if out is None else out + b
