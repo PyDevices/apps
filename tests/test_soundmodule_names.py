@@ -155,7 +155,24 @@ class TheNames(unittest.TestCase):
                 listed = dict(patches[default[bank]])
                 self.assertEqual(listed[str(program)], "%s: %s" % (e["display_name"], p["name"]))
 
-    def test_it_writes_both_files(self):
+    def test_the_reabank_names_every_patch_where_the_module_plays_it(self):
+        banks = {}
+        bank = None
+        for line in names.reabank(self.instruments).splitlines():
+            if line.startswith("Bank "):
+                _, msb, lsb, _name = line.split(" ", 3)
+                bank = banks.setdefault((int(msb), int(lsb)), {})
+            else:
+                program, name = line.split(" ", 1)
+                bank[int(program)] = name
+        self.assertEqual(banks[(0, 0)][0], engine.GM_NAMES[0])
+        self.assertEqual(len(banks[(0, 0)]), 128)
+        for msb, program, e in self.played():
+            for p in e["patches"]:
+                self.assertEqual(banks[(msb, p["index"])][program],
+                                 "%s: %s" % (e["display_name"], p["name"]))
+
+    def test_it_writes_every_file(self):
         with tempfile.TemporaryDirectory() as folder:
             with open(os.path.join(folder, "i.json"), "w", encoding="utf-8") as f:
                 f.write(json.dumps(self.instruments))
@@ -168,7 +185,8 @@ class TheNames(unittest.TestCase):
             self.assertEqual(code, 0)
             written = sorted(f for f in os.listdir(folder) if not f.endswith(".json"))
             self.assertEqual(written, ["PyDevices Sound Module.ins",
-                                       "PyDevices Sound Module.midnam"])
+                                       "PyDevices Sound Module.midnam",
+                                       "PyDevices Sound Module.reabank"])
             ET.parse(os.path.join(folder, "PyDevices Sound Module.midnam"))
 
 
