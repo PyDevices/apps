@@ -30,8 +30,8 @@ sys.path.insert(0, str(TESTS))
 
 from test_engine import _find, audio_libs  # noqa: E402
 
-ENGINE_PLANTS = ("nodelay", "nocancel", "nomute", "norack", "nolive", "nochoke")
-LINK_PLANTS = ("nomute",)
+ENGINE_PLANTS = ("nodelay", "nocancel", "nomute", "norack", "nolive", "nochoke", "norecord")
+LINK_PLANTS = ("nomute", "norecord")
 
 
 def _hmilink():

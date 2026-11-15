@@ -17,8 +17,6 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 
 ## Vamp
 
-- Recording from a MIDI keyboard such as the DMK-25 on the board's USB host
-  port into the selected track. It already plays from one.
 - Undo in the window that knows about edits made on other panels.
 
 ## Camera
