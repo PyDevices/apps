@@ -18,7 +18,7 @@ import sys
 import lvgl as lv
 from iconkit import lvicons
 
-from . import data
+from . import data, hover
 
 #: How far a round screen's Home button keeps in from the circle's edge, in pixels.
 ROUND_MARGIN = 4
@@ -63,6 +63,7 @@ class Shell:
         self.home_button = None
         if data_root is not None:
             data.set_root(data_root)
+        hover.apply()
         if launcher.home is not None:
             # Made before any app starts, so no app's close() deletes it.
             self.home_button = self.make_home_button()
