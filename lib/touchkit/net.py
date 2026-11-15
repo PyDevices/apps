@@ -29,6 +29,7 @@ _clock_timer = None
 _clock_asked = False
 _CLOCK_CHECK_MS = 60_000
 _CLOCK_JOB = "touchkit.clock"
+_CP_JOIN_S = 5
 
 
 def _host_ip():
@@ -109,7 +110,16 @@ def up():
     if not _started:
         _started = True
         try:
-            wifi.connect_from_secrets(wait=False, ntp=False)
+            if hasattr(wifi, "connect_from_secrets"):
+                wifi.connect_from_secrets(wait=False, ntp=False)
+            else:
+                # CircuitPython's own wifi has only the radio. wifi_manager
+                # joins what secrets.py or settings.toml hold, and blocks for
+                # up to its timeout, so each poll gets one short try.
+                import wifi_manager
+
+                if not wifi_manager.connect(setup=False, timeout=_CP_JOIN_S):
+                    _started = False  # not joined: the next poll tries again
         except Exception as e:
             print("touchkit: wifi:", e)
             _started = False
