@@ -77,9 +77,11 @@ class _Interface:
 
 class _UsbDevice:
     inits = []
+    product = None
 
-    def init(self, *itfs, builtin_driver=False):
+    def init(self, *itfs, builtin_driver=False, product_str=None):
         _UsbDevice.inits.append(len(itfs))
+        _UsbDevice.product = product_str
 
 
 _device = _UsbDevice()
@@ -115,6 +117,8 @@ def _stop():
     _Host.running = False
 
 
+boarddev = _module("boarddev")
+boarddev.name = lambda: "test-board"
 usb = _module("usb", __path__=[os.path.join(_USB, "usb-host-hid", "usb")])
 core = _module("usb.core", USBError=USBError, USBTimeoutError=USBTimeoutError, find=_find, start=_start, stop=_stop,
                running=lambda: _Host.running)
@@ -375,6 +379,7 @@ tap(x, y)
 scope.run()
 check(_UsbDevice.inits[-1:] == [1], "choosing the gamepad starts the USB device with the HID interface")
 check(usb_hid.devices == (usb_hid.Device.GAMEPAD,), "the USB device serves the gamepad")
+check(_UsbDevice.product == "test-board", "the computer lists the gamepad under the board's name: %r" % (_UsbDevice.product,))
 check(not _Interface.wire, "nothing goes on the wire before a host has the board")
 shot("gamepad_no_host")
 
