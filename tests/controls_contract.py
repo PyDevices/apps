@@ -166,5 +166,22 @@ except IndexError:
     check("an index past the grid is refused", True)
 scr.delete()
 
+scr = screen()
+edges = []
+grid = PadGrid(scr, 10, 10, 320, 320, BLACK, cols=4, rows=4,
+               on_down=lambda g, i: edges.append(("down", i)), on_up=lambda g, i: edges.append(("up", i)))
+grid.set_label(5, "C1")
+_headless.refresh()
+x, y = point_at(grid.pad(5))
+_headless.touch(x, y, False, 40)
+_headless.touch(x, y, True, 40)
+check("a finger landing on a pad reports it down at once", edges == [("down", 5)], str(edges))
+_headless.touch(x, y, False, 40)
+check("lifting it reports it up", edges == [("down", 5), ("up", 5)], str(edges))
+check("a pad shows its legend", grid._labels[5].get_text() == "C1")
+grid.set_label(5, "D1")
+check("a legend can change", grid._labels[5].get_text() == "D1")
+scr.delete()
+
 print("FAILED: %d" % len(failures) if failures else "ALL PASSED")
 sys.exit(1 if failures else 0)
