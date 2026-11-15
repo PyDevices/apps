@@ -7,9 +7,9 @@ Two kinds of file, both optional, both in appkit's data root (``/data`` on
 the board):
 
 ``/data/settings.json``
-    The whole set's: ``{"hostname": "my-panel"}`` names the board on the
-    network (``my-panel.local``). Without it the board keeps the name it
-    has.
+    The whole set's: ``{"webrepl": false}`` keeps WebREPL off, say. The
+    board's name isn't here: ``boarddev.name("my-panel")`` sets it, and
+    `move_hostname` moves a ``"hostname"`` an older set saved here into it.
 
 ``/data/<app>/config.json``
     One app's: the Roku remote's ``{"prefer": "Living room"}`` picks the TV
@@ -25,7 +25,6 @@ from appkit import data
 
 #: The set's defaults; ``settings.json`` overrides any of them.
 DEFAULTS = {
-    "hostname": None,  # the board's mDNS name; None keeps the firmware's
     "webrepl": True,  # start WebREPL once Wi-Fi is up (its password is /webrepl_cfg.py's)
 }
 
@@ -49,6 +48,33 @@ def get(key, default=None):
         s.update(_read(data.join(data.root(), "settings.json")))
         _settings = s
     return _settings.get(key, default)
+
+
+def move_hostname():
+    """Make an older set's ``"hostname"`` setting the board's name, once.
+
+    The key comes out of ``settings.json`` either way. A name the board can't
+    take (a space, say) is dropped, with the reason printed. Returns the name
+    moved, or None.
+    """
+    global _settings
+    path = data.join(data.root(), "settings.json")
+    saved = _read(path)
+    if "hostname" not in saved:
+        return None
+    name = saved.pop("hostname")
+    import boarddev
+
+    try:
+        if name:
+            boarddev.name(name)
+    except ValueError as e:
+        print("touchkit: settings.json's hostname isn't kept:", e)
+        name = None
+    with open(path, "wb") as f:
+        f.write(json.dumps(saved).encode("utf-8"))
+    _settings = None
+    return name or None
 
 
 def config(scope, defaults):

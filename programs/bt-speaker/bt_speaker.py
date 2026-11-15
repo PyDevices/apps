@@ -21,12 +21,13 @@ import json
 import math
 import time
 
+import boarddev
 import btclassic
 from audiodev import AudioFormat
 from programkit import Board, Press, Rows
 
 # Change these to match your setup, or put them in /bt_speaker.json.
-NAME = None  # the name senders see, or None for the board's hostname
+NAME = None  # the name senders see, or None for the board's name
 PHONE = False  # follow a phone's battery and calls (a computer may then treat the speaker as a headset)
 AHEAD_MS = 60  # audio kept queued ahead of the speaker
 HOLD_MS = 1000  # holding a key this long drops the sender
@@ -67,8 +68,7 @@ press = Press(board)
 rows = Rows(board.display) if board.display is not None else None
 
 bt = btclassic.Bluetooth()
-if NAME:
-    bt.config(name=NAME)
+bt.config(name=NAME or boarddev.name())
 name = bt.config("name")
 receiver = btclassic.AudioSink(bt)
 phone = btclassic.HandsFree(bt) if PHONE else None

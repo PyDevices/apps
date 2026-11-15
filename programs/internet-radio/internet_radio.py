@@ -34,7 +34,7 @@ STATIONS = [
     "http://ice1.somafm.com/secretagent-128-mp3",
 ]
 VOLUME = 85  # 0 is silent, 100 the loudest
-HOSTNAME = "radio"  # the board's name on the network
+HOSTNAME = None  # the name on the network, or None for the board's name
 STALL_MS = 8000  # a stream that sends nothing this long is opened again
 BUFFER = 64 * 1024  # bytes of the stream held in RAM; 64 KB is 4 s at 128 kbit/s
 START = BUFFER // 2  # bytes to hold before playing starts

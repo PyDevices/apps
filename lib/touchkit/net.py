@@ -76,26 +76,10 @@ def _radio():
 
 
 def hostname():
-    """The board's name on the network, without ``.local``, or None."""
-    name = settings.get("hostname")
-    if name:
-        return name
-    try:
-        import network
+    """The board's name on the network, without ``.local``: ``boarddev.name()``."""
+    import boarddev
 
-        return network.hostname()
-    except ImportError:  # CircuitPython's radio, or a desktop: the computer's own name
-        r = _radio()
-        if r is not None:
-            return r.hostname
-        try:
-            import socket
-
-            return socket.gethostname()
-        except Exception:
-            return None
-    except Exception:
-        return None
+    return boarddev.name()
 
 
 def up():
@@ -216,13 +200,11 @@ def boot():
     remembered), then start WebREPL. With none in range, carry on offline
     and keep trying in the background; System's Wi-Fi setup asks for one.
     Call it on the main thread once the launcher has booted."""
+    settings.move_hostname()
     try:
         import wifi_manager
 
-        kw = {"setup": False}
-        if settings.get("hostname"):
-            kw["hostname"] = settings.get("hostname")
-        joined = wifi_manager.connect(**kw)
+        joined = wifi_manager.connect(setup=False)
     except Exception as e:
         print("touchkit: wifi:", e)
         joined = False
@@ -291,10 +273,7 @@ def setup_job():
     try:
         import wifi_manager
 
-        kw = {}
-        if settings.get("hostname"):
-            kw["hostname"] = settings.get("hostname")
-        joined = wifi_manager.run(**kw)
+        joined = wifi_manager.run()
     except Exception as e:
         print("touchkit: wifi setup:", e)
         joined = False
