@@ -674,7 +674,8 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
 
     Args:
         doc: The `vec.Doc` to draw into.
-        who (str): "chameleon" or "crab".
+        who (str): "chameleon", "crab", or "stage" for the bench set for the
+            chameleon without it.
         pose (str): What the chameleon is doing: "solder", standing on the
             helping hands with the iron on the board; "front", on top of the
             board, facing you; or "hang", head down from the wire rack.
@@ -689,7 +690,7 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
             follow it, and at the default their tips sit on the empty footprint.
         shell (str): The crab's shell, a name from `crab.SHELLS`.
     """
-    hue = who == "chameleon"
+    hue = who in ("chameleon", "stage")
     doc.add(_pegboard(), _cabinet(58, 48), _succulent(206, 37), _screwdrivers(268, 102), _pliers(398, 78))
     doc.add(_spool(470, 76, not hue), _tape(540, 72), _sticky(604, 44, 5))
     if hue:
@@ -701,7 +702,11 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
     doc.add(_cable(), _holder(), at(BOARD_X, BOARD_Y, _board(doc)))
     doc.add(_meter(712, 392), _leads(), _iron(112, 452, not (hue and pose == "solder")), _breadboard(), _wires())
     if hue:
-        doc.add(_hands(HUE_X, HUE_Y), _parts(), _chameleon(doc, pose, look, look_far, mood, blink, colors))
+        doc.add(_hands(HUE_X, HUE_Y), _parts())
+        if who == "chameleon":
+            doc.add(_chameleon(doc, pose, look, look_far, mood, blink, colors))
+        else:
+            doc.add(ellipse(HUE_X - 16, 446, 104, 9, SHADOW, opacity=0.16))
     else:
         doc.add(_parts())
         hx, hy, turn = crab.claw(wave)

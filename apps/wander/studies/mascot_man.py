@@ -9,7 +9,7 @@ He stands on the origin: x to the right, y down, the ground at y = 0, about
 
 import math
 
-from .vec import Doc, at, circle, ellipse, group, lerp, limb, line, mix, path, rect, smooth
+from ..vec import Doc, at, circle, ellipse, group, lerp, limb, line, mix, path, rect, smooth
 
 SKIN = 0xE2A57B
 SKIN_LIGHT = 0xF3C6A2

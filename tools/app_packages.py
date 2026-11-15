@@ -100,12 +100,13 @@ FIRMWARE = {
     "audiofeatures", "audiomixer", "audiomp3", "audiopump", "audiospeed", "cameraif", "castif", "earful",
     "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "image", "jpegio", "json", "lvgl", "machine",
     "math", "mdns", "micropython", "microcontroller", "network", "numpy", "os", "platform", "ppa", "random",
-    "scipy", "select", "socket", "struct", "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab",
+    "scipy", "select", "socket", "struct", "svgio", "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab",
     "usb",
 }
 
 #: What isn't installed from an app's folder.
-SKIP_DIRS = {"tests", "docs", "__pycache__"}
+#: Folders an app keeps beside its code that a board has no use for.
+SKIP_DIRS = {"tests", "docs", "tools", "studies", "__pycache__"}
 #: Home's main.py goes to the board's root, with a line of its own.
 SKIP_FILES = {"package.json", "AGENTS.md", "README.md", "main.py"}
 

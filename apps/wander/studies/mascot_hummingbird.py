@@ -10,7 +10,7 @@ throat patch is cut like a jewel, in flat facets.
 
 import math
 
-from .vec import Doc, at, circle, ellipse, group, limb, path, pts, rect
+from ..vec import Doc, at, circle, ellipse, group, limb, path, pts, rect
 
 NAVY = 0x0B2A4A
 LIME = 0xC4DC4C

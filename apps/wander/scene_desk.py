@@ -465,7 +465,7 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
     """
     tone = _toner(time)
     lit = time != "day"
-    hue = who == "chameleon"
+    hue = who in ("chameleon", "stage")
     if look is None:
         look = (0.3, 0.1)
     doc.add(_room(tone, time))
@@ -476,7 +476,7 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
     doc.add(_plant(tone))
     doc.add(_monitor(tone, time))
     doc.add(_notes(tone))
-    if hue and spot == "monitor":
+    if who == "chameleon" and spot == "monitor":
         doc.add(_chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave, nod, prop))
     doc.add(_cable(tone))
     if not (hue and prop == "mug"):
@@ -492,6 +492,10 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
         doc.add(at(CRAB_X, CRAB_Y, crab.draw(doc, look=look, blink=blink, mood=mood, wave=wave, shell=shell), scale=CRAB_SCALE))
         if bubble:
             doc.add(_bubble(150, 196))
+        return
+    if who == "stage":
+        x, y, scale = SPOTS["books"]
+        doc.add(ellipse(x - 4, y + 2, 170 * scale, 5, 0x000000, opacity=0.16))
         return
     if spot != "monitor":
         doc.add(_chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave, nod, prop))

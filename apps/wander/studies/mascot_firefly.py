@@ -10,7 +10,7 @@ It hovers over the origin: x to the right, y down, the ground at y = 0, about
 
 import math
 
-from .vec import Doc, at, circle, ellipse, group, limb, mix, path, rect
+from ..vec import Doc, at, circle, ellipse, group, limb, mix, path, rect
 
 NAVY = 0x0B2A4A
 LIME = 0xC4DC4C

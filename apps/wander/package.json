@@ -1,0 +1,61 @@
+{
+  "description": "Wander, an app for Home",
+  "target": "apps/wander",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "chameleon_props.py",
+      "chameleon_props.py"
+    ],
+    [
+      "chameleon_shift.py",
+      "chameleon_shift.py"
+    ],
+    [
+      "chameleon_views.py",
+      "chameleon_views.py"
+    ],
+    [
+      "crab.py",
+      "crab.py"
+    ],
+    [
+      "mascot_chameleon.py",
+      "mascot_chameleon.py"
+    ],
+    [
+      "scene_bench.py",
+      "scene_bench.py"
+    ],
+    [
+      "scene_coast.py",
+      "scene_coast.py"
+    ],
+    [
+      "scene_desk.py",
+      "scene_desk.py"
+    ],
+    [
+      "stage.py",
+      "stage.py"
+    ],
+    [
+      "vec.py",
+      "vec.py"
+    ]
+  ],
+  "deps": [
+    [
+      "iconkit",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}

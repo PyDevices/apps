@@ -3,19 +3,19 @@
 # SPDX-License-Identifier: MIT
 """The stills: each a name, a function that returns SVG text, and a width."""
 
-from . import chameleon_props
-from . import chameleon_shift
-from . import chameleon_views
-from . import crab
-from . import mascot_chameleon
+from .. import chameleon_props
+from .. import chameleon_shift
+from .. import chameleon_views
+from .. import crab
+from .. import mascot_chameleon
 from . import mascot_firefly
 from . import mascot_hummingbird
 from . import mascot_man
 from . import mascot_otter
-from . import scene_bench
-from . import scene_coast
-from . import scene_desk
-from .vec import Doc, rect
+from .. import scene_bench
+from .. import scene_coast
+from .. import scene_desk
+from ..vec import Doc, rect
 
 
 def _study(view, **pose):

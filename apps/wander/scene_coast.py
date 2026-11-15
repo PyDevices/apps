@@ -424,11 +424,13 @@ def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300,
         crab_at: Where the crab stands, or None for the place without it.
         crab_scale (float): The crab's size.
         drift (bool): Draw what the air carries: petals, leaves, snow, fireflies.
-        who (str): "chameleon", on a driftwood bough, "crab", or None for the place alone.
+        who (str): "chameleon", on a driftwood bough, "stage" for the bough alone,
+            "crab", or None for the place alone.
         hue_at: Where the chameleon's perch is.
         hue_scale (float): The chameleon's size.
     """
     s = SEASONS[season]
+    staged = who in ("chameleon", "stage")
     rng = _Random(101)
     add = doc.add
     add(_sky(s, night))
@@ -449,12 +451,12 @@ def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300,
     add(_tree(s, night, 676, 306))
     light, sand, wet = (_dim(c, night) for c in s["sand"])
     # what lies on the sand
-    pebble = 30 if who == "chameleon" else 96
+    pebble = 30 if staged else 96
     add(ellipse(pebble, 440, 26, 8, wet), ellipse(pebble - 4, 437, 24, 8, _dim(0x9AA7B4, night)), ellipse(pebble, 434, 9, 3, _dim(0xC3CCD6, night)))
     add(ellipse(470, 462, 9, 3.4, wet), ellipse(52, 468, 6, 2.4, wet), ellipse(246, 470, 5, 2, wet))
-    star_x, star_y = (232, 470) if who == "chameleon" else (180, 456)
+    star_x, star_y = (232, 470) if staged else (180, 456)
     if season == "summer":
-        add(_sandcastle(118 if who == "chameleon" else 430, 456 if who == "chameleon" else 450, sand, wet))
+        add(_sandcastle(118 if staged else 430, 456 if staged else 450, sand, wet))
         add(_starfish(star_x, star_y, 15, _dim(0xF58B2A, night), 20))
     elif season == "spring":
         add(_starfish(star_x, star_y, 15, _dim(0xF27A9B, night), 20))
@@ -469,9 +471,10 @@ def draw(doc, season="summer", night=False, pose=None, shell=None, crab_at=(300,
         for _ in range(16):
             add(ellipse(rng.between(520, 790), rng.between(330, 470), 5.5, 2.6, _dim((0xFFC83D, 0xF58B2A, 0xC9482B)[int(rng.between(0, 2.99))], night), rot=rng.between(0, 180)))
     else:
-        add(_snowman(112 if who == "chameleon" else 500, 458 if who == "chameleon" else 452))
-    if who == "chameleon":
+        add(_snowman(112 if staged else 500, 458 if staged else 452))
+    if who in ("chameleon", "stage"):
         add(_driftwood(hue_at[0], hue_at[1], hue_scale, night))
+    if who == "chameleon":
         scheme, prop, default = _HUE["night" if night else season]
         options = dict(default)
         options.update(pose or {})

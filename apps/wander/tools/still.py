@@ -14,7 +14,7 @@ import time
 
 sys.path.insert(0, "..")
 
-from wander import stills  # noqa: E402
+from wander.studies import stills  # noqa: E402
 from wander.vec import render  # noqa: E402
 
 
