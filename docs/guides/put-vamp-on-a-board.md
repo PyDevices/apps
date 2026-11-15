@@ -73,6 +73,10 @@ import vamp; vamp.run_panel("HOST")
 ```
 
 The board joins the Wi-Fi network it already knows before it looks for the box.
+With no router, the panel's board can be the access point instead: start it with
+`vamp.run_panel("192.168.4.2", "--ap", "NAME", "PASSWORD")`, join the box's board
+to that network, and start the box. The first board to join gets 192.168.4.2.
+
 In a desktop window, with `pydevices-desktop` and `pydevices-lvgl` installed
 and the apps repo's `programs/` and `lib/` and hmilink on `PYTHONPATH`:
 
