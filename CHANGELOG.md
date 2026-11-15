@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 0.1.2.dev9
+
+- touchkit.net: an offline CircuitPython board joins Wi-Fi through wifi_manager, where it used to print an error every few seconds and never join.
+
 ## 0.1.2.dev8
 
 - CircuitPython: Clock, Weather, Roku and Spotify run there. appkit.net gives sockets, HTTP and the clock with the same calls on every Python: a socketpool on CircuitPython, with adafruit_requests for HTTP, and an SNTP query for the clock. The board now sets its clock from the network on CircuitPython too, and the timezone lookup from the IP address works there.
