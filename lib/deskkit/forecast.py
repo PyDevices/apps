@@ -20,9 +20,8 @@ something a boot gets back in seconds. Only the place is saved.
 import json
 import time
 
-import requests
 import wifi_manager
-from appkit import data
+from appkit import data, net
 
 from . import localtime
 
@@ -96,7 +95,7 @@ def choose(zip_code):
         ValueError: Open-Meteo knows no place with that code.
     """
     global _place, latest, _got_at
-    resp = requests.get(_GEO_URL % zip_code, timeout=15)
+    resp = net.requests().get(_GEO_URL % zip_code, timeout=15)
     try:
         results = resp.json().get("results")
     finally:
@@ -203,7 +202,7 @@ def fetch():
         here = current()
         if here is None:
             raise ValueError("no place")
-        resp = requests.get(_URL % (here["lat"], here["lon"]), timeout=15)
+        resp = net.requests().get(_URL % (here["lat"], here["lon"]), timeout=15)
         try:
             latest = parse(resp.json())
         finally:

@@ -65,7 +65,7 @@ class ForecastTest(unittest.TestCase):
 
     def test_a_failed_fetch_keeps_the_last_forecast_and_retries_later(self):
         forecast, fakes = _forecast()
-        forecast.requests.get.side_effect = OSError(110)
+        forecast.net.requests.return_value.get.side_effect = OSError(110)
         forecast._place = {"lat": 1, "lon": 2}
         forecast.latest = "old"
         forecast.localtime.resync_if_due = lambda: None
@@ -98,9 +98,9 @@ class IpPlaceTest(unittest.TestCase):
 
     def test_the_ips_place_gets_a_forecast_and_is_never_saved(self):
         forecast = self._forecast()
-        forecast.requests.get.return_value.json.return_value = REPLY
+        forecast.net.requests.return_value.get.return_value.json.return_value = REPLY
         self.assertTrue(forecast.fetch())
-        self.assertIn("latitude=36.24&longitude=-90.06", forecast.requests.get.call_args[0][0])
+        self.assertIn("latitude=36.24&longitude=-90.06", forecast.net.requests.return_value.get.call_args[0][0])
         self.assertEqual(forecast.localtime.offset_s, -18000)
         forecast._save.assert_not_called()
         self.assertIsNone(forecast.place())
@@ -114,7 +114,7 @@ class IpPlaceTest(unittest.TestCase):
     def test_choosing_a_zip_saves_it_and_keeps_the_units(self):
         forecast = self._forecast()
         forecast.ip_place["units"] = "C"
-        forecast.requests.get.return_value.json.return_value = {
+        forecast.net.requests.return_value.get.return_value.json.return_value = {
             "results": [{"name": "Boston", "latitude": 42.36, "longitude": -71.06}]
         }
         forecast.fetch = mock.MagicMock()
@@ -127,7 +127,8 @@ class IpPlaceTest(unittest.TestCase):
         forecast = self._forecast()
         forecast.ip_place = None
         lt = forecast.localtime
-        lt.machine = mock.MagicMock()
+        lt.net = mock.MagicMock()
+        lt.net.sets_clock.return_value = True  # as on a board
         lt._looked = False
         submitted = []
         scope = mock.MagicMock()
@@ -165,6 +166,40 @@ class LocalTimeTest(unittest.TestCase):
             self.assertEqual(lt.clock_time()[:2], (21, 30))
 
 
+class SyncTest(unittest.TestCase):
+    def _localtime(self):
+        forecast, _ = _forecast()
+        lt = forecast.localtime
+        lt.net = mock.MagicMock()
+        lt.net.sets_clock.return_value = True  # as on a board
+        return lt
+
+    def test_ntp_sets_the_clock(self):
+        lt = self._localtime()
+        self.assertTrue(lt.sync())
+        lt.net.ntp.assert_called_once()
+        lt.net.requests.assert_not_called()
+
+    def test_where_ntp_is_blocked_a_date_header_sets_it(self):
+        lt = self._localtime()
+        lt.net.ntp.side_effect = OSError(110)
+        resp = lt.net.requests.return_value.get.return_value
+        resp.headers = {"date": "Wed, 04 Nov 2026 02:36:50 GMT"}
+        with mock.patch("builtins.print"):
+            self.assertTrue(lt.sync())
+        lt.net.set_clock.assert_called_once_with(2026, 11, 4, 2, 36, 50)
+        resp.close.assert_called_once()
+
+    def test_a_missing_http_client_is_said_and_the_clock_stays_unset(self):
+        lt = self._localtime()
+        lt.net.ntp.side_effect = OSError(110)
+        lt.net.requests.side_effect = ImportError("HTTP on CircuitPython needs adafruit_requests")
+        with mock.patch("builtins.print") as said:
+            self.assertFalse(lt.sync())
+        self.assertIn("adafruit_requests", said.call_args[0][0])
+        lt.net.set_clock.assert_not_called()
+
+
 class IpZoneTest(unittest.TestCase):
     """The timezone from the board's IP address, while no place is chosen."""
 
@@ -177,12 +212,13 @@ class IpZoneTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         sys.modules["deskkit"].forecast = forecast
-        lt.machine = mock.MagicMock()  # as on a board
-        lt.requests = mock.MagicMock()
+        lt.net = mock.MagicMock()
+        lt.net.sets_clock.return_value = True  # as on a board
+        self.http = lt.net.requests.return_value
         if error is not None:
-            lt.requests.get.side_effect = error
+            self.http.get.side_effect = error
         else:
-            lt.requests.get.return_value.json.return_value = reply
+            self.http.get.return_value.json.return_value = reply
         forecast.place = lambda: place
         return lt
 
@@ -215,7 +251,7 @@ class IpZoneTest(unittest.TestCase):
         lt = self._localtime(place={"utc_offset": -18000}, reply=self.CHICAGO)
         lt.offset_s = -18000
         self.assertFalse(lt.follow_ip_zone())
-        lt.requests.get.assert_not_called()
+        self.http.get.assert_not_called()
         self.assertEqual(lt.offset_s, -18000)
         self.assertIsNone(lt.zone)
 
@@ -280,9 +316,9 @@ class IpZoneTest(unittest.TestCase):
 
     def test_a_desktop_keeps_its_own_timezone(self):
         lt = self._localtime(reply=self.CHICAGO)
-        lt.machine = None
+        lt.net.sets_clock.return_value = False
         self.assertFalse(lt.follow_ip_zone())
-        lt.requests.get.assert_not_called()
+        self.http.get.assert_not_called()
 
     def test_the_daily_resync_asks_again(self):
         lt = self._localtime(reply=self.CHICAGO)
@@ -290,7 +326,7 @@ class IpZoneTest(unittest.TestCase):
         lt._synced_at = None
         lt.resync_if_due()
         self.assertEqual(lt.offset_s, -21600)
-        lt.requests.get.return_value.json.return_value = {
+        self.http.get.return_value.json.return_value = {
             "success": True,
             "timezone": {"id": "America/Chicago", "offset": -18000},
         }
@@ -303,7 +339,7 @@ class IpZoneTest(unittest.TestCase):
         lt = self._localtime(reply=self.CHICAGO)
         lt.sync = mock.MagicMock(return_value=False)
         lt.resync_if_due()
-        lt.requests.get.assert_not_called()
+        self.http.get.assert_not_called()
 
 
 class IconsTest(unittest.TestCase):

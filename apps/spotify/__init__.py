@@ -36,6 +36,7 @@ import sys
 
 import lvgl as lv
 from appkit import data as appdata
+from appkit import net as appnet
 from multimer import ticks_diff, ticks_ms
 
 import spectrum
@@ -372,9 +373,7 @@ def main(scope):
             return
 
         def work():
-            import requests
-
-            r = requests.get(url)
+            r = appnet.requests().get(url)
             try:
                 data = r.content
             finally:

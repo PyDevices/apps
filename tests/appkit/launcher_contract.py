@@ -353,6 +353,17 @@ def run_keeps_a_scanned_home():
 
 
 @check
+def scan_leaves_out_an_app_this_python_lacks():
+    expect(L.lacks(["sys", "os.getcwd"]) is None, "an app with what it needs was refused")
+    expect(L.lacks(["os.no_such_function"]) == "os.no_such_function", "a missing attribute went unseen")
+    expect(L.lacks(["no_such_module_anywhere"]) == "no_such_module_anywhere", "a missing module went unseen")
+    la = L.Launcher(_app())
+    found = la.scan(_dir + _sep + "sample_needs" + _sep + "apps")
+    expect(sorted(found) == ["here"], "scan found %r" % (sorted(found),))
+    expect(la.names == ("here",), "the launcher offers %r" % (la.names,))
+
+
+@check
 def pending_app_round_trip():
     # On a board this is the real RTC memory (or /next_app), without the reset.
     expect(L.host() in ("desktop", "cpython", "board"), "host %r" % (L.host(),))
