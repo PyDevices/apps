@@ -20,8 +20,7 @@ too, through ``appkit.net``.
 """
 
 import sys
-
-from multimer import ticks_add, ticks_diff, ticks_ms
+import time
 
 from . import settings
 
@@ -39,7 +38,7 @@ _CP_JOIN_S = 5
 _CP_RETRY_MS = 30_000
 _CP_RETRY_MAX_MS = 300_000
 _retry_ms = 0
-_retry_at = None  # ticks_ms before which `up` doesn't try to join again
+_retry_at = None  # the `_now_ms` before which `up` doesn't try to join again
 
 
 def _host_ip():
@@ -155,11 +154,16 @@ def _joined():
 def _join_failed():
     global _retry_ms, _retry_at
     _retry_ms = min(max(2 * _retry_ms, _CP_RETRY_MS), _CP_RETRY_MAX_MS)
-    _retry_at = ticks_add(ticks_ms(), _retry_ms)
+    _retry_at = _now_ms() + _retry_ms
 
 
 def _join_due():
-    return _retry_at is None or ticks_diff(ticks_ms(), _retry_at) >= 0
+    return _retry_at is None or _now_ms() >= _retry_at
+
+
+def _now_ms():
+    # Only CircuitPython waits between joins, and it has time.monotonic.
+    return int(time.monotonic() * 1000)
 
 
 def start_webrepl():

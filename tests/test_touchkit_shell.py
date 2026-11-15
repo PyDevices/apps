@@ -218,7 +218,7 @@ class OfflineJoinTest(unittest.TestCase):
             sys.modules.pop("touchkit", None)
             from touchkit import net
 
-            with mock.patch.object(net, "ticks_ms", lambda: now[0]):
+            with mock.patch.object(net, "_now_ms", lambda: now[0]):
                 tries = []
                 for step in range(0, 800_000, 500):  # a poll every 500 ms
                     now[0] = step
