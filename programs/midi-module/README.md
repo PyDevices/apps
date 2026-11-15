@@ -35,7 +35,7 @@ Install your board's package from
 `board_config` and `board_peripherals`), and `midiports`:
 
 ```bash
-mpftp mip install --index https://PyDevices.github.io/mip midiports
+mpftp mip install --index https://lib.omnipython.org midiports
 ```
 
 The engine needs audioinstruments' SoundFont player:
