@@ -89,7 +89,7 @@ jobs:
           echo "$files"
           has() { grep -qE "$1" <<< "$files" && echo true || echo false; }
           echo "ostinato=$(has '^(programs/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "engines=$(has '^(lib/|tests/|programs/vamp/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "engines=$(has '^(lib/|tests/|apps/stompbox/|programs/vamp/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
@@ -348,9 +348,10 @@ jobs:
       - name: The camera program's tests
         run: python -m unittest tests.test_camera -v
 
-  # Vamp's engine check and link contract, and the sound module's contract,
-  # on CPython and unix MicroPython, each with its planted faults. The
-  # whole job takes under three minutes, half of it the MicroPython build.
+  # Vamp's engine check and link contract, the sound module's contract and
+  # Stompbox's meter check, on CPython and unix MicroPython, each with its
+  # planted faults. The whole job takes under three minutes, half of it the
+  # MicroPython build.
   engines:
     needs: scope
     if: needs.scope.outputs.engines == 'true'

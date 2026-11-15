@@ -25,7 +25,7 @@ from appkit import data as appdata
 from appkit import places
 from multimer import ticks_diff, ticks_ms
 
-from . import SAMPLE_RATE, effects, engine, inputs, outputs, ui
+from . import SAMPLE_RATE, effects, engine, inputs, meter, outputs, ui
 
 try:
     import audiopump
@@ -39,6 +39,11 @@ FOLDER = "guitar-clips"  # the folder name, on the card, flash and the data root
 # the sound just arrives in fragments, so the app measures and says so.
 WATCH_MS = 1000
 KEEPS_UP = 0.9
+
+# The meter's bar is drawn ten times a second and falls a step each time, 20 dB
+# a second, and the clip light stays on for a second after the last clip.
+METER_MS = 100
+CLIP_HOLD_MS = 1000
 
 current = None  # the running App, for the console
 
@@ -123,6 +128,11 @@ class App:
         self._opening = self._watching
         self._watch_t = None
         self._watch_frames = 0
+        #: What the meter shows: the bar's lit steps, and the clip light.
+        self.level_steps = 0
+        self.clip = False
+        self._meter_t = None
+        self._clip_t = None
 
     # -- names for the screen ------------------------------------------------
 
@@ -269,6 +279,7 @@ class App:
 
     def _tick(self):
         self.engine.service()
+        self._meter()
         if self._watching:
             self._watch()
         try:
@@ -290,6 +301,27 @@ class App:
                 s.show_position("%s / %s" % (_clock(at), _clock(inp.seconds)))
             elif inp is not None and inp.kind == "clip":
                 s.show_position("-- / %s" % _clock(inp.seconds))
+
+    def _meter(self):
+        """Move the level bar and the clip light, ten times a second."""
+        now = ticks_ms()
+        if self._meter_t is not None and ticks_diff(now, self._meter_t) < METER_MS:
+            return
+        self._meter_t = now
+        level, clipped = self.engine.level()
+        # Up at once, down a step at a time, as a peak meter falls.
+        steps = max(meter.steps(level), self.level_steps - 1)
+        if clipped:
+            self._clip_t = now
+        elif self._clip_t is not None and ticks_diff(now, self._clip_t) >= CLIP_HOLD_MS:
+            self._clip_t = None
+        clip = self._clip_t is not None
+        if steps == self.level_steps and clip == self.clip:
+            return  # nothing to redraw
+        self.level_steps = steps
+        self.clip = clip
+        if self.screen is not None:
+            self.screen.show_level(steps, clip)
 
     def _watch(self):
         """Measure the effect against the clock. On opening, a plug-in that

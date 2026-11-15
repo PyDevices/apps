@@ -10,7 +10,13 @@
 Every node is an audiodsp node; Python builds the graph and moves knobs.
 The two mixers cut whatever a source hands over into 256-frame blocks and
 give the input its loop and the output its master level.
+
+Where the pump plays the output, a tap copies what it sends. `Engine.service`
+reads the tap once and hands the audio to the level meter, and to the recorder
+while there is one.
 """
+
+from array import array
 
 import audiomixer
 
@@ -20,6 +26,7 @@ except ImportError:
     audiobiquad = None
 
 from . import BLOCK_FRAMES, CHANNELS, SAMPLE_RATE, effects
+from .meter import Level
 
 try:
     import audiopump
@@ -32,6 +39,11 @@ _BUF = BLOCK_FRAMES * CHANNELS * 2
 # and takes out the offset some effects leave at extreme settings: MidAmp at
 # tone 0 holds the output at a constant 0.23, which a speaker can only heat.
 DC_BLOCK_HZ = 5
+
+# The tap holds 85 ms for the meter, which is read every 10 ms, and a second
+# while recording, so a slow moment on the screen loses none of the take.
+METER_FRAMES = 4096
+RECORD_FRAMES = SAMPLE_RATE
 
 
 def _mixer():
@@ -60,6 +72,10 @@ class Engine:
             self._tail = self._dc
         self._recorder = None
         self._started = False
+        self._level = Level()
+        self._tap = None
+        if audiopump is not None and hasattr(audiopump, "Tap"):
+            self._open_tap(METER_FRAMES)
 
     # -- what plays --------------------------------------------------------
 
@@ -113,25 +129,74 @@ class Engine:
 
     def service(self):
         """Call from the app's loop: keeps the output fed where Python feeds
-        it, and the recorder writing."""
+        it, the meter reading and the recorder writing."""
         self.output.service()
         if self.playing and not self._in.voice[0].playing:
             self.playing = False
-        if self._recorder is not None:
-            self._recorder.service()
+        self._hear()
 
-    # -- recording what goes out, for checking ------------------------------
+    # -- what went out: the meter, and a recording for checking --------------
+
+    def _open_tap(self, frames):
+        self._tap = audiopump.Tap(frames=frames, channel_count=CHANNELS)
+        audiopump.tap(self._tap)
+        stats = self._tap.stats()
+        self._seen = stats[0]
+        self._heard = array("h", bytes(stats[4]))
+
+    def _hear(self):
+        """Read what the pump has sent since the last call, once, for the
+        meter and the recorder."""
+        tap = self._tap
+        if tap is None:
+            return
+        written = tap.stats()[0]
+        new = (written - self._seen) & 0xFFFFFFFF
+        if not new:
+            return
+        room = len(self._heard) * 2
+        lost = 0
+        if new > room:
+            lost = new - room
+            new = room
+        n = tap.readinto(memoryview(self._heard)[:new // 2])
+        self._seen = written
+        if not n:
+            return
+        samples = memoryview(self._heard)[:n // 2]
+        self._level.feed(samples)
+        if self._recorder is not None:
+            self._recorder.take(samples, lost)
+
+    def level(self):
+        """``(level, clipped)`` for what has played since the last call.
+
+        The level is the peak at the effect's output as a share of full
+        scale, 0.0 to 1.0, whatever the master is set to, and ``clipped`` is
+        True when it came within half a decibel of full scale. Both are
+        zero where no pump plays the output, as there is nothing to tap.
+        """
+        return self._level.read(self.master)
 
     def record(self, path):
+        if self._tap is None:
+            raise RuntimeError("recording needs audiopump")
+        self._open_tap(RECORD_FRAMES)
         self._recorder = Recorder(path)
 
     def stop_recording(self):
+        if self._recorder is None:
+            return None
+        self._hear()
         r, self._recorder = self._recorder, None
-        if r is not None:
-            return r.close()
+        self._open_tap(METER_FRAMES)
+        return r.close()
 
     def close(self):
         self.stop_recording()
+        if self._tap is not None:
+            self._tap = None
+            audiopump.tap(None)
         self.stop()
         self.output.close()
         if self.input is not None and hasattr(self.input, "close"):
@@ -159,37 +224,21 @@ class Engine:
 
 
 class Recorder:
-    """Writes what the pump plays, through an audiopump.Tap."""
+    """Writes what the pump plays, from the audio the engine reads off its tap."""
 
     def __init__(self, path):
-        if audiopump is None:
-            raise RuntimeError("recording needs audiopump")
         self.path = path
-        self.tap = audiopump.Tap(frames=SAMPLE_RATE, channel_count=CHANNELS)
-        audiopump.tap(self.tap)
-        self._seen = self.tap.stats()[0]
-        self._buf = bytearray(self.tap.stats()[4])
         self._chunks = []
         self.lost = 0
 
-    def service(self):
-        w = self.tap.stats()[0]
-        new = (w - self._seen) & 0xFFFFFFFF
-        if not new:
-            return
-        cap = len(self._buf)
-        if new > cap:
-            self.lost += new - cap
-            new = cap
-        n = self.tap.readinto(memoryview(self._buf)[:new])
-        self._chunks.append(bytes(self._buf[:n]))
-        self._seen = w
+    def take(self, samples, lost=0):
+        """Keep a stretch of samples; *lost* bytes before it were overwritten."""
+        self._chunks.append(bytes(samples))
+        self.lost += lost
 
     def close(self):
         from . import wavfile
 
-        self.service()
-        audiopump.tap(None)
         pcm = b"".join(self._chunks)
         wavfile.write(self.path, SAMPLE_RATE, CHANNELS, pcm)
         return len(pcm) // (2 * CHANNELS)

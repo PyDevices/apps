@@ -31,6 +31,10 @@
       "inputs.py"
     ],
     [
+      "meter.py",
+      "meter.py"
+    ],
+    [
       "outputs.py",
       "outputs.py"
     ],

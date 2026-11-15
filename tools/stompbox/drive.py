@@ -6,11 +6,14 @@
 
     micropython -X heapsize=128M tools/stompbox/drive.py [--clips DIR]
         [--clip NAME] [--effect NAME] [--play] [--record OUT.wav]
-        [--turn T:key=value ...] [--live ID] [--out ID] [--quit-after SECONDS]
+        [--turn T:key=value ...] [--master T:LEVEL ...] [--meter]
+        [--shot T:OUT.raw ...] [--live ID] [--out ID] [--quit-after SECONDS]
         [--size WxH]
 
---turn moves a knob T seconds after start, through the same path a hand takes.
---record writes what goes to the output.
+--turn moves a knob T seconds after start, through the same path a hand takes,
+and --master moves the master, 0 to 1. --record writes what goes to the output.
+--meter prints the level meter each time it changes. --shot saves the screen T
+seconds after start, as a line "W H" and then the pixels in RGB565.
 """
 
 import os
@@ -22,14 +25,23 @@ sys.path.insert(0, ROOT + "/lib")
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 
+
+def setenv(name, value):
+    """For this process and what it imports: CPython's os.getenv reads
+    os.environ, which os.putenv leaves alone."""
+    os.putenv(name, value)
+    if hasattr(os, "environ"):
+        os.environ[name] = value
+
+
 opts = {"clip": None, "effect": None, "play": False, "record": None, "turns": [],
-        "quit": None}
+        "quit": None, "meter": False, "shots": []}
 size = "800x480"
 argv = sys.argv[1:]
 while argv:
     a = argv.pop(0)
     if a == "--clips":
-        os.putenv("STOMPBOX_CLIPS", argv.pop(0))
+        setenv("STOMPBOX_CLIPS", argv.pop(0))
     elif a == "--clip":
         opts["clip"] = argv.pop(0)
     elif a == "--effect":
@@ -42,22 +54,31 @@ while argv:
         t, kv = argv.pop(0).split(":", 1)
         k, v = kv.split("=", 1)
         opts["turns"].append((float(t), k, float(v)))
+    elif a == "--master":
+        t, v = argv.pop(0).split(":", 1)
+        opts["turns"].append((float(t), None, float(v)))
+    elif a == "--meter":
+        opts["meter"] = True
+    elif a == "--shot":
+        t, path = argv.pop(0).split(":", 1)
+        opts["shots"].append((float(t), path))
     elif a == "--live":
-        os.putenv("STOMPBOX_LIVE", "1")
-        os.putenv("STOMPBOX_INPUT", argv.pop(0))
+        setenv("STOMPBOX_LIVE", "1")
+        setenv("STOMPBOX_INPUT", argv.pop(0))
     elif a == "--out":
-        os.putenv("STOMPBOX_OUT", argv.pop(0))
+        setenv("STOMPBOX_OUT", argv.pop(0))
     elif a == "--quit-after":
         opts["quit"] = float(argv.pop(0))
     elif a == "--size":
         size = argv.pop(0)
     else:
         raise SystemExit("unknown option " + a)
-opts["turns"].sort()
+opts["turns"].sort(key=lambda turn: turn[0])
+opts["shots"].sort()
 w, h = size.lower().split("x")
-os.putenv("PYDEVICES_WIDTH", w)
-os.putenv("PYDEVICES_HEIGHT", h)
-os.putenv("PYDEVICES_SCALE", "1")
+setenv("PYDEVICES_WIDTH", w)
+setenv("PYDEVICES_HEIGHT", h)
+setenv("PYDEVICES_SCALE", "1")
 
 import appkit  # noqa: E402
 import lvgl as lv  # noqa: E402
@@ -66,6 +87,19 @@ from multimer import ticks_diff, ticks_ms  # noqa: E402
 
 t0 = [None]
 begun = [False]
+shown = [None]
+
+
+def shot(path):
+    """The screen as LVGL draws it, so it needs no window."""
+    snap = lv.snapshot_take(lv.screen_active(), lv.COLOR_FORMAT.RGB565)
+    w, h, stride = snap.header.w, snap.header.h, snap.header.stride
+    pixels = bytes(snap.data.__dereference__(snap.data_size))
+    with open(path, "wb") as f:
+        f.write(("%d %d\n" % (w, h)).encode())
+        for y in range(h):
+            f.write(pixels[y * stride:y * stride + w * 2])
+    lv.draw_buf_destroy(snap)
 
 
 def begin(a):
@@ -96,8 +130,20 @@ def poll(_):
     elapsed = ticks_diff(ticks_ms(), t0[0]) / 1000
     while opts["turns"] and opts["turns"][0][0] <= elapsed:
         _, key, value = opts["turns"].pop(0)
-        a.screen.knobs[key].turn(value)
+        if key is None:
+            a.set_master(value)
+            key = "master"
+        else:
+            a.screen.knobs[key].turn(value)
         print("%.2f s: %s = %.3f" % (elapsed, key, value))
+    if opts["meter"] and shown[0] != (a.level_steps, a.clip):
+        shown[0] = (a.level_steps, a.clip)
+        print("%.2f s: level %d of %d%s" % (
+            elapsed, a.level_steps, a.screen.level_bar.get_max_value(), "  CLIP" if a.clip else ""))
+    while opts["shots"] and opts["shots"][0][0] <= elapsed:
+        _, path = opts["shots"].pop(0)
+        shot(path)
+        print("%.2f s: screen saved to %s" % (elapsed, path))
     if opts["quit"] is not None and elapsed >= opts["quit"]:
         opts["quit"] = None
         n = a.engine.stop_recording()

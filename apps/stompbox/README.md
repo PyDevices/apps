@@ -1,3 +1,5 @@
+![Stompbox playing a clip through MidAmp with its gain and output all the way up: the level bar is full and the CLIP light is red](docs/images/stompbox.png)
+
 # Stompbox
 
 Play a guitar or a WAV clip through an airwindows effect, with the effect's
@@ -53,10 +55,19 @@ reaches 1%, and TapeDelay2, PitchDelay, TakeCare and Tremolo about a quarter. Th
 app measures each one as it plays. It opens on the first in the list that keeps
 up, and when you pick one that doesn't, the screen says how far behind it is.
 
+## Level
+
+The bar beside Master shows how loud the effect's output is, in 2 dB steps
+from -48 dB up to full scale. CLIP lights for a second when the output comes
+within half a decibel of full scale. Both show the level before Master, so
+turning Master down doesn't hide a clip: turn down the effect's own output or
+gain.
+
 ## Measure it
 
 [`tools/stompbox`](../../tools/stompbox) holds the desktop tools. `drive.py` runs
-the app from a script and records what it plays. `chain_depth.py` measures what
+the app from a script, records what it plays, prints the level meter and saves
+the screen. `chain_depth.py` measures what
 the software path holds, `roundtrip.py` sends a click around a cable from output
 to input, and `c_path.py` and `drift_path.py` time the C path on one and two
 clocks.
