@@ -93,7 +93,7 @@ jobs:
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "gamepad=$(has '^(apps/gamepad/|lib/touchkit/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -241,6 +241,7 @@ jobs:
           sparse-checkout: |
             lib
             packages/usb
+            packages/iconkit/lib
 
       - uses: actions/setup-python@v7
         with:
