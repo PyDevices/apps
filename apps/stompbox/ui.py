@@ -13,6 +13,8 @@ library's effect gets a panel without screen code of its own.
 import lvgl as lv
 from touchkit import ui as kit
 
+from .meter import STEPS
+
 BG = 0x15171A
 PANEL = 0x1F2226
 LINE = 0x33373D
@@ -20,6 +22,7 @@ TEXT = 0xE8E6E1
 MUTED = 0x8C9096
 ACCENT = 0xF2A33A      # amber, like a pedal's LED
 GOOD = 0x63C27A
+CLIP = 0xE5484D        # the clip light
 
 NARROW = 600           # below this width, the smaller knobs and buttons
 
@@ -352,6 +355,7 @@ class Screen:
     def _footer(self):
         p = panel(self.scr)
         flow(p)
+        self._meter(p)
         label(p, "MASTER", MUTED)
         s = lv.slider(p)
         s.set_flex_grow(1)
@@ -365,6 +369,37 @@ class Screen:
         s.add_event_cb(lambda e: self.app.set_master(s.get_value() / 100),
                        lv.EVENT.VALUE_CHANGED, None)
         self.out_label = label(p, "", MUTED)
+
+    def _meter(self, parent):
+        """The level before the master, and a light for a clip."""
+        label(parent, "LEVEL", MUTED)
+        bar = lv.bar(parent)
+        bar.set_size(self.knob_size + 36, 10)
+        bar.set_range(0, STEPS)
+        bar.set_style_radius(3, lv.PART.MAIN)
+        bar.set_style_radius(3, lv.PART.INDICATOR)
+        bar.set_style_bg_color(c(LINE), lv.PART.MAIN)
+        bar.set_style_bg_opa(255, lv.PART.MAIN)
+        bar.set_style_bg_color(c(GOOD), lv.PART.INDICATOR)
+        self.level_bar = bar
+        light = lv.obj(parent)
+        light.set_size(lv.SIZE_CONTENT, lv.SIZE_CONTENT)
+        light.set_style_bg_color(c(LINE), 0)
+        light.set_style_bg_color(c(CLIP), lv.STATE.CHECKED)
+        light.set_style_border_width(0, 0)
+        light.set_style_radius(4, 0)
+        light.set_style_pad_hor(6, 0)
+        light.set_style_pad_ver(2, 0)
+        light.remove_flag(lv.obj.FLAG.SCROLLABLE)
+        light.remove_flag(lv.obj.FLAG.CLICKABLE)
+        self.clip_text = label(light, "CLIP", MUTED)
+        self.clip_light = light
+
+    def show_level(self, steps, clip):
+        """The bar's lit steps, 0 to ``meter.STEPS``, and the clip light."""
+        self.level_bar.set_value(steps, False)
+        set_checked(self.clip_light, clip)
+        self.clip_text.set_style_text_color(c(TEXT if clip else MUTED), 0)
 
     def show_master(self, level):
         self.master.set_value(int(round(level * 100)), False)
