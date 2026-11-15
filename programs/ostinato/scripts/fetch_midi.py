@@ -21,7 +21,7 @@ import urllib.request
 PYDEVICES = "v0.7.6"  # a pydevices release tag
 RAW = "https://raw.githubusercontent.com/PyDevices/pydevices/%s/" % PYDEVICES
 # midiports.LOOPBACK isn't in a release yet either: a pydevices commit, until one carries it.
-MIDIPORTS = "2fe1e22827ebf1057476f3dca00ff505b73730ae"
+MIDIPORTS = "7edf64f498d844e25194e591d46958da69d53ab9"
 # hmilink isn't in a release yet: a pydevices main commit, until one carries it.
 HMILINK = "aa6911844168c21296a8f72dc825d744bf2a6c1f"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
