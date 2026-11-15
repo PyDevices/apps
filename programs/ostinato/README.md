@@ -27,6 +27,11 @@ Open http://127.0.0.1:8765/ in Chrome or Edge, click once to start the sound,
 allow MIDI when the browser asks, and use the install button in the address
 bar to install it. The ? button in the app explains everything else.
 
+On a phone, the app shows one page at a time (the editor, the tracks, the
+sound, the keys), and you pick it from the tabs at the bottom. The controls are
+big enough for a finger, and wide pages scroll. The app picks its layout when
+the page loads, so reload after you turn the phone.
+
 ## Run it on the desktop
 
 Ostinato also runs as a native Windows app on Python 3.14 or later, without a browser.
@@ -146,7 +151,7 @@ Run them all in one app session, about four minutes:
 | `tools/workflow2_check.py` | each track's own pattern, switching at the bar (Shift: every track); scene duplicate and picker; pads play the grid's rows; mute out of undo, pan and slider bank B; velocity by Shift-drag; overdub off replaces a take, and song takes land in the scene's pattern; effects reorder; Delete and wheel scrolling; knob drag, reset and instrument stepping; Save, Ctrl+S and Save first; the keyboard's Forward, Loop and Rewind, Learn, and octave keys |
 | `tools/demo_check.py` | the demo song loads on the first run and from the menu, swing and the scene list work, it exports with every track heard |
 | `tools/soundfont_check.py` | (desktop, also `--desktop split`) the SoundFont song opens, exports with every track heard and plays; `--no-bank`: without a `.sf2` the tracks stay silent and the status line says so |
-| `tools/layout_check.py --size 1280x720` | a window of that size gets the layout made for it: on the song, a drum grid and a piano roll, every control is inside its region and none overlap; `--out` saves the three screens to look at |
+| `tools/layout_check.py --size 1280x720` | a window of that size gets the layout made for it: on the song, a drum grid and a piano roll, every control is inside its region and none overlap; `--out` saves the three screens to look at. With `--size 844x390 --dpr 3` (a phone), it also opens each page from its tab, checks that every button is at least 44 CSS px, and checks that dragging a knob turns it instead of scrolling the page |
 | `tools/instrument_sweep.mjs`, `tools/effect_sweep.mjs` | every instrument's pitch, every effect on and bypassed |
 | `tools/offline_check.py`, `tools/check_no_links.py` | starts offline; nothing navigates away |
 | `tools/split_check.py` | (desktop, `--split`) the window and a browser on the engines' process: a song the window opens shows on the page with what its samples cost; the page's step, mute and tempo reach the window, the window's swing reaches the page; Play from the page plays through the mixer |

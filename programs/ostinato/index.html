@@ -59,7 +59,7 @@
     // it does. No more engines than tracks: every stream is asked for audio
     // each quantum, and eight streams dropped out where four never did.
     const engines = Number(params.get("engines")) || 4;
-    const env = { BASE: new URL("./", location.href).href, ENGINES: String(engines), PAGE_TIME_ORIGIN: String(performance.timeOrigin),
+    const env = { BASE: new URL("./", location.href).href, ENGINES: String(engines), DPR: String(dpr), PAGE_TIME_ORIGIN: String(performance.timeOrigin),
                   OSTINATO_DEBUG: params.get("debug") || "" };
 
     const audio = await createAudio({ channels: 2, minFrames: Number(params.get("minframes")) || 1024 });

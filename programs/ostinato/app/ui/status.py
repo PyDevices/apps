@@ -37,3 +37,15 @@ class StatusBar:
         self.right.set_text(extra)
         # A message reads in the text colour; the MIDI readout stays muted.
         self.right.set_style_text_color(theme.c(theme.TEXT if message else theme.MUTED), 0)
+        # A narrow window (a phone held upright): the right side ends in dots
+        # rather than running over the words on the left.
+        self.right.set_long_mode(lv.label.LONG_MODE.WRAP)
+        self.right.set_size(lv.SIZE_CONTENT, lv.SIZE_CONTENT)
+        self.right.update_layout()
+        self.alert.update_layout()
+        end = self.alert.get_x() + self.alert.get_width() if dropped else px(16) + self.left.get_width()
+        room = self.root.get_width() - px(16) - end - px(24)
+        if self.right.get_width() > room:
+            self.right.set_long_mode(lv.label.LONG_MODE.DOTS)
+            self.right.set_size(max(1, room), self.right.get_height())
+            self.right.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)

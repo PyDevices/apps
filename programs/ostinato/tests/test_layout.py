@@ -82,5 +82,52 @@ class LayoutTest(unittest.TestCase):
                 self.assertEqual(sum(rw * rh for x, y, rw, rh in rects), w * h)
 
 
+PHONES = ((844, 390, 1), (390, 844, 1), (2532, 1170, 3), (1170, 2532, 3), (1600, 720, 2), (720, 1600, 2))
+PHONE_REGIONS = ("top", "tabs", "status")
+
+
+class PhoneLayoutTest(unittest.TestCase):
+    def test_a_phone_gets_the_phone_table(self):
+        for w, h, dpr in PHONES:
+            with self.subTest(size=(w, h, dpr)):
+                self.assertEqual(layout.pick(w, h, dpr), layout.phone(w, h, dpr))
+
+    def test_a_desktop_window_is_not_a_phone(self):
+        for w, h, dpr in ((1280, 720, 1), (1920, 1080, 1.5), (2560, 1440, 2), (1366, 768, 1)):
+            with self.subTest(size=(w, h, dpr)):
+                self.assertNotIn("pages", layout.pick(w, h, dpr))
+
+    def test_a_phone_is_drawn_at_one_design_pixel_per_css_pixel(self):
+        for w, h, dpr in PHONES:
+            with self.subTest(size=(w, h, dpr)):
+                self.assertEqual(layout.phone(w, h, dpr)["scale"], dpr)
+
+    def test_touch_targets_are_a_fingertip(self):
+        for w, h, dpr in PHONES:
+            with self.subTest(size=(w, h, dpr)):
+                table = layout.phone(w, h, dpr)
+                self.assertGreaterEqual(table["touch"], 44 * dpr)
+                self.assertGreaterEqual(table["tabs"][3], 44 * dpr)
+
+    def test_every_page_shares_one_rect(self):
+        for w, h, dpr in PHONES:
+            with self.subTest(size=(w, h, dpr)):
+                table = layout.phone(w, h, dpr)
+                self.assertEqual(set(table["pages"]), {"editor", "tracks", "inspector", "keys"})
+                self.assertEqual({table[name] for name in table["pages"]}, {table["editor"]})
+
+    def test_one_page_and_the_bars_tile_the_window(self):
+        for w, h, dpr in PHONES:
+            with self.subTest(size=(w, h, dpr)):
+                table = layout.phone(w, h, dpr)
+                rects = [table[name] for name in PHONE_REGIONS] + [table["editor"]]
+                for x, y, rw, rh in rects:
+                    self.assertTrue(rw > 0 and rh > 0 and x >= 0 and y >= 0 and x + rw <= w and y + rh <= h)
+                for i, a in enumerate(rects):
+                    for b in rects[i + 1:]:
+                        self.assertEqual(overlap(a, b), 0, (a, b))
+                self.assertEqual(sum(rw * rh for x, y, rw, rh in rects), w * h)
+
+
 if __name__ == "__main__":
     unittest.main()

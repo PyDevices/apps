@@ -71,8 +71,12 @@ class Help:
 
     def open(self, first_run=False):
         scr = self.app.screen
-        w, h = px(900), px(560)
         sw, sh = scr.get_width(), scr.get_height()
+        w, h = px(900), px(560)
+        if theme.T:
+            # A phone: the card fills the screen, the tabs scroll across and
+            # the words scroll down.
+            w, h = min(w, sw - 2 * px(8)), min(h, sh - 2 * px(8))
         shade = theme.box(scr, 0, 0, sw, sh, 0x000000)
         shade.set_style_bg_opa(150, 0)
         shade.add_flag(lv.OBJ_FLAG.CLICKABLE)
@@ -81,19 +85,45 @@ class Help:
         card.set_style_border_width(1, 0)
         card.set_style_border_color(theme.c(theme.LINE), 0)
         title = theme.label(card, "Welcome to Ostinato" if first_run else "How to play", "big", theme.ACCENT)
-        title.set_pos(px(32), px(24))
-        close = theme.button(card, "Start playing" if first_run else "Close", w=px(170), h=px(42))
-        close.obj.align(lv.ALIGN.BOTTOM_RIGHT, -px(24), -px(20))
+        close = theme.button(card, "Start playing" if first_run else "Close", w=px(170), h=theme.tap(42))
         close.on(lv.EVENT.CLICKED, self.close)
+        if not theme.T:
+            title.set_pos(px(32), px(24))
+            close.obj.align(lv.ALIGN.BOTTOM_RIGHT, -px(24), -px(20))
+            strip, tx, ty, foot = card, px(32), px(84), px(80)
+        else:
+            margin = px(16)
+            title.update_layout()
+            th = max(title.get_height(), theme.T)
+            title.set_pos(margin, margin + (th - title.get_height()) // 2)
+            beside = title.get_width() + px(170) + 3 * margin <= w
+            if beside:
+                close.obj.align(lv.ALIGN.TOP_RIGHT, -margin, margin + (th - theme.T) // 2)
+                foot = margin
+            else:
+                close.obj.align(lv.ALIGN.BOTTOM_RIGHT, -margin, -margin)
+                foot = theme.T + 2 * margin
+            strip_y = margin + th + px(10)
+            strip = theme.box(card, margin, strip_y, w - 2 * margin, theme.T)
+            strip.add_flag(lv.OBJ_FLAG.SCROLLABLE)
+            strip.set_scroll_dir(lv.DIR.HOR)
+            strip.set_scrollbar_mode(lv.SCROLLBAR_MODE.OFF)
+            tx, ty = 0, 0
         self.tabs = []
-        tx = px(32)
         for i, (name, _) in enumerate(PAGES):
-            b = theme.button(card, name, w=px(118), h=px(36), checkable=True)
-            b.obj.set_pos(tx + i * px(126), px(84))
+            b = theme.button(strip, name, w=px(118), h=theme.tap(36), checkable=True)
+            b.obj.set_pos(tx + i * px(126), ty)
             b.on(lv.EVENT.CLICKED, (lambda k: lambda: self.show(k))(i))
             self.tabs.append(b)
-        self.body_w = w - px(64)
-        self.body = theme.box(card, px(32), px(140), self.body_w, h - px(220))
+        if not theme.T:
+            self.body_w = w - px(64)
+            self.body = theme.box(card, px(32), px(140), self.body_w, h - px(220))
+        else:
+            top = strip_y + theme.T + px(14)
+            self.body_w = w - 2 * margin
+            self.body = theme.box(card, margin, top, self.body_w, h - top - foot)
+            self.body.add_flag(lv.OBJ_FLAG.SCROLLABLE)
+            self.body.set_scroll_dir(lv.DIR.VER)
         self.show(self.page)
 
     def show(self, index):

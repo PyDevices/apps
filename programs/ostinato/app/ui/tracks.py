@@ -17,7 +17,7 @@ from songmodel import model
 import theme
 from knob import Knob
 from meter import StereoMeter
-from theme import px
+from theme import px, tap
 
 METER_W = 16          # both columns of a row's meter, before scaling
 
@@ -27,6 +27,10 @@ class TrackList:
         self.app = app
         self.rect = rect
         self.root = theme.panel(parent, rect)
+        if theme.T:
+            # A phone: rows as tall as they need, and the page scrolls.
+            self.root.add_flag(lv.OBJ_FLAG.SCROLLABLE)
+            self.root.set_scroll_dir(lv.DIR.VER)
         self.rows = []
         self.build()
 
@@ -44,15 +48,18 @@ class TrackList:
         self.lh_big = fonts.t(px(28)).line_height
         # Name, instrument and the pattern letter at the bottom; or M and S over
         # a pan knob of at least px(40).
+        # On a phone M and S are a fingertip tall, and the knob as wide.
+        self.ms_extra = tap(28) - px(28)
+        self.knob_least = max(tap(40), px(64) if theme.T else 0)
         least = max(px(10) + self.lh_name + px(2) + 2 * self.lh_info + px(8) + self.lh_big + px(8),
-                    px(52) + px(40) + 2 * self.lh_info + px(4))
+                    px(52) + self.ms_extra + self.knob_least + 2 * self.lh_info + px(4))
         top = px(40)
         n = len(self.app.project["tracks"])
         gap = px(8)
         # Every row (the master's too) shares what's left of the panel, the
         # master a gap further down; never shorter than its text needs.
         room = h - top - px(10) - gap * n - gap
-        row_h = max(least, room // (n + 1))
+        row_h = least if theme.T else max(least, room // (n + 1))
         for i, t in enumerate(self.app.project["tracks"]):
             self.rows.append(self._row(i, t, px(10), top + i * (row_h + gap), w - px(20), row_h))
         self.rows.append(self._master_row(px(10), top + n * (row_h + gap) + gap, w - px(20), row_h))
@@ -107,12 +114,13 @@ class TrackList:
         # middle, the volume and meters on the right.
         mid0, mid1 = int(w * 0.46), right - px(36)
         centre = (mid0 + mid1) // 2
-        mute = theme.button(row, "M", w=px(32), h=px(28), checkable=True)
-        mute.obj.set_pos(centre - px(36), px(8))
+        ms_w = tap(32)
+        mute = theme.button(row, "M", w=ms_w, h=tap(28), checkable=True)
+        mute.obj.set_pos(centre - px(36) - (ms_w - px(32)), px(8))
         mute.checked = t.get("mute", False)
         mute.on(lv.EVENT.CLICKED, lambda: app.set_mix_state(t["id"], "mute", mute.checked))
         app.tips.add(mute.obj, "Mute")
-        solo = theme.button(row, "S", w=px(32), h=px(28), checkable=True)
+        solo = theme.button(row, "S", w=ms_w, h=tap(28), checkable=True)
         solo.obj.set_pos(centre + px(4), px(8))
         solo.checked = t.get("solo", False)
         solo.on(lv.EVENT.CLICKED, lambda: app.set_mix_state(t["id"], "solo", solo.checked))
@@ -121,8 +129,8 @@ class TrackList:
                             lambda v: app.set_track(t["id"], "volume", v), ["volume", t["id"]])
         # Pan: a knob like the effects', centred under M and S and filling the
         # room left there; double-click centres it.
-        top = px(8) + px(28) + px(16)                     # clear of M and S
-        size = max(px(40), min(mid1 - mid0, h - top - 2 * self.lh_info - px(4)))
+        top = px(8) + px(28) + px(16) + self.ms_extra     # clear of M and S
+        size = max(self.knob_least, min(mid1 - mid0, h - top - 2 * self.lh_info - px(4)))
         pan = Knob(row, centre - size // 2, top, size, "Pan", colour, lambda v: app.set_track(t["id"], "pan", v),
                    bipolar=True, default=64, app=app)
         pan.set(t.get("pan", 64))
@@ -198,7 +206,9 @@ def volume_slider(app, row, right, h, colour, value, changed, learn):
     vol.set_value(value, 0)
     vol.set_size(px(8), h - px(16))                # taller than wide: LVGL makes it vertical
     vol.set_pos(right - px(26), px(8))
-    vol.set_ext_click_area(px(10))
+    vol.set_ext_click_area(max(px(10), (theme.T - px(8)) // 2))
+    if theme.T:
+        vol.remove_flag(lv.OBJ_FLAG.SCROLL_CHAIN)          # on a phone's scrolling page a drag moves the slider
     vol.set_style_bg_color(theme.c(theme.LINE), lv.PART.MAIN)
     vol.set_style_bg_color(theme.c(colour), lv.PART.INDICATOR)
     vol.set_style_bg_color(theme.c(theme.TEXT), lv.PART.KNOB)

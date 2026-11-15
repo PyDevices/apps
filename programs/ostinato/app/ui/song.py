@@ -15,7 +15,7 @@ import lvgl as lv
 
 from songmodel import model
 import theme
-from theme import px
+from theme import px, tap
 
 LETTERS = "ABCDEFGH"
 
@@ -40,52 +40,65 @@ class SongView:
         p = self.app.project
         head_h = px(52)
         theme.label(self.root, "Song", "title").set_pos(px(16), (head_h - px(26)) // 2)
-        add = theme.button(self.root, "Add scene", icon="add", w=px(150), h=px(36))
-        add.obj.set_pos(w - px(166), (head_h - px(36)) // 2)
+        add = theme.button(self.root, "Add scene", icon="add", w=px(150), h=tap(36))
+        add.obj.set_pos(w - px(166), (head_h - tap(36)) // 2)
         add.on(lv.EVENT.CLICKED, self.add_scene)
         tracks = p["tracks"]
         col_w = px(110)
         left = px(70)
-        for c, t in enumerate(tracks):
-            lb = theme.label(self.root, t["name"], "muted", theme.track_colour(c))
-            lb.set_pos(left + c * col_w + px(22), head_h)
-        theme.label(self.root, "Repeat", "muted").set_pos(left + len(tracks) * col_w + px(22), head_h)
-        row_h = px(50)
+        rx = left - px(10) + len(tracks) * col_w + px(14)       # where the repeats start
+        row_h = max(px(50), theme.T + px(12))
         top = head_h + px(28)
+        row_w = w - px(20)
+        phone = bool(theme.T)
+        if phone:
+            # A phone: a row is wider than the screen and the list scrolls
+            # across too, so the column names go in the list, above the rows.
+            row_w = max(row_w, rx + px(150) + px(220) + px(16) + px(250))
+            top = head_h
         if not p.get("song"):
-            theme.label(self.root, "Add a scene to start the song.", "muted").set_pos(px(16), top + px(10))
+            theme.label(self.root, "Add a scene to start the song.", "muted").set_pos(px(16), top + px(38 if phone else 10))
         rows = theme.box(self.root, 0, top, w, h - top - px(8))
         rows.add_flag(lv.OBJ_FLAG.SCROLLABLE)
-        rows.set_scroll_dir(lv.DIR.VER)
+        rows.set_scroll_dir(lv.DIR.ALL if phone else lv.DIR.VER)
+        heads, head_y, first = (rows, 0, px(28)) if phone else (self.root, head_h, 0)
+        for c, t in enumerate(tracks):
+            lb = theme.label(heads, t["name"], "muted", theme.track_colour(c))
+            lb.set_pos(left + c * col_w + px(22), head_y)
+        theme.label(heads, "Repeat", "muted").set_pos(left + len(tracks) * col_w + px(22), head_y)
+        bh = row_h - px(12)
         for r, scene in enumerate(p.get("song", [])):
-            yy = r * (row_h + px(6))
-            row = theme.box(rows, px(10), yy, w - px(20), row_h, theme.RAISED, px(6))
-            num = theme.button(row, str(r + 1), icon="play_arrow", w=left - px(16), h=row_h - px(12))
+            yy = first + r * (row_h + px(6))
+            row = theme.box(rows, px(10), yy, row_w, row_h, theme.RAISED, px(6))
+            num = theme.button(row, str(r + 1), icon="play_arrow", w=left - px(16), h=bh)
             num.obj.set_pos(px(4), px(6))
             num.on(lv.EVENT.CLICKED, (lambda rr: lambda: self.app.play_scene(rr))(r))
             parts = {"num": num.obj, "letters": []}
             self.app.tips.add(num.obj, "Play from scene %d" % (r + 1))
             for c, t in enumerate(tracks):
                 i = scene["patterns"].get(str(t["id"]), -1)
-                b = theme.button(row, LETTERS[i] if i >= 0 else "-", w=col_w - px(16), h=row_h - px(12))
+                b = theme.button(row, LETTERS[i] if i >= 0 else "-", w=col_w - px(16), h=bh)
                 b.obj.set_pos(left - px(10) + c * col_w + px(14), px(6))
                 b.on(lv.EVENT.SHORT_CLICKED, (lambda rr, tt, bb: lambda: self.pick(rr, tt, bb))(r, t, b.obj))
                 b.on(lv.EVENT.LONG_PRESSED, (lambda rr, tt: lambda: self.app.edit_scene_pattern(rr, tt["id"]))(r, t))
                 parts["letters"].append(b.obj)
                 self.app.tips.add(b.obj, "Click: choose its pattern.  Hold: edit it")
-            rx = left - px(10) + len(tracks) * col_w + px(14)
-            minus = theme.button(row, icon="remove", w=px(36), h=row_h - px(12))
+            minus = theme.button(row, icon="remove", w=tap(36), h=bh)
             minus.obj.set_pos(rx, px(6))
             minus.on(lv.EVENT.CLICKED, (lambda rr: lambda: self.repeat(rr, -1))(r))
-            theme.label(row, "x%d" % scene.get("repeat", 1), "title").set_pos(rx + px(46), (row_h - px(26)) // 2)
-            plus = theme.button(row, icon="add", w=px(36), h=row_h - px(12))
+            times = theme.label(row, "x%d" % scene.get("repeat", 1), "title")
+            if theme.T:
+                times.align(lv.ALIGN.LEFT_MID, rx + px(46), 0)
+            else:
+                times.set_pos(rx + px(46), (row_h - px(26)) // 2)
+            plus = theme.button(row, icon="add", w=tap(36), h=bh)
             plus.obj.set_pos(rx + px(90), px(6))
             plus.on(lv.EVENT.CLICKED, (lambda rr: lambda: self.repeat(rr, 1))(r))
-            rm = theme.button(row, icon="close", w=px(36), h=row_h - px(12))
+            rm = theme.button(row, icon="close", w=tap(36), h=bh)
             rm.obj.align(lv.ALIGN.RIGHT_MID, -px(8), 0)
-            loop = theme.button(row, icon="repeat", w=px(44), h=row_h - px(12), checkable=True)
+            loop = theme.button(row, icon="repeat", w=tap(44), h=bh, checkable=True)
             loop.obj.align(lv.ALIGN.RIGHT_MID, -px(56), 0)
-            dup = theme.button(row, icon="content_copy", w=px(44), h=row_h - px(12))
+            dup = theme.button(row, icon="content_copy", w=tap(44), h=bh)
             dup.obj.align(lv.ALIGN.RIGHT_MID, -px(108), 0)
             dup.on(lv.EVENT.CLICKED, (lambda rr: lambda: self.duplicate(rr))(r))
             self.app.tips.add(dup.obj, "Duplicate this scene (every track's pattern)")
@@ -94,7 +107,7 @@ class SongView:
             moves = []
             for k, (icon, d, tip) in enumerate((("expand_more", 1, "Move this scene down"),
                                                  ("expand_less", -1, "Move this scene up"))):
-                mv = theme.button(row, icon=icon, w=px(40), h=row_h - px(12))
+                mv = theme.button(row, icon=icon, w=tap(40), h=bh)
                 mv.obj.align(lv.ALIGN.RIGHT_MID, -px(160) - k * px(46), 0)
                 mv.on(lv.EVENT.CLICKED, (lambda rr, dd: lambda: self.move(rr, dd))(r, d))
                 self.app.tips.add(mv.obj, tip)

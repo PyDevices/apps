@@ -19,7 +19,7 @@ import fonts
 from songmodel import model
 import theme
 from knob import Knob
-from theme import px
+from theme import px, tap
 
 HARDWARE_KNOBS = 12      # the DMK-25's three banks of four
 
@@ -97,7 +97,7 @@ class Inspector:
 
         head = theme.label(self.body, "INSTRUMENT", "muted")
         head.set_pos(pad, px(12))
-        self.learn = theme.button(self.body, "Learn", icon="sensors", w=px(110), h=px(32), checkable=True)
+        self.learn = theme.button(self.body, "Learn", icon="sensors", w=px(110), h=tap(32), checkable=True)
         self.learn.obj.align(lv.ALIGN.TOP_RIGHT, -pad, px(6))
         self.learn.checked = self.learning
         self.learn.on(lv.EVENT.CLICKED, self.toggle_learn)
@@ -113,9 +113,10 @@ class Inspector:
         names = [n for _, n in rows]
         if t["instrument"] in names:
             dd.set_selected(names.index(t["instrument"]))
-        step_w = px(42)
-        dd.set_size(w - 2 * pad - 2 * (step_w + px(6)), px(42))
-        dd.set_pos(pad, px(46))
+        down = tap(32) - px(32)            # Learn is taller on a phone: the rest moves down by as much
+        step_w = tap(42)
+        dd.set_size(w - 2 * pad - 2 * (step_w + px(6)), tap(42))
+        dd.set_pos(pad, px(46) + down)
 
         def chose(e):
             n = names[dd.get_selected()]
@@ -128,8 +129,8 @@ class Inspector:
         self.step_buttons = []
         for k, (icon, delta, tip) in enumerate((("chevron_left", -1, "Previous instrument"),
                                                  ("chevron_right", 1, "Next instrument"))):
-            b = theme.button(self.body, icon=icon, w=step_w, h=px(42))
-            b.obj.set_pos(w - pad - (2 - k) * step_w - (1 - k) * px(6), px(46))
+            b = theme.button(self.body, icon=icon, w=step_w, h=tap(42))
+            b.obj.set_pos(w - pad - (2 - k) * step_w - (1 - k) * px(6), px(46) + down)
             b.on(lv.EVENT.CLICKED, (lambda dd_: lambda: self.step_instrument(dd_))(delta))
             self.app.tips.add(b.obj, tip)
             self.step_buttons.append(b.obj)
@@ -141,18 +142,19 @@ class Inspector:
         pd.set_options("\n".join(v for _, v in patches) or "Default")
         if t.get("patch", 0) in self.patch_ids:
             pd.set_selected(self.patch_ids.index(t.get("patch", 0)))
-        pd.set_size(w - 2 * pad, px(42))
-        pd.set_pos(pad, px(96))
+        pd.set_size(w - 2 * pad, tap(42))
+        pd.set_pos(pad, px(96) + down + (tap(42) - px(42)))
         pd.add_event_cb(lambda e: self.choose_patch(self.patch_ids[pd.get_selected()] if self.patch_ids else 0),
                         lv.EVENT.VALUE_CHANGED, None)
 
-        size = (w - 2 * pad) // 4
-        top = px(150)
+        cols = knob_columns(w - 2 * pad)
+        size = (w - 2 * pad) // cols
+        top = px(150) + down + 2 * (tap(42) - px(42))
         values = self.macro_values(t, info)
         defaults = list(info.get("patch_values", {}).get(str(t.get("patch", 0)), []))
         bound = list(self.app.project.get("bindings", {}).values())
         for i, label in enumerate(info["macros"]):
-            r, c = divmod(i, 4)
+            r, c = divmod(i, cols)
             bipolar = i < len(info["modes"]) and info["modes"][i] == "BIPOLAR"
             k = Knob(self.body, pad + c * size, top + r * (size + knob_gap()), size, label, colour,
                      (lambda n: lambda v: self.set_macro(n, v))(i), bipolar,
@@ -161,7 +163,7 @@ class Inspector:
             k.set(values[i] if i < len(values) else 64)
             k.on_touch = (lambda n: lambda kn: self.touched(["macro", self.track_id, n], kn))(i)
             self.knobs.append(k)
-        rows = (len(info["macros"]) + 3) // 4
+        rows = (len(info["macros"]) + cols - 1) // cols
         fx_top = top + rows * (size + knob_gap()) + px(10)
         if not info["macros"]:
             theme.label(self.body, "This instrument has no knobs.", "muted").set_pos(pad, top)
@@ -171,7 +173,7 @@ class Inspector:
     def build_master(self, w, h):
         pad = px(16)
         theme.label(self.body, "MASTER", "muted").set_pos(pad, px(12))
-        self.learn = theme.button(self.body, "Learn", icon="sensors", w=px(110), h=px(32), checkable=True)
+        self.learn = theme.button(self.body, "Learn", icon="sensors", w=px(110), h=tap(32), checkable=True)
         self.learn.obj.align(lv.ALIGN.TOP_RIGHT, -pad, px(6))
         self.learn.checked = self.learning
         self.learn.on(lv.EVENT.CLICKED, self.toggle_learn)
@@ -179,9 +181,10 @@ class Inspector:
         note = theme.label(self.body, "Effects here play on every track together: the whole mix.", "muted")
         note.set_width(w - 2 * pad)
         note.set_long_mode(lv.label.LONG_MODE.WRAP)
-        note.set_pos(pad, px(50))
+        down = tap(32) - px(32)
+        note.set_pos(pad, px(50) + down)
         rack = (self.app.project.get("master") or {}).get("rack", [])
-        self.build_effects(rack, px(110), w, h, pad, theme.ACCENT)
+        self.build_effects(rack, px(110) + down, w, h, pad, theme.ACCENT)
 
     def build_effects(self, rack, top, w, h, pad, colour):
         self.move_buttons = []                 # the selected effect's down, up (for tests)
@@ -192,12 +195,15 @@ class Inspector:
         self._style_dropdown(add)
         add.set_options("\n".join(names))
         add.set_text("Add effect")
-        add.set_size(px(170), px(34))
+        add.set_size(px(170), tap(34))
         add.align(lv.ALIGN.TOP_RIGHT, -pad, top - px(8))
         add.add_event_cb(lambda e: self.add_effect(names[add.get_selected()]), lv.EVENT.VALUE_CHANGED, None)
-        y = top + px(34)
+        y = top + px(34) + (tap(34) - px(34))
+        # On a phone a row's buttons are a fingertip across, and the row as much taller.
+        bw, grow = tap(34), tap(30) - px(30)
+        wide = bw - px(34)
         for i, e in enumerate(rack):
-            row = theme.box(self.body, pad, y, w - 2 * pad, px(38), theme.RAISED, px(6))
+            row = theme.box(self.body, pad, y, w - 2 * pad, px(38) + grow, theme.RAISED, px(6))
             row.add_flag(lv.OBJ_FLAG.CLICKABLE)
             row.add_event_cb((lambda n: lambda ev: self.select_effect(n))(i), lv.EVENT.CLICKED, None)
             if i == self.fx_index:
@@ -205,12 +211,12 @@ class Inspector:
                 row.set_style_border_color(theme.c(colour), 0)
             name = theme.label(row, e["name"], "text", theme.MUTED if e.get("bypass") else theme.TEXT)
             name.align(lv.ALIGN.LEFT_MID, px(12), 0)
-            on = theme.button(row, icon="power_settings_new", w=px(34), h=px(30), checkable=True)
+            on = theme.button(row, icon="power_settings_new", w=bw, h=tap(30), checkable=True)
             on.checked = not e.get("bypass")
-            on.obj.align(lv.ALIGN.RIGHT_MID, -px(42), 0)
+            on.obj.align(lv.ALIGN.RIGHT_MID, -px(42) - wide, 0)
             on.on(lv.EVENT.CLICKED, (lambda n, b: lambda: self.set_effect(n, "bypass", not b.checked))(i, on))
             self.app.tips.add(on.obj, "On / bypassed")
-            rm = theme.button(row, icon="close", w=px(34), h=px(30))
+            rm = theme.button(row, icon="close", w=bw, h=tap(30))
             rm.obj.align(lv.ALIGN.RIGHT_MID, -px(4), 0)
             rm.on(lv.EVENT.CLICKED, (lambda n: lambda: self.remove_effect(n))(i))
             self.app.tips.add(rm.obj, "Remove this effect")
@@ -219,12 +225,12 @@ class Inspector:
                 # drive into delay isn't delay into drive).
                 for k, (icon, delta, tip) in enumerate((("expand_more", 1, "Later in the chain"),
                                                          ("expand_less", -1, "Earlier in the chain"))):
-                    mv = theme.button(row, icon=icon, w=px(34), h=px(30))
-                    mv.obj.align(lv.ALIGN.RIGHT_MID, -px(80) - k * px(38), 0)
+                    mv = theme.button(row, icon=icon, w=bw, h=tap(30))
+                    mv.obj.align(lv.ALIGN.RIGHT_MID, -px(80) - 2 * wide - k * (px(38) + wide), 0)
                     mv.on(lv.EVENT.CLICKED, (lambda n, dd: lambda: self.move_effect(n, dd))(i, delta))
                     self.app.tips.add(mv.obj, tip)
                     self.move_buttons.append(mv.obj)
-            y += px(44)
+            y += px(44) + grow
         if self.fx_index is not None and self.fx_index < len(rack):
             e = rack[self.fx_index]
             info = catalog.effect(e["name"])
@@ -233,9 +239,10 @@ class Inspector:
             for k_, v in e.get("macros", {}).items():
                 if int(k_) < len(vals):
                     vals[int(k_)] = v
-            size = (w - 2 * pad) // 4
+            cols = knob_columns(w - 2 * pad)
+            size = (w - 2 * pad) // cols
             for i, label in enumerate(info["macros"]):
-                r, c = divmod(i, 4)
+                r, c = divmod(i, cols)
                 k = Knob(self.body, pad + c * size, y + px(6) + r * (size + knob_gap()), size, label, colour,
                          (lambda n: lambda v: self.set_effect_macro(n, v))(i),
                          default=fx_defaults[i] if i < len(fx_defaults) else 64, app=self.app)
@@ -359,7 +366,7 @@ class Inspector:
         n = len(self.app.project.get("bindings", {}))
         if not (self.learning and n):
             return
-        b = theme.button(self.body, "Clear %d" % n, w=px(100), h=px(32))
+        b = theme.button(self.body, "Clear %d" % n, w=px(100), h=tap(32))
         b.obj.align(lv.ALIGN.TOP_RIGHT, -pad - px(118), px(6))
         b.on(lv.EVENT.CLICKED, self.clear_bindings)
         self.app.tips.add(b.obj, "Forget every learned control")
@@ -470,6 +477,11 @@ def title_of(name):
     """An instrument's name in the list, marked when it plays one note at a time."""
     info = catalog.instrument(name)
     return info["title"] + ("  (mono)" if info.get("voices") == 1 else "")
+
+
+def knob_columns(room):
+    """Four knobs a row, or on a wide phone page as many as fit at about 110 pixels each."""
+    return max(4, room // px(110)) if theme.T else 4
 
 
 def knob_gap():

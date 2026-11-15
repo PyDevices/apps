@@ -39,6 +39,7 @@ WARN = 0xF5A524
 TRACK_COLOURS = (0xFF7A45, 0x3DB4F2, 0xB28DFF, 0x46D39A, 0xF5C542, 0xF26CA7, 0x5AD2D2, 0xA3B4C8)
 
 S = 1.0                # the layout's scale, set by setup()
+T = 0                  # the least size of a control a finger presses (a phone's), set by setup()
 _styles = {}
 
 # Icons come from iconkit: its shared 24 and 48 px sets plus Ostinato's own
@@ -59,6 +60,11 @@ def px(n):
     return max(1, int(n * S + 0.5))
 
 
+def tap(n):
+    """A control's design size ``n`` in pixels, and never smaller than a fingertip on a phone."""
+    return max(px(n), T)
+
+
 def track_colour(index):
     return TRACK_COLOURS[index % len(TRACK_COLOURS)]
 
@@ -71,10 +77,11 @@ def _style(**props):
     return st
 
 
-def setup(scale):
+def setup(scale, touch=0):
     """Build the shared styles for this scale. Call once fonts are loaded."""
-    global S
+    global S, T
     S = scale
+    T = touch
     _styles["panel"] = _style(bg_color=c(PANEL), bg_opa=255, radius=0, border_width=0,
                               pad_all=0, shadow_width=0)
     _styles["panel_edge"] = _style(border_color=c(LINE), border_width=1)

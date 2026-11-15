@@ -40,6 +40,7 @@
  "app/ui/page.py",
  "app/ui/song.py",
  "app/ui/status.py",
+ "app/ui/tabs.py",
  "app/ui/theme.py",
  "app/ui/tooltip.py",
  "app/ui/tracks.py",

@@ -32,6 +32,7 @@ export default {
    "app/ui/page.py": "page.py",
    "app/ui/song.py": "song.py",
    "app/ui/status.py": "status.py",
+   "app/ui/tabs.py": "tabs.py",
    "app/ui/theme.py": "theme.py",
    "app/ui/tooltip.py": "tooltip.py",
    "app/ui/tracks.py": "tracks.py",

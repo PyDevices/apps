@@ -26,6 +26,8 @@ class Knob:
         lh = fonts.t(px(14)).line_height
         self.root = theme.box(parent, x, y, size, size + 2 * lh)
         self.root.add_flag(lv.OBJ_FLAG.CLICKABLE)
+        if theme.T:
+            self.root.remove_flag(lv.OBJ_FLAG.SCROLL_CHAIN)     # on a phone's scrolling page a drag turns the knob
         self.arc = lv.arc(self.root)
         self.arc.set_size(size - px(8), size - px(8))
         self.arc.set_pos(px(4), 0)

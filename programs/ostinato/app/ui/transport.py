@@ -9,7 +9,7 @@ import lvgl as lv
 import fonts
 from songmodel import model
 import theme
-from theme import px
+from theme import px, tap
 
 PATTERN_SLOTS = 8
 
@@ -26,6 +26,10 @@ class TransportBar:
         self.app = app
         x, y, w, h = rect
         self.root = theme.panel(parent, rect)
+        if theme.T:
+            # A phone: the bar is wider than the screen, and a swipe moves it.
+            self.root.add_flag(lv.OBJ_FLAG.SCROLLABLE)
+            self.root.set_scroll_dir(lv.DIR.HOR)
         bh = h - px(20)
         cy = (h - bh) // 2
 
@@ -57,7 +61,7 @@ class TransportBar:
         app.tips.add(self.rec.obj, "Record  (R): arm, then Play counts in a bar")
         at += bh + px(18)
         # Quantise: recorded notes snap to sixteenths (on) or keep the timing played.
-        small = bh - px(6)
+        small = max(bh - px(6), theme.T)
         self.quant = theme.button(self.root, icon="grid_on", w=small, h=bh, checkable=True)
         self.quant.obj.set_pos(at, cy)
         self.quant.on(lv.EVENT.CLICKED, app.toggle_quantise)
@@ -71,7 +75,10 @@ class TransportBar:
         at += small + px(20)
 
         self.position = theme.label(self.root, "1 . 1 . 1", "big")
-        self.position.set_pos(at, (h - px(34)) // 2)
+        if theme.T:
+            self.position.align(lv.ALIGN.LEFT_MID, at, 0)     # big type stops growing at 48 pixels: centre what there is
+        else:
+            self.position.set_pos(at, (h - px(34)) // 2)
         self.position.set_width(px(160))
         at += px(170)
 
@@ -95,18 +102,19 @@ class TransportBar:
         at += max(px(68), word.get_width() + px(10))
         self.slots = []
         self.dots = []
+        slot_w = tap(40)
         for i in range(PATTERN_SLOTS):
-            b = theme.button(self.root, "ABCDEFGH"[i], w=px(40), h=bh, checkable=True)
+            b = theme.button(self.root, "ABCDEFGH"[i], w=slot_w, h=bh, checkable=True)
             b.obj.set_pos(at, cy)
             b.on(lv.EVENT.CLICKED, (lambda k: lambda: app.choose_pattern(k))(i))
             app.tips.add(b.obj, "Pattern %s for this track  (Shift: every track)" % "ABCDEFGH"[i])
             # A dot under the letter when this track's pattern has notes.
-            dot = theme.box(b.obj, (px(40) - px(6)) // 2, bh - px(9), px(6), px(6), theme.TEXT, px(3))
+            dot = theme.box(b.obj, (slot_w - px(6)) // 2, bh - px(9), px(6), px(6), theme.TEXT, px(3))
             dot.remove_flag(lv.OBJ_FLAG.CLICKABLE)
             dot.add_flag(lv.OBJ_FLAG.HIDDEN)
             self.dots.append(dot)
             self.slots.append(b)
-            at += px(45)
+            at += slot_w + px(5)
 
         at += px(14)
         self.song = theme.button(self.root, "Song", icon="queue_music", w=px(120), h=bh, checkable=True)
@@ -123,12 +131,19 @@ class TransportBar:
         self.redo.on(lv.EVENT.CLICKED, app.redo)
         app.tips.add(self.redo.obj, "Redo  (Ctrl+Y)")
 
+        at += bh + px(14)
+
         self.helpbtn = theme.button(self.root, icon="help_outline", w=bh, h=bh)
-        self.helpbtn.obj.align(lv.ALIGN.RIGHT_MID, -px(12), 0)
         self.helpbtn.on(lv.EVENT.CLICKED, lambda: app.help.toggle())
         app.tips.add(self.helpbtn.obj, "How to play")
         self.midi = theme.label(self.root, "", "muted")
-        self.midi.align(lv.ALIGN.RIGHT_MID, -px(20) - bh, 0)
+        if theme.T:
+            # In line after the rest: the bar scrolls, so its right edge is no place to pin them.
+            self.helpbtn.obj.set_pos(at, cy)
+            self.midi.align(lv.ALIGN.LEFT_MID, at + bh + px(14), 0)
+        else:
+            self.helpbtn.obj.align(lv.ALIGN.RIGHT_MID, -px(12), 0)
+            self.midi.align(lv.ALIGN.RIGHT_MID, -px(20) - bh, 0)
         self.refresh()
 
     def stepper(self, x, y, w, h, nudge, tap=None, tip=None):
@@ -138,14 +153,16 @@ class TransportBar:
         it one step per few pixels; with ``tap``, a click on the value that
         doesn't drag calls ``tap()`` (tap tempo)."""
         box = theme.box(self.root, x, y, w, h, theme.RAISED, px(6))
-        minus = theme.button(box, icon="remove", w=h - px(8), h=h - px(8))
-        minus.obj.set_pos(px(4), px(4))
+        # On a phone the buttons take the box's whole height, to be big enough for a finger.
+        side, inset = (h, 0) if theme.T else (h - px(8), px(4))
+        minus = theme.button(box, icon="remove", w=side, h=side)
+        minus.obj.set_pos(inset, inset)
         minus.on(lv.EVENT.SHORT_CLICKED, lambda: nudge(-1))
         minus.on(lv.EVENT.LONG_PRESSED_REPEAT, lambda: nudge(-1))
         label = theme.label(box, "", "title")
         label.align(lv.ALIGN.CENTER, 0, 0)
-        plus = theme.button(box, icon="add", w=h - px(8), h=h - px(8))
-        plus.obj.align(lv.ALIGN.RIGHT_MID, -px(4), 0)
+        plus = theme.button(box, icon="add", w=side, h=side)
+        plus.obj.align(lv.ALIGN.RIGHT_MID, -inset, 0)
         plus.on(lv.EVENT.SHORT_CLICKED, lambda: nudge(1))
         plus.on(lv.EVENT.LONG_PRESSED_REPEAT, lambda: nudge(1))
         # The middle of the box drags (and taps).

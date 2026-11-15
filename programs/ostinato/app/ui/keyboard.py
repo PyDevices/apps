@@ -34,7 +34,7 @@ class Keyboard:
         x, y, w, h = self.rect
         low, octaves = self.low, self.octaves
         pad = px(10)
-        bw = px(40)
+        bw = theme.tap(40)
         self.shift_buttons = []
         for k, (icon, d, tip) in enumerate((("chevron_left", -1, "Keys an octave down"),
                                              ("chevron_right", 1, "Keys an octave up"))):
@@ -44,6 +44,9 @@ class Keyboard:
             self.app.tips.add(b.obj, tip)
             self.shift_buttons.append(b.obj)
         left = pad + bw + px(8)
+        if theme.T:
+            # A phone: as many octaves as fit with white keys a fingertip wide.
+            octaves = self.octaves = max(1, min(4, (w - 2 * left) // (7 * theme.T)))
         whites = octaves * 7
         kw = (w - 2 * left) // whites
         kh = h - 2 * pad
