@@ -18,6 +18,5 @@
 - SoundFont patch names from the bank you play: the catalog is static, so the
   names it shows follow the bank it was made with (FluidR3_GM), not the `.sf2`
   on your machine; `scripts/make_soundfont_catalog.py` remakes it from yours.
-- A song other screens can edit while it plays: `--split` puts the song in the
-  engines' process and lets a browser edit it beside the window. Next: more of
-  the app on the page, undo that knows about the other screen, and a phone app's OSC.
+- More of the app on the page that `--split` serves, undo that knows about the
+  other screen, and a phone app's OSC.

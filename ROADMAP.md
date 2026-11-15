@@ -20,13 +20,11 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 - Recording from a MIDI keyboard such as the DMK-25 on the board's USB host
   port into the selected track. It already plays from one.
 - Undo in the window that knows about edits made on other panels.
-- The timed voice pool that schedules notes ahead of the audio moving into
-  audioinstruments, once a second player needs it.
 
 ## Camera
 
 - Record a USB camera's microphone as the video's sound on a board with no microphone of its own.
-- Run on the ESP32-P4 boards with a USB camera and on ESP32-S31 boards with one, once MicroPython runs there.
+- Run on ESP32-S31 boards with a USB camera, once MicroPython runs there.
 
 ## Ostinato
 
@@ -43,10 +41,9 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 - A level meter with a clip light and a tuner, and several effect slots with
   saved presets, so Stompbox is more than one airwindows effect at a time.
 
-## Clock and Weather
+## Clock
 
 - More faces on the clock, and a way to pick a face that's saved.
-- Weather searches by place name, for anywhere outside the US.
 
 ## Libraries
 
