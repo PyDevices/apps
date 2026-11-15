@@ -33,7 +33,7 @@ All optional, in `/bt_speaker.json` on the board:
 {"name": "Kitchen Speaker", "phone": true}
 ```
 
-`name` is what senders see; without it, the speaker uses the board's hostname.
+`name` is what senders see; without it, the speaker uses the board's name (`boarddev.name()`).
 With `phone` on, the speaker also shows a phone's battery and calls (the call
 itself stays on the phone). A computer may then list the speaker as a headset
 as well. The rest of the settings are at the top of
