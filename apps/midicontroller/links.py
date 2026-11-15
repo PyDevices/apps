@@ -19,6 +19,10 @@
 ``pc:<name>``
     One of a computer's MIDI outputs, by name: a synth, a DAW's virtual
     port, a loopback. On Windows and Linux, with midiports.
+``web:<name>``
+    In a browser page, one of the MIDI outputs Web MIDI offers, by name,
+    through midiports' ``webmidi``. The browser asks the person first;
+    until they answer there is one choice, ``web``, the first output.
 
 `open_link` opens one and hands back a `Link`: ``write`` for the output,
 ``read_into`` for what comes back (CC feedback), a status line, ``close``.
@@ -163,6 +167,33 @@ class BleLink(Link):
             pass
 
 
+class WebLink(Link):
+    """A browser's MIDI output, and its input of the same name for feedback."""
+
+    def status(self):
+        name = getattr(self.out, "name", None)
+        if name:
+            return "Web MIDI: %s" % name
+        why = getattr(self.out, "why", None)
+        if why:
+            return "Web MIDI: %s" % why
+        return "Web MIDI: waiting for the browser (allow MIDI if it asks)"
+
+
+_web_outputs = None
+
+
+def _webmidi():
+    """midiports' webmidi if this is a browser page that can send, or None."""
+    if sys.platform not in ("webassembly", "emscripten"):
+        return None
+    try:
+        from midiports import webmidi
+    except ImportError:
+        return None
+    return webmidi if hasattr(webmidi, "page_out") else None
+
+
 def _desktop():
     """midiports' module for this computer's own ports, or None."""
     try:
@@ -204,7 +235,9 @@ def choices():
     try:
         import bledev.auto
 
-        if bledev.auto.backend_name() is not None:
+        # A browser's and a desktop's BLE (webble, bleak) are central only,
+        # and the controller has to be the peripheral a computer connects to.
+        if bledev.auto.backend_name() not in (None, "webble", "bleak"):
             import bledev.midi  # noqa: F401
 
             out.append(("ble", "Bluetooth LE"))
@@ -218,13 +251,22 @@ def choices():
                     out.append(("pc:" + p.name, p.name))
         except Exception:  # noqa: BLE001 - no MIDI service: offer none
             pass
+    webmidi = _webmidi()
+    if webmidi is not None:
+        global _web_outputs
+        if _web_outputs is None:
+            _web_outputs = webmidi.page_out()  # asks the browser now, and lists its outputs
+        names = _web_outputs.names
+        out.extend(("web:" + n, n) for n in names)
+        if not names:
+            out.append(("web", "Web MIDI"))
     return out
 
 
 def missing():
     """A line saying what this board lacks, for when `choices` is empty."""
     if sys.platform in ("webassembly", "emscripten"):
-        return "MIDI out from a browser page isn't available in this build yet."
+        return "No Web MIDI here: this page needs midiports' webmidi with page_out."
     return ("No way out for MIDI here: this needs a USB device or host port with midiports, "
             "Bluetooth LE with bledev, or a computer's MIDI ports.")
 
@@ -286,4 +328,15 @@ def open_link(key):
         except OSError:
             inp = None  # another program holds it: send without feedback
         return Link(key, name, out, inp)
+    if key == "web" or key.startswith("web:"):
+        webmidi = _webmidi()
+        if webmidi is None:
+            raise OSError("no Web MIDI output in this page")
+        name = key[4:]
+        out = webmidi.page_out(name)
+        try:
+            inp = webmidi.page_in(name)
+        except Exception:  # noqa: BLE001 - send without feedback
+            inp = None
+        return WebLink(key, "Web MIDI", out, inp)
     raise ValueError("no MIDI link %r" % (key,))

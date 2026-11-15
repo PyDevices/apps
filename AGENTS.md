@@ -12,4 +12,4 @@
 - To test sayso without a network, replace `sayso.transport.requests` with a mock that has `get`/`post` (and `put`/`delete` for writes) before you build `SpotifyClient`.
 - Spotify's Dev Mode removed `GET /users/{id}` and the legacy playlist track endpoints ([PORTABILITY.md](lib/sayso/PORTABILITY.md)). Don't add `fetch_method` on `User`.
 - tests/ has an `appkit` folder, which hides the real `appkit` when `tests/` is first on the path: put `lib/` before it.
-- The MIDI Controller app's screen test runs `tests/midicontroller_contract.py` against `midiports` from a pydevices checkout (`$PYDEVICES_DIR`, or one beside this one), and skips without it. CI sets `MIDICONTROLLER_REQUIRE=1`.
+- The MIDI Controller app's screen test runs `tests/midicontroller_contract.py` against `midiports` and `iconkit` from a pydevices checkout (`$PYDEVICES_DIR`, or one beside this one), and skips without it. CI sets `MIDICONTROLLER_REQUIRE=1`.

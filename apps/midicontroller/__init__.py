@@ -214,7 +214,10 @@ class Controller:
     def choose(self, key, save=True):
         """Send through the way out named *key*, or the first this board has."""
         keys = [k for k, _ in self.choices]
-        if key not in keys:
+        # A browser output saved last time can't be listed until the
+        # browser says yes again, so it's kept rather than replaced.
+        web = key is not None and key.startswith("web:") and any(k.startswith("web") for k in keys)
+        if key not in keys and not web:
             key = keys[0] if keys else None
         if self.link is not None:
             self.link.close()
@@ -227,7 +230,7 @@ class Controller:
                 self.surface.out = self.link
             except Exception as e:  # noqa: BLE001 - said on the status line; Setup can pick another
                 print("midicontroller:", key, e)
-                self.link_error = "%s: %s" % (dict(self.choices)[key], e)
+                self.link_error = "%s: %s" % (dict(self.choices).get(key, key), e)
         if save:
             self.surface.set("output", key)
             self._changed_at = ticks_ms()
@@ -598,9 +601,10 @@ class Controller:
             v.set_pos(x + bw + m, y + (rh - ui.small.line_height) // 2)
             _button(self.body, lv.SYMBOL.RIGHT, plus, x + bw + 2 * m + val_w, y, bw, rh, font=ui.font)
 
+        self.choices = links.choices()
         names = dict(self.choices)
         key = self.link.key if self.link is not None else s.settings["output"]
-        row(0, "Send to", names.get(key, "nowhere"), lambda: self._output(-1), lambda: self._output(1))
+        row(0, "Send to", names.get(key) or self._web_name(key) or "nowhere", lambda: self._output(-1), lambda: self._output(1))
         row(1, "Channel", str(s.settings["channel"]), lambda: self._set("channel", -1),
             lambda: self._set("channel", 1))
         vel = s.settings["velocity"]
@@ -615,11 +619,21 @@ class Controller:
         _button(self.body, "Reset mapping", self._reset_all, m + (w + m), y, w, rh)
         _button(self.body, "All notes off", s.panic, m + 2 * (w + m), y, w, rh)
 
+    def _web_name(self, key):
+        """A browser output's name when it isn't listed yet, or None."""
+        if not key or not key.startswith("web"):
+            return None
+        out = self.link.out if self.link is not None else None
+        return getattr(out, "name", None) or key[4:] or "Web MIDI"
+
     def _output(self, step):
+        self.choices = links.choices()  # a browser lists its outputs once the person says yes
         keys = [k for k, _ in self.choices]
         if not keys:
             return
         cur = self.link.key if self.link is not None else self.surface.settings["output"]
+        if cur not in keys and self._web_name(cur):
+            cur = "web:" + self._web_name(cur)  # the first output, now listed by name
         i = keys.index(cur) if cur in keys else -step
         self.choose(keys[(i + step) % len(keys)])
         self.later(self._build)

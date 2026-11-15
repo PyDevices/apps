@@ -20,6 +20,7 @@ import subprocess
 import sys
 import types
 import unittest
+from unittest import mock
 
 TESTS = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(TESTS)
@@ -283,6 +284,105 @@ class LinksTest(unittest.TestCase):
         links.sys = types.SimpleNamespace(platform="rp2")
         self.assertEqual(links.choices(), [])
         self.assertIn("midiports", links.missing())
+
+
+class _WebPort:
+    def __init__(self, name, names):
+        self.match = name
+        self.names = names
+        self.name = None
+        self.why = None
+        self.sent = []
+        self.closed = False
+
+    def write(self, buf, nbytes):
+        self.sent.append(bytes(buf[:nbytes]))
+        return nbytes
+
+    def readinto(self, buf):
+        return None
+
+    def close(self):
+        self.closed = True
+
+
+class WebLinksTest(unittest.TestCase):
+    """In a browser page: Web MIDI's outputs, through midiports.webmidi."""
+
+    def setUp(self):
+        self.saved = {k: sys.modules.get(k) for k in ("machine", "_usbhost", "bledev", "midiports",
+                                                       "midiports.webmidi")}
+        self.names = []
+        self.opened = []
+        webmidi = types.ModuleType("midiports.webmidi")
+
+        def page_out(name=""):
+            port = _WebPort(name, self.names)
+            self.opened.append(("out", port))
+            return port
+
+        def page_in(name=""):
+            port = _WebPort(name, self.names)
+            self.opened.append(("in", port))
+            return port
+
+        webmidi.page_out = page_out
+        webmidi.page_in = page_in
+        self.webmidi = webmidi
+        midiports = types.ModuleType("midiports")
+        midiports.__path__ = []
+        midiports.webmidi = webmidi
+        sys.modules.update({"machine": None, "_usbhost": None, "bledev": None, "midiports": midiports,
+                            "midiports.webmidi": webmidi})
+        links.sys = types.SimpleNamespace(platform="webassembly")
+        links._web_outputs = None
+
+    def tearDown(self):
+        links.sys = sys
+        links._web_outputs = None
+        for k, v in self.saved.items():
+            if v is None:
+                sys.modules.pop(k, None)
+            else:
+                sys.modules[k] = v
+
+    def test_the_browser_lists_its_outputs_once_the_person_says_yes(self):
+        self.assertEqual(links.choices(), [("web", "Web MIDI")])  # asked; no answer yet
+        self.names[:] = ["General MIDI Synth", "Loopback"]
+        self.assertEqual(links.choices(), [("web:General MIDI Synth", "General MIDI Synth"),
+                                           ("web:Loopback", "Loopback")])
+        self.assertEqual(len(self.opened), 1)  # one ask, kept
+
+    def test_an_output_opens_by_name_with_its_input_for_feedback(self):
+        link = links.open_link("web:Loopback")
+        (kind_out, out), (kind_in, inp) = self.opened
+        self.assertEqual((kind_out, out.match, kind_in, inp.match), ("out", "Loopback", "in", "Loopback"))
+        self.assertIn("allow MIDI", link.status())
+        out.name = "Loopback"
+        self.assertEqual(link.status(), "Web MIDI: Loopback")
+        link.write(b"\x90\x3c\x64")
+        self.assertEqual(out.sent, [b"\x90\x3c\x64"])
+        out.name, out.why = None, "NotAllowedError"
+        self.assertEqual(link.status(), "Web MIDI: NotAllowedError")
+        link.close()
+        self.assertTrue(out.closed and inp.closed)
+
+    def test_ble_is_offered_only_where_the_board_can_be_a_peripheral(self):
+        for backend, offered in (("webble", False), ("bleak", False), ("mpble", True)):
+            bledev = types.ModuleType("bledev")
+            bledev.__path__ = []
+            bledev.auto = types.SimpleNamespace(backend_name=lambda backend=backend: backend)
+            bledev.midi = types.ModuleType("bledev.midi")
+            with self.subTest(backend=backend), mock.patch.dict(
+                    sys.modules, {"bledev": bledev, "bledev.auto": bledev.auto, "bledev.midi": bledev.midi}):
+                self.assertEqual(("ble", "Bluetooth LE") in links.choices(), offered)
+
+    def test_a_page_without_web_midi_output_says_so(self):
+        del self.webmidi.page_out
+        self.assertEqual(links.choices(), [])
+        self.assertIn("page_out", links.missing())
+        with self.assertRaises(OSError):
+            links.open_link("web")
 
 
 class BleLinkTest(unittest.TestCase):
