@@ -1,0 +1,2 @@
+# Differences stubtest is told to accept, one regular expression a line.
+# Say why above each one.

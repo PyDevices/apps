@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 Brad Barnett
+#
+# SPDX-License-Identifier: MIT
+from _typeshed import Incomplete
+
+class Board:
+    config: Incomplete
+    peripherals: Incomplete
+    display: Incomplete
+    def __init__(self) -> None: ...
+    def has(self, role): ...
+    def get(self, role): ...
+    def eager(self, name): ...
