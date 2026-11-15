@@ -20,6 +20,7 @@ too, through ``appkit.net``.
 """
 
 import sys
+import time
 
 from . import settings
 
@@ -30,6 +31,14 @@ _clock_asked = False
 _CLOCK_CHECK_MS = 60_000
 _CLOCK_JOB = "touchkit.clock"
 _CP_JOIN_S = 5
+# A join on CircuitPython holds the screen for 5 to 10 s whether it finds the
+# network or not, and whatever its timeout. After one fails, `up` waits this
+# long before the next, doubling up to _CP_RETRY_MAX_MS, so an offline board
+# stays usable while apps poll.
+_CP_RETRY_MS = 30_000
+_CP_RETRY_MAX_MS = 300_000
+_retry_ms = 0
+_retry_at = None  # the `_now_ms` before which `up` doesn't try to join again
 
 
 def _host_ip():
@@ -89,8 +98,10 @@ def hostname():
 
 
 def up():
-    """True when the station is connected; starts a join (without waiting)
-    when it isn't."""
+    """True when the station is connected. When it isn't, starts a join: in
+    the background on MicroPython. On CircuitPython a join holds the screen
+    for seconds, so one is tried now and the next only after a wait that
+    grows from 30 s to 5 minutes; an app can still poll this often."""
     global _started
     try:
         import wifi
@@ -104,26 +115,55 @@ def up():
     except Exception:
         joined = False
     if joined:
+        _joined()
         start_webrepl()
         keep_time()  # outside the try: a missing deskkit must be seen
         return True
+    if not hasattr(wifi, "connect_from_secrets"):
+        # CircuitPython's own wifi has only the radio. wifi_manager joins what
+        # secrets.py or settings.toml hold, and blocks while it tries.
+        if _join_due():
+            try:
+                import wifi_manager
+
+                ip = wifi_manager.connect(setup=False, timeout=_CP_JOIN_S)
+            except Exception as e:
+                print("touchkit: wifi:", e)
+                ip = None
+            if ip:
+                _joined()
+            else:
+                _join_failed()
+        return False
     if not _started:
         _started = True
         try:
-            if hasattr(wifi, "connect_from_secrets"):
-                wifi.connect_from_secrets(wait=False, ntp=False)
-            else:
-                # CircuitPython's own wifi has only the radio. wifi_manager
-                # joins what secrets.py or settings.toml hold, and blocks for
-                # up to its timeout, so each poll gets one short try.
-                import wifi_manager
-
-                if not wifi_manager.connect(setup=False, timeout=_CP_JOIN_S):
-                    _started = False  # not joined: the next poll tries again
+            wifi.connect_from_secrets(wait=False, ntp=False)
         except Exception as e:
             print("touchkit: wifi:", e)
             _started = False
     return False
+
+
+def _joined():
+    global _retry_ms, _retry_at
+    _retry_ms = 0
+    _retry_at = None
+
+
+def _join_failed():
+    global _retry_ms, _retry_at
+    _retry_ms = min(max(2 * _retry_ms, _CP_RETRY_MS), _CP_RETRY_MAX_MS)
+    _retry_at = _now_ms() + _retry_ms
+
+
+def _join_due():
+    return _retry_at is None or _now_ms() >= _retry_at
+
+
+def _now_ms():
+    # Only CircuitPython waits between joins, and it has time.monotonic.
+    return int(time.monotonic() * 1000)
 
 
 def start_webrepl():
@@ -167,6 +207,7 @@ def boot():
         start_webrepl()
         keep_time()  # outside the try: a missing deskkit must be seen
         return
+    _join_failed()  # where a join blocks, the next waits a while
     import lvgl as lv
 
     def poll(t):
@@ -208,6 +249,9 @@ def keep_time():
     if _clock_timer is None:
         import lvgl as lv
 
+        if not lv.is_initialized():
+            # An LVGL timer made before lv.init() crashes the interpreter.
+            raise RuntimeError("touchkit.net keeps the clock with an LVGL timer: start the display first")
         _clock_timer = lv.timer_create(_set_clock_if_due, _CLOCK_CHECK_MS, None)
     if not _clock_asked:
         _set_clock_if_due()
