@@ -87,7 +87,10 @@ ACT_SHORT = ("1:PET", "2:GAME", "3:HMI")
 ACT_ACCENTS = (AQUA_GLOW, LIME_GLOW, GOLD)
 
 display_drv = board_config.display_drv
-if display_drv.width < display_drv.height:
+# A portrait panel turns to landscape when the display can turn what's drawn.
+# One that can't, such as a panel's own framebuffer, keeps its portrait layout:
+# turning every frame in Python would be too slow at these sizes.
+if display_drv.width < display_drv.height and getattr(display_drv, "can_rotate", True):
     display_drv.rotation = (display_drv.rotation + 90) % 360
 
 WIDTH = display_drv.width

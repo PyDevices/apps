@@ -25,6 +25,7 @@ import repaint_check  # noqa: E402
 DRIVER = """
 import sys
 sys.path.insert(0, %r)
+%s
 import bit_world as bw, multimer
 frames = [0]
 step = bw.director.step
@@ -39,8 +40,11 @@ bw.director.sound.close = lambda: (closed.append(1), close())
 ex, ey, ew, eh = bw.director.rect_exit
 multimer.after(1000, lambda t=None: bw.director.on_pointer_down(ex + ew // 2, ey + eh // 2))
 bw.app.run()
-print("RESULT", frames[0], bw.app.quit_requested, len(closed))
+print("RESULT", frames[0], bw.app.quit_requested, len(closed), bw.WIDTH, bw.HEIGHT)
 """
+
+#: A display that can only swap its width and height, as a panel's framebuffer does.
+CANT_ROTATE = "import board_config\ntype(board_config.display_drv).can_rotate = False"
 
 
 class RepaintTest(unittest.TestCase):
@@ -52,22 +56,35 @@ class RepaintTest(unittest.TestCase):
 
 
 class ExitTest(unittest.TestCase):
-    def test_exit_button_quits_and_closes_the_audio(self):
+    def run_app(self, width, height, prelude=""):
+        """Run the app on a desktop display of this size; return frames, quit, closes and its size."""
         env = dict(os.environ)
         env.setdefault("SDL_VIDEODRIVER", "dummy")
         env.setdefault("SDL_AUDIODRIVER", "dummy")
-        env.update(PYDEVICES_WIDTH="800", PYDEVICES_HEIGHT="480", PYDEVICES_SCALE="1")
+        env.update(PYDEVICES_WIDTH=str(width), PYDEVICES_HEIGHT=str(height), PYDEVICES_SCALE="1")
         lib = os.environ.get("PYDEVICES_LIB")
         if lib:
             env["PYTHONPATH"] = lib + os.pathsep + env.get("PYTHONPATH", "")
-        out = subprocess.run([sys.executable, "-c", DRIVER % APP], env=env, capture_output=True, text=True, timeout=120)
+        out = subprocess.run(
+            [sys.executable, "-c", DRIVER % (APP, prelude)], env=env, capture_output=True, text=True, timeout=120
+        )
         lines = [line for line in out.stdout.splitlines() if line.startswith("RESULT")]
         self.assertTrue(lines, out.stdout + out.stderr)
-        _, frames, quit_requested, closed = lines[-1].split()
+        self.assertNotIn("Traceback", out.stderr)
+        _, frames, quit_requested, closed, w, h = lines[-1].split()
         self.assertGreater(int(frames), 5, "it drew frames before the exit")
         self.assertEqual(quit_requested, "True", "the exit button quit the App")
         self.assertEqual(closed, "1", "quitting closed the audio once")
-        self.assertNotIn("Traceback", out.stderr)
+        return int(w), int(h)
+
+    def test_exit_button_quits_and_closes_the_audio(self):
+        self.assertEqual(self.run_app(800, 480), (800, 480))
+
+    def test_a_portrait_display_turns_to_landscape(self):
+        self.assertEqual(self.run_app(480, 800), (800, 480))
+
+    def test_a_display_that_cant_rotate_stays_portrait(self):
+        self.assertEqual(self.run_app(480, 800, CANT_ROTATE), (480, 800))
 
 
 if __name__ == "__main__":
