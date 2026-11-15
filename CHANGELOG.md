@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 0.1.2.dev6
+
+- deskkit: the clock runs on CircuitPython, which has no time.gmtime, so Clock shows local time there too.
+- Install guide: what to do when CircuitPython installs stop with Errno 5.
+
 ## 0.1.2.dev5
 
 - Clock shows local time before a place is chosen: when the board joins a network it looks up the timezone of its public IP address (ipwho.is), and again each day for daylight saving. A place chosen in Weather still wins.
