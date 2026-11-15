@@ -10,7 +10,7 @@ BLACK: int
 
 def clean(text: str) -> str:
     """Printable ASCII only: the fonts have nothing else."""
-def wrap(text: str, columns: int) -> tuple[str, str]:
+def wrap(text: str, width: int) -> tuple[str, str]:
     """Split text at the last space that fits in width, or at width if none does."""
 
 class Rows:
