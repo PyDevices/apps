@@ -4,6 +4,11 @@
 """The stills: each a name, a function that returns SVG text, and a width."""
 
 import crab
+import mascot_chameleon
+import mascot_firefly
+import mascot_hummingbird
+import mascot_man
+import mascot_otter
 import scene_bench
 import scene_coast
 import scene_desk
@@ -31,4 +36,9 @@ STILLS = (
     + scene_coast.STILLS
     + scene_bench.STILLS
     + scene_desk.STILLS
+    + mascot_chameleon.STILLS
+    + mascot_firefly.STILLS
+    + mascot_hummingbird.STILLS
+    + mascot_man.STILLS
+    + mascot_otter.STILLS
 )
