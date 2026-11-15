@@ -67,6 +67,7 @@ def run(*, hostname="deskclock", apps=APPS, awake=(7, 18), weekends=False, idle_
     for name in apps:
         launcher.add(name, "apps." + name)
     launcher.shell = DeskShell(launcher, apps, awake=awake, weekends=weekends, idle_ms=idle_ms)
-    # With no place yet there's no weather, so the place comes first.
-    launcher.boot(apps[0] if forecast.place() else "weather")
+    # With no place, chosen or found from the IP address, there's no weather,
+    # so the place comes first.
+    launcher.boot(apps[0] if forecast.current() else "weather")
     serve(app)

@@ -59,7 +59,7 @@ class ZipPad:
         self.shown.set_style_text_color(lv.color_hex(_WHITE), 0)
         self.shown.align(lv.ALIGN.TOP_MID, 0, height * 13 // 100)
 
-        place = forecast.place()
+        place = forecast.current()
         if place is not None:
             self.units = lv.button(panel)
             self.units.set_size(width * 16 // 100, height * 8 // 100)
@@ -112,7 +112,7 @@ class ZipPad:
             if self.digits:
                 self.digits = self.digits[:-1]
                 self._refresh("Enter your ZIP code")
-            elif forecast.place() is not None:
+            elif forecast.current() is not None:
                 self.done()  # nothing typed and a place to go back to
         elif key == "ok":
             if len(self.digits) == _LENGTH:
@@ -136,6 +136,6 @@ class ZipPad:
         self._refresh()
 
     def _toggle_units(self, _event):
-        units = "C" if forecast.place().get("units", "F") == "F" else "F"
+        units = "C" if forecast.current().get("units", "F") == "F" else "F"
         forecast.set_units(units)
         self.units_label.set_text("°" + units)
