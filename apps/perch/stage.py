@@ -32,7 +32,8 @@ STRIDE = 63.3  # how far a full turn of the walk carries the body, in its own un
 PLACE_MEMORY = 768 * 1024
 POSE_MEMORY = 256 * 1024
 BAND_ROWS = 120  # a place is painted about this many rows a tick, where svgio draws bands
-POOL_AHEAD = 12  # buffers taken for coming poses as a place opens
+SLAB_SPARE = 1024 * 1024  # room beside the kept poses for the one on screen and the one being drawn
+REST_TICKS = 30000 // TICK_MS  # a collection about this often, while the chameleon stands still
 
 # Where each kind of pose reaches, in the chameleon's units: x, y, width, height.
 _BODY = (-222, -224, 416, 246)
@@ -217,7 +218,9 @@ class Stage:
         #: to its picture and to the chameleon standing in it, and from opening
         #: to the first tick, place, pose and step of a walk; and the most
         #: bytes of picture ever held, and the most working memory a place
-        #: and a pose took in their decoders (0 from an svgio without it).
+        #: and a pose took in their decoders (0 from an svgio without it);
+        #: ``rests``, the collections made while the chameleon stood still;
+        #: and ``slow_steps``, what the showing ticks over 150 ms were doing.
         self.stats = {
             "build": 0,
             "tidy": 0,
@@ -241,9 +244,24 @@ class Stage:
             "peak": 0,
             "place_memory": 0,
             "pose_memory": 0,
+            "rests": 0,
+            "slow_steps": {},
         }
         self._born = time.ticks_ms()
         self._asked = self._born  # when the change being drawn was asked for
+        # The poses' pictures live in one block, taken first of all. A heap
+        # that grows when it must (an ESP32's) collects before it grows, every
+        # time something doesn't fit, and a collection reads every picture
+        # held: a third of a second with six megabytes of them. Taken first,
+        # the block is most of the heap, so the next thing that doesn't fit
+        # doubles it, and that room is what keeps collections rare.
+        try:
+            self._slab = memoryview(bytearray(CACHE_BYTES + SLAB_SPARE))
+        except MemoryError:
+            self._slab = None  # a pose then takes its buffer from the heap
+        self._slots = {}  # id of a buffer cut from the slab -> (where, bytes)
+        self._drawing = None  # the buffer a pose is being drawn into
+        self._collected = 0  # the tick of the last collection
         self._decoder = _decoder(PLACE_MEMORY)
         self._poser = _decoder(POSE_MEMORY)
         # an svgio whose decoders have memory of their own also draws in bands
@@ -256,8 +274,6 @@ class Stage:
         self._shown = None
         self._made = None  # the last pose drawn that isn't kept
         self._loose = None  # the pose on screen, when it isn't one of the kept
-        self._pool = {}  # size -> buffers let go, to draw into again
-        self._pooled = 0
         self._wanted = []  # poses to draw ahead, soonest first
         self._maker = None  # the pose being drawn, a step a tick
         self._making = None
@@ -319,7 +335,7 @@ class Stage:
 
     def held_bytes(self):
         """Bytes of picture held now: the place, the poses, the bug."""
-        total = len(self._ground) + self._bytes + self._pooled
+        total = len(self._ground) + self._bytes
         if self._loose is not None:
             total += len(self._loose[1])
         if self._bug_frame:
@@ -348,31 +364,39 @@ class Stage:
         # each request is looked for from the first free block on, past every
         # picture held and everything dropped since the last collection: on an
         # ESP32-P4 a place parsed in 0.8 s just after one and in 5 s without.
-        # A collection also reads every picture held (0.4 s for six megabytes
-        # of them), so the poses and spare buffers are let go first.
+        # Decoders with memory of their own don't need that, but what Python
+        # dropped still has to go, and better now than in the middle of a walk.
         t0 = time.ticks_us()
-        self._pool = {}
-        self._pooled = 0
         gc.collect()
+        self._collected = self._ticks
         self._since(t0, "tidy")
 
     def _buffer(self, size):
-        """A buffer of *size* bytes for a picture: one let go earlier, if there is one.
-
-        Poses of one kind are all one size, so taking them from a pool leaves
-        the heap as it was, where new megabytes each time would fill it with gaps.
-        """
-        spare = self._pool.get(size)
-        if spare:
-            self._pooled -= size
-            return spare.pop()
-        return bytearray(size)
+        """A buffer of *size* bytes for a pose's picture: a piece of the slab, if one is free."""
+        if self._slab is None:
+            return bytearray(size)
+        # the pieces in use are those of the pictures still held; any other
+        # was let go, whether or not `_spare` was told
+        held = [frame[1] for frame in self._frames.values()]
+        for frame in (self._shown, self._made, self._loose):
+            if frame is not None:
+                held.append(frame[1])
+        if self._drawing is not None:
+            held.append(self._drawing)
+        slots = self._slots = dict((id(data), self._slots[id(data)]) for data in held if id(data) in self._slots)
+        at = 0
+        for where, n in sorted(slots.values()):
+            if where - at >= size:
+                break
+            at = where + n
+        if at + size > len(self._slab):
+            return bytearray(size)
+        data = self._slab[at : at + size]
+        slots[id(data)] = (at, size)
+        return data
 
     def _spare(self, data):
-        size = len(data)
-        if self._pooled + size <= CACHE_BYTES:
-            self._pool.setdefault(size, []).append(data)
-            self._pooled += size
+        self._slots.pop(id(data), None)
 
     # -- where things are -----------------------------------------------
 
@@ -453,7 +477,7 @@ class Stage:
         yield
         self._step = ("alloc", spec)
         t0 = time.ticks_us()
-        data = self._buffer(w * h * 3)
+        data = self._drawing = self._buffer(w * h * 3)
         self._since(t0, "alloc")
         yield
         self._step = ("draw", spec)
@@ -461,7 +485,7 @@ class Stage:
         planes = memoryview(data)
         decoder.decode(planes[: w * h * 2], planes[w * h * 2 :])
         self._roomiest("pose_memory", decoder)
-        planes = decoder = None
+        planes = decoder = self._drawing = None
         self.stats["draw_max"] = max(self.stats["draw_max"], time.ticks_diff(time.ticks_us(), t0))
         self._since(t0, "draw")
         self.stats["poses"] += 1
@@ -626,7 +650,7 @@ class Stage:
         self._life = None
         self._quiet = False
         # a pose half drawn is dropped: the poses share one decoder
-        self._maker = self._making = None
+        self._maker = self._making = self._drawing = None
         self.bug.add_flag(lv.obj.FLAG.HIDDEN)
         old_scheme = self.scheme
         schemes = PLACES[place]["schemes"]
@@ -649,8 +673,14 @@ class Stage:
         if old_scheme != new_scheme:
             # nothing drawn in the old colours will be wanted again
             self._forget()
-        if moved or old_scheme != new_scheme:
+        # What the last place and its poses left is collected. A collection
+        # has the poses' block to read, a third of a second on a board, so it
+        # waits until the new picture is up; an older svgio needs it before
+        # every parse.
+        tidy = moved or old_scheme != new_scheme
+        if tidy and not self._bands:
             self._tidy()
+            tidy = False
             yield
         if self._painted != (place, self._ground_key(), view):
             doc = self._shapes()
@@ -666,23 +696,30 @@ class Stage:
             if self._bands:
                 # a band a tick, so the picture arrives down the screen and
                 # no tick waits for all of it. Bands are whole strips of
-                # svgio's, so no row is drawn twice.
+                # svgio's, so no row is drawn twice, and LVGL is told of the
+                # band alone: redrawing the whole screen for each cost more
+                # than the bands saved.
                 strip = max(1, 65536 // (4 * self.w))
                 band = strip * max(1, (BAND_ROWS + strip - 1) // strip)
+                area = lv.area_t()
+                self.ground.get_coords(area)
+                top = area.y1
                 for y0 in range(0, self.h, band):
+                    y1 = min(y0 + band, self.h)
                     t0 = time.ticks_us()
-                    self._decoder.decode(self._ground, stride=self.w, rows=(y0, min(y0 + band, self.h)))
+                    self._decoder.decode(self._ground, stride=self.w, rows=(y0, y1))
                     self._since(t0, "draw")
-                    self.ground.invalidate()
-                    if y0 + band < self.h:
+                    area.y1, area.y2 = top + y0, top + y1 - 1
+                    self.ground.invalidate_area(area)
+                    if y1 < self.h:
                         yield
             else:
                 t0 = time.ticks_us()
                 self._decoder.decode(self._ground, stride=self.w)
                 self._since(t0, "draw")
+                self.ground.invalidate()
             self._roomiest("place_memory", self._decoder)
             self.stats["scenes"] += 1
-            self.ground.invalidate()
             if moved:
                 self.huey.add_flag(lv.obj.FLAG.HIDDEN)
                 self._shown = self.pose = None
@@ -693,6 +730,9 @@ class Stage:
             yield
         else:
             self._set_air()
+        if tidy:
+            self._tidy()
+            yield
         while blends:
             yield from self._blend(rest, blends.pop(0))
         for name in list(huey.COLORS):
@@ -704,18 +744,6 @@ class Stage:
         self.stats["change_ms"] = time.ticks_diff(time.ticks_ms(), self._asked)
         self._forget(new_scheme)
         self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
-        # Buffers for the poses to come, taken now, two a tick: a quarter of a
-        # megabyte can take a third of a second to find once the heap has
-        # filled, and then the chameleon would stop mid-step for it.
-        size = len(self._shown[1])
-        for n in range(POOL_AHEAD):
-            if self._pooled + self._bytes + size > CACHE_BYTES:
-                break
-            t0 = time.ticks_us()
-            self._spare(bytearray(size))
-            self._since(t0, "alloc")
-            if n % 2:
-                yield
         # what it will want next, drawn ahead while it stands there
         wide = view == "wide"
         ahead = []
@@ -750,6 +778,16 @@ class Stage:
                 # it has turned round: the same pose, facing the other way
                 yield from self._ready(rest)
             self._show(rest)
+            if self._ticks - self._collected > REST_TICKS and self._maker is None:
+                # A collection reads every picture held, which takes a third
+                # of a second on a board. Left alone it would come when the
+                # heap filled, as likely as not mid-stride; here it is still.
+                t0 = time.ticks_us()
+                gc.collect()
+                self._collected = self._ticks
+                self._since(t0, "tidy")
+                self._step = ("tidy", None)
+                self.stats["rests"] += 1
             yield pause
             # what it was asked to do comes promptly; its own ideas take their time
             pause = 6 if self.cues else 12 + self.random.below(30)
@@ -982,6 +1020,8 @@ class Stage:
             self.stats[longest] = spent
         if spent > 150000 and not loading:
             self.stats["slow_ticks"] += 1
+            what = self._step[0] if self._step else "life"
+            self.stats["slow_steps"][what] = self.stats["slow_steps"].get(what, 0) + 1
         if not loading and spent == self.stats["tick_show_us"]:
             self.stats["slowest"] = (self._step, self.pose)
         self._step = None
@@ -1039,7 +1079,7 @@ class Stage:
         self._docs = {}
         self._doc_order = []
         self._shown = self._made = self._loose = self._bug_frame = self.pose = None
-        self._pool = {}
-        self._pooled = 0
+        self._slab = self._drawing = None
+        self._slots = {}
         self._bytes = 0
         self._air = []
