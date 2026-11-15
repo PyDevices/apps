@@ -32,6 +32,7 @@ STRIDE = 63.3  # how far a full turn of the walk carries the body, in its own un
 PLACE_MEMORY = 768 * 1024
 POSE_MEMORY = 256 * 1024
 BAND_ROWS = 120  # a place is painted about this many rows a tick, where svgio draws bands
+POOL_AHEAD = 12  # buffers taken for coming poses as a place opens
 
 # Where each kind of pose reaches, in the chameleon's units: x, y, width, height.
 _BODY = (-222, -224, 416, 246)
@@ -206,7 +207,7 @@ class Stage:
         self.random = _Random(seed)
         self.cues = []
         #: What the work cost, for whoever is timing it. Microseconds in
-        #: ``build`` (the shapes and their text, in Python), ``tidy`` (the
+        #: ``build`` (the shapes, in Python), ``tidy`` (the
         #: collection as a place or the colours change), ``alloc`` (finding a
         #: pose's buffer), ``parse`` and ``draw`` (svgio), with the longest
         #: parse and draw of a pose; how many ``scenes`` and ``poses`` were
@@ -703,6 +704,18 @@ class Stage:
         self.stats["change_ms"] = time.ticks_diff(time.ticks_ms(), self._asked)
         self._forget(new_scheme)
         self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
+        # Buffers for the poses to come, taken now, two a tick: a quarter of a
+        # megabyte can take a third of a second to find once the heap has
+        # filled, and then the chameleon would stop mid-step for it.
+        size = len(self._shown[1])
+        for n in range(POOL_AHEAD):
+            if self._pooled + self._bytes + size > CACHE_BYTES:
+                break
+            t0 = time.ticks_us()
+            self._spare(bytearray(size))
+            self._since(t0, "alloc")
+            if n % 2:
+                yield
         # what it will want next, drawn ahead while it stands there
         wide = view == "wide"
         ahead = []

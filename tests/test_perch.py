@@ -20,13 +20,13 @@ INTERPRETER = os.getenv("PERCH_INTERPRETER")
 PLANTS = ("no_paint", "hidden", "same_colours", "no_walk", "deaf", "hoard", "leak")
 
 
-def _run(plant=None):
+def _run(plant=None, script="perch_contract.py", heap="24M"):
     env = dict(os.environ)
     env.pop("PERCH_PLANT", None)
     if plant:
         env["PERCH_PLANT"] = plant
     return subprocess.run(
-        [INTERPRETER, "-X", "heapsize=24M", os.path.join(TESTS, "perch_contract.py")],
+        [INTERPRETER, "-X", "heapsize=" + heap, os.path.join(TESTS, script)],
         env=env,
         capture_output=True,
         text=True,
@@ -56,3 +56,13 @@ class PerchTest(unittest.TestCase):
                 done = _run(plant)
                 self.assertNotEqual(done.returncode, 0, "the contract passed with %s planted" % plant)
                 self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
+
+    def test_drawings_are_the_same_as_records_and_as_text(self):
+        done = _run(script="perch_drawings.py", heap="128M")
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn("ok", done.stdout)
+        if "nothing to compare" in done.stdout:
+            self.skipTest("this interpreter's svgio doesn't read the compact form")
+        done = _run("loose_number", script="perch_drawings.py", heap="128M")
+        self.assertNotEqual(done.returncode, 0, "the drawings matched with numbers written loosely")
+        self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
