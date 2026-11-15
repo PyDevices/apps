@@ -86,7 +86,9 @@ def start(argv=()):
     import display_driver  # noqa: F401  (the board's display and touch, on LVGL)
 
     front = Front(lambda: join(opts["box"], opts["port"]))
-    view = View(front)
+    screen = lv.obj(None)         # its own screen, whatever was on the display before
+    lv.screen_load(screen)
+    view = View(front, screen)
     view.timer = lv.timer_create(lambda t: view.step(), STEP_MS, None)
     print("panel: looking for the box at %s:%d" % (opts["box"], opts["port"]))
     return view
