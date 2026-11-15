@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.1.2.dev8
+
 - CircuitPython: Clock, Weather, Roku and Spotify run there. appkit.net gives sockets, HTTP and the clock with the same calls on every Python: a socketpool on CircuitPython, with adafruit_requests for HTTP, and an SNTP query for the clock. The board now sets its clock from the network on CircuitPython too, and the timezone lookup from the IP address works there.
 - An app.json can list what an app needs from the interpreter (`"needs": ["os.dupterm"]`), and Home leaves out an app this Python lacks. REPL needs `os.dupterm`, so CircuitPython boards don't list it.
 - MP3 says so when the board has no audio out, and Bit World runs silent without `board_peripherals`, where both used to stop with an ImportError.
