@@ -358,17 +358,41 @@ _WOOD_SHADE = 0x9D8D78
 _WOOD_LIGHT = 0xEEE5D3
 
 
+def _shape(x, y, s, d):
+    """Path data written in a drawing's own units, placed at (x, y) and scaled by *s*.
+
+    Capital letters are points measured from (x, y); small ones are steps.
+    """
+    out, moved = [], False
+    for token in d.replace("M", " M ").replace("L", " L ").replace("Q", " Q ").replace("Z", " Z ").replace("l", " l ").replace("q", " q ").split():
+        if token in "MLQZlq":
+            out.append(token)
+            moved = token in "lq"
+            flip = 0
+        else:
+            v = float(token) * s
+            if not moved:
+                v += y if flip else x
+            out.append("%.1f" % v)
+            flip ^= 1
+    return " ".join(out)
+
+
 def _driftwood(x, y, s, night):
     """A sea-bleached bough propped on the sand, its top where the chameleon's perch is."""
     wood, shade, light = _dim(_WOOD, night), _dim(_WOOD_SHADE, night), _dim(_WOOD_LIGHT, night)
+    stone, stone_shade, stone_light = _dim(0x9AA5AE, night), _dim(0x74808C, night), _dim(0xC3CCD3, night)
     top = y + 8 * s
     left, right = x - 262 * s, x + 262 * s
     out = [
         ellipse(x - 30 * s, y + 80 * s, 240 * s, 14 * s, 0x000000, opacity=0.16),
-        # it stands on its root end, and its far end rests on the dune
-        limb(left + 40 * s, top + 8 * s, left - 6 * s, top + 76 * s, 0.16, 40 * s, 56 * s, shade),
-        limb(left + 4 * s, top + 60 * s, left - 44 * s, top + 80 * s, 0.2, 18 * s, 7 * s, shade),
-        limb(left + 30 * s, top + 56 * s, left + 70 * s, top + 82 * s, -0.2, 16 * s, 6 * s, shade),
+        # its near end is propped on two beach stones, and its far end rests on the dune
+        path(_shape(left, top, s, "M-34 86Q-46 52 -14 30L44 18Q92 30 100 86Z"), stone),
+        path(_shape(left, top, s, "M-34 86Q-46 52 -14 30L6 26Q-8 58 14 86Z"), stone_shade),
+        path(_shape(left, top, s, "M44 18Q92 30 100 86L84 86Q78 44 36 30Z"), stone_light),
+        path(_shape(left, top, s, "M10 58l22 -8M52 66l18 6"), None, stone_shade, 2.2 * s),
+        path(_shape(left, top, s, "M96 88Q98 62 122 58Q148 60 152 88Z"), stone),
+        path(_shape(left, top, s, "M96 88Q98 62 122 58Q112 72 116 88Z"), stone_shade),
         # the bough
         limb(left, top + 8 * s, right + 40 * s, top - 2 * s, 0.014, 40 * s, 20 * s, wood),
         path("M%.1f %.1fQ%.1f %.1f %.1f %.1f" % (left + 16 * s, top + 21 * s, x, top + 22 * s, right + 10 * s, top + 7 * s), None, shade, 6 * s),

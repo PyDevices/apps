@@ -438,12 +438,14 @@ def draw_hang(doc, look=(-0.2, 0.2), look_far=None, mood="happy", colors="leaf",
     out.append(limb(hip[0], hip[1], -18, 6, 0.24, 32, 18, skin))
     if perch:
         out.append(_perch(perch))
-    # three turns of tail round the perch, and its tip
-    for i in range(3):
-        cx = 96 + i * 21
-        out.append(limb(cx - 5, -9, cx + 6, 20, 0, 20 - i * 3, 18 - i * 3, skin))
-        out.append(limb(cx - 6, -8, cx - 1, 6, 0, 4, 3, light))
-    out.append(path("M162 22q16 6 20 -8q2 -12 -9 -12q-8 1 -7 8", None, skin, 9))
+    # four turns of tail wound close round the perch, thinning to a curled tip
+    for i in range(4):
+        cx = 94 + i * 15
+        w = 21 - i * 2.5
+        out.append(limb(cx - 7, -12, cx + 7, 21, 0, w + 3, w + 2, shade))
+        out.append(limb(cx - 8, -12, cx + 5, 21, 0, w, w - 1, skin))
+        out.append(limb(cx - 9, -9, cx - 5, 3, 0, 3.5, 2.5, light))
+    out.append(path("M150 21q10 9 17 0q5 -9 -4 -12q-7 0 -6 6", None, skin, 7))
     out.append(_foot(-52, 3, shade, deep, 180))
     out.append(_foot(-18, 2, skin, deep, 180))
     # the near arm, thrown wide
