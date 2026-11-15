@@ -2,7 +2,8 @@
 #
 # SPDX-License-Identifier: MIT
 """The Gamepad app: the report the pad sends, the tester's reading, and both
-on the screen.
+on the screen, at 800 x 480 and at 480 x 320, with no text cut off or drawn
+over.
 
     python -m unittest tests.test_gamepad
 
@@ -26,7 +27,8 @@ ROOT = os.path.dirname(TESTS)
 
 def _load(name):
     # The app's two logic modules on their own: the package's __init__ needs LVGL.
-    spec = importlib.util.spec_from_file_location("gamepad_" + name, os.path.join(ROOT, "apps", "gamepad", name + ".py"))
+    path = os.path.join(ROOT, "apps", "gamepad", name + ".py")
+    spec = importlib.util.spec_from_file_location("gamepad_" + name, path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -245,14 +247,17 @@ class ScreenTest(unittest.TestCase):
             if required:
                 raise
             self.skipTest("LVGL for CPython isn't installed")
-        env = dict(os.environ, PYDEVICES_DIR=_pydevices())
-        r = subprocess.run(
-            [sys.executable, os.path.join(TESTS, "gamepad_contract.py")],
-            capture_output=True, text=True, timeout=120, env=env,
-        )
-        if r.returncode == 2 and not required:
-            self.skipTest(r.stdout.strip())
-        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        # The bench's 800 x 480 panels, and the smallest screen the app is for.
+        for screen in ("800x480", "480x320"):
+            with self.subTest(screen=screen):
+                env = dict(os.environ, PYDEVICES_DIR=_pydevices(), GAMEPAD_SCREEN=screen)
+                r = subprocess.run(
+                    [sys.executable, os.path.join(TESTS, "gamepad_contract.py")],
+                    capture_output=True, text=True, timeout=120, env=env,
+                )
+                if r.returncode == 2 and not required:
+                    self.skipTest(r.stdout.strip())
+                self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
 
 if __name__ == "__main__":

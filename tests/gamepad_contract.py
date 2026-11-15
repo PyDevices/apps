@@ -11,8 +11,11 @@ on the screen of one goes through both modules and lights the other.
 
     PYDEVICES_DIR=../pydevices python tests/gamepad_contract.py
 
-``GAMEPAD_SHOTS=<folder>`` also saves each screen as a raw RGB565 frame
-(a ``w h`` line, then the pixels). Exits 1 if a check fails.
+Each screen is drawn under the board shell's own header, on a display of
+``GAMEPAD_SCREEN`` (``800x480`` unless set), and checked for text that is
+cut off or drawn over. ``GAMEPAD_SHOTS=<folder>`` also saves each screen as
+a raw RGB565 frame (a ``w h`` line, then the pixels). Exits 1 if a check
+fails.
 """
 
 import os
@@ -27,7 +30,7 @@ _USB = os.path.join(_PYDEVICES, "packages", "usb")
 sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE, os.path.join(_USB, "usb-hid")]
 sys.path.append(os.path.join(_PYDEVICES, "lib"))
 
-W, H = 800, 416
+SW, SH = (int(n) for n in (os.getenv("GAMEPAD_SCREEN") or "800x480").split("x"))
 failures = []
 checks = [0]
 
@@ -182,12 +185,17 @@ import lvgl as lv  # noqa: E402
 
 import _headless  # noqa: E402
 
-_headless.display(W, H)
+_headless.display(SW, SH)
 _headless.pointer()
 
 from touchkit import ui  # noqa: E402
+from touchkit.shell import TouchShell  # noqa: E402
 
 ui.apply_theme()
+# The app's area: the screen below the shell's header.
+W, H = SW, SH - ui.HEADER
+_shell = types.SimpleNamespace(launcher=types.SimpleNamespace(home="home", info={"gamepad": {"title": "Gamepad"}}))
+TouchShell.make_home_button(_shell)
 
 import apps.gamepad as gamepad  # noqa: E402
 from apps.gamepad import pad as padmod  # noqa: E402
@@ -196,15 +204,22 @@ from apps.gamepad import pad as padmod  # noqa: E402
 class Scope:
     """What the launcher's shell hands an app: a root, its size, timers."""
 
+    name = "gamepad"
+
     def __init__(self):
-        self.root = lv.obj(lv.screen_active())
-        ui.plain(self.root)
-        self.root.set_size(W, H)
+        # The shell's own header above, as on a board.
+        self.scr = ui.plain(lv.obj(lv.screen_active()))
+        self.scr.set_size(SW, SH)
+        self.scr.update_layout()
+        self.root = TouchShell.make_root(_shell, self)
         self.size = (W, H)
         self.rect = (0, 0, W, H)
         self.timers = []
         self.once = []
         self.closers = []
+
+    def screen(self):
+        return self.scr
 
     def every(self, ms, cb):
         self.timers.append(cb)
@@ -224,7 +239,7 @@ class Scope:
     def close(self):
         for fn in self.closers:
             fn()
-        self.root.delete()
+        self.scr.delete()
 
 
 def centre(obj):
@@ -244,11 +259,77 @@ def let_go():
     _headless.touch(0, 0, False, 40)
 
 
+def _area(obj):
+    a = lv.area_t()
+    obj.get_coords(a)
+    return a.x1, a.y1, a.x2, a.y2
+
+
+def _meets(a, b):
+    return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
+
+
+def _within(a, b):
+    return b[0] <= a[0] and b[1] <= a[1] and a[2] <= b[2] and a[3] <= b[3]
+
+
+def _shown(obj, chain, out):
+    for i in range(obj.get_child_count()):
+        child = obj.get_child(i)
+        if not child.has_flag(lv.obj.FLAG.HIDDEN):
+            out.append((child, chain))
+            _shown(child, chain + (child,), out)
+    return out
+
+
+def _text_fits(lbl):
+    """Whether all of a label's text fits its own box: no dots, nothing cut."""
+    if lbl.get_long_mode() == lv.label.LONG_MODE.DOTS and lbl.get_text().endswith("..."):
+        return False  # LVGL has already put the dots in for what didn't fit
+    size = lv.point_t()
+    wrap = lbl.get_long_mode() == lv.label.LONG_MODE.WRAP
+    w = lbl.get_content_width()
+    lv.text_get_size(size, lbl.get_text(), lbl.get_style_text_font(0), lbl.get_style_text_letter_space(0),
+                     lbl.get_style_text_line_space(0), w if wrap else 32767, lv.TEXT_FLAG.NONE)
+    return size.x <= w and size.y <= lbl.get_content_height()
+
+
+def tidy(where):
+    """No text cut off or drawn over, and no control on top of another."""
+    lv.screen_active().update_layout()
+    screen = (0, 0, SW - 1, SH - 1)
+    shown = _shown(lv.screen_active(), (), [])
+    drawn = [(o, c) for o, c in shown if o.check_type(lv.label_class) or o.get_style_bg_opa(0) > 0
+             or o.get_style_border_width(0) > 0]
+    for lbl, chain in shown:
+        if not lbl.check_type(lv.label_class) or not lbl.get_text():
+            continue
+        text = lbl.get_text()
+        a = _area(lbl)
+        check(_text_fits(lbl), "%s: %r fits its label" % (where, text))
+        check(_within(a, screen), "%s: %r is on the screen: %r" % (where, text, a))
+        for up in chain:
+            check(_within(a, _area(up)), "%s: %r is inside what holds it: %r in %r" % (where, text, a, _area(up)))
+        for other, other_chain in drawn:
+            if other is lbl or other in chain or (other.check_type(lv.label_class) and not other.get_text()):
+                continue
+            if _meets(a, _area(other)):
+                what = other.get_text() if other.check_type(lv.label_class) else "a %s" % type(other).__name__
+                check(False, "%s: %r and %r are drawn over each other" % (where, text, what))
+    # The app's own controls side by side, none on another.
+    tops = [o for o, c in drawn if len(c) in (2, 3) and not o.check_type(lv.label_class)]
+    for i, o in enumerate(tops):
+        for p in tops[i + 1:]:
+            if o.get_parent() == p.get_parent() and _meets(_area(o), _area(p)):
+                check(False, "%s: two controls overlap at %r and %r" % (where, _area(o), _area(p)))
+
+
 def shot(name):
     folder = os.getenv("GAMEPAD_SHOTS")
     _headless.refresh()
+    tidy(name)
     if folder:
-        _headless.save_raw(os.path.join(folder, name + ".raw"), W, H)
+        _headless.save_raw(os.path.join(folder, "%s_%dx%d.raw" % (name, SW, SH)), SW, SH)
 
 
 def last_report():
@@ -291,6 +372,7 @@ scope.run()
 check(_UsbDevice.inits[-1:] == [1], "choosing the gamepad starts the USB device with the HID interface")
 check(usb_hid.devices == (usb_hid.Device.GAMEPAD,), "the USB device serves the gamepad")
 check(not _Interface.wire, "nothing goes on the wire before a host has the board")
+shot("gamepad_no_host")
 
 _Interface.open = True
 scope.run()
@@ -308,7 +390,8 @@ dpad, stick = st["dpad"], st["stick"]
 
 x, y, r = centre(dpad)
 tap(x, y - r * 4 // 5, hold=True)
-check(last_report() == bytes([4, 0, 0, 1, 0, 0, 0, 0]), "the top of the d-pad sends the hat north: %r" % (last_report(),))
+check(last_report() == bytes([4, 0, 0, 1, 0, 0, 0, 0]),
+      "the top of the d-pad sends the hat north: %r" % (last_report(),))
 shot("gamepad_up")
 let_go()
 check(last_report() == bytes([4, 0, 0, 0, 0, 0, 0, 0]), "letting go of the d-pad centres the hat")
@@ -383,6 +466,14 @@ check(w.buttons == {1, 5, 16}, "buttons 1, 5 and 16 held: %r" % (w.buttons,))
 lit = [n for n, lamp in view["lamps"].items() if same_color(lamp.get_style_bg_color(0), ui.ACCENT)]
 check(sorted(lit) == [1, 5, 16], "exactly their lamps light: %r" % (lit,))
 check(w.hats.get(0) == 2, "the hat reads east")
+shown = [m.get_text() for m in view["hat"] if same_color(m.get_style_text_color(0), ui.ACCENT)]
+check(shown == ["E"], "the hat's E lights alone: %r" % (shown,))
+pad.reports = [bytes([4, 0b00010001, 0b10000000, 6, 0, 0x81, 0, 0])]
+scope.run()
+shown = [m.get_text() for m in view["hat"] if same_color(m.get_style_text_color(0), ui.ACCENT)]
+check(shown in (["SW"], ["S", "W"]), "south-west lights SW, or S and W where only four fit: %r" % (shown,))
+pad.reports = [bytes([4, 0b00010001, 0b10000000, 3, 0, 0x81, 0, 0])]
+scope.run()
 shot("tester")
 
 pad.gone = True
@@ -398,6 +489,32 @@ _module("_usbhost")
 scope = Scope()
 gamepad.main(scope)
 check(find_label(scope.root, "Be a gamepad") is None, "a board with only a device port goes straight to the gamepad")
+scope.close()
+
+# -- What a board lacks ------------------------------------------------------------
+
+sys.modules["usb_hid"] = None
+scope = Scope()
+check(gamepad.be_gamepad(scope) is None, "without usb-hid the gamepad says what's missing")
+_headless.advance(40)
+shot("missing_usb_hid")
+scope.close()
+
+del sys.modules["usb.host.hid_generic"]
+del sys.modules["usb.host"].hid_generic
+sys.modules["usb.host.hid_generic"] = None
+scope = Scope()
+check(gamepad.test_gamepad(scope) is None, "without hid_generic the tester says what's missing")
+_headless.advance(40)
+shot("missing_hid_generic")
+scope.close()
+
+del sys.modules["machine"].USBDevice
+scope = Scope()
+gamepad.main(scope)
+_headless.advance(40)
+check(find_label(scope.root, "no USB port for this") is not None, "a board with neither port says so")
+shot("missing_ports")
 scope.close()
 
 print("%d checks, %d failed" % (checks[0], len(failures)))

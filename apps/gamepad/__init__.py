@@ -17,7 +17,7 @@ layout, apart from the ones that need a start-up message first (a DualShock
 
 A board that can do both asks which. The gamepad needs ``usb-hid`` and the
 tester ``usb-host-hid``, which ``omip.install("usb-host-hid")`` puts in
-``/lib``.
+``/lib``. Both fit a screen of 480 x 320 or larger.
 """
 
 import lvgl as lv
@@ -62,6 +62,34 @@ def sides():
     return out
 
 
+def _margin(W):
+    return max(8, W // 60)
+
+
+def _status_row(scope):
+    """The status line on a row of its own across the top of the app, so
+    nothing is drawn over it. Returns the label and the row's height."""
+    W = scope.size[0]
+    m = _margin(W)
+    lbl = ui.label(scope.root, "", ui.small, ui.MUTED)
+    lbl.set_long_mode(lv.label.LONG_MODE.DOTS)  # a long one ends in dots, inside the row
+    lbl.set_size(W - 2 * m, ui.small.line_height)
+    lbl.set_pos(m, 4)
+    return lbl, ui.small.line_height + 8
+
+
+def _missing(scope, short, text):
+    """What this board lacks: *short* on the status line, *text* in the middle."""
+    status, row = _status_row(scope)
+    status.set_text(short)
+    W, H = scope.size
+    msg = ui.label(scope.root, text, ui.font, ui.WHITE)
+    msg.set_width(W - 48)
+    msg.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+    msg.align(lv.ALIGN.CENTER, 0, row // 2)
+    return msg
+
+
 def _zone(parent, x, y, size, color=None):
     """A round, touchable area that keeps the press while the finger slides off it."""
     o = ui.plain(lv.obj(parent))
@@ -97,8 +125,8 @@ def _on_press(obj, cb):
         obj.add_event_cb(ev, code, None)
 
 
-def _pad_button(parent, text, x, y, w, h, color, radius, number, st):
-    b, lbl = ui.button(parent, text, lambda: None, w=w, h=h, font=ui.big, color=lv.color_hex(color))
+def _pad_button(parent, text, x, y, w, h, color, radius, number, st, font=None):
+    b, lbl = ui.button(parent, text, lambda: None, w=w, h=h, font=font or ui.big, color=lv.color_hex(color))
     b.set_pos(x, y)
     b.set_style_radius(radius, 0)
     b.remove_flag(lv.obj.FLAG.GESTURE_BUBBLE)
@@ -123,12 +151,13 @@ def be_gamepad(scope):
     """The screen as a gamepad on the board's USB device port."""
     root = scope.root
     W, H = scope.size
-    status = ui.status(scope)
     try:
         import usb_hid
     except ImportError as e:
-        ui.missing(scope, "missing: %s" % e, 'The gamepad needs usb-hid: omip.install("usb-hid").')
+        print("gamepad:", e)
+        _missing(scope, "missing: usb-hid", 'The gamepad needs usb-hid:\nomip.install("usb-hid")')
         return None
+    status, row = _status_row(scope)
     usb_hid.enable((usb_hid.Device.GAMEPAD,))
     scope.on_close(usb_hid.disable)  # the port is the board's serial port alone again
 
@@ -142,27 +171,29 @@ def be_gamepad(scope):
 
     st["send"] = send
 
-    # The shoulders above, then the d-pad, the stick and the face buttons.
-    m = max(8, W // 60)
-    top = max(44, H // 7)
-    s = min((W - 4 * m) // 3, H - top - 3 * m)
-    y0 = top + 2 * m + (H - top - 3 * m - s) // 2
+    # Under the status row the shoulders, then the d-pad, the stick and the
+    # face buttons.
+    m = _margin(W)
+    top = max(44, (H - row) // 7)
+    s = min((W - 4 * m) // 3, H - row - top - 2 * m)
+    y0 = row + top + m + (H - row - top - m - s) // 2
     side_w = max(80, W // 6)
-    _pad_button(root, "L", m, m, side_w, top, 0x2A3550, 12, L, st)
-    _pad_button(root, "R", W - m - side_w, m, side_w, top, 0x2A3550, 12, R, st)
-    mid_w = max(70, W // 8)
-    _pad_button(root, "Select", W // 2 - mid_w - m // 2, m, mid_w, top, 0x1A2030, top // 2, SELECT, st)
-    _pad_button(root, "Start", W // 2 + m // 2, m, mid_w, top, 0x1A2030, top // 2, START, st)
+    _pad_button(root, "L", m, row, side_w, top, 0x2A3550, 12, L, st)
+    _pad_button(root, "R", W - m - side_w, row, side_w, top, 0x2A3550, 12, R, st)
+    mid_w = max(80, W // 8)
+    _pad_button(root, "Select", W // 2 - mid_w - m // 2, row, mid_w, top, 0x1A2030, top // 2, SELECT, st, ui.font)
+    _pad_button(root, "Start", W // 2 + m // 2, row, mid_w, top, 0x1A2030, top // 2, START, st, ui.font)
 
     dpad = _zone(root, m, y0, s)
     arrows = []
+    arrow_font = ui.huge if s >= 200 else ui.big  # four huge arrows meet in a small d-pad
     for sym, align, dx, dy in (
         (lv.SYMBOL.UP, lv.ALIGN.TOP_MID, 0, s // 10),
         (lv.SYMBOL.RIGHT, lv.ALIGN.RIGHT_MID, -s // 10, 0),
         (lv.SYMBOL.DOWN, lv.ALIGN.BOTTOM_MID, 0, -s // 10),
         (lv.SYMBOL.LEFT, lv.ALIGN.LEFT_MID, s // 10, 0),
     ):
-        a = ui.label(dpad, sym, ui.huge, ui.MUTED)
+        a = ui.label(dpad, sym, arrow_font, ui.MUTED)
         a.align(align, dx, dy)
         arrows.append(a)
 
@@ -198,13 +229,13 @@ def be_gamepad(scope):
 
     fx = W - m - s
     cell = s // 3
-    for number, text, color, (col, row) in FACE:
-        _pad_button(root, text, fx + col * cell + 4, y0 + row * cell + 4, cell - 8, cell - 8, color,
+    for number, text, color, (col, line) in FACE:
+        _pad_button(root, text, fx + col * cell + 4, y0 + line * cell + 4, cell - 8, cell - 8, color,
                     lv.RADIUS_CIRCLE, number, st)
 
     def show():
         if sender.error is not None:
-            text = "no host yet: plug the USB port into a computer or a host board"
+            text = "no host yet: plug the USB port into a computer"
         else:
             held = [str(n) for n in range(1, 17) if pad.buttons >> n - 1 & 1]
             text = "buttons %s   hat %s   stick %d, %d   %d sent" % (
@@ -222,12 +253,20 @@ def be_gamepad(scope):
     return st
 
 
+#: The height of the caption over each square.
+CAPTION = ui.tiny.line_height + 2
+
+
+def _caption(parent, x, y, text):
+    """*text* over the square at *x*, *y*: above it, where the dot never goes."""
+    ui.label(parent, text, ui.tiny, ui.MUTED).set_pos(x + 2, y - CAPTION)
+
+
 def _square(parent, x, y, size, title):
     """A stick's square, with a dot that shows where it is. Returns the dot."""
+    _caption(parent, x, y, title)
     box = ui.box(parent, x, y, size, size)
     box.set_style_pad_all(0, 0)
-    cap = ui.label(box, title, ui.tiny, ui.MUTED)
-    cap.align(lv.ALIGN.TOP_LEFT, 6, 4)
     for w, h in ((size - 16, 1), (1, size - 16)):
         line = ui.plain(lv.obj(box))
         line.set_size(w, h)
@@ -256,13 +295,14 @@ def test_gamepad(scope):
     """The gamepad on the board's USB host port, live."""
     root = scope.root
     W, H = scope.size
-    status = ui.status(scope)
     try:
         import usb.core
         from usb.host import hid_generic
     except ImportError as e:
-        ui.missing(scope, "missing: %s" % e, 'The tester needs usb-host-hid: omip.install("usb-host-hid").')
+        print("gamepad:", e)
+        _missing(scope, "missing: usb-host-hid", 'The tester needs usb-host-hid:\nomip.install("usb-host-hid")')
         return None
+    status, row = _status_row(scope)
     # A gamepad is a full-speed device, and full speed reaches one behind a
     # hub too. A host that already ran at high speed since power-up can't
     # change on a board whose hub can't be power-cycled, so it stays there.
@@ -281,7 +321,10 @@ def test_gamepad(scope):
 
     scope.on_close(close)
 
+    # Everything else goes below the status row.
+    H -= row
     body = ui.plain(lv.obj(root))
+    body.set_pos(0, row)
     body.set_size(W, H)
     hint = ui.label(body, "Plug a gamepad into the USB host port.", ui.font, ui.MUTED)
     hint.center()
@@ -290,7 +333,7 @@ def test_gamepad(scope):
         """Widgets for this pad's buttons, sticks, hats and axes."""
         body.clean()
         buttons, axes, hats = layout
-        m = max(8, W // 60)
+        m = _margin(W)
         view = {"lamps": {}, "dots": [], "bars": {}, "values": {}, "hat": None}
         pairs = _pairs(axes)
         # The buttons along the bottom, in rows of up to sixteen.
@@ -298,38 +341,45 @@ def test_gamepad(scope):
         bw = min(56, (W - m) // cols - 6)
         rows = (len(buttons) + cols - 1) // cols
         lamps_y = H - m - rows * (bw + 6) + 6
+        lamp_font = ui.small if bw >= 32 else ui.tiny
         for i, n in enumerate(buttons):
             lamp = ui.box(body, m + (i % cols) * (bw + 6), lamps_y + (i // cols) * (bw + 6), bw, bw, ui.KEY)
             lamp.set_style_pad_all(0, 0)
-            ui.label(lamp, str(n), ui.small, ui.WHITE).center()
+            ui.label(lamp, str(n), lamp_font, ui.WHITE).center()
             view["lamps"][n] = lamp
         # Above them the sticks and the hat as squares, then a bar for each axis.
-        top = lamps_y - 2 * m
+        top = lamps_y - m
+        line = ui.small.line_height + 6  # an axis's row at its thinnest
         count = len(pairs) + (1 if hats else 0)
-        sq = max(0, min(top - len(axes) * 28 - m, (W - m) // count - m)) if count else 0
+        sq = max(0, min(top - len(axes) * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
         x = (W - count * (sq + m) + m) // 2
+        sy = m + CAPTION
         for a, b in pairs:
-            dot, reach = _square(body, x, m, sq, "%s / %s" % (AXIS_NAMES[a], AXIS_NAMES[b]))
+            dot, reach = _square(body, x, sy, sq, "%s / %s" % (AXIS_NAMES[a], AXIS_NAMES[b]))
             view["dots"].append((dot, reach, a, b))
             x += sq + m
         if hats:
-            hb = ui.box(body, x, m, sq, sq)
+            _caption(body, x, sy, "Hat")
+            hb = ui.box(body, x, sy, sq, sq)
             hb.set_style_pad_all(0, 0)
-            ui.label(hb, "Hat", ui.tiny, ui.MUTED).align(lv.ALIGN.TOP_LEFT, 6, 4)
+            # All eight points where they fit; in a small square, the four
+            # that light in pairs for a diagonal, as the d-pad's arrows do.
+            points = range(8) if sq >= 120 else range(0, 8, 2)
+            mark_font = ui.small if sq >= 150 else ui.tiny
             marks = []
-            for i, name in enumerate(COMPASS):
-                lbl = ui.label(hb, name, ui.small, ui.MUTED)
+            for i in points:
+                lbl = ui.label(hb, COMPASS[i], mark_font, ui.MUTED)
                 dx, dy = ((0, -1), (1, -1), (1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1))[i]
-                lbl.align(lv.ALIGN.CENTER, dx * sq * 3 // 10, 6 + dy * sq * 3 // 10)
+                lbl.align(lv.ALIGN.CENTER, dx * sq * 3 // 10, dy * sq * 3 // 10)
                 marks.append(lbl)
             view["hat"] = marks
             x += sq + m
         x = m
-        y = m + sq + (m if sq else 0)
-        bar_h = max(16, min(36, (top - y + m) // max(1, len(axes))))
+        y = sy + sq + m if sq else m
+        bar_h = max(line, min(36, (top - y) // max(1, len(axes))))
         for code in axes:
             name = ui.label(body, AXIS_NAMES.get(code, "%06x" % code), ui.small, ui.MUTED)
-            name.set_pos(x, y + (bar_h - 22) // 2)
+            name.set_pos(x, y + (bar_h - ui.small.line_height) // 2)
             bar = lv.bar(body)
             bar.set_mode(lv.bar.MODE.SYMMETRICAL)
             bar.set_range(-100, 100)
@@ -337,7 +387,7 @@ def test_gamepad(scope):
             bar.set_pos(x + 70, y + bar_h // 4)
             bar.set_size(W - x - m - 70 - 52, bar_h // 2)
             value = ui.label(body, "", ui.small, ui.WHITE)
-            value.set_pos(W - m - 46, y + (bar_h - 22) // 2)
+            value.set_pos(W - m - 46, y + (bar_h - ui.small.line_height) // 2)
             view["bars"][code] = bar
             view["values"][code] = value
             y += bar_h
@@ -360,8 +410,13 @@ def test_gamepad(scope):
             view["values"][code].set_text("" if raw is None else str(raw))
         if view["hat"] is not None:
             d = watch.hats.get(0, -1)
-            for i, lbl in enumerate(view["hat"]):
-                lbl.set_style_text_color(ui.ACCENT if i == d else ui.MUTED, 0)
+            marks = view["hat"]
+            if len(marks) == 8:
+                lit = [i == d for i in range(8)]
+            else:
+                lit = LIT[d] if d >= 0 else (0, 0, 0, 0)
+            for lbl, on in zip(marks, lit):
+                lbl.set_style_text_color(ui.ACCENT if on else ui.MUTED, 0)
 
     def tick(_t=None):
         changed = watch.poll(ticks_ms(), ticks_diff)
@@ -389,8 +444,8 @@ def test_gamepad(scope):
 def main(scope):
     can = sides()
     if not can:
-        ui.missing(scope, "no USB port for this", "Gamepad needs a board with a USB device port (to be a gamepad) "
-                   "or a USB host port (to test one), such as an ESP32-S3 or ESP32-P4.")
+        _missing(scope, "no USB port for this", "Gamepad needs a board with a USB device port (to be a gamepad) "
+                 "or a USB host port (to test one), such as an ESP32-S3 or ESP32-P4.")
         return
     if len(can) == 1:
         (be_gamepad if can[0] == "device" else test_gamepad)(scope)
@@ -398,8 +453,10 @@ def main(scope):
     # Both: ask which, once.
     root = scope.root
     W, H = scope.size
-    ui.status(scope).set_text("choose one")
-    bw, bh = min(340, (W - 64) // 2), min(200, H - 80)
+    status, row = _status_row(scope)
+    status.set_text("choose one")
+    bw, bh = min(340, (W - 64) // 2), min(200, H - row - 48)
+    title_font = ui.big if bw >= 280 else ui.font
 
     def pick(fn):
         # Not from inside the button's own click: cleaning the root deletes it.
@@ -416,8 +473,8 @@ def main(scope):
         ("Be a gamepad", "for a computer or a host board on the USB device port", be_gamepad),
         ("Test a gamepad", "plugged into this board's USB host port", test_gamepad),
     )):
-        b, lbl = ui.button(root, title, lambda fn=fn: pick(fn), w=bw, h=bh, font=ui.big, color=ui.PANEL)
-        b.align(lv.ALIGN.CENTER, (bw // 2 + 16) * (2 * i - 1), 0)
+        b, lbl = ui.button(root, title, lambda fn=fn: pick(fn), w=bw, h=bh, font=title_font, color=ui.PANEL)
+        b.align(lv.ALIGN.CENTER, (bw // 2 + 16) * (2 * i - 1), row // 2)
         lbl.align(lv.ALIGN.TOP_MID, 0, 20)
         sub = ui.label(b, text, ui.small, ui.MUTED)
         sub.set_width(bw - 32)
