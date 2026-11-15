@@ -4,7 +4,7 @@
 
 Synth Station is the PyDevices app that plays OmniPython's instruments from
 a MIDI keyboard: audioinstruments' synthesizers, organs, pianos and drum
-machines, one at a time, with the instrument panel to turn its knobs, on
+machines, one at a time or one on each MIDI channel, with the instrument panel to turn its knobs, on
 MicroPython-compatible boards and on CPython.
 
 ## On a board
@@ -53,6 +53,29 @@ sends the speaker, and a light flashes for every note that comes in over MIDI.
 The light with no bars is a note the instrument doesn't sound; neither means
 nothing arrived. The volume controller and the codec's volume don't move the
 bars, because they come after the point the bars read.
+
+## An instrument for each channel
+
+![Synth Station showing MIDI channel 2, which has a Tonewheel3 of its own: the small drop-down under the instrument's reads Ch 2 with a star](docs/images/synthstation-channels.png)
+
+MIDI channel 1 always has an instrument, and to start with every channel
+plays it. To give another channel its own, pick the channel in the small
+drop-down under the instrument's, then pick an instrument. Notes, pitch bend,
+knobs and program changes sent on that channel go to it from then on, and the
+panel shows it. A star marks each channel with an instrument of its own.
+`Same as Ch 1`, the first entry in such a channel's list of instruments, takes
+it away again.
+
+The instruments all play at once, each as loud as it is alone, and they come
+back when the app opens again. Give channel 10 a drum machine and a keyboard's
+pads play that kit while its keys play a synth on channel 1. Showing another
+channel doesn't interrupt the sound. Giving a channel an instrument stops it
+for a moment, as changing the instrument does.
+
+The transport buttons below work on the channel the panel shows. On a board,
+every instrument adds its own cost to the load readout.
+
+## Change the instrument
 
 The last instrument you played opens by itself. To change it, use the
 drop-down in the panel's title bar, or a DMK-25 PRO's transport buttons:

@@ -10,6 +10,10 @@ Fast Forward step through the patches. While the panel is up, MIDI from every
 keyboard the program can reach plays it, and the line under the name shows
 what rendering it costs. Pads on MIDI channel 10 play a drum kit one sound per
 pad, and everything else plays its General MIDI notes.
+
+MIDI channel 1 always has an instrument. The small drop-down beside the
+instrument's picks another channel to show, and an instrument chosen while it
+shows becomes that channel's own. A channel without one plays channel 1's.
 """
 
 import lvgl as lv
@@ -19,6 +23,7 @@ from . import pads as _pads
 from .catalog import DEFAULT, RENAMED, catalog, find
 from .meters import TICK_MS as METER_MS
 from .meters import Meters
+from .parts import CHANNELS, Mix, Part
 
 #: How often the keyboards are read, and the instrument told to take in
 #: what was played, in milliseconds.
@@ -65,6 +70,15 @@ DIM = 0x8A8D93
 ACCENT = 0xD8402F
 MENU_W = 260
 MENU_H = 36
+#: The channel drop-down under the instrument's, on an 800 wide panel.
+CHANNEL_W = 86
+CHANNEL_H = 28
+CHANNEL_INSET = 28
+#: On a compact panel it takes this much of the instrument menu's width, and
+#: shows the channel's number alone.
+CHANNEL_COMPACT_W = 40
+#: The instrument menu's first entry on any channel but the first.
+FOLLOW = "Same as Ch 1"
 #: The share of the panel's width up to the patch card's right edge, and where
 #: the card starts on an 800 wide panel: controlpanel's own layout, kept in step
 #: by the check.
@@ -74,8 +88,9 @@ PATCH_INSET = 24
 METER_GAP = 6
 
 #: The running app, for a console or a bench script: ``current.adapter``
-#: is the instrument's adapter, ``current.parser.feed()`` plays MIDI bytes.
-#: None while the app isn't open.
+#: is the adapter of the instrument on the panel, ``current.parts`` has every
+#: channel's, and ``current.parser.feed()`` plays MIDI bytes. None while the
+#: app isn't open.
 current = None
 
 
@@ -115,6 +130,14 @@ class Station:
         self.adapter = None
         self.panel = None
         self.name = None
+        #: The instruments, by MIDI channel counted from 0, and the channel
+        #: the panel shows.
+        self.parts = {}
+        self.channel = 0
+        self._playing = ()
+        self._mix = None
+        self._restored = False
+        self._short = False
         self.loading = False
         self._filling = False
         self._fills = 0
@@ -128,9 +151,7 @@ class Station:
         self._refused = None
         self._timers = []
         self._meters = None
-        self._knobs = {}
         self._volume = None
-        self._program = None
         self._held = {}
         self._patch_step = 0
         self._instrument_step = 0
@@ -138,9 +159,6 @@ class Station:
         self._since_log = 0
         self._names = None
         self._panel_midi = False
-        self._pad_notes = None
-        self._pad_patch = None
-        self._struck = {}
         try:
             import audioinstruments as ai
 
@@ -206,20 +224,62 @@ class Station:
         menu.get_list().set_style_text_font(lv.font_montserrat_16, 0)
         menu.add_event_cb(self._menu_changed, lv.EVENT.VALUE_CHANGED, None)
         self.menu = menu
+        font = getattr(lv, "font_montserrat_14", lv.font_montserrat_16)
+        channels = lv.dropdown(self.root)
+        channels.set_style_text_font(font, 0)
+        channels.set_style_text_color(lv.color_hex(TEXT), 0)
+        channels.set_style_bg_color(lv.color_hex(PANEL), 0)
+        channels.set_style_border_width(0, 0)
+        channels.set_style_pad_ver(4, 0)
+        channels.get_list().set_style_text_font(font, 0)
+        channels.add_event_cb(self._channel_changed, lv.EVENT.VALUE_CHANGED, None)
+        self.channels = channels
+        self._fill_menus()
         self._place_menu()
+
+    def _fill_menus(self):
+        """What both drop-downs list and show, for the channel on the panel."""
+        channel = self.channel
+        names = [display for _, display in self.instruments]
+        if channel:
+            names.insert(0, FOLLOW)
+        self.menu.set_options("\n".join(names))
+        own = self.parts.get(channel)
+        if own is not None:
+            self._show_in_menu(own.name)
+        elif not channel:
+            self._show_in_menu(self.prefs["name"])
+        self._fill_channels()
+
+    def _fill_channels(self):
+        """The channels, with a star on each that has an instrument of its own."""
+        text = "%d%s" if self._short else "Ch %d%s"
+        star = "*" if self._short else " *"
+        self.channels.set_options("\n".join(
+            text % (c + 1, star if c and c in self.parts else "") for c in range(CHANNELS)))
+        self.channels.set_selected(self.channel)
 
     def _place_menu(self):
         """On the panel's name plate, or under the splash's title."""
         menu = self.menu
+        channels = self.channels
         panel = self.panel
+        short = self._short
         if panel is None:
             menu.set_size(MENU_W, MENU_H)
             menu.set_pos(16, 76)
+            channels.set_size(CHANNEL_W, MENU_H)
+            channels.set_pos(16 + MENU_W + 8, 76)
         else:
             plate = panel.title
             if plate.has_flag(lv.obj.FLAG.HIDDEN):  # a compact panel has no plate
-                menu.set_size(MENU_W // 2, MENU_H)
+                # The two share the room the menu had: the header has no more.
+                short = True
+                width = MENU_W // 2 - CHANNEL_COMPACT_W - 2
+                menu.set_size(width, MENU_H)
                 menu.set_pos(2, 2)
+                channels.set_size(CHANNEL_COMPACT_W, MENU_H)
+                channels.set_pos(2 + width + 2, 2)
             else:
                 plate.add_flag(lv.obj.FLAG.HIDDEN)
                 # The patch card's width, unless a bigger display leaves the
@@ -229,9 +289,23 @@ class Station:
                 x = s(PATCH_INSET)
                 room = _display_x(panel) - 2 * s(METER_GAP) - Meters.width(s)
                 right = min(int(panel.width * PATCH_SHARE), room)
+                y = max(2, plate.get_y() - 8)
                 menu.set_size(max(right - x, MENU_W // 2), MENU_H)
-                menu.set_pos(x, max(2, plate.get_y() - 8))
+                menu.set_pos(x, y)
+                # Under it, right of the engine's light.
+                below = y + MENU_H + 2
+                channels.set_size(s(CHANNEL_W), min(CHANNEL_H, panel.header.get_height() - below - 2))
+                channels.set_pos(x + s(CHANNEL_INSET), below)
+        if short and not self._short:
+            # Once: a display that's compact stays compact.
+            self._short = True
+            channels.set_symbol(None)
+            # Their lists stay wide enough to read.
+            menu.get_list().set_style_min_width(MENU_W // 2, 0)
+            channels.get_list().set_style_min_width(CHANNEL_W, 0)
+            self._fill_channels()
         menu.move_foreground()
+        channels.move_foreground()
 
     def _build_meters(self):
         """In the header between the menu and the display, if they fit."""
@@ -239,7 +313,9 @@ class Station:
         s = panel._s
         menu = self.menu
         menu.update_layout()
-        left = menu.get_x() + menu.get_width() + s(METER_GAP)
+        channels = self.channels
+        channels.update_layout()
+        left = max(menu.get_x() + menu.get_width(), channels.get_x() + channels.get_width()) + s(METER_GAP)
         room = _display_x(panel) - s(METER_GAP) - left
         width = Meters.width(s)
         if room >= width:
@@ -251,12 +327,21 @@ class Station:
         self._meters.tick(left, right)
 
     def _menu_changed(self, _event):
-        self.choose(self.instruments[self.menu.get_selected()][0])
+        at = self.menu.get_selected()
+        if self.channel:
+            if at == 0:
+                self.follow()
+                return
+            at -= 1
+        self.choose(self.instruments[at][0])
+
+    def _channel_changed(self, _event):
+        self.show(self.channels.get_selected())
 
     def _show_in_menu(self, name):
         for i, (module, _) in enumerate(self.instruments):
             if module == name:
-                self.menu.set_selected(i)
+                self.menu.set_selected(i + 1 if self.channel else i)
                 return
 
     # ---- MIDI ------------------------------------------------------------------
@@ -308,35 +393,41 @@ class Station:
 
     # The parser's sink: a keyboard's messages land here.
 
+    def _part(self, channel):
+        """The part MIDI channel *channel* plays: its own, or channel 1's."""
+        parts = self.parts
+        return parts.get(channel) or parts.get(0)
+
     def note_on(self, note, velocity, channel=0):
         if self._meters is not None:
             self._meters.strike(velocity)
-        adapter = self.adapter
-        if adapter is None or self.loading:
+        part = self._part(channel)
+        if part is None or self.loading:
             return
-        if channel == PAD_CHANNEL and self._pad_notes is not None:
+        if channel == PAD_CHANNEL and part.pad_notes is not None:
             pad = note - _pads.FIRST_PAD
-            if not 0 <= pad < len(self._pad_notes):
+            if not 0 <= pad < len(part.pad_notes):
                 return  # a pad past the kit's last sound is silent
             # Kept for the release: a SoundFont's next kit lays out differently.
-            self._struck[note] = note = self._pad_notes[pad]
-        adapter.note_on(note, velocity)
+            part.struck[note] = note = part.pad_notes[pad]
+        part.adapter.note_on(note, velocity)
         self._played = 2
 
     def note_off(self, note, channel=0):
-        adapter = self.adapter
-        if adapter is None or self.loading:
+        part = self._part(channel)
+        if part is None or self.loading:
             return
-        if channel == PAD_CHANNEL and self._pad_notes is not None:
-            note = self._struck.pop(note, None)
+        if channel == PAD_CHANNEL and part.pad_notes is not None:
+            note = part.struck.pop(note, None)
             if note is None:
                 return
-        adapter.note_off(note)
+        part.adapter.note_off(note)
 
     def control(self, controller, value, channel=0):
-        adapter = self.adapter
-        if adapter is None or self.loading:
+        part = self._part(channel)
+        if part is None or self.loading:
             return
+        adapter = part.adapter
         if controller == VOLUME_CC and channel == 0:
             # Like the knobs: the codec is across I2C, so only the last value.
             self._volume = value
@@ -361,46 +452,51 @@ class Station:
             # Only each knob's last value, applied once everything waiting
             # has been read: a macro change can take milliseconds, and a
             # fast sweep sends a hundred values a second.
-            self._knobs[knob] = value
+            part.knobs[knob] = value
         else:
             adapter.instrument.control_change(controller, value)
 
-    def bend(self, value):
-        adapter = self.adapter
-        if adapter is not None and not self.loading:
-            adapter.instrument.pitch_bend(value)
+    def bend(self, value, channel=0):
+        part = self._part(channel)
+        if part is not None and not self.loading:
+            part.adapter.instrument.pitch_bend(value)
 
-    def program(self, number):
-        self._program = number
+    def program(self, number, channel=0):
+        part = self._part(channel)
+        if part is not None:
+            part.program = number
 
-    def _lay_out_pads(self):
+    def _lay_out_pads(self, part):
         """Read the pads' notes once per patch, as asking a SoundFont takes a moment."""
-        adapter = self.adapter
-        self._pad_patch = adapter.patch_index
-        self._pad_notes = _pads.pad_notes(self.name, adapter.instrument)
+        adapter = part.adapter
+        part.pad_patch = adapter.patch_index
+        part.pad_notes = _pads.pad_notes(part.name, adapter.instrument)
 
     def _midi_tick(self, _timer=None):
         inputs = self.inputs
         if inputs is None or self.adapter is None or self.loading:
             return
-        if self.adapter.patch_index != self._pad_patch:
-            self._lay_out_pads()
+        playing = self._playing
+        for part in playing:
+            if part.adapter.patch_index != part.pad_patch:
+                self._lay_out_pads(part)
         inputs.poll(self.parser)
-        adapter = self.adapter
-        if self._knobs:
-            knobs = self._knobs
-            self._knobs = {}
-            for knob, value in knobs.items():
-                adapter.note_cc(knob, value)
+        for part in playing:
+            adapter = part.adapter
+            if part.knobs:
+                knobs = part.knobs
+                part.knobs = {}
+                for knob, value in knobs.items():
+                    adapter.note_cc(knob, value)
+            if part.program is not None:
+                number = part.program
+                part.program = None
+                # Only a program the instrument has: the others would be silence.
+                if number in (adapter.instrument.patches or {}):
+                    adapter.note_program(number)
         if self._volume is not None:
             self.output.set_volume(self._volume * 100 // 127)
             self._volume = None
-        if self._program is not None:
-            number = self._program
-            self._program = None
-            # Only a program the instrument has: the others would be silence.
-            if number in (adapter.instrument.patches or {}):
-                adapter.note_program(number)
         if self._patch_step:
             step = self._patch_step
             self._patch_step = 0
@@ -426,18 +522,93 @@ class Station:
     # ---- the instrument ------------------------------------------------------
 
     def choose(self, name):
-        """Change to instrument *name*, from the menu or a keyboard's buttons."""
-        if self.loading or (name == self.name and self.panel is not None):
+        """Give the channel on the panel instrument *name*, from the menu or
+        a keyboard's buttons. On channel 1 that changes what every channel
+        without an instrument of its own plays."""
+        own = self.parts.get(self.channel)
+        if self.loading or (own is not None and name == own.name and self.panel is not None):
             return
-        self._stop_instrument()
+        self._close_panel()
+        self._silence()
+        self._drop(self.channel)
+        self._remember()
         self.splash.remove_flag(lv.obj.FLAG.HIDDEN)
         self._place_menu()
         self.pick(name)
 
+    def show(self, channel):
+        """Put MIDI channel *channel*, 0 to 15, on the panel: its own
+        instrument, or channel 1's while it has none. The sound carries on."""
+        if self.loading or not 0 <= channel < CHANNELS:
+            return
+        self._close_panel()
+        self.channel = channel
+        self._fill_menus()
+        if 0 in self.parts and (self.output.instrument is not None or self._play()):
+            self._open_panel()
+
+    def follow(self):
+        """Take away the instrument of the channel on the panel, so that it
+        plays channel 1's again."""
+        channel = self.channel
+        if self.loading or not channel or channel not in self.parts:
+            return
+        self._close_panel()
+        self._silence()
+        self._drop(channel)
+        self._remember()
+        self._fill_menus()
+        if 0 in self.parts and self._play():
+            self._open_panel()
+
     def _reopen(self):
-        name = self.name
-        self.name = None
-        self.choose(name)
+        self._close_panel()
+        self._open_panel()
+
+    def _silence(self):
+        """Stop the output and let go of the mix, before a part changes."""
+        self.output.stop()
+        mix = self._mix
+        self._mix = None
+        if mix is not None:
+            mix.deinit()
+
+    def _drop(self, channel):
+        """Deinitialise a channel's own instrument. Nothing may be pulling it."""
+        part = self.parts.pop(channel, None)
+        self._playing = tuple(self.parts[c] for c in sorted(self.parts))
+        if part is not None:
+            part.forget()
+            part.adapter.instrument.deinit()
+
+    def _remember(self):
+        """Keep which channels have which instruments for the next time the
+        app opens, once the ones kept last time are back."""
+        if self._restored:
+            self.prefs["parts"] = {str(c + 1): part.name for c, part in self.parts.items() if c}
+
+    def _patch_key(self, channel, name):
+        return name if not channel else "%d:%s" % (channel + 1, name)
+
+    def _play(self):
+        """Send every part to the output: one as it is, several through a mix.
+
+        Returns False, with the reason on the splash, when the output won't start.
+        """
+        self._silence()
+        playing = self._playing = tuple(self.parts[c] for c in sorted(self.parts))
+        output = self.output
+        try:
+            if len(playing) == 1:
+                output.start(playing[0].adapter.instrument)
+            else:
+                self._mix = Mix([part.adapter.instrument for part in playing], output.rate, output.channels)
+                output.start(self._mix)
+        except Exception as e:
+            self._silence()
+            self.notice.set_text("No sound out: %s" % (e,))
+            return False
+        return True
 
     def pick(self, name):
         """Open instrument *name* on the panel."""
@@ -463,32 +634,13 @@ class Station:
         inst.fill()
         return adapter
 
-    def _load(self, name):
-        display = find(self.catalog, name)[1]
-        try:
-            adapter = self._create(name)
-        except Exception as e:
-            self.notice.set_text("%s didn't load: %s" % (display, e))
-            self.loading = False
-            return
+    def _add(self, channel, name):
+        """Create instrument *name* as *channel*'s part, on the patch it was left on."""
+        adapter = self._create(name)
         inst = adapter.instrument
-        patch = self.prefs.get("patches", {}).get(name)
+        patch = self.prefs.get("patches", {}).get(self._patch_key(channel, name))
         if patch and patch in (inst.patches or {}):
             adapter.set_patch(patch)
-        self.prefs["name"] = name
-        self.name = name
-        self._idle_us = None
-        self._settle = 0
-        # A drum machine's voices are its sounds, one circuit each: a cap would
-        # silence the sounds past it, so it's never capped.
-        self._most_voices = 1 if name in _pads.KIT_PADS else inst.voices
-        self._fitted = 0
-        self._raised = False
-        self._read = None
-        self._refused = None
-        self.adapter = adapter
-        self._struck = {}
-        self._lay_out_pads()
         # RELOAD builds the instrument again. Nothing is played or filled
         # while it does; then the output takes the new one and lets go of
         # the old, which is deinitialised once nothing pulls it.
@@ -503,21 +655,72 @@ class Station:
 
         adapter.request_reload = request_reload
         adapter.on_reload(self._reloaded)
+        part = self.parts[channel] = Part(name, adapter)
+        self._lay_out_pads(part)
+        return part
+
+    def _restore(self):
+        """Bring back the other channels' instruments from the last time the app was open."""
+        for key, name in sorted(self.prefs.get("parts", {}).items()):
+            channel = int(key) - 1
+            name = RENAMED.get(name, name)
+            if not 0 < channel < CHANNELS or channel in self.parts or find(self.catalog, name)[0] is None:
+                continue
+            try:
+                self._add(channel, name)
+            except Exception as e:
+                print("synthstation: channel %s's %s didn't load: %s" % (key, name, e))
+
+    def _load(self, name):
+        display = find(self.catalog, name)[1]
+        channel = self.channel
         try:
-            self.output.start(inst)
+            self._add(channel, name)
         except Exception as e:
-            self.adapter = None
-            inst.deinit()
-            self.notice.set_text("No sound out: %s" % (e,))
+            self.notice.set_text("%s didn't load: %s" % (display, e))
             self.loading = False
             return
+        if not channel:
+            self.prefs["name"] = name
+        if not self._restored and 0 in self.parts:
+            self._restored = True
+            self._restore()
+        self._remember()
+        if 0 not in self.parts:
+            self.notice.set_text("Choose an instrument for Ch 1 first.")
+            self.loading = False
+            return
+        if not self._play():
+            self.loading = False
+            return
+        self._fill_menus()
+        self._open_panel()
+        self.loading = False
+        self._status_tick()
+
+    def _open_panel(self):
+        """Build the panel for the channel being shown. Its part is already playing."""
+        part = self._part(self.channel)
+        adapter = part.adapter
+        name = part.name
+        self.name = name
+        self._idle_us = None
+        self._settle = 0
+        # A drum machine's voices are its sounds, one circuit each: a cap would
+        # silence the sounds past it, so it's never capped.
+        self._most_voices = 1 if name in _pads.KIT_PADS else adapter.instrument.voices
+        self._fitted = 0
+        self._raised = False
+        self._read = None
+        self._refused = None
+        self.adapter = adapter
         self.notice.set_text("")
         self.splash.add_flag(lv.obj.FLAG.HIDDEN)
         shown = adapter
         if not self.has_midi():
             shown = _pads.NotePads(adapter, _pads.notes_for(self.ai.load(name)), self._pad_note)
         self._panel_midi = self.has_midi()
-        self.panel = self._build_panel(shown, display)
+        self.panel = self._build_panel(shown, find(self.catalog, name)[1])
         self._place_menu()
         self._build_meters()
         self._shown = None
@@ -528,11 +731,10 @@ class Station:
         ]
         if self._meters is not None:
             self._timers.append(self.scope.every(METER_MS, self._meter_tick))
-        self.loading = False
-        self._status_tick()
 
     def _reloaded(self, new, old):
-        self.output.start(new)
+        # Every adapter already holds its newest instrument.
+        self._play()
         old.deinit()
 
     def _build_panel(self, adapter, title):
@@ -568,9 +770,11 @@ class Station:
         adapter = self.adapter
         if adapter is None or self._filling or self.loading:
             return
+        playing = self._playing
         self._filling = True
         try:
-            adapter.instrument.fill()
+            for part in playing:
+                part.adapter.instrument.fill()
         finally:
             self._filling = False
         self._fills += 1
@@ -578,7 +782,9 @@ class Station:
         # waiting for the next scheduled look.
         if self._played:
             self._played -= 1
-        if self._played == 1 or self._fills % GOVERN_EVERY == 0:
+        # The cap is worked out from one instrument's voices, so it's left
+        # alone while several play: the load readout says how they're doing.
+        if len(playing) == 1 and (self._played == 1 or self._fills % GOVERN_EVERY == 0):
             self._govern(adapter.instrument)
 
     def _govern(self, inst):
@@ -650,18 +856,17 @@ class Station:
         if settled:
             self._read = (sounding, cost)
 
-    def _stop_instrument(self):
+    def _close_panel(self):
+        """Take the panel down. The instruments stay, and keep playing."""
         for timer in self._timers:
             timer.deinit()
         self._timers = []
         self._meters = None
-        adapter = self.adapter
         self.adapter = None
-        if adapter is not None:
-            self.prefs.setdefault("patches", {})[self.name] = adapter.patch_index
-            self.output.stop()
-            # After the output, so nothing pulls a deinitialised instrument.
-            adapter.instrument.deinit()
+        patches = self.prefs.setdefault("patches", {})
+        for channel, part in self.parts.items():
+            patches[self._patch_key(channel, part.name)] = part.adapter.patch_index
+            part.forget()
         panel = self.panel
         self.panel = None
         if panel is not None:
@@ -706,8 +911,12 @@ class Station:
         global current
         if current is self:
             current = None
-        self._stop_instrument()
+        self._close_panel()
         if self.output is not None:
+            # Before the instruments go, so nothing pulls a deinitialised one.
+            self._silence()
+            for channel in list(self.parts):
+                self._drop(channel)
             self.output.close()
         if self.inputs is not None:
             self.inputs.close()
