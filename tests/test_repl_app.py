@@ -5,7 +5,7 @@
 
 The app runs here with LVGL, the display and ``os.dupterm`` replaced by
 stand-ins, so what's checked is its key handling and vtterm's screen. vtterm
-(with palettes and pygraphics) comes from ``$VTTERM_PATH``, else a pydevices
+(with palettes, the pydevices ``lib/`` folder and pygraphics) comes from ``$VTTERM_PATH``, else a pydevices
 checkout beside this one; without it the test is skipped, and fails when
 ``REPL_REQUIRE=1`` is set.
 """
@@ -29,7 +29,7 @@ def _find_vtterm():
     candidates = [Path(explicit)] if explicit else [p / "pydevices" / "packages" for p in ROOT.parents]
     for c in candidates:
         if (c / "vtterm" / "vtterm" / "keys.py").is_file():
-            return [str(c / "vtterm"), str(c / "palettes" / "lib")]
+            return [str(c / "vtterm"), str(c / "palettes" / "lib"), str(c.parent / "lib")]
     return None
 
 
@@ -113,7 +113,6 @@ class ReplScrollbackTest(unittest.TestCase):
                 "board_config": types.SimpleNamespace(display_drv=self.display),
             }),
             mock.patch.object(os, "dupterm", dupterm, create=True),
-            mock.patch("vtterm.keyboards.start_all", lambda: ([self.keyboard], [])),
         ]
         sys.path.insert(0, str(ROOT))
         self.addCleanup(sys.path.remove, str(ROOT))
