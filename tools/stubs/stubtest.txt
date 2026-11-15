@@ -3,6 +3,7 @@ appkit
 appkit.data
 appkit.foreground
 appkit.home
+appkit.hover
 appkit.index
 appkit.launcher
 appkit.net

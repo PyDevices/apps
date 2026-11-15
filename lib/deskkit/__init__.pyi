@@ -9,7 +9,7 @@ launcher: Any
 
 def run(
     *,
-    hostname: str = 'deskclock',
+    hostname: str | None = None,
     apps: tuple[str, ...] = ...,
     awake: tuple[int, int] | None = (7, 18),
     weekends: bool = False,
