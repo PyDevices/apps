@@ -199,5 +199,40 @@ class OfflineJoinTest(unittest.TestCase):
         results, printed = self._up(wifi, manager)
         self.assertEqual(results, [False, False, False])
         self.assertEqual(printed, "")
-        self.assertEqual(manager.connect.call_count, 3)  # each poll tries again: the join blocks
         self.assertEqual(manager.connect.call_args.kwargs["setup"], False)
+
+    def test_circuitpython_waits_longer_after_each_failed_join(self):
+        # Its join blocks for seconds: an app polling every 500 ms mustn't
+        # start one on every poll.
+        wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=False))
+        manager = types.SimpleNamespace(connect=mock.MagicMock(return_value=None))
+        now = [0]
+        fakes = {
+            "lvgl": mock.MagicMock(),
+            "wifi": wifi,
+            "wifi_manager": manager,
+            "touchkit.settings": types.SimpleNamespace(get=lambda key, default=None: default),
+        }
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            with mock.patch.object(net, "ticks_ms", lambda: now[0]):
+                tries = []
+                for step in range(0, 800_000, 500):  # a poll every 500 ms
+                    now[0] = step
+                    before = manager.connect.call_count
+                    net.up()
+                    if manager.connect.call_count > before:
+                        tries.append(step)
+                self.assertEqual(tries, [0, 30_000, 90_000, 210_000, 450_000, 750_000])
+                # Joined, the wait starts over from 30 s.
+                wifi.radio.connected = True
+                with mock.patch.object(net, "keep_time"), mock.patch.object(net, "start_webrepl"):
+                    self.assertTrue(net.up())
+                wifi.radio.connected = False
+                now[0] += 1
+                net.up()
+                self.assertEqual(net._retry_ms, net._CP_RETRY_MS)
+            sys.modules.pop("touchkit.net", None)
