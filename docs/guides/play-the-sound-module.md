@@ -55,7 +55,7 @@ with an Identity Reply, so a DAW can find it. The reply's fields are in the
 ## Show the patch names in your DAW
 
 A DAW can list every instrument's patches by name, and its macros on CC102 to
-CC117, once it has a name file for the module. Write both kinds:
+CC117, once it has a name file for the module. Write them:
 
 ```sh
 python -m soundmodule.names --out names/
@@ -63,7 +63,11 @@ python -m soundmodule.names --out names/
 
 That writes `PyDevices Sound Module.midnam`, for DAWs that read MIDNAM files
 (Ardour and Mixbus among them), and `PyDevices Sound Module.ins`, a Cakewalk
-instrument definition (Cakewalk, SONAR). Put the file where your DAW looks
+instrument definition (Cakewalk, SONAR). It also writes
+`PyDevices Sound Module.reabank` for REAPER, which reads this format and not the
+other two: in a MIDI editor's Bank/Program Select, or in Preferences under
+MIDI Editor, pick it as the bank file, and a Program Change shows as the patch's
+name ("Clavichord: Funk"). In the other DAWs, put the file where the DAW looks
 for them, choose "PyDevices Sound Module" as the port's instrument, and each
 patch's entry sends the Bank Select and Program Change that play it.
 

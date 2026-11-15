@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2026 PyDevices
 #
 # SPDX-License-Identifier: MIT
-"""Patch, note and controller names a DAW can read: a MIDNAM file and a
-Cakewalk instrument definition (``.ins``) for the sound module.
+"""Patch, note and controller names a DAW can read: a MIDNAM file, a
+Cakewalk instrument definition (``.ins``) and a REAPER bank file
+(``.reabank``) for the sound module.
 
     python -m soundmodule.names --out names/
 
@@ -242,6 +243,27 @@ def cakewalk_ins(instruments, effects):
     return "\n".join(out)
 
 
+def reabank(instruments):
+    """The REAPER bank/program file, as text: the patch names only.
+
+    REAPER reads this format, not MIDNAM or ``.ins``. Bank 0 is General MIDI;
+    each other bank is one MSB and LSB, as in `cakewalk_ins`.
+    """
+    entries = parts(instruments)
+    out = ["Bank 0 0 %s General MIDI" % MODEL]
+    out += ["%d %s" % (i, name) for i, name in enumerate(engine.GM_NAMES)]
+    for msb in (engine.BANK_INSTRUMENTS, engine.BANK_DRUM_MACHINES):
+        group = [(program, e) for m, program, e in entries if m == msb]
+        kind = "Instruments" if msb == engine.BANK_INSTRUMENTS else "Drum Machines"
+        for lsb in range(max(len(e["patches"]) for _, e in group)):
+            out.append("Bank %d %d %s %s, patch %d" % (msb, lsb, MODEL, kind, lsb + 1))
+            for program, e in group:
+                for p in e["patches"]:
+                    if p["index"] == lsb:
+                        out.append("%d %s: %s" % (program, e["display_name"], p["name"]))
+    return "\n".join(out) + "\n"
+
+
 def main(argv):
     folder = "."
     instruments = effects = None
@@ -263,7 +285,8 @@ def main(argv):
 
     os.makedirs(folder, exist_ok=True)
     for filename, text in (("PyDevices Sound Module.midnam", midnam(instruments, effects)),
-                           ("PyDevices Sound Module.ins", cakewalk_ins(instruments, effects))):
+                           ("PyDevices Sound Module.ins", cakewalk_ins(instruments, effects)),
+                           ("PyDevices Sound Module.reabank", reabank(instruments))):
         path = folder.rstrip("/") + "/" + filename
         with open(path, "w", encoding="utf-8") as f:
             f.write(text)
