@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Stills of the desk: each a name, a function that returns SVG text, and a width."""
 
-from wander.scene_desk import draw
-from wander.vec import Doc
+from perch.scene_desk import draw
+from perch.vec import Doc
 
 
 def _still(view, **options):

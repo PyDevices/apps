@@ -21,9 +21,9 @@ sys.path.insert(0, "../../tests")
 import _headless  # noqa: E402
 import lvgl as lv  # noqa: E402
 
-import wander  # noqa: E402
-from wander.stage import TICK_MS  # noqa: E402
-from wander.tools.still import write_bmp  # noqa: E402
+import perch  # noqa: E402
+from perch.stage import TICK_MS  # noqa: E402
+from perch.tools.still import write_bmp  # noqa: E402
 
 
 class Scope:
@@ -50,8 +50,8 @@ class Film:
         self.frame = _headless.display(self.w, self.h)
         _headless.pointer()
         self.scope = Scope(size)
-        wander.main(self.scope)
-        self.stage, self.dock = self.scope.wander
+        perch.main(self.scope)
+        self.stage, self.dock = self.scope.perch
         self.count = 0
         self.lvgl_us = 0
         self.lvgl_max = 0

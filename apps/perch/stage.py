@@ -827,7 +827,7 @@ class Stage:
         by = oy + (_BUG[1] + 22 + 4) * k * s
         self.bug.remove_flag(lv.obj.FLAG.HIDDEN)
         for i in range(24, -1, -1):
-            # it wanders in from up and to the right
+            # it perchs in from up and to the right
             wobble = ((i * 7) % 9 - 4) * (i / 24)
             self.bug.set_pos(int(bx + i * 5 * s + wobble) - half, int(by - i * 3.2 * s + wobble * 2) - half)
             if i == 14:
@@ -921,7 +921,7 @@ class Stage:
         for i, item in enumerate(self._air):
             dot, x, y, speed, phase = item
             if kind == "firefly":
-                # a slow wander, and a glow that comes and goes
+                # a slow perch, and a glow that comes and goes
                 turn = int(t * speed * 0.6 + phase * 10)
                 x += _SIN[turn & 63] * 0.5 * unit
                 y += _SIN[(turn * 2 + 16) & 63] * 0.3 * unit

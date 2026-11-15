@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Stills of the chameleon's colours: each a name, a function that returns SVG text, and a width."""
 
-from wander import mascot_chameleon
-from wander.chameleon_shift import GROUNDS, between, mix
-from wander.vec import Doc, at, rect
+from perch import mascot_chameleon
+from perch.chameleon_shift import GROUNDS, between, mix
+from perch.vec import Doc, at, rect
 
 
 _VIEW = (-262, -326, 508, 420)

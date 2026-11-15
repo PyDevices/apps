@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Wander: a chameleon at the coast, a workbench and a desk, drawn as vectors.
+"""Perch: Hue the chameleon at the coast, a workbench and a desk, drawn as vectors.
 
 Every picture is shapes built in Python and drawn by svgio at this screen's
 size. Touch the chameleon and it answers. Touch anywhere else for four
@@ -130,4 +130,4 @@ def main(scope):
     scope.every(TICK_MS, tick)
     scope.on_close(stage.close)
     # for whoever drives the app from outside: a test, a screenshot script
-    scope.wander = (stage, dock)
+    scope.perch = (stage, dock)

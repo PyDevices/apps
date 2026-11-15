@@ -14,8 +14,8 @@ import time
 
 sys.path.insert(0, "..")
 
-from wander.tools import stills  # noqa: E402
-from wander.vec import render  # noqa: E402
+from perch.tools import stills  # noqa: E402
+from perch.vec import render  # noqa: E402
 
 
 def write_bmp(name, pixels, w, h):

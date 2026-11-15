@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Stills of the chameleon holding things: each a name, a function that returns SVG text, and a width."""
 
-from wander.chameleon_props import NAVY, ORDER, PROPS, _BOX, at, hold, rect
-from wander.vec import Doc
+from perch.chameleon_props import NAVY, ORDER, PROPS, _BOX, at, hold, rect
+from perch.vec import Doc
 
 
 def _sheet():

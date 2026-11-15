@@ -1,6 +1,6 @@
 {
-  "description": "Wander, an app for Home",
-  "target": "apps/wander",
+  "description": "Perch, an app for Home",
+  "target": "apps/perch",
   "urls": [
     [
       "__init__.py",

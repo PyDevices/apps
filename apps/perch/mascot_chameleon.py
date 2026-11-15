@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""A chameleon on its perch, drawn from a pose and a set of colours.
+"""Hue, a chameleon on its perch, drawn from a pose and a set of colours.
 
 It sits above the origin: x to the right, y down, the top of the perch at
 y = 0, about 450 units wide and 260 tall. `draw` returns its shapes for a

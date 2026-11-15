@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Wander on real LVGL with no window: the place is drawn, the chameleon
+"""Perch on real LVGL with no window: the place is drawn, the chameleon
 walks, changes colour and answers a finger, and closing lets every picture go.
 
-    micropython -X heapsize=24M tests/wander_contract.py
+    micropython -X heapsize=24M tests/perch_contract.py
 
-``WANDER_PLANT`` swaps in a fault that a check below must catch;
-test_wander.py runs each one.
+``PERCH_PLANT`` swaps in a fault that a check below must catch;
+test_perch.py runs each one.
 """
 
 import os
@@ -24,10 +24,10 @@ W, H = 480, 320
 frame = _headless.display(W, H)
 _headless.pointer()
 
-import wander
-from wander import stage as stagemod
+import perch
+from perch import stage as stagemod
 
-PLANT = os.getenv("WANDER_PLANT")
+PLANT = os.getenv("PERCH_PLANT")
 PLANTS = ("no_paint", "hidden", "same_colours", "no_walk", "deaf", "hoard", "leak")
 # One more where svgio gives a decoder working memory of its own.
 ROOMY = hasattr(stagemod.svgio.SvgDecoder(), "memory")
@@ -92,8 +92,8 @@ class Scope:
 
 
 scope = Scope()
-wander.main(scope)
-stage, dock = scope.wander
+perch.main(scope)
+stage, dock = scope.perch
 
 
 def step(n=1):

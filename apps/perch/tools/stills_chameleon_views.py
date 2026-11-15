@@ -3,10 +3,10 @@
 # SPDX-License-Identifier: MIT
 """Stills of the chameleon from other sides: each a name, a function that returns SVG text, and a width."""
 
-from wander import mascot_chameleon
-from wander.chameleon_views import above, at, back, front, limb, path, three_quarter
-from wander.mascot_chameleon import NAVY
-from wander.vec import Doc, rect
+from perch import mascot_chameleon
+from perch.chameleon_views import above, at, back, front, limb, path, three_quarter
+from perch.mascot_chameleon import NAVY
+from perch.vec import Doc, rect
 
 
 def _study(view, draw_it, **pose):
