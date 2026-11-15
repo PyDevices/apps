@@ -16,7 +16,7 @@ into the song with what was played.
 Run them together, the box first; it writes ``ready.flag`` beside OUT.json
 when it is listening. Both need ``midiports`` (and its ``uwin32``), ``hmilink``,
 ``songmodel`` and ``vamp`` on the path. The port is ``PORT`` below, made with
-``midi basic-loopback create --name "Ostinato Loopback"``.
+``midi basic-loopback create --name "PyDevices Loopback"``.
 
 Scenarios: ``quantised`` (sixteenths, overdub on, one old note kept),
 ``raw`` (quantise off), ``replace`` (overdub off clears the pattern) and
@@ -27,7 +27,7 @@ import json
 import sys
 import time
 
-PORT = "Ostinato Loopback"
+PORT = "PyDevices Loopback"
 STEP = 24                      # ticks in a sixteenth
 BAR = 384
 TICK_MS = 500 / 96             # 120 BPM
