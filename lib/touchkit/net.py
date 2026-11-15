@@ -24,6 +24,7 @@ import time
 
 from . import settings
 
+_CP = sys.implementation.name == "circuitpython"
 _started = False
 _webrepl_on = False
 _clock_timer = None
@@ -119,9 +120,9 @@ def up():
         start_webrepl()
         keep_time()  # outside the try: a missing deskkit must be seen
         return True
-    if not hasattr(wifi, "connect_from_secrets"):
-        # CircuitPython's own wifi has only the radio. wifi_manager joins what
-        # secrets.py or settings.toml hold, and blocks while it tries.
+    if _CP:
+        # CircuitPython's join blocks while it tries; wifi_manager joins what
+        # secrets.py or settings.toml hold.
         if _join_due():
             try:
                 import wifi_manager
@@ -138,7 +139,9 @@ def up():
     if not _started:
         _started = True
         try:
-            wifi.connect_from_secrets(wait=False, ntp=False)
+            import wifi_manager
+
+            wifi_manager.connect(setup=False, wait=False)
         except Exception as e:
             print("touchkit: wifi:", e)
             _started = False
@@ -153,7 +156,7 @@ def _needs_polling():
         import wifi
     except ImportError:
         return False
-    return hasattr(wifi, "radio") and not hasattr(wifi, "connect_from_secrets")
+    return _CP and hasattr(wifi, "radio")
 
 
 def _joined():
@@ -220,7 +223,8 @@ def boot():
         if not _needs_polling():
             return
     else:
-        _join_failed()  # where a join blocks, the next waits a while
+        if _CP:
+            _join_failed()  # where a join blocks, the next waits a while
         keep_time()
         up()
     import lvgl as lv
