@@ -190,7 +190,7 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl pydevices-pygraphics
 
       - name: appkit's tests
         working-directory: studio
@@ -315,12 +315,16 @@ jobs:
           ref: ${{ env.PYDEVICES_REF }}
           path: pydevices
 
-      # appkit draws its icons from iconkit, which is newer than the pin above.
+      # appkit draws its icons from iconkit, and the REPL app's test pages through
+      # vtterm's scrollback, both newer than the pin above.
       - uses: actions/checkout@v7
         with:
           repository: PyDevices/pydevices
           path: iconkit-src
-          sparse-checkout: packages/iconkit/lib
+          sparse-checkout: |
+            packages/iconkit/lib
+            packages/vtterm
+            packages/palettes/lib
 
       - uses: actions/setup-python@v7
         with:
@@ -385,5 +389,7 @@ jobs:
           AUDIOEFFECTS_CATALOG: ${{ github.workspace }}/catalogs/audioeffects/lib/audioeffects/catalog.json
           HMILINK_PATH: ${{ github.workspace }}/pydevices/hmilink
           VAMP_REQUIRE: "1"
+          VTTERM_PATH: ${{ github.workspace }}/iconkit-src/packages
+          REPL_REQUIRE: "1"
           PYTHONPATH: ${{ github.workspace }}/iconkit-src/packages/iconkit/lib
         run: python -m unittest discover -s tests -v
