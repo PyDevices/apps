@@ -8,43 +8,45 @@ it asks the network. It tries NTP first. Guest and office networks often block
 NTP, so a web server's ``Date`` header is the fallback.
 
 The clock reads in the chosen place's time once Weather has a place
-(``deskkit.forecast``). Until then the board asks ipwho.is which timezone its
-public IP address is in: an IANA zone such as ``America/Chicago`` and that
-zone's offset from UTC right now. ipwho.is is free and needs no key, and like
-any web service it sees the board's public IP address. The answer is asked for
-again with each daily resync, so a daylight saving change lands within a day.
-When the lookup fails, the clock keeps what it had (UTC at first) and the board
-asks again at the next resync.
+(``deskkit.forecast``). Until then the board asks ipwho.is where its public IP
+address is: the city, its coordinates, an IANA zone such as
+``America/Chicago`` and that zone's offset from UTC right now. The zone sets
+the clock, and the city becomes Weather's place until you choose one, so the
+weather shows at once. ipwho.is is free and needs no key, and like any web
+service it sees the board's public IP address. The answer is asked for again
+with each daily resync, so a daylight saving change lands within a day. When
+the lookup fails, the clock keeps what it had (UTC at first), Weather asks for
+a ZIP code, and the board asks again at the next resync.
 """
 
 import time
 
-try:
-    import machine
-    import ntptime
-except ImportError:  # a desktop: the host keeps the time
-    machine = None
-    ntptime = None
+from appkit import net
 
-try:
-    import requests
-except ImportError:
-    requests = None
+# CircuitPython has no time.gmtime. It keeps no timezone, so its localtime()
+# is UTC and does the same job.
+gmtime = getattr(time, "gmtime", time.localtime)
 
 _FIRST_VALID_YEAR = 2025
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _DATE_URL = "https://api.open-meteo.com/"
-_ZONE_URL = "https://ipwho.is/?fields=success,message,timezone.id,timezone.offset"
+_IP_URL = (
+    "https://ipwho.is/?fields=success,message,city,country_code,latitude,longitude,"
+    "timezone.id,timezone.offset"
+)
+# Where the IP is in one of these, temperatures start in Fahrenheit.
+_FAHRENHEIT = ("US", "PR", "GU", "VI", "AS", "MP", "LR", "KY", "BS", "BZ", "PW", "FM", "MH")
 _RESYNC_S = 24 * 3600
 
 offset_s = None  # seconds east of UTC: the chosen place's (forecast sets it), or the IP's
 zone = None  # the IANA zone the IP lookup found, while no place is chosen
 _synced_at = None
+_looked = False  # a resync has run since boot, so the IP lookup is done or failed
 
 
 def is_set():
     """Return True once the clock holds a real date."""
-    return time.gmtime()[0] >= _FIRST_VALID_YEAR
+    return gmtime()[0] >= _FIRST_VALID_YEAR
 
 
 def parse_http_date(text):
@@ -71,7 +73,7 @@ def parse_http_date(text):
 
 
 def _set_from_web():
-    resp = requests.get(_DATE_URL, timeout=10)
+    resp = net.requests().get(_DATE_URL, timeout=10)
     try:
         for name, value in resp.headers.items():
             if name.lower() == "date":
@@ -80,9 +82,7 @@ def _set_from_web():
             raise ValueError("no Date header")
     finally:
         resp.close()
-    y, mo, d, h, mi, s = parse_http_date(value)
-    weekday = time.gmtime(time.mktime((y, mo, d, 12, 0, 0, 0, 0, 0)))[6]
-    machine.RTC().datetime((y, mo, d, weekday, h, mi, s, 0))
+    net.set_clock(*parse_http_date(value))
 
 
 def sync():
@@ -92,11 +92,10 @@ def sync():
         bool: True when the clock was set, or the host keeps its own time.
     """
     global _synced_at
-    if machine is None:
+    if not net.sets_clock():
         return True
     try:
-        ntptime.timeout = 3
-        ntptime.settime()
+        net.ntp(3)
     except Exception as exc:
         print("deskkit: NTP failed (%r), asking a web server" % (exc,))
         try:
@@ -128,15 +127,39 @@ def parse_ip_zone(reply):
     return tz["id"], int(tz["offset"])
 
 
+def parse_ip_place(reply):
+    """Return the place an ipwho.is reply points at, for Weather to start on.
+
+    Args:
+        reply (dict): The decoded JSON.
+
+    Returns:
+        dict: ``name``, ``lat``, ``lon``, ``units`` and ``from_ip`` (True), or
+        None when the reply has no coordinates.
+    """
+    lat = reply.get("latitude")
+    lon = reply.get("longitude")
+    if lat is None or lon is None:
+        return None
+    return {
+        "name": reply.get("city") or "Near you",
+        "lat": lat,
+        "lon": lon,
+        "units": "F" if reply.get("country_code") in _FAHRENHEIT else "C",
+        "from_ip": True,
+    }
+
+
 def follow_ip_zone():
-    """Take the timezone from the board's public IP address, unless a place is
-    chosen. It blocks: call it from a worker. A desktop keeps its own timezone.
+    """Take the timezone, and Weather's place until one is chosen, from the
+    board's public IP address. Nothing changes once a place is chosen. It
+    blocks: call it from a worker. A desktop keeps its own timezone.
 
     Returns:
         bool: True when the offset now comes from the IP.
     """
     global offset_s, zone
-    if machine is None:
+    if not net.sets_clock():
         return False
     from . import forecast  # here: forecast imports this module
 
@@ -144,33 +167,46 @@ def follow_ip_zone():
         zone = None
         return False  # a chosen place wins
     try:
-        resp = requests.get(_ZONE_URL, timeout=10)
+        resp = net.requests().get(_IP_URL, timeout=10)
         try:
-            found, offset = parse_ip_zone(resp.json())
+            reply = resp.json()
         finally:
             resp.close()
+        found, offset = parse_ip_zone(reply)
     except Exception as exc:
-        print("deskkit: no timezone from the IP address, keeping %s: %r" % (zone or "UTC", exc))
+        print("deskkit: no place from the IP address, keeping %s: %r" % (zone or "UTC", exc))
         return False
     if forecast.place() is not None:
         return False  # chosen while the lookup ran
     zone = found
     offset_s = offset
+    here = parse_ip_place(reply)
+    if here is not None:
+        if forecast.ip_place is not None:
+            here["units"] = forecast.ip_place["units"]  # keep a switch made since
+        forecast.ip_place = here
     return True
 
 
 def resync_if_due():
-    """Set the clock and the timezone when the clock is unset or a day has
-    passed. Call it from a worker."""
+    """Set the clock, the timezone and the place from the IP when the clock
+    is unset or a day has passed. Call it from a worker."""
+    global _looked
     if due() and sync():
         follow_ip_zone()
+    _looked = True
+
+
+def finding():
+    """Return True while a board hasn't yet tried to find where it is."""
+    return net.sets_clock() and not _looked
 
 
 def now():
     """Return the local time as a ``time.gmtime``-style tuple."""
     if offset_s is None:
         return time.localtime()
-    return time.gmtime(time.time() + offset_s)
+    return gmtime(time.time() + offset_s)
 
 
 def clock_time():

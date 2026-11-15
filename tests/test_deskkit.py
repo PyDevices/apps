@@ -65,7 +65,7 @@ class ForecastTest(unittest.TestCase):
 
     def test_a_failed_fetch_keeps_the_last_forecast_and_retries_later(self):
         forecast, fakes = _forecast()
-        forecast.requests.get.side_effect = OSError(110)
+        forecast.net.requests.return_value.get.side_effect = OSError(110)
         forecast._place = {"lat": 1, "lon": 2}
         forecast.latest = "old"
         forecast.localtime.resync_if_due = lambda: None
@@ -75,6 +75,76 @@ class ForecastTest(unittest.TestCase):
         self.assertFalse(forecast.is_stale())  # tried just now
         forecast._tried_at -= forecast.RETRY_S
         self.assertTrue(forecast.is_stale())
+
+
+class IpPlaceTest(unittest.TestCase):
+    """The forecast for the IP's city, until a place is chosen."""
+
+    KENNETT = {"name": "Kennett", "lat": 36.24, "lon": -90.06, "units": "F", "from_ip": True}
+
+    def _forecast(self):
+        forecast, _ = _forecast()
+        forecast._place_file = lambda: "/nonexistent/deskkit/place.json"
+        forecast.ip_place = dict(self.KENNETT)
+        forecast.localtime.resync_if_due = lambda: None
+        forecast._save = mock.MagicMock()
+        return forecast
+
+    def test_a_chosen_place_wins_over_the_ips(self):
+        forecast = self._forecast()
+        self.assertEqual(forecast.current()["name"], "Kennett")
+        forecast._place = {"name": "Boston", "lat": 1, "lon": 2}
+        self.assertEqual(forecast.current()["name"], "Boston")
+
+    def test_the_ips_place_gets_a_forecast_and_is_never_saved(self):
+        forecast = self._forecast()
+        forecast.net.requests.return_value.get.return_value.json.return_value = REPLY
+        self.assertTrue(forecast.fetch())
+        self.assertIn("latitude=36.24&longitude=-90.06", forecast.net.requests.return_value.get.call_args[0][0])
+        self.assertEqual(forecast.localtime.offset_s, -18000)
+        forecast._save.assert_not_called()
+        self.assertIsNone(forecast.place())
+
+    def test_units_on_the_ips_place_stay_in_ram(self):
+        forecast = self._forecast()
+        forecast.set_units("C")
+        self.assertEqual(forecast.degrees(212), 100)
+        forecast._save.assert_not_called()
+
+    def test_choosing_a_zip_saves_it_and_keeps_the_units(self):
+        forecast = self._forecast()
+        forecast.ip_place["units"] = "C"
+        forecast.net.requests.return_value.get.return_value.json.return_value = {
+            "results": [{"name": "Boston", "latitude": 42.36, "longitude": -71.06}]
+        }
+        forecast.fetch = mock.MagicMock()
+        got = forecast.choose("02108")
+        self.assertEqual((got["zip"], got["units"]), ("02108", "C"))
+        forecast._save.assert_called_once()
+        self.assertEqual(forecast.current()["name"], "Boston")
+
+    def test_keep_fresh_finds_the_place_first_then_fetches(self):
+        forecast = self._forecast()
+        forecast.ip_place = None
+        lt = forecast.localtime
+        lt.net = mock.MagicMock()
+        lt.net.sets_clock.return_value = True  # as on a board
+        lt._looked = False
+        submitted = []
+        scope = mock.MagicMock()
+        scope.worker.submit.side_effect = lambda work, done, key: submitted.append((work, done))
+
+        def look():
+            forecast.ip_place = dict(self.KENNETT)
+            lt._looked = True
+
+        lt.resync_if_due = look
+        forecast.keep_fresh(scope)
+        work, done = submitted.pop()
+        self.assertIs(work, look)
+        work()
+        done(None, None)
+        self.assertIs(submitted.pop()[0], forecast.fetch)
 
 
 class LocalTimeTest(unittest.TestCase):
@@ -96,6 +166,40 @@ class LocalTimeTest(unittest.TestCase):
             self.assertEqual(lt.clock_time()[:2], (21, 30))
 
 
+class SyncTest(unittest.TestCase):
+    def _localtime(self):
+        forecast, _ = _forecast()
+        lt = forecast.localtime
+        lt.net = mock.MagicMock()
+        lt.net.sets_clock.return_value = True  # as on a board
+        return lt
+
+    def test_ntp_sets_the_clock(self):
+        lt = self._localtime()
+        self.assertTrue(lt.sync())
+        lt.net.ntp.assert_called_once()
+        lt.net.requests.assert_not_called()
+
+    def test_where_ntp_is_blocked_a_date_header_sets_it(self):
+        lt = self._localtime()
+        lt.net.ntp.side_effect = OSError(110)
+        resp = lt.net.requests.return_value.get.return_value
+        resp.headers = {"date": "Wed, 04 Nov 2026 02:36:50 GMT"}
+        with mock.patch("builtins.print"):
+            self.assertTrue(lt.sync())
+        lt.net.set_clock.assert_called_once_with(2026, 11, 4, 2, 36, 50)
+        resp.close.assert_called_once()
+
+    def test_a_missing_http_client_is_said_and_the_clock_stays_unset(self):
+        lt = self._localtime()
+        lt.net.ntp.side_effect = OSError(110)
+        lt.net.requests.side_effect = ImportError("HTTP on CircuitPython needs adafruit_requests")
+        with mock.patch("builtins.print") as said:
+            self.assertFalse(lt.sync())
+        self.assertIn("adafruit_requests", said.call_args[0][0])
+        lt.net.set_clock.assert_not_called()
+
+
 class IpZoneTest(unittest.TestCase):
     """The timezone from the board's IP address, while no place is chosen."""
 
@@ -108,16 +212,24 @@ class IpZoneTest(unittest.TestCase):
         patcher.start()
         self.addCleanup(patcher.stop)
         sys.modules["deskkit"].forecast = forecast
-        lt.machine = mock.MagicMock()  # as on a board
-        lt.requests = mock.MagicMock()
+        lt.net = mock.MagicMock()
+        lt.net.sets_clock.return_value = True  # as on a board
+        self.http = lt.net.requests.return_value
         if error is not None:
-            lt.requests.get.side_effect = error
+            self.http.get.side_effect = error
         else:
-            lt.requests.get.return_value.json.return_value = reply
+            self.http.get.return_value.json.return_value = reply
         forecast.place = lambda: place
         return lt
 
-    CHICAGO = {"success": True, "timezone": {"id": "America/Chicago", "offset": -21600}}
+    CHICAGO = {
+        "success": True,
+        "city": "Kennett",
+        "country_code": "US",
+        "latitude": 36.24,
+        "longitude": -90.06,
+        "timezone": {"id": "America/Chicago", "offset": -21600},
+    }
 
     def test_a_reply_gives_the_zone_and_its_offset_now(self):
         lt = self._localtime()
@@ -139,7 +251,7 @@ class IpZoneTest(unittest.TestCase):
         lt = self._localtime(place={"utc_offset": -18000}, reply=self.CHICAGO)
         lt.offset_s = -18000
         self.assertFalse(lt.follow_ip_zone())
-        lt.requests.get.assert_not_called()
+        self.http.get.assert_not_called()
         self.assertEqual(lt.offset_s, -18000)
         self.assertIsNone(lt.zone)
 
@@ -151,11 +263,62 @@ class IpZoneTest(unittest.TestCase):
         self.assertEqual(said.call_count, 1)
         self.assertIn("keeping UTC", said.call_args[0][0])
 
+    def test_with_no_place_weather_starts_on_the_ips_city(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        forecast = sys.modules["deskkit.forecast"]
+        self.assertTrue(lt.follow_ip_zone())
+        self.assertEqual(
+            forecast.ip_place,
+            {"name": "Kennett", "lat": 36.24, "lon": -90.06, "units": "F", "from_ip": True},
+        )
+
+    def test_outside_the_us_it_starts_in_celsius(self):
+        reply = dict(self.CHICAGO, city="Lyon", country_code="FR")
+        reply["timezone"] = {"id": "Europe/Paris", "offset": 3600}
+        lt = self._localtime(reply=reply)
+        lt.follow_ip_zone()
+        self.assertEqual(sys.modules["deskkit.forecast"].ip_place["units"], "C")
+
+    def test_a_daily_lookup_keeps_a_units_switch(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        forecast = sys.modules["deskkit.forecast"]
+        forecast.ip_place = {"name": "Kennett", "lat": 0, "lon": 0, "units": "C", "from_ip": True}
+        lt.follow_ip_zone()
+        self.assertEqual(forecast.ip_place["units"], "C")
+        self.assertEqual(forecast.ip_place["lat"], 36.24)
+
+    def test_a_reply_without_coordinates_still_sets_the_zone(self):
+        reply = {"success": True, "timezone": {"id": "America/Chicago", "offset": -21600}}
+        lt = self._localtime(reply=reply)
+        self.assertTrue(lt.follow_ip_zone())
+        self.assertIsNone(sys.modules["deskkit.forecast"].ip_place)
+
+    def test_a_chosen_place_leaves_no_ip_place(self):
+        lt = self._localtime(place={"utc_offset": -18000}, reply=self.CHICAGO)
+        lt.follow_ip_zone()
+        self.assertIsNone(sys.modules["deskkit.forecast"].ip_place)
+
+    def test_weather_waits_for_the_lookup_then_falls_back_to_the_keypad(self):
+        lt = self._localtime(error=OSError(110))
+        lt.sync = mock.MagicMock(return_value=True)
+        self.assertTrue(lt.finding())
+        with mock.patch("builtins.print") as said:
+            lt.resync_if_due()
+        self.assertEqual(said.call_count, 1)
+        self.assertFalse(lt.finding())
+        self.assertIsNone(sys.modules["deskkit.forecast"].ip_place)
+
+    def test_a_failed_clock_also_ends_the_wait(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        lt.sync = mock.MagicMock(return_value=False)
+        lt.resync_if_due()
+        self.assertFalse(lt.finding())
+
     def test_a_desktop_keeps_its_own_timezone(self):
         lt = self._localtime(reply=self.CHICAGO)
-        lt.machine = None
+        lt.net.sets_clock.return_value = False
         self.assertFalse(lt.follow_ip_zone())
-        lt.requests.get.assert_not_called()
+        self.http.get.assert_not_called()
 
     def test_the_daily_resync_asks_again(self):
         lt = self._localtime(reply=self.CHICAGO)
@@ -163,7 +326,7 @@ class IpZoneTest(unittest.TestCase):
         lt._synced_at = None
         lt.resync_if_due()
         self.assertEqual(lt.offset_s, -21600)
-        lt.requests.get.return_value.json.return_value = {
+        self.http.get.return_value.json.return_value = {
             "success": True,
             "timezone": {"id": "America/Chicago", "offset": -18000},
         }
@@ -176,7 +339,7 @@ class IpZoneTest(unittest.TestCase):
         lt = self._localtime(reply=self.CHICAGO)
         lt.sync = mock.MagicMock(return_value=False)
         lt.resync_if_due()
-        lt.requests.get.assert_not_called()
+        self.http.get.assert_not_called()
 
 
 class IconsTest(unittest.TestCase):

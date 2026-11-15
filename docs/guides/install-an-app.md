@@ -45,6 +45,12 @@ import omip
 omip.install("github:PyDevices/pydevices/lib/omip.py", target="/", force=True)
 ```
 
+On an Arduino GIGA, whose firmware has no `omip`, the writable drive is
+`/flash`: put `omip` on it with `mip.install(..., target="/flash/lib")`, and use
+`target="/flash"` where a line below says `target="/"`. The
+[GIGA Display Shield page](https://github.com/PyDevices/pydevices/blob/main/docs/boards/display-boards.md#arduino-giga-r1-wifi--giga-display-shield)
+has the lines.
+
 ## Install apps
 
 Name the app's folder under [`apps/`](../../apps):
@@ -56,11 +62,21 @@ omip.install("github:PyDevices/apps/apps/system")
 omip.install("github:PyDevices/apps/apps/bit_world")
 ```
 
+The full list, with what each app does and needs, is in
+[the apps](../reference/apps.md); any folder there installs the same way.
+
 Each app lands in `/apps/<name>`, where Home looks, and what it imports goes in
 `/lib`: appkit and touchkit from the OmniPython index, vtterm for the REPL app,
 `requests` from micropython-lib for the apps that go online. Anything the
 firmware has frozen in is skipped. On a WT32-SC01 Plus over Wi-Fi each of these
 took between 6 and 22 seconds.
+
+On CircuitPython, a long run of installs can reach a point where every request
+fails at once with `[Errno 5] Input/output error`, or where the board can't
+join Wi-Fi again. Ctrl-D doesn't clear it. Reset the board with its reset
+button, or with `import microcontroller; microcontroller.reset()`, and run the
+line that failed again. What was already installed stays, so you carry on from
+that app.
 
 ## Install a program that is an app
 

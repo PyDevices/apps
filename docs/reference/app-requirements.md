@@ -9,6 +9,7 @@
 | `name` is the app's name; the folder's name is the default | [`launcher.py`](../../lib/appkit/launcher.py) line 625 |
 | `title` is the text a home screen shows; the name is used when it's missing | [`home.py`](../../lib/appkit/home.py) line 18 |
 | `apps/` has an `__init__.py` (the launcher writes one if it can) | [`launcher.py`](../../lib/appkit/launcher.py) lines 161–176 |
+| `needs` lists what the app can't start without: modules (`"audiomp3"`) and attributes of modules (`"os.dupterm"`). Where one is missing the launcher leaves the app out and says why, so no home screen offers it | [`launcher.py`](../../lib/appkit/launcher.py) `lacks()` and `scan()` |
 | An `app.json` with no `__init__.py` is refused in a frozen build | [`index.py`](../../lib/appkit/index.py) line 136 |
 
 ## A module app
@@ -27,6 +28,7 @@
 |---|---|
 | `app.json` has `"script": "<module>"`; the script builds its own `App` | [`launcher.py`](../../lib/appkit/launcher.py) lines 626–628 |
 | Choosing a script restarts the program into it | [appkit README](../../lib/appkit/README.md#a-plain-script) |
+| While a script runs the board has no WebREPL: it starts before Wi-Fi and WebREPL come up, so connect again when the script quits | [`apps/home/main.py`](../../apps/home/main.py) |
 | A program that builds its own launcher calls `appkit.run_pending_script()` first in `main.py` | [appkit README](../../lib/appkit/README.md#a-plain-script) |
 | CircuitPython boards can't run scripts | [`launcher.py`](../../lib/appkit/launcher.py) line 375 |
 

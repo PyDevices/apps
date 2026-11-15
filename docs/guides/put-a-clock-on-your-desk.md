@@ -35,15 +35,20 @@ The firmware needs `lvgl`, `requests` and the `pydevices` package, which has
    it. The [Wi-Fi guide](https://github.com/PyDevices/pydevices/blob/main/docs/guides/wifi.md)
    has the details. It needs a network with a plain password: one with a
    sign-in page or a company login won't work.
-2. **ZIP code.** Type your US ZIP code on the keypad and press the check mark.
-   The weather is for that place, and the clock follows its timezone.
+2. **Where you are.** The board asks [ipwho.is](https://ipwho.is) where its
+   public IP address is. The weather shows that city's forecast straight away,
+   marked with a location pin, and the clock follows its timezone. Like any web service,
+   ipwho.is sees the board's public IP address. It asks again each day, so the
+   clock follows daylight saving.
+3. **ZIP code, if you want one.** An IP address often points at your
+   provider's nearest city rather than your own. Hold your finger on the
+   weather, type your US ZIP code on the keypad and press the check mark. The
+   weather is for that place from then on, the clock follows its timezone, and
+   the board remembers it. Only a place you choose is saved.
 
-The clock shows local time before you choose a place. Once the board is on
-Wi-Fi it asks [ipwho.is](https://ipwho.is) which timezone its public IP address
-is in, and asks again each day so it follows daylight saving. Like any web
-service, ipwho.is sees the board's public IP address. A place you choose in the
-weather takes over from it. If the lookup fails, the clock keeps the timezone
-it had, or UTC on a fresh start, and the board tries again the next day.
+If the lookup fails, the weather asks for a ZIP code instead, the clock keeps
+the timezone it had (UTC on a fresh start), and the board tries again the next
+day.
 
 ## Using it
 
@@ -51,8 +56,10 @@ Swipe left or right to move between the clock and the weather. After a minute
 without a touch, the weather goes back to the clock.
 
 On the weather, swipe up for the next five days and down to come back. Hold your
-finger on the screen to change the ZIP code or switch between °F and °C. To back
-out without changing the ZIP code, press the delete key with nothing typed.
+finger on the screen to choose a ZIP code or switch between °F and °C. To back
+out without changing the place, press the delete key with nothing typed. On the
+city from the IP address, °F or °C lasts until the board restarts; choose a ZIP
+code to keep it.
 
 The forecast updates every 30 minutes. When the board can't reach the service,
 it keeps the last forecast and shows "as of" with its time.

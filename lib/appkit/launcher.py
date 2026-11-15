@@ -143,6 +143,25 @@ def _import(modname):
     return mod
 
 
+def lacks(needs):
+    """Return the first of *needs* this interpreter doesn't have, or None.
+
+    Args:
+        needs (list): What an app's ``app.json`` lists under ``"needs"``:
+            module names (``"audiomp3"``) and attributes of modules
+            (``"os.dupterm"``).
+    """
+    for need in needs or ():
+        module, _, name = need.partition(".")
+        try:
+            found = __import__(module)
+        except ImportError:
+            return need
+        if name and not hasattr(found, name):
+            return need
+    return None
+
+
 #: What appkit writes to an apps folder that has no ``__init__.py``.
 INIT_TEXT = "# The apps folder is a package: appkit imports each app in it as %s.<app>.\n"
 
@@ -634,7 +653,11 @@ class Launcher:
         filesystem). The folder's parent goes on the end of ``sys.path``.
 
         An ``app.json`` with ``"script": "<module>"`` is a plain script (see
-        `add_script`), looked for in its own folder first. Where
+        `add_script`), looked for in its own folder first. An app whose
+        ``"needs"`` names something this interpreter lacks (see `lacks`) is
+        left out, with a line saying why, so a home screen never offers an
+        app that can't start: the REPL, which needs ``os.dupterm``, isn't on
+        CircuitPython's home screen. Where
         *folder* doesn't exist (a build with the apps frozen in), the same
         entries come from the generated module ``_appkit_apps``, with the
         apps frozen as the package ``apps`` (see ``appkit.index``). Returns
@@ -659,6 +682,10 @@ class Launcher:
         found = {}
         for entry, info, path in entries:
             name = info.get("name", entry)
+            missing = lacks(info.get("needs"))
+            if missing is not None:
+                _say("%s is left out: it needs %s, which %s doesn't have" % (name, missing, sys.implementation.name))
+                continue
             script = info.get("script")
             if script:
                 self.add_script(name, script, path)

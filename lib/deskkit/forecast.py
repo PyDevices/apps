@@ -5,8 +5,12 @@
 
 Open-Meteo needs no account or key, and is free for non-commercial use. Its
 reply also carries the place's UTC offset, which is how the clock follows the
-place's timezone and daylight saving. A chosen place wins over the timezone
-``deskkit.localtime`` finds from the board's IP address.
+place's timezone and daylight saving.
+
+Until you choose a place, the forecast is for the city the board's public IP
+address is in, which ``deskkit.localtime`` looks up when the board joins a
+network. That default is never saved: a place you choose wins, and is what's
+kept.
 
 The forecast lives here rather than in an app, so it stays while apps open and
 close. It's kept in RAM: writing flash every half hour would wear it for
@@ -16,9 +20,8 @@ something a boot gets back in seconds. Only the place is saved.
 import json
 import time
 
-import requests
 import wifi_manager
-from appkit import data
+from appkit import data, net
 
 from . import localtime
 
@@ -47,6 +50,7 @@ last_error = None
 _tried_at = None
 _got_at = None
 _place = None
+ip_place = None  # where the board's IP address is, until a place is chosen
 
 
 def _place_file():
@@ -67,6 +71,12 @@ def place():
     return _place
 
 
+def current():
+    """Return the place the forecast is for: the chosen one, else the one
+    from the board's IP address (``from_ip`` is True), else None."""
+    return place() or ip_place
+
+
 def _save():
     with open(_place_file(), "w") as f:
         json.dump(_place, f)
@@ -85,7 +95,7 @@ def choose(zip_code):
         ValueError: Open-Meteo knows no place with that code.
     """
     global _place, latest, _got_at
-    resp = requests.get(_GEO_URL % zip_code, timeout=15)
+    resp = net.requests().get(_GEO_URL % zip_code, timeout=15)
     try:
         results = resp.json().get("results")
     finally:
@@ -93,7 +103,8 @@ def choose(zip_code):
     if not results:
         raise ValueError("no place for " + zip_code)
     found = results[0]
-    units = _place.get("units", "F") if _place else "F"
+    here = current()
+    units = here.get("units", "F") if here else "F"
     _place = {
         "zip": zip_code,
         "name": found["name"],
@@ -109,22 +120,28 @@ def choose(zip_code):
 
 
 def set_units(units):
-    """Show temperatures in *units*, ``"F"`` or ``"C"``, from now on."""
-    if _place is not None:
-        _place["units"] = units
-        _save()
+    """Show temperatures in *units*, ``"F"`` or ``"C"``, from now on.
+
+    It's saved with a chosen place. The place from the IP keeps it until the
+    board restarts."""
+    here = current()
+    if here is not None:
+        here["units"] = units
+        if here is _place:
+            _save()
 
 
 def degrees(fahrenheit):
     """Return a Fahrenheit reading as whole degrees in the chosen units."""
-    if _place is not None and _place.get("units") == "C":
+    here = current()
+    if here is not None and here.get("units") == "C":
         return round((fahrenheit - 32) * 5 / 9)
     return round(fahrenheit)
 
 
 def _weekday(date):
     y, m, d = date.split("-")
-    return _DAYS[time.gmtime(time.mktime((int(y), int(m), int(d), 12, 0, 0, 0, 0, 0)))[6]]
+    return _DAYS[localtime.gmtime(time.mktime((int(y), int(m), int(d), 12, 0, 0, 0, 0, 0)))[6]]
 
 
 def parse(reply):
@@ -182,7 +199,10 @@ def fetch():
     try:
         _rejoin()
         localtime.resync_if_due()
-        resp = requests.get(_URL % (_place["lat"], _place["lon"]), timeout=15)
+        here = current()
+        if here is None:
+            raise ValueError("no place")
+        resp = net.requests().get(_URL % (here["lat"], here["lon"]), timeout=15)
         try:
             latest = parse(resp.json())
         finally:
@@ -194,6 +214,8 @@ def fetch():
     last_error = None
     _got_at = time.time()
     localtime.offset_s = latest["utc_offset"]
+    if here is not _place:
+        return True  # the place from the IP isn't saved
     localtime.zone = None
     if _place.get("utc_offset") != latest["utc_offset"]:
         _place["utc_offset"] = latest["utc_offset"]
@@ -215,14 +237,24 @@ def keep_fresh(scope, on_update=None):
         scope (AppScope): The app that wants it.
         on_update (callable): Called with no arguments on the main thread after
             each fetch, good or bad, while the app is open.
+
+    Before a place is chosen, it first lets the board find where it is from
+    its IP address, if it hasn't tried yet.
     """
 
     def done(_value, _error):
         if on_update is not None:
             on_update()
 
+    def found(_value, _error):
+        done(_value, _error)
+        check()
+
     def check(_timer=None):
-        if place() is not None and is_stale():
+        if current() is None:
+            if localtime.finding():
+                scope.worker.submit(localtime.resync_if_due, found, key="forecast")
+        elif is_stale():
             scope.worker.submit(fetch, done, key="forecast")
 
     scope.every(60_000, check)

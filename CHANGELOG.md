@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.1.2.dev8
+
+- CircuitPython: Clock, Weather, Roku and Spotify run there. appkit.net gives sockets, HTTP and the clock with the same calls on every Python: a socketpool on CircuitPython, with adafruit_requests for HTTP, and an SNTP query for the clock. The board now sets its clock from the network on CircuitPython too, and the timezone lookup from the IP address works there.
+- An app.json can list what an app needs from the interpreter (`"needs": ["os.dupterm"]`), and Home leaves out an app this Python lacks. REPL needs `os.dupterm`, so CircuitPython boards don't list it.
+- MP3 says so when the board has no audio out, and Bit World runs silent without `board_peripherals`, where both used to stop with an ImportError.
+- Each app's package.json lists adafruit_requests under `circuitpython` when the app reaches HTTP.
+
+## 0.1.2.dev7
+
+- Weather shows a forecast straight away: until you choose a ZIP code it uses the city the board's public IP address is in (ipwho.is), marked with a location pin, in °F in the US and °C elsewhere. A place you choose wins and is the one saved; if the lookup fails, Weather asks for a ZIP code as before.
+
+## 0.1.2.dev6
+
+- deskkit: the clock runs on CircuitPython, which has no time.gmtime, so Clock shows local time there too.
+- Install guide: what to do when CircuitPython installs stop with Errno 5.
+
 ## 0.1.2.dev5
 
 - Clock shows local time before a place is chosen: when the board joins a network it looks up the timezone of its public IP address (ipwho.is), and again each day for daylight saving. A place chosen in Weather still wins.

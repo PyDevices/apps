@@ -31,7 +31,10 @@ import board_config
 import appdev
 
 app = appdev.App(board_config)
-import board_peripherals
+try:
+    import board_peripherals
+except ImportError:  # a board with no audio out: the game runs silent
+    board_peripherals = None
 import keys
 from multimer import ticks_diff, ticks_ms
 
