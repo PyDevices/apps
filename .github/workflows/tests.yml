@@ -325,6 +325,7 @@ jobs:
             packages/iconkit/lib
             packages/vtterm
             packages/palettes/lib
+            lib
 
       - uses: actions/setup-python@v7
         with:
