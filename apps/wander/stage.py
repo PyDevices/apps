@@ -27,6 +27,11 @@ NAVY = 0x0B2A4A
 DOCS_KEPT = 3  # places whose shapes are kept, so going back to one skips building it
 CACHE_BYTES = 6 * 1024 * 1024  # poses kept, beside the one on screen and the one just drawn
 STRIDE = 63.3  # how far a full turn of the walk carries the body, in its own units
+# Working memory for the two decoders, where this svgio gives a decoder its
+# own: a place at 800 pixels wide wants about 600 KB, a pose about 150.
+PLACE_MEMORY = 768 * 1024
+POSE_MEMORY = 256 * 1024
+BAND_ROWS = 120  # a place is painted about this many rows a tick, where svgio draws bands
 
 # Where each kind of pose reaches, in the chameleon's units: x, y, width, height.
 _BODY = (-222, -224, 416, 246)
@@ -128,6 +133,18 @@ _SIN = (
 )  # fmt: skip
 
 
+def _decoder(memory):
+    """A decoder that works in *memory* bytes of its own, where this svgio has that.
+
+    Its parses and draws then ask the heap for nothing, so they take the same
+    time whatever the heap holds. An older svgio gives a plain decoder.
+    """
+    try:
+        return svgio.SvgDecoder(memory=memory)
+    except TypeError:
+        return svgio.SvgDecoder()
+
+
 class _Random:
     # the same choices on every runtime and every run
     def __init__(self, seed):
@@ -198,7 +215,8 @@ class Stage:
         #: slowest was doing; milliseconds from the last change being asked for
         #: to its picture and to the chameleon standing in it, and from opening
         #: to the first tick, place, pose and step of a walk; and the most
-        #: bytes of picture ever held.
+        #: bytes of picture ever held, and the most working memory a place
+        #: and a pose took in their decoders (0 from an svgio without it).
         self.stats = {
             "build": 0,
             "tidy": 0,
@@ -220,10 +238,15 @@ class Stage:
             "first_pose_ms": None,
             "first_walk_ms": None,
             "peak": 0,
+            "place_memory": 0,
+            "pose_memory": 0,
         }
         self._born = time.ticks_ms()
         self._asked = self._born  # when the change being drawn was asked for
-        self._decoder = svgio.SvgDecoder()
+        self._decoder = _decoder(PLACE_MEMORY)
+        self._poser = _decoder(POSE_MEMORY)
+        # an svgio whose decoders have memory of their own also draws in bands
+        self._bands = hasattr(self._decoder, "memory")
         self._docs = {}  # (place, what the ground shows) -> its shapes
         self._doc_order = []
         self._frames = {}  # (spec, flip, scheme) -> (descriptor, buffer, x offset, y offset)
@@ -309,6 +332,11 @@ class Stage:
         now = time.ticks_us()
         self.stats[phase] += time.ticks_diff(now, t0)
         return now
+
+    def _roomiest(self, what, decoder):
+        peak = getattr(decoder, "memory_peak", 0)
+        if peak > self.stats[what]:
+            self.stats[what] = peak
 
     def _first(self, what):
         if self.stats[what] is None:
@@ -414,8 +442,8 @@ class Stage:
         self._step = ("build", spec)
         yield
         t0 = time.ticks_us()
-        # a decoder of its own: the place may be parsed between these steps
-        decoder = svgio.SvgDecoder()
+        # not the place's decoder: a place may be parsed between these steps
+        decoder = self._poser
         w, h = decoder.open(text, width=max(2, int(rw * k * s + 0.5)))
         text = None
         self.stats["parse_max"] = max(self.stats["parse_max"], time.ticks_diff(time.ticks_us(), t0))
@@ -431,6 +459,7 @@ class Stage:
         t0 = time.ticks_us()
         planes = memoryview(data)
         decoder.decode(planes[: w * h * 2], planes[w * h * 2 :])
+        self._roomiest("pose_memory", decoder)
         planes = decoder = None
         self.stats["draw_max"] = max(self.stats["draw_max"], time.ticks_diff(time.ticks_us(), t0))
         self._since(t0, "draw")
@@ -595,6 +624,8 @@ class Stage:
         self.busy = True
         self._life = None
         self._quiet = False
+        # a pose half drawn is dropped: the poses share one decoder
+        self._maker = self._making = None
         self.bug.add_flag(lv.obj.FLAG.HIDDEN)
         old_scheme = self.scheme
         schemes = PLACES[place]["schemes"]
@@ -631,9 +662,24 @@ class Stage:
             text = None
             self._since(t0, "parse")
             yield
-            t0 = time.ticks_us()
-            self._decoder.decode(self._ground, stride=self.w)
-            self._since(t0, "draw")
+            if self._bands:
+                # a band a tick, so the picture arrives down the screen and
+                # no tick waits for all of it. Bands are whole strips of
+                # svgio's, so no row is drawn twice.
+                strip = max(1, 65536 // (4 * self.w))
+                band = strip * max(1, (BAND_ROWS + strip - 1) // strip)
+                for y0 in range(0, self.h, band):
+                    t0 = time.ticks_us()
+                    self._decoder.decode(self._ground, stride=self.w, rows=(y0, min(y0 + band, self.h)))
+                    self._since(t0, "draw")
+                    self.ground.invalidate()
+                    if y0 + band < self.h:
+                        yield
+            else:
+                t0 = time.ticks_us()
+                self._decoder.decode(self._ground, stride=self.w)
+                self._since(t0, "draw")
+            self._roomiest("place_memory", self._decoder)
             self.stats["scenes"] += 1
             self.ground.invalidate()
             if moved:

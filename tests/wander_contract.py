@@ -29,6 +29,10 @@ from wander import stage as stagemod
 
 PLANT = os.getenv("WANDER_PLANT")
 PLANTS = ("no_paint", "hidden", "same_colours", "no_walk", "deaf", "hoard", "leak")
+# One more where svgio gives a decoder working memory of its own.
+ROOMY = hasattr(stagemod.svgio.SvgDecoder(), "memory")
+if ROOMY:
+    PLANTS += ("cramped",)
 
 # a small allowance, so keeping to it is tested without drawing megabytes
 ALLOWED = 700 * 1024
@@ -58,6 +62,8 @@ elif PLANT == "hoard":
     stagemod.CACHE_BYTES = 1 << 30
 elif PLANT == "leak":
     Stage.close = lambda self: None
+elif PLANT == "cramped" and ROOMY:
+    stagemod.POSE_MEMORY = 8192
 elif PLANT is not None:
     raise SystemExit("no such plant: %r" % PLANT)
 
@@ -190,6 +196,10 @@ for view in ("mid", "close", "wide"):
     check(stage.held_bytes() <= allowance, "the pictures held stay within the allowance in the %s view" % view)
     check(stage._shown[0].header.w <= W and stage._shown[0].header.h <= H, "a pose is never larger than the screen in the %s view" % view)
 check(stage.stats["peak"] <= allowance, "the most ever held stayed within the allowance")
+if ROOMY:
+    # every place and pose so far was drawn inside its decoder's own memory
+    check(0 < stage.stats["place_memory"] <= stagemod.PLACE_MEMORY, "a place fits its decoder's working memory")
+    check(0 < stage.stats["pose_memory"] <= stagemod.POSE_MEMORY, "a pose fits its decoder's working memory")
 
 # The desk, where it sleeps at night and a finger doesn't wake it.
 stage.go("desk", "night")

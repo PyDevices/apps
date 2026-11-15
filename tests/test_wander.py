@@ -47,7 +47,11 @@ class WanderTest(unittest.TestCase):
         self.assertIn("ok", done.stdout)
 
     def test_every_plant_fails_it(self):
-        for plant in PLANTS:
+        # "cramped" needs an svgio whose decoders take working memory
+        roomy = subprocess.run(
+            [INTERPRETER, "-c", "import svgio; print(hasattr(svgio.SvgDecoder(), 'memory'))"], capture_output=True, text=True, timeout=60
+        ).stdout.strip()
+        for plant in PLANTS + (("cramped",) if roomy == "True" else ()):
             with self.subTest(plant=plant):
                 done = _run(plant)
                 self.assertNotEqual(done.returncode, 0, "the contract passed with %s planted" % plant)
