@@ -9,6 +9,7 @@ from .theme import _Theme
 LEDS: int
 MAX: int
 MODES: tuple[str, ...]
+MIN_ROOM: int
 
 class _EncoderPanel(Protocol):
     travel: float

@@ -7,9 +7,10 @@ Prints one ``PASS name`` or ``FAIL name: why`` line per check, then the
 frame costs, and exits 1 if anything failed. ``--plant`` swaps in the old
 panel's handling of a patch change (move the patch selector, nothing else),
 so the patch-follow checks must fail: that is how test_panel_contract.py knows
-they can.
+they can. ``--build-only`` stops after the first group of checks, for a screen
+too small for the checks that press at fixed offsets.
 
-    micropython panel_contract.py [width height] [--plant]
+    micropython panel_contract.py [width height] [--plant] [--build-only]
 """
 
 import sys
@@ -19,6 +20,7 @@ import lvgl as lv
 
 argv = sys.argv[1:]
 PLANT = "--plant" in argv
+BUILD_ONLY = "--build-only" in argv
 numbers = [int(a) for a in argv if a.isdigit()]
 WIDTH, HEIGHT = (numbers[0], numbers[1]) if len(numbers) >= 2 else (800, 480)
 
@@ -96,6 +98,13 @@ check("encoders open on the adapter's values", shown(panel) == adapter.macro_val
 check("rings open on the adapter's values", ring_matches(panel, adapter.macro_values))
 check("patch 1 is lit", panel.pads[0][3] == "lit" and panel.patch == 0)
 check("the display names the patch", panel.display.text(0).startswith("A01 Init"), panel.display.text(0))
+
+if BUILD_ONLY:
+    screen.invalidate()
+    check("the panel draws", _headless.refresh() == WIDTH * HEIGHT)
+    print("BUILT %dx%d" % (WIDTH, HEIGHT))
+    print("RESULT %s" % ("FAIL" if failures else "OK"))
+    sys.exit(1 if failures else 0)
 
 # ---- a patch change from the host (the engine's order: patch, then macros) ----
 
