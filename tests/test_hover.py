@@ -8,6 +8,7 @@ same control with the pointer elsewhere, for each kind of control the theme
 styles; a control the theme doesn't style must not change.
 """
 
+import importlib.util
 import os
 import sys
 import unittest
@@ -31,8 +32,12 @@ class HoverStylesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.frame = _headless.display(W, H)
-        from appkit import hover
-
+        # By path: appkit's package pulls in pydevices, which this test doesn't need.
+        spec = importlib.util.spec_from_file_location(
+            "hover", os.path.join(ROOT, "lib", "appkit", "hover.py")
+        )
+        hover = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(hover)
         hover._applied[:] = []
         hover.apply()
         cls.hover = hover
