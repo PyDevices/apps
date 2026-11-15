@@ -21,6 +21,8 @@ class Part:
     *adapter* is the instrument's panel adapter. ``knobs`` and ``program``
     hold the last knob values and program change read from MIDI until the
     app applies them, and ``pad_notes`` is what the pads play on a drum kit.
+    ``most`` is the most voices the voice cap gives the instrument: as many
+    as it had when it was made, and 1 for an instrument it leaves alone.
 
     A panel registers with the adapter and never takes itself off, and here
     an instrument outlives the panel that shows it. So the adapter's
@@ -30,6 +32,7 @@ class Part:
     def __init__(self, name, adapter):
         self.name = name
         self.adapter = adapter
+        self.most = adapter.instrument.voices
         self.knobs = {}
         self.program = None
         self.pad_notes = None

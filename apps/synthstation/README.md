@@ -105,6 +105,12 @@ synthstation: poly106 load 87% peak 120% underruns 3 starved 40 ms
 
 So the app doubles as a bench tool for an instrument on a slow board.
 
+When the notes held take longer to render than they last, the app caps the
+voices, so playing more drops notes instead of starving the speaker. The cap
+is one count shared by every instrument playing: the biggest chord loses a
+note first, and every instrument keeps at least one voice. A drum machine's
+sounds are never capped.
+
 ## Sound out
 
 On a board whose `board_peripherals` publishes `AUDIO_OUT` with an I2S

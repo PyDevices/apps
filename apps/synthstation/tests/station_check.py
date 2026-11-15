@@ -589,7 +589,8 @@ def check_drum_pads(app, scope):
         app._idle_us = 0
         app._played = 0
         app._settle = 0
-        app._govern(inst)
+        app._cap = None
+        app._govern()
         del output.pull_us
         del output.block_us
         capped = inst.voices

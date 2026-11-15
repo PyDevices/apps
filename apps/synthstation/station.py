@@ -144,7 +144,9 @@ class Station:
         self._played = 0
         self._idle_us = None
         self._settle = 0
-        self._most_voices = 0
+        #: The voices every playing instrument may sound between them, or
+        #: None until the governor first reads the instruments' own.
+        self._cap = None
         self._fitted = 0
         self._raised = False
         self._read = None
@@ -656,6 +658,9 @@ class Station:
         adapter.request_reload = request_reload
         adapter.on_reload(self._reloaded)
         part = self.parts[channel] = Part(name, adapter)
+        # A drum machine's voices are its sounds, one circuit each: a cap would
+        # silence the sounds past it, so it's never capped.
+        part.most = 1 if name in _pads.KIT_PADS else inst.voices
         self._lay_out_pads(part)
         return part
 
@@ -706,9 +711,7 @@ class Station:
         self.name = name
         self._idle_us = None
         self._settle = 0
-        # A drum machine's voices are its sounds, one circuit each: a cap would
-        # silence the sounds past it, so it's never capped.
-        self._most_voices = 1 if name in _pads.KIT_PADS else adapter.instrument.voices
+        self._cap = None
         self._fitted = 0
         self._raised = False
         self._read = None
@@ -782,51 +785,61 @@ class Station:
         # waiting for the next scheduled look.
         if self._played:
             self._played -= 1
-        # The cap is worked out from one instrument's voices, so it's left
-        # alone while several play: the load readout says how they're doing.
-        if len(playing) == 1 and (self._played == 1 or self._fills % GOVERN_EVERY == 0):
-            self._govern(adapter.instrument)
+        if self._played == 1 or self._fills % GOVERN_EVERY == 0:
+            self._govern()
 
-    def _govern(self, inst):
+    def _govern(self):
         """Cap the voices at what the pump can render in time.
 
         The pump renders on a core of its own, so a chord the core can't
         keep up with doesn't slow the app, it starves the speaker: the audio
         runs behind for as long as the keys are held. Each sounding voice
         costs about the same, so from the cost of the blocks just rendered
-        this works out how many fit in `BUDGET` of a block's time and
-        sets the instrument's ``voices`` to that. The extra notes steal the
-        oldest instead of everything going quiet. The cap is set from the
-        first sounding voice, before a chord needs it. That voice also wakes
-        whatever the voices share, so it reads dearer than the voices after
-        it: with every allowed voice sounding and room for one more, the cap
-        goes up one, and a count that has fit stays allowed unless the blocks
-        go over budget. A cap it just raised stays up until a chord has used
-        it or the blocks go over budget: the keys already held can't take the
-        new voice, so their reads say nothing about it. A count that went over
-        budget isn't tried again until the keys are up, because each try steals
-        a note.
+        this works out how many voices fit in `BUDGET` of a block's time.
+        That count is one cap for every instrument playing, and `_share`
+        hands it out between them. The extra notes steal instead of
+        everything going quiet. The cap is set from the first sounding
+        voice, before a chord needs it. That voice also wakes whatever the
+        voices share, so it reads dearer than the voices after it: with
+        every allowed voice sounding and room for one more, the cap goes up
+        one, and a count that has fit stays allowed unless the blocks go
+        over budget. A cap it just raised stays up until a chord has used it
+        or the blocks go over budget: the keys already held can't take the
+        new voice, so their reads say nothing about it. A count that went
+        over budget isn't tried again until the keys are up, because each
+        try steals a note.
+
+        A drum machine's sounds are outside the cap, and what they cost
+        counts against the other instruments' voices.
         """
         output = self.output
         cost = output.pull_us()
-        if cost is None or self._most_voices < 2:
+        parts = [part for part in self._playing if part.most > 1]
+        if cost is None or not parts:
             return
         if self._settle:
             # The blocks right after a cap still carry the voices it stole.
             self._settle -= 1
             return
-        sounding = inst.voice_pool.sounding()
+        counts = [part.adapter.instrument.voice_pool.sounding() for part in parts]
+        sounding = sum(counts)
+        voices = self._cap
+        if voices is None:
+            voices = self._cap = sum(part.adapter.instrument.voices for part in parts)
         if sounding == 0:
             self._idle_us = cost if self._idle_us is None else min(self._idle_us, cost)
             self._refused = None
+            self._share(parts, counts)
             return
         idle = self._idle_us or 0
         budget = BUDGET * output.block_us()
         per_voice = (cost - idle) / sounding
         if per_voice <= 0:
+            self._share(parts, counts)
             return
-        voices = inst.voices
-        fit = max(1, int((budget - idle) / per_voice + 0.5))
+        # Every part that's sounding keeps a voice: the cap thins chords, it
+        # never silences a keyboard.
+        fit = max(len(counts) - counts.count(0), int((budget - idle) / per_voice + 0.5))
         # Just after a key the mean still holds blocks from before it.
         settled = self._played == 0
         if cost <= budget:
@@ -836,13 +849,13 @@ class Station:
         if fit < voices and (cost > budget or sounding >= voices or not self._raised):
             if cost > budget:
                 self._refused = sounding
-            inst.voices = fit
+            self._cap = fit
             self._raised = False
             self._settle = SETTLE
         elif (
             settled
             and sounding >= voices
-            and voices < self._most_voices
+            and voices < sum(part.most for part in parts)
             and (self._refused is None or voices + 1 < self._refused)
         ):
             step = per_voice
@@ -850,11 +863,65 @@ class Station:
             if read is not None and read[0] < sounding and cost > read[1]:
                 step = (cost - read[1]) / (sounding - read[0])
             if cost + step <= budget:
-                inst.voices = voices + 1
+                self._cap = voices + 1
                 self._raised = True
                 self._settle = SETTLE
         if settled:
             self._read = (sounding, cost)
+        if self._share(parts, counts):
+            self._settle = SETTLE
+
+    def _share(self, parts, counts):
+        """Hand the cap out between *parts*, sounding *counts* voices now.
+
+        The cap counts the voices of the parts that are sounding. Each gets
+        what it's sounding and one spare, so its next key sounds without
+        stealing and a growing chord shows in the next read. Over the cap,
+        the spares go first, then voices from whichever is sounding the
+        most: the biggest chord loses a note before a smaller part does,
+        and none goes below one voice. Under it, the room left goes to the
+        part with the fewest. A quiet part keeps an even split of the cap
+        for its next chord, which the read after it trims if it has to.
+        Returns True when that stole voices.
+        """
+        cap = self._cap
+        even = max(1, cap // len(parts))
+        shares = []
+        total = 0
+        for part, count in zip(parts, counts):
+            share = min(part.most, count + 1 if count else even)
+            shares.append(share)
+            if count:
+                total += share
+        while total > cap:
+            pick = best = None
+            for i, share in enumerate(shares):
+                if counts[i] and share > 1:
+                    # A spare before a sounding voice, then the biggest share.
+                    key = (share > counts[i], share)
+                    if best is None or key > best:
+                        pick, best = i, key
+            if pick is None:
+                break
+            shares[pick] -= 1
+            total -= 1
+        while total < cap:
+            pick = None
+            for i, share in enumerate(shares):
+                if counts[i] and share < parts[i].most and (pick is None or share < shares[pick]):
+                    pick = i
+            if pick is None:
+                break
+            shares[pick] += 1
+            total += 1
+        stole = False
+        for part, share, count in zip(parts, shares, counts):
+            inst = part.adapter.instrument
+            if inst.voices != share:
+                inst.voices = share
+            if share < count:
+                stole = True
+        return stole
 
     def _close_panel(self):
         """Take the panel down. The instruments stay, and keep playing."""
