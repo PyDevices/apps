@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.1.2.dev12
+
+- Gamepad: a new app that makes the board a USB game controller, or tests a gamepad plugged into its USB host port. It needs pydevices 0.8.0.dev20 or later, and firmware that freezes `usb.host.hid_generic` for the host side.
+- MIDI Controller: a new app with pads, knobs, faders, a mixer, an XY pad and keys. It plays out as a USB MIDI device, to a synth on the USB host port, over BLE-MIDI, or to a computer's or a browser's MIDI outputs.
+- Vamp: a front panel for an 800x480 touch screen, and a take recorded from the box's MIDI keyboard.
+- touchkit, Desk Clock, Card: the board answers to `boarddev.name()`, the one name Wi-Fi, Bluetooth and mDNS use. It needs pydevices 0.8.0.dev20 or later.
+- appkit: buttons, list rows, tabs, sliders and switches light up under the mouse.
+- REPL: page back through the scrollback.
+- Ostinato, Vamp: the MIDI loopback's name comes from `midiports.LOOPBACK` (PyDevices Loopback on Windows).
+- Sound module: a REAPER bank file with the patch names.
+- applibs: type stubs for the 61 public modules in `lib/`.
+
 ## 0.1.2.dev11
 
 - touchkit.net: a CircuitPython board rejoins its network after the access point drops, on the same 30 s to 5 minute schedule as a first join. MicroPython's poll still stops at the first join.

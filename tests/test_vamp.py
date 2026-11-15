@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2026 PyDevices
 #
 # SPDX-License-Identifier: MIT
-"""Vamp's engine check (``vamp_check.py``) and its link contract
-(``vamp_link_contract.py``) on CPython and unix MicroPython, then once per
+"""Vamp's engine check (``vamp_check.py``), its link contract
+(``vamp_link_contract.py``) and its front panel's contract
+(``vamp_panel_contract.py``) on CPython and unix MicroPython, then once per
 planted fault, on a bank ``vamp_bank.py`` writes.
 
     python -m unittest discover -s tests
@@ -10,9 +11,12 @@ planted fault, on a bank ``vamp_bank.py`` writes.
 The interpreters and the audio libraries are found as ``test_engine.py`` finds
 them. hmilink comes from ``$HMILINK_PATH`` (the folder holding the
 ``hmilink`` package), else a pydevices checkout beside this one
-(``pydevices/hmilink``), else Ostinato's ``vendor/lib``. Whatever is missing
+(``pydevices/packages/hmilink``), else Ostinato's ``vendor/lib``. Whatever is missing
 is skipped, loudly; with ``VAMP_REQUIRE=1`` set, as CI sets it, a missing
 piece fails instead.
+
+The front panel's screen needs LVGL. CPython must have it (pydevices-lvgl); a
+MicroPython without it runs the panel's checks with no screen and says so.
 """
 
 import os
@@ -32,12 +36,14 @@ from test_engine import _find, audio_libs  # noqa: E402
 
 ENGINE_PLANTS = ("nodelay", "nocancel", "nomute", "norack", "nolive", "nochoke", "norecord")
 LINK_PLANTS = ("nomute", "norecord")
+PANEL_PLANTS = ("nohead", "noedit", "noecho")
 
 
 def _hmilink():
     explicit = os.environ.get("HMILINK_PATH")
     candidates = [Path(explicit)] if explicit else []
     for parent in TESTS.parents:
+        candidates.append(parent / "pydevices" / "packages" / "hmilink")
         candidates.append(parent / "pydevices" / "hmilink")
     candidates.append(ROOT / "programs" / "ostinato" / "vendor" / "lib")
     for c in candidates:
@@ -88,9 +94,9 @@ class Vamp(unittest.TestCase):
         if self.bank is None:
             _skip(self, self.why)
         hm = _hmilink()
-        if hm is None and "link" in script:
-            _skip(self, "no hmilink: the link contract did NOT run")
-        path = [LIB, APPS] + ([hm] if hm else [])
+        if hm is None and ("link" in script or "panel" in script):
+            _skip(self, "no hmilink: %s did NOT run" % script)
+        path = [LIB, APPS, str(TESTS)] + ([hm] if hm else [])
         env = dict(os.environ)
         if kind == "cpython":
             env["PYTHONPATH"] = os.pathsep.join(path + audio_libs() + [env.get("PYTHONPATH", "")])
@@ -103,6 +109,8 @@ class Vamp(unittest.TestCase):
 
     def _run(self, kind, script, plant=None):
         cmd, env = self._cmd(kind, script)
+        if kind == "cpython" and "panel" in script:
+            cmd.append("--need-screen")
         if plant:
             cmd += ["--plant", plant]
         return subprocess.run(cmd, env=env, capture_output=True, text=True, timeout=300)
@@ -145,6 +153,18 @@ class Vamp(unittest.TestCase):
     def test_link_plants_micropython(self):
         self._plants("micropython", "vamp_link_contract.py", LINK_PLANTS)
 
+    def test_panel_cpython(self):
+        self._passes("cpython", "vamp_panel_contract.py")
+
+    def test_panel_micropython(self):
+        self._passes("micropython", "vamp_panel_contract.py")
+
+    def test_panel_plants_cpython(self):
+        self._plants("cpython", "vamp_panel_contract.py", PANEL_PLANTS)
+
+    def test_panel_plants_micropython(self):
+        self._plants("micropython", "vamp_panel_contract.py", PANEL_PLANTS)
+
 
 class SongSegments(unittest.TestCase):
     """songmodel.model.segments, which Ostinato's engine and Vamp's both play
@@ -178,6 +198,68 @@ class SongSegments(unittest.TestCase):
                           (m.BAR * 4, m.BAR * 6, m.BAR * 4)])
         p["loop_scene"] = 1
         self.assertEqual(m.segments(p, 0, m.BAR)[0][3][int(tid)], -1)
+
+
+class PanelPlayhead(unittest.TestCase):
+    """vamp.panel.playing_at: which pattern a track is in at the box's tick,
+    and how far into it, so a panel can light the right step."""
+
+    @classmethod
+    def setUpClass(cls):
+        hm = _hmilink()
+        if hm is None:
+            raise unittest.SkipTest("no hmilink: the panel's playhead checks did NOT run")
+        for p in (hm, APPS, LIB):
+            if p not in sys.path:
+                sys.path.insert(0, p)
+        from songmodel import model
+        from vamp import panel
+
+        cls.m = model
+        cls.panel = panel
+
+    def test_pattern_mode_wraps_and_switches(self):
+        m, at = self.m, self.panel.playing_at
+        p = m.new_project()
+        t = p["tracks"][0]
+        t["patterns"] = [m.pattern(2), m.pattern(1)]
+        self.assertEqual(at(p, t, m.BAR * 2 + m.STEP * 3), (0, m.STEP * 3))
+        self.assertEqual(at(p, t, m.BAR * 3 + m.STEP), (0, m.BAR + m.STEP))
+        t["next"] = {"at": m.BAR * 4, "pattern": 1}
+        self.assertEqual(at(p, t, m.BAR * 3), (0, m.BAR))
+        self.assertEqual(at(p, t, m.BAR * 5 + m.STEP), (1, m.STEP))
+
+    def test_song_mode_counts_from_the_scene(self):
+        m, at = self.m, self.panel.playing_at
+        p = m.new_project()
+        t = p["tracks"][0]
+        t["patterns"] = [m.pattern(1), m.pattern(2)]
+        tid = str(t["id"])
+        p["song_mode"] = True
+        p["song"] = [{"patterns": {tid: 0}, "repeat": 1}, {"patterns": {tid: 1}, "repeat": 1},
+                     {"patterns": {tid: -1}, "repeat": 1}]
+        self.assertEqual(at(p, t, m.STEP * 5), (0, m.STEP * 5))
+        self.assertEqual(at(p, t, m.BAR + m.BAR + m.STEP), (1, m.BAR + m.STEP))
+        self.assertEqual(at(p, t, m.BAR * 3 + m.STEP), (-1, 0))
+        self.assertEqual(at(p, t, m.BAR * 4 + m.STEP * 2), (0, m.STEP * 2))
+
+    def test_cells_mark_starts_and_held_steps(self):
+        m, panel = self.m, self.panel
+
+        class Joined:
+            closed = False
+            doc = m.new_project()
+
+        front = panel.Front(None)
+        front.panel = Joined()
+        front.selected = 1
+        notes = front.doc["tracks"][1]["patterns"][0]["notes"]
+        notes.append([m.STEP * 2, m.STEP * 3, 50, 100])
+        notes.append([m.STEP * 3, m.STEP, 50, 100])
+        notes.append([0, m.STEP, 72, 100])
+        row = (front.low + panel.OCTAVE - 1 - 50) * panel.STEPS
+        self.assertEqual(list(front.cells()[row:row + 6]), [0, 0, panel.START, panel.START, panel.HELD, 0])
+        self.assertEqual(sum(front.cells()), 2 * panel.START + panel.HELD)
 
 
 if __name__ == "__main__":

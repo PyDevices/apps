@@ -89,7 +89,7 @@ jobs:
           echo "$files"
           has() { grep -qE "$1" <<< "$files" && echo true || echo false; }
           echo "ostinato=$(has '^(programs/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "engines=$(has '^(lib/|tests/|apps/stompbox/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "engines=$(has '^(lib/|tests/|apps/stompbox/|programs/vamp/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"

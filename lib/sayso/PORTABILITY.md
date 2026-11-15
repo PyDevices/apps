@@ -173,4 +173,5 @@ Practical impact on `sayso`:
 
 `client.user()` and other removed paths remain on `SpotifyClient` for callers
 that run under Extended Quota or future API tiers, but hobby/Dev Mode apps should
-treat them as unavailable.
+treat them as unavailable. Each one says so in its docstring, and
+`tools/sayso/endpoint_coverage.py` lists them all with what to use instead.

@@ -41,6 +41,7 @@ sayso.schema_coverage
 sayso.transport
 songmodel
 songmodel.model
+songmodel.page_data
 soundmodule
 soundmodule.engine
 soundmodule.names

@@ -16,7 +16,8 @@ hmilink on MICROPYPATH::
 
 Then the window joins it (``python -m ostinato --connect BOX:9100``) and a
 browser opens ``http://BOX:9100/``. On the board, the bank is read from
-``/sd/soundfonts`` on the SD card, else ``/soundfonts`` or ``/data/soundfonts``, the network is the Ethernet port, and a keyboard on the USB host
+``/sd/soundfonts`` on the SD card, else ``/soundfonts`` or ``/data/soundfonts``, the network is the Ethernet port
+and the Wi-Fi network the board has already joined, and a keyboard on the USB host
 port plays the selected track.
 """
 
@@ -93,6 +94,23 @@ def _network(ip):
             break
         time.sleep_ms(100)
     return lan
+
+
+def _wifi_awake():
+    """Keep the Wi-Fi radio awake when the board has joined a network: one
+    that naps between beacons answers a panel up to a beacon late. Returns the
+    board's Wi-Fi address, or None."""
+    try:
+        import network
+
+        sta = network.WLAN(network.STA_IF)
+        if not sta.isconnected():
+            return None
+        sta.config(pm=network.WLAN.PM_NONE)
+        return sta.ifconfig()[0]
+    except Exception as e:  # noqa: BLE001 - no radio, or one that can't be told: Ethernet still serves
+        _log("box: Wi-Fi left as it is:", e)
+        return None
 
 
 def _static(lan, ip):
@@ -210,6 +228,9 @@ def main(argv=None):
         _thread.stack_size(16 * 1024)
         lan = _network(opts["ip"])
         _log("box: Ethernet", lan.ifconfig()[0])
+        wifi = _wifi_awake()
+        if wifi:
+            _log("box: Wi-Fi", wifi)
         _mount_sd()
         opts["bank"] = _find_bank(opts["bank"])
 

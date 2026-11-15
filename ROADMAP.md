@@ -45,8 +45,5 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 
 ## Libraries
 
-- Ship songmodel's front panel page to boards. The wheel carries `page.html`,
-  but a `mip` install or a frozen build has only the Python, so today Vamp
-  copies the page across itself.
 - [appkit](lib/appkit/ROADMAP.md), [controlkit](lib/controlkit/ROADMAP.md)
   and [sayso](lib/sayso/ROADMAP.md) keep their own roadmaps.

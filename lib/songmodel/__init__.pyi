@@ -3,5 +3,7 @@
 # SPDX-License-Identifier: MIT
 """The song both of this repo's groovebox applications edit, and what carries it to a front panel."""
 
-def page() -> str:
-    """The path of `page.html`, beside this file."""
+from collections.abc import Callable
+
+def page() -> Callable[[], bytes]:
+    """The front panel page, as `hmilink.tcp.serve(port, page=...)` takes it."""

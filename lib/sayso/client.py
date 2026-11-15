@@ -54,6 +54,108 @@ from .transport import (
 )
 from .local import EarfulAdapter, discover as discover_local
 
+# The most IDs or URIs one request takes, by client method, from the parameter
+# descriptions in Spotify's Web API reference
+# (https://developer.spotify.com/documentation/web-api/reference).
+_MOST = {
+    "tracks": 50,
+    "albums": 20,
+    "artists": 50,
+    "episodes": 50,
+    "shows": 50,
+    "audiobooks": 50,
+    "chapters": 50,
+    "audio_features_many": 100,
+    "add_playlist_items": 100,
+    "add_playlist_tracks": 100,
+    "remove_playlist_items": 100,
+    "remove_playlist_tracks": 100,
+    "replace_playlist_items": 100,
+    "replace_playlist_tracks": 100,
+    "contains_saved_albums": 20,
+    "save_albums": 50,
+    "remove_saved_albums": 50,
+    "contains_saved_tracks": 50,
+    "save_tracks": 50,
+    "remove_saved_tracks": 50,
+    "contains_saved_episodes": 50,
+    "save_episodes": 50,
+    "remove_saved_episodes": 50,
+    "contains_saved_shows": 50,
+    "save_shows": 50,
+    "remove_saved_shows": 50,
+    "contains_saved_audiobooks": 50,
+    "save_audiobooks": 50,
+    "remove_saved_audiobooks": 50,
+    "library_contains": 40,
+    "save_library_items": 40,
+    "remove_library_items": 40,
+    "follows_artists": 50,
+    "follows_users": 50,
+    "follow_artists": 50,
+    "follow_users": 50,
+    "unfollow_artists": 50,
+    "unfollow_users": 50,
+}
+
+# The most seeds `recommendations` takes, artists, genres and tracks together.
+_MOST_SEEDS = 5
+
+# The largest playlist cover Spotify accepts, as Base64 text.
+_MOST_COVER_BYTES = 256 * 1024
+
+# Client methods whose endpoint Spotify removed for Development Mode apps, with
+# the method to use instead, or None where there is none. From the February 2026
+# migration guide
+# (https://developer.spotify.com/documentation/web-api/tutorials/february-2026-migration-guide).
+# Apps in Extended Quota Mode still have every one of them.
+_REMOVED_ENDPOINTS = {
+    "tracks": ("GET /tracks", "track"),
+    "albums": ("GET /albums", "album"),
+    "artists": ("GET /artists", "artist"),
+    "episodes": ("GET /episodes", "episode"),
+    "shows": ("GET /shows", "show"),
+    "audiobooks": ("GET /audiobooks", "audiobook"),
+    "chapters": ("GET /chapters", "chapter"),
+    "artist_top_tracks": ("GET /artists/{id}/top-tracks", None),
+    "create_playlist": ("POST /users/{user_id}/playlists", "create_current_user_playlist"),
+    "playlist_tracks": ("GET /playlists/{playlist_id}/tracks", "playlist_items"),
+    "add_playlist_tracks": ("POST /playlists/{playlist_id}/tracks", "add_playlist_items"),
+    "remove_playlist_tracks": ("DELETE /playlists/{playlist_id}/tracks", "remove_playlist_items"),
+    "replace_playlist_tracks": ("PUT /playlists/{playlist_id}/tracks", "replace_playlist_items"),
+    "reorder_playlist_tracks": ("PUT /playlists/{playlist_id}/tracks", "reorder_playlist_items"),
+    "follow_playlist": ("PUT /playlists/{playlist_id}/followers", "save_library_items"),
+    "unfollow_playlist": ("DELETE /playlists/{playlist_id}/followers", "remove_library_items"),
+    "playlist_followers_contains": ("GET /playlists/{playlist_id}/followers/contains", "library_contains"),
+    "category": ("GET /browse/categories/{category_id}", None),
+    "categories": ("GET /browse/categories", None),
+    "new_releases": ("GET /browse/new-releases", None),
+    "user": ("GET /users/{user_id}", "me"),
+    "user_playlists": ("GET /users/{user_id}/playlists", "current_user_playlists"),
+    "contains_saved_albums": ("GET /me/albums/contains", "library_contains"),
+    "save_albums": ("PUT /me/albums", "save_library_items"),
+    "remove_saved_albums": ("DELETE /me/albums", "remove_library_items"),
+    "contains_saved_tracks": ("GET /me/tracks/contains", "library_contains"),
+    "save_tracks": ("PUT /me/tracks", "save_library_items"),
+    "remove_saved_tracks": ("DELETE /me/tracks", "remove_library_items"),
+    "contains_saved_episodes": ("GET /me/episodes/contains", "library_contains"),
+    "save_episodes": ("PUT /me/episodes", "save_library_items"),
+    "remove_saved_episodes": ("DELETE /me/episodes", "remove_library_items"),
+    "contains_saved_shows": ("GET /me/shows/contains", "library_contains"),
+    "save_shows": ("PUT /me/shows", "save_library_items"),
+    "remove_saved_shows": ("DELETE /me/shows", "remove_library_items"),
+    "contains_saved_audiobooks": ("GET /me/audiobooks/contains", "library_contains"),
+    "save_audiobooks": ("PUT /me/audiobooks", "save_library_items"),
+    "remove_saved_audiobooks": ("DELETE /me/audiobooks", "remove_library_items"),
+    "follows_artists": ("GET /me/following/contains", "library_contains"),
+    "follow_artists": ("PUT /me/following", "save_library_items"),
+    "unfollow_artists": ("DELETE /me/following", "remove_library_items"),
+    "follows_users": ("GET /me/following/contains", "library_contains"),
+    "follow_users": ("PUT /me/following", "save_library_items"),
+    "unfollow_users": ("DELETE /me/following", "remove_library_items"),
+    "available_markets": ("GET /markets", None),
+}
+
 
 class SpotifyClientError(Exception):
     pass
@@ -188,17 +290,51 @@ class SpotifyClient:
     def _path_id(self, value):
         return str(value)
 
+    def _most(self, method, values):
+        """`values`, as a string or a list, once it fits what `method` takes in one request."""
+        if isinstance(values, str):
+            count = values.count(",") + 1
+        else:
+            values = list(values)
+            count = len(values)
+        most = _MOST[method]
+        if count > most:
+            raise ValueError("%s() takes at most %d items in one request, and got %d" % (method, most, count))
+        return values
+
+    def _limit(self, limit, most=50):
+        """A page `limit`, once it is within what Spotify's Web API reference allows."""
+        if isinstance(limit, int) and not 0 <= limit <= most:
+            raise ValueError("limit must be from 0 to %d, and got %d" % (most, limit))
+        return limit
+
     def track(self, object_id, market=None):
         return self._one(Track, "/tracks/" + self._path_id(object_id), self._market_query(market))
 
     def tracks(self, ids, market=None):
-        return self._many(Track, "tracks", "/tracks", ids, self._market_query(market))
+        """Several tracks by ID.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /tracks`): use `track`, once per ID.
+        """
+        return self._many(Track, "tracks", "/tracks", self._most("tracks", ids), self._market_query(market))
 
     def album(self, object_id, market=None):
         return self._one(Album, "/albums/" + self._path_id(object_id), self._market_query(market))
 
     def albums(self, ids, market=None):
-        return self._many(Album, "albums", "/albums", ids, self._market_query(market))
+        """Several albums by ID.
+
+        Takes at most 20 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /albums`): use `album`, once per ID.
+        """
+        return self._many(Album, "albums", "/albums", self._most("albums", ids), self._market_query(market))
 
     def album_tracks(self, object_id, market=None, limit=None, offset=None):
         query = self._page_query(market=market, limit=limit, offset=offset)
@@ -208,7 +344,15 @@ class SpotifyClient:
         return self._one(Artist, "/artists/" + self._path_id(object_id))
 
     def artists(self, ids):
-        return self._many(Artist, "artists", "/artists", ids)
+        """Several artists by ID.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /artists`): use `artist`, once per ID.
+        """
+        return self._many(Artist, "artists", "/artists", self._most("artists", ids))
 
     def artist_albums(self, object_id, include_groups=None, market=None, limit=None, offset=None):
         query = self._page_query(market=market, limit=limit, offset=offset)
@@ -216,6 +360,11 @@ class SpotifyClient:
         return self._page(AlbumPage, "/artists/" + self._path_id(object_id) + "/albums", query)
 
     def artist_top_tracks(self, object_id, market=None):
+        """An artist's top tracks.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /artists/{id}/top-tracks`), with no replacement.
+        """
         data = self._get_json("/artists/" + self._path_id(object_id) + "/top-tracks", self._market_query(market))
         tracks = data.get("tracks")
         if tracks is None:
@@ -237,6 +386,11 @@ class SpotifyClient:
         return self._one(Playlist, "/playlists/" + self._path_id(object_id), query)
 
     def create_playlist(self, user_id, name, public=None, collaborative=None, description=None):
+        """Create a playlist for a user, by user ID.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`POST /users/{user_id}/playlists`): use `create_current_user_playlist`.
+        """
         data = {"name": name}
         self._add_query(data, "public", public)
         self._add_query(data, "collaborative", collaborative)
@@ -265,48 +419,92 @@ class SpotifyClient:
         return self._page(PlaylistTrackPage, "/playlists/" + self._path_id(object_id) + "/items", query)
 
     def playlist_tracks(self, object_id, market=None, fields=None, limit=None, offset=None, additional_types=None):
+        """A page of a playlist's entries, from the old `/tracks` path.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /playlists/{playlist_id}/tracks`): use `playlist_items`.
+        """
         query = self._page_query(market=market, limit=limit, offset=offset)
         self._add_query(query, "fields", fields)
         self._add_query(query, "additional_types", additional_types)
         return self._page(PlaylistTrackPage, "/playlists/" + self._path_id(object_id) + "/tracks", query)
 
     def add_playlist_items(self, object_id, uris, position=None):
-        data = {"uris": self._uri_list(uris)}
+        """Add tracks or episodes to a playlist.
+
+        Takes at most 100 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
+        data = {"uris": self._uri_list(self._most("add_playlist_items", uris))}
         self._add_query(data, "position", position)
         return self._snapshot(self._post_json("/playlists/" + self._path_id(object_id) + "/items", data=data))
 
     def add_playlist_tracks(self, object_id, uris, position=None):
-        data = {"uris": self._uri_list(uris)}
+        """Add tracks or episodes to a playlist, through the old `/tracks` path.
+
+        Takes at most 100 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`POST /playlists/{playlist_id}/tracks`): use `add_playlist_items`.
+        """
+        data = {"uris": self._uri_list(self._most("add_playlist_tracks", uris))}
         self._add_query(data, "position", position)
         return self._snapshot(self._post_json("/playlists/" + self._path_id(object_id) + "/tracks", data=data))
 
     def remove_playlist_items(self, object_id, uris, snapshot_id=None):
+        """Remove tracks or episodes from a playlist.
+
+        Takes at most 100 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
         data = {
-            "items": [{"uri": uri} for uri in self._uri_list(uris)],
+            "items": [{"uri": uri} for uri in self._uri_list(self._most("remove_playlist_items", uris))],
         }
         self._add_query(data, "snapshot_id", snapshot_id)
         return self._snapshot(self._delete_json("/playlists/" + self._path_id(object_id) + "/items", data=data))
 
     def remove_playlist_tracks(self, object_id, uris, snapshot_id=None):
+        """Remove tracks or episodes from a playlist, through the old `/tracks` path.
+
+        Takes at most 100 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /playlists/{playlist_id}/tracks`): use `remove_playlist_items`.
+        """
         data = {
-            "tracks": [{"uri": uri} for uri in self._uri_list(uris)],
+            "tracks": [{"uri": uri} for uri in self._uri_list(self._most("remove_playlist_tracks", uris))],
         }
         self._add_query(data, "snapshot_id", snapshot_id)
         return self._snapshot(self._delete_json("/playlists/" + self._path_id(object_id) + "/tracks", data=data))
 
     def replace_playlist_items(self, object_id, uris):
+        """Replace everything in a playlist.
+
+        Takes at most 100 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
         return self._snapshot(
             self._put_json(
                 "/playlists/" + self._path_id(object_id) + "/items",
-                data={"uris": self._uri_list(uris)},
+                data={"uris": self._uri_list(self._most("replace_playlist_items", uris))},
             )
         )
 
     def replace_playlist_tracks(self, object_id, uris):
+        """Replace everything in a playlist, through the old `/tracks` path.
+
+        Takes at most 100 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /playlists/{playlist_id}/tracks`): use `replace_playlist_items`.
+        """
         return self._snapshot(
             self._put_json(
                 "/playlists/" + self._path_id(object_id) + "/tracks",
-                data={"uris": self._uri_list(uris)},
+                data={"uris": self._uri_list(self._most("replace_playlist_tracks", uris))},
             )
         )
 
@@ -320,6 +518,11 @@ class SpotifyClient:
         return self._snapshot(self._put_json("/playlists/" + self._path_id(object_id) + "/items", data=data))
 
     def reorder_playlist_tracks(self, object_id, range_start, insert_before, range_length=None, snapshot_id=None):
+        """Move a run of a playlist's entries, through the old `/tracks` path.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /playlists/{playlist_id}/tracks`): use `reorder_playlist_items`.
+        """
         data = {
             "range_start": range_start,
             "insert_before": insert_before,
@@ -329,27 +532,58 @@ class SpotifyClient:
         return self._snapshot(self._put_json("/playlists/" + self._path_id(object_id) + "/tracks", data=data))
 
     def follow_playlist(self, object_id, public=None):
+        """Follow a playlist.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /playlists/{playlist_id}/followers`): use `save_library_items`.
+        """
         data = {}
         self._add_query(data, "public", public)
         return self._put_json("/playlists/" + self._path_id(object_id) + "/followers", data=data)
 
     def unfollow_playlist(self, object_id):
+        """Stop following a playlist.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /playlists/{playlist_id}/followers`): use `remove_library_items`.
+        """
         return self._delete_json("/playlists/" + self._path_id(object_id) + "/followers")
 
     def playlist_followers_contains(self, object_id, ids):
+        """Whether each user follows a playlist.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /playlists/{playlist_id}/followers/contains`): use `library_contains`.
+        """
         return self._bools("/playlists/" + self._path_id(object_id) + "/followers/contains", ids)
 
     def episode(self, object_id, market=None):
         return self._one(Episode, "/episodes/" + self._path_id(object_id), self._market_query(market))
 
     def episodes(self, ids, market=None):
-        return self._many(Episode, "episodes", "/episodes", ids, self._market_query(market))
+        """Several episodes by ID.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /episodes`): use `episode`, once per ID.
+        """
+        return self._many(Episode, "episodes", "/episodes", self._most("episodes", ids), self._market_query(market))
 
     def show(self, object_id, market=None):
         return self._one(Show, "/shows/" + self._path_id(object_id), self._market_query(market))
 
     def shows(self, ids, market=None):
-        return self._many(Show, "shows", "/shows", ids, self._market_query(market))
+        """Several shows by ID.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /shows`): use `show`, once per ID.
+        """
+        return self._many(Show, "shows", "/shows", self._most("shows", ids), self._market_query(market))
 
     def show_episodes(self, object_id, market=None, limit=None, offset=None):
         query = self._page_query(market=market, limit=limit, offset=offset)
@@ -359,7 +593,15 @@ class SpotifyClient:
         return self._one(Audiobook, "/audiobooks/" + self._path_id(object_id), self._market_query(market))
 
     def audiobooks(self, ids, market=None):
-        return self._many(Audiobook, "audiobooks", "/audiobooks", ids, self._market_query(market))
+        """Several audiobooks by ID.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /audiobooks`): use `audiobook`, once per ID.
+        """
+        return self._many(Audiobook, "audiobooks", "/audiobooks", self._most("audiobooks", ids), self._market_query(market))
 
     def audiobook_chapters(self, object_id, market=None, limit=None, offset=None):
         query = self._page_query(market=market, limit=limit, offset=offset)
@@ -369,23 +611,46 @@ class SpotifyClient:
         return self._one(Chapter, "/chapters/" + self._path_id(object_id), self._market_query(market))
 
     def chapters(self, ids, market=None):
-        return self._many(Chapter, "chapters", "/chapters", ids, self._market_query(market))
+        """Several chapters by ID.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /chapters`): use `chapter`, once per ID.
+        """
+        return self._many(Chapter, "chapters", "/chapters", self._most("chapters", ids), self._market_query(market))
 
     def audio_features(self, object_id):
         return self._one(AudioFeatures, "/audio-features/" + self._path_id(object_id))
 
     def audio_features_many(self, ids):
-        return self._many(AudioFeatures, "audio_features", "/audio-features", ids)
+        """Audio features for several tracks.
+
+        Takes at most 100 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
+        return self._many(AudioFeatures, "audio_features", "/audio-features", self._most("audio_features_many", ids))
 
     def audio_analysis(self, object_id):
         return self._one(AudioAnalysis, "/audio-analysis/" + self._path_id(object_id))
 
     def recommendations(self, seed_artists=None, seed_genres=None, seed_tracks=None, limit=None, market=None, **kwargs):
+        """Tracks recommended from seed artists, genres and tracks.
+
+        Takes at most 5 seeds in one request, counting all three kinds together,
+        and a `limit` up to 100, the maximums in Spotify's Web API reference. More
+        raises `ValueError` before anything is sent.
+        """
+        seeds = [self._join_optional(seed_artists), self._join_optional(seed_genres), self._join_optional(seed_tracks)]
+        count = sum(seed.count(",") + 1 for seed in seeds if seed)
+        if count > _MOST_SEEDS:
+            raise ValueError("recommendations() takes at most %d seeds in one request, and got %d" % (_MOST_SEEDS, count))
         query = {}
-        self._add_query(query, "seed_artists", self._join_optional(seed_artists))
-        self._add_query(query, "seed_genres", self._join_optional(seed_genres))
-        self._add_query(query, "seed_tracks", self._join_optional(seed_tracks))
-        self._add_query(query, "limit", limit)
+        self._add_query(query, "seed_artists", seeds[0])
+        self._add_query(query, "seed_genres", seeds[1])
+        self._add_query(query, "seed_tracks", seeds[2])
+        self._add_query(query, "limit", self._limit(limit, 100))
         self._add_query(query, "market", market)
 
         for key in kwargs:
@@ -394,12 +659,22 @@ class SpotifyClient:
         return self._one(Recommendations, "/recommendations", query)
 
     def category(self, object_id, country=None, locale=None):
+        """One browse category.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /browse/categories/{category_id}`), with no replacement.
+        """
         query = {}
         self._add_query(query, "country", country)
         self._add_query(query, "locale", locale)
         return self._one(Category, "/browse/categories/" + self._path_id(object_id), query)
 
     def categories(self, country=None, locale=None, limit=None, offset=None):
+        """A page of browse categories.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /browse/categories`), with no replacement.
+        """
         query = self._page_query(limit=limit, offset=offset)
         self._add_query(query, "country", country)
         self._add_query(query, "locale", locale)
@@ -419,12 +694,22 @@ class SpotifyClient:
         return self._one(FeaturedPlaylists, "/browse/featured-playlists", query)
 
     def new_releases(self, country=None, limit=None, offset=None):
+        """A page of new album releases.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /browse/new-releases`), with no replacement.
+        """
         query = self._page_query(limit=limit, offset=offset)
         self._add_query(query, "country", country)
         data = self._get_json("/browse/new-releases", query=query)
         return AlbumPage(data.get("albums", data))
 
     def search(self, q, item_types, market=None, limit=None, offset=None, include_external=None):
+        """Search the catalogue for albums, artists, playlists, tracks, shows, episodes or audiobooks.
+
+        Spotify's February 2026 changes cut the largest `limit` from 50 to 10 for
+        Development Mode apps. Page with `offset` to read more.
+        """
         query = self._page_query(market=market, limit=limit, offset=offset)
         self._add_query(query, "q", q)
         self._add_query(query, "type", self._join_ids(item_types))
@@ -435,6 +720,11 @@ class SpotifyClient:
         return self._one(PrivateUser, "/me")
 
     def user(self, object_id):
+        """Another user's public profile.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /users/{user_id}`): use `me` for the current user.
+        """
         return self._one(User, "/users/" + self._path_id(object_id))
 
     def current_playback(self, market=None, additional_types=None):
@@ -530,7 +820,7 @@ class SpotifyClient:
 
     def recently_played(self, limit=None, after=None, before=None):
         query = {}
-        self._add_query(query, "limit", limit)
+        self._add_query(query, "limit", self._limit(limit))
         self._add_query(query, "after", after)
         self._add_query(query, "before", before)
         return self._page(PlayHistoryCursorPage, "/me/player/recently-played", query)
@@ -539,6 +829,11 @@ class SpotifyClient:
         return self._page(PlaylistPage, "/me/playlists", self._page_query(limit=limit, offset=offset))
 
     def user_playlists(self, object_id, limit=None, offset=None):
+        """A page of another user's playlists.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /users/{user_id}/playlists`): use `current_user_playlists` for the current user.
+        """
         return self._page(
             PlaylistPage,
             "/users/" + self._path_id(object_id) + "/playlists",
@@ -561,83 +856,266 @@ class SpotifyClient:
         return self._page(AudiobookPage, "/me/audiobooks", self._page_query(limit=limit, offset=offset))
 
     def contains_saved_albums(self, ids):
-        return self._bools("/me/albums/contains", ids)
+        """Whether each of these albums is in the current user's library.
+
+        Takes at most 20 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /me/albums/contains`): use `library_contains`.
+        """
+        return self._bools("/me/albums/contains", self._most("contains_saved_albums", ids))
 
     def save_albums(self, ids):
-        return self._put_ids("/me/albums", ids)
+        """Save albums to the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /me/albums`): use `save_library_items`.
+        """
+        return self._put_ids("/me/albums", self._most("save_albums", ids))
 
     def remove_saved_albums(self, ids):
-        return self._delete_ids("/me/albums", ids)
+        """Remove albums from the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /me/albums`): use `remove_library_items`.
+        """
+        return self._delete_ids("/me/albums", self._most("remove_saved_albums", ids))
 
     def contains_saved_tracks(self, ids):
-        return self._bools("/me/tracks/contains", ids)
+        """Whether each of these tracks is in the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /me/tracks/contains`): use `library_contains`.
+        """
+        return self._bools("/me/tracks/contains", self._most("contains_saved_tracks", ids))
 
     def save_tracks(self, ids):
-        return self._put_ids("/me/tracks", ids)
+        """Save tracks to the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /me/tracks`): use `save_library_items`.
+        """
+        return self._put_ids("/me/tracks", self._most("save_tracks", ids))
 
     def remove_saved_tracks(self, ids):
-        return self._delete_ids("/me/tracks", ids)
+        """Remove tracks from the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /me/tracks`): use `remove_library_items`.
+        """
+        return self._delete_ids("/me/tracks", self._most("remove_saved_tracks", ids))
 
     def contains_saved_episodes(self, ids):
-        return self._bools("/me/episodes/contains", ids)
+        """Whether each of these episodes is in the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /me/episodes/contains`): use `library_contains`.
+        """
+        return self._bools("/me/episodes/contains", self._most("contains_saved_episodes", ids))
 
     def save_episodes(self, ids):
-        return self._put_ids("/me/episodes", ids)
+        """Save episodes to the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /me/episodes`): use `save_library_items`.
+        """
+        return self._put_ids("/me/episodes", self._most("save_episodes", ids))
 
     def remove_saved_episodes(self, ids):
-        return self._delete_ids("/me/episodes", ids)
+        """Remove episodes from the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /me/episodes`): use `remove_library_items`.
+        """
+        return self._delete_ids("/me/episodes", self._most("remove_saved_episodes", ids))
 
     def contains_saved_shows(self, ids):
-        return self._bools("/me/shows/contains", ids)
+        """Whether each of these shows is in the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /me/shows/contains`): use `library_contains`.
+        """
+        return self._bools("/me/shows/contains", self._most("contains_saved_shows", ids))
 
     def save_shows(self, ids):
-        return self._put_ids("/me/shows", ids)
+        """Save shows to the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /me/shows`): use `save_library_items`.
+        """
+        return self._put_ids("/me/shows", self._most("save_shows", ids))
 
     def remove_saved_shows(self, ids):
-        return self._delete_ids("/me/shows", ids)
+        """Remove shows from the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /me/shows`): use `remove_library_items`.
+        """
+        return self._delete_ids("/me/shows", self._most("remove_saved_shows", ids))
 
     def contains_saved_audiobooks(self, ids):
-        return self._bools("/me/audiobooks/contains", ids)
+        """Whether each of these audiobooks is in the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /me/audiobooks/contains`): use `library_contains`.
+        """
+        return self._bools("/me/audiobooks/contains", self._most("contains_saved_audiobooks", ids))
 
     def save_audiobooks(self, ids):
-        return self._put_ids("/me/audiobooks", ids)
+        """Save audiobooks to the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /me/audiobooks`): use `save_library_items`.
+        """
+        return self._put_ids("/me/audiobooks", self._most("save_audiobooks", ids))
 
     def remove_saved_audiobooks(self, ids):
-        return self._delete_ids("/me/audiobooks", ids)
+        """Remove audiobooks from the current user's library.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /me/audiobooks`): use `remove_library_items`.
+        """
+        return self._delete_ids("/me/audiobooks", self._most("remove_saved_audiobooks", ids))
 
     def library_contains(self, uris):
-        return tuple(bool(value) for value in self._get_json("/me/library/contains", query=self._query_with_uris(uris)))
+        """Whether each URI is saved or followed by the current user.
+
+        Takes at most 40 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
+        return tuple(bool(value) for value in self._get_json("/me/library/contains", query=self._query_with_uris(self._most("library_contains", uris))))
 
     def save_library_items(self, uris):
-        return self._put_json("/me/library", query=self._query_with_uris(uris))
+        """Save or follow anything that has a Spotify URI.
+
+        Takes at most 40 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
+        return self._put_json("/me/library", query=self._query_with_uris(self._most("save_library_items", uris)))
 
     def remove_library_items(self, uris):
-        return self._delete_json("/me/library", query=self._query_with_uris(uris))
+        """Remove or stop following anything that has a Spotify URI.
+
+        Takes at most 40 URIs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
+        return self._delete_json("/me/library", query=self._query_with_uris(self._most("remove_library_items", uris)))
 
     def followed_artists(self, after=None, limit=None):
         query = {"type": "artist"}
         self._add_query(query, "after", after)
-        self._add_query(query, "limit", limit)
+        self._add_query(query, "limit", self._limit(limit))
         data = self._get_json("/me/following", query=query)
         return ArtistCursorPage(data.get("artists", data))
 
     def follows_artists(self, ids):
-        return self._following_bools("artist", ids)
+        """Whether the current user follows each artist.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /me/following/contains`): use `library_contains`.
+        """
+        return self._following_bools("artist", self._most("follows_artists", ids))
 
     def follows_users(self, ids):
-        return self._following_bools("user", ids)
+        """Whether the current user follows each user.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /me/following/contains`): use `library_contains`.
+        """
+        return self._following_bools("user", self._most("follows_users", ids))
 
     def follow_artists(self, ids):
-        return self._follow("artist", ids)
+        """Follow artists.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /me/following`): use `save_library_items`.
+        """
+        return self._follow("artist", self._most("follow_artists", ids))
 
     def follow_users(self, ids):
-        return self._follow("user", ids)
+        """Follow users.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`PUT /me/following`): use `save_library_items`.
+        """
+        return self._follow("user", self._most("follow_users", ids))
 
     def unfollow_artists(self, ids):
-        return self._unfollow("artist", ids)
+        """Stop following artists.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /me/following`): use `remove_library_items`.
+        """
+        return self._unfollow("artist", self._most("unfollow_artists", ids))
 
     def unfollow_users(self, ids):
-        return self._unfollow("user", ids)
+        """Stop following users.
+
+        Takes at most 50 IDs in one request, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`DELETE /me/following`): use `remove_library_items`.
+        """
+        return self._unfollow("user", self._most("unfollow_users", ids))
 
     def top_artists(self, time_range=None, limit=None, offset=None):
         query = self._page_query(limit=limit, offset=offset)
@@ -654,6 +1132,16 @@ class SpotifyClient:
         return [Image(item) for item in data]
 
     def set_playlist_cover_image(self, object_id, base64_jpeg):
+        """Upload a playlist's cover, a JPEG as Base64 text.
+
+        Takes at most 256 KB of Base64, the maximum in Spotify's Web API
+        reference. More raises `ValueError` before anything is sent.
+        """
+        if len(base64_jpeg) > _MOST_COVER_BYTES:
+            raise ValueError(
+                "set_playlist_cover_image() takes at most %d bytes of Base64, and got %d"
+                % (_MOST_COVER_BYTES, len(base64_jpeg))
+            )
         return self._put_body(
             "/playlists/" + self._path_id(object_id) + "/images",
             base64_jpeg,
@@ -661,6 +1149,11 @@ class SpotifyClient:
         )
 
     def available_markets(self):
+        """The markets where Spotify is available.
+
+        Removed for Development Mode apps by Spotify's February 2026 changes
+        (`GET /markets`), with no replacement.
+        """
         data = self._get_json("/markets")
         markets = data.get("markets")
         if markets is None:
@@ -682,7 +1175,7 @@ class SpotifyClient:
     def _page_query(self, market=None, limit=None, offset=None):
         query = {}
         self._add_query(query, "market", market)
-        self._add_query(query, "limit", limit)
+        self._add_query(query, "limit", self._limit(limit))
         self._add_query(query, "offset", offset)
         return query
 
