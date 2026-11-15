@@ -24,6 +24,7 @@ _headless.pointer()
 
 from controlkit import LampButton, LedMeter, PadGrid, Slider  # noqa: E402
 from controlkit import slider as slider_module  # noqa: E402
+from controlkit import encoder as encoder_module  # noqa: E402
 from controlkit.theme import BLACK  # noqa: E402
 
 if PLANT:
@@ -164,6 +165,93 @@ try:
     check("an index past the grid is refused", False, "no error")
 except IndexError:
     check("an index past the grid is refused", True)
+scr.delete()
+
+# ---- Encoder: how the ring shows the value ------------------------------------
+
+
+class _Panel:
+    """What an encoder asks of the panel that holds it."""
+
+    travel = 200
+    fine = False
+
+    def __init__(self):
+        self.turned = []
+
+    def default_value(self, index):
+        return 64
+
+    def _turned(self, encoder, value):
+        self.turned.append(value)
+
+    def _focused(self, encoder):
+        pass
+
+
+def ring(mode, value, enabled=True):
+    """The LEDs' brightness for a new encoder in *mode* showing *value*."""
+    enc = encoder_module.Encoder(_Panel(), scr, 0, "Pan", 10, 10, 120, 140, geom, BLACK, enabled=enabled, mode=mode)
+    enc.set_value(value)
+    _headless.refresh()
+    levels = enc.lit()
+    hidden = [led.has_flag(lv.obj.FLAG.HIDDEN) for led in enc._leds]
+    check("%s at %d: a dark LED is hidden and a lit one is shown" % (mode, value),
+          hidden == [level == 0 for level in levels], str(hidden))
+    enc.obj.delete()
+    return levels
+
+
+def lit_leds(levels):
+    return [i for i, level in enumerate(levels) if level]
+
+
+scr = screen()
+geom = encoder_module.geometry(120, 140, 1.0)
+
+plain = encoder_module.Encoder(_Panel(), scr, 0, "Level", 10, 10, 120, 140, geom, BLACK)
+check("an encoder fills its ring unless told otherwise", plain.mode == "fill", plain.mode)
+plain.obj.delete()
+check("fill at 0 is dark", lit_leds(ring("fill", 0)) == [])
+check("fill at 127 is the whole ring", ring("fill", 127) == [255] * 16)
+levels = ring("fill", 64)
+check("fill at 64 lights the first half", levels[:8] == [255] * 8 and lit_leds(levels[9:]) == [], str(levels))
+
+levels = ring("bipolar", 64)
+check("bipolar at the centre lights only the two middle LEDs", lit_leds(levels) == [7, 8] and levels[7] == levels[8] == 255, str(levels))
+levels = ring("bipolar", 127)
+check("bipolar at 127 lights the middle to the end", levels == [0] * 7 + [255] * 9, str(levels))
+levels = ring("bipolar", 0)
+check("bipolar at 0 lights the start to the middle", levels == [255] * 9 + [0] * 7, str(levels))
+levels = ring("bipolar", 96)
+check("bipolar above the centre leaves the low half dark", lit_leds(levels)[0] == 7 and lit_leds(levels)[-1] in (11, 12) and levels[:7] == [0] * 7, str(levels))
+levels = ring("bipolar", 32)
+check("bipolar below the centre leaves the high half dark", lit_leds(levels)[0] in (3, 4) and lit_leds(levels)[-1] == 8 and levels[9:] == [0] * 7, str(levels))
+
+levels = ring("dot", 0)
+check("dot at 0 lights only the first LED", levels == [255] + [0] * 15, str(levels))
+levels = ring("dot", 127)
+check("dot at 127 lights only the last LED", levels == [0] * 15 + [255], str(levels))
+moving = True
+for value in range(128):
+    on = lit_leds(ring("dot", value))
+    moving = moving and 1 <= len(on) <= 2 and on[-1] - on[0] == len(on) - 1 and abs(on[0] - value * 15 / 127) < 1
+check("dot lights one LED, or two neighbours while it crosses, at every value", moving)
+
+check("an encoder past the macros stays dark in dot mode", lit_leds(ring("dot", 100, enabled=False)) == [])
+check("an encoder past the macros stays dark in bipolar mode", lit_leds(ring("bipolar", 100, enabled=False)) == [])
+
+panel = _Panel()
+enc = encoder_module.Encoder(panel, scr, 0, "Pan", 10, 10, 120, 140, geom, BLACK, mode="bipolar")
+enc.set_value(64)
+check("set_value does not report back in bipolar mode", panel.turned == [], str(panel.turned))
+enc._change(70)
+check("a turn reports its value in bipolar mode", panel.turned == [70] and enc.value == 70, str(panel.turned))
+try:
+    encoder_module.Encoder(_Panel(), scr, 0, "Pan", 10, 10, 120, 140, geom, BLACK, mode="centre")
+    check("a mode that isn't one of MODES is refused", False, "no error")
+except ValueError:
+    check("a mode that isn't one of MODES is refused", True)
 scr.delete()
 
 print("FAILED: %d" % len(failures) if failures else "ALL PASSED")
