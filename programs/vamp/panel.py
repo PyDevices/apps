@@ -186,25 +186,26 @@ class Front:
         self._tell_selected()
 
     def _on_op(self, op):
-        path = op["path"]
-        keys = hmilink.split_pointer(path)
-        if len(keys) == 1:
-            self.mark("top")
+        keys = hmilink.split_pointer(op["path"])
+        if keys[0] != "tracks":
+            if len(keys) == 1:
+                self.mark("top")
             if keys[0] in ("song_mode", "song", "loop_scene"):
                 self._place_head()
-        elif keys[0] == "tracks" and len(keys) == 3 and keys[2] in ("mute", "solo", "volume", "name", "patch"):
-            self.mark("tracks")
-        elif keys[0] == "tracks" and len(keys) > 2:
-            if keys[1] == str(self.selected):
-                self._clamp()
-                self.mark("grid")
-                self._place_head()
-        else:
-            # A track added or removed, or something this panel doesn't draw.
+            return
+        if len(keys) == 2:
+            # A track added or taken away.
             if self.selected >= len(self.doc["tracks"]):
                 self.selected = 0
             self._clamp()
             self.mark("all")
+            return
+        if len(keys) == 3 and keys[2] in ("mute", "solo", "volume", "name", "patch"):
+            self.mark("tracks")
+        elif keys[1] == str(self.selected) and keys[2] in ("patterns", "current", "current_at", "next"):
+            self._clamp()
+            self.mark("grid")
+            self._place_head()
 
     def _on_tele(self, values):
         playing = bool(values.get("playing"))
