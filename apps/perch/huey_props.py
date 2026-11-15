@@ -11,7 +11,7 @@ handle.
 
 import math
 
-from . import hue
+from . import huey
 from .vec import at, circle, ellipse, group, line, path, pts, rect, smooth
 
 NAVY = 0x0B2A4A
@@ -364,16 +364,16 @@ def hold(doc, prop, wear=None, lean=None, size=1.25, **pose):
         wear (str): "party_hat", or None.
         lean (float): The prop's turn in degrees, or None for its usual one.
         size (float): The prop's size.
-        pose: Arguments for `hue.draw`: look, mood, colors, perch.
+        pose: Arguments for `huey.draw`: look, mood, colors, perch.
     """
     pose.setdefault("hand", 1)
-    colors = hue.COLORS[pose.get("colors", "leaf")]
+    colors = huey.COLORS[pose.get("colors", "leaf")]
     skin, shade, deep = colors[0], colors[1], colors[5]
-    out = [hue.draw(doc, **pose)]
+    out = [huey.draw(doc, **pose)]
     if wear == "party_hat":
         out.append(at(84, -214, party_hat(), rot=-14))
     if prop:
-        x, y, turn = hue.grip(pose["hand"])
+        x, y, turn = huey.grip(pose["hand"])
         shape, own = PROPS[prop]
         if lean is None:
             lean = turn if own is None else own

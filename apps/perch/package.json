@@ -1,5 +1,5 @@
 {
-  "description": "Perch, an app for Home",
+  "description": "Huey's Perch, an app for Home",
   "target": "apps/perch",
   "urls": [
     [
@@ -11,20 +11,20 @@
       "app.json"
     ],
     [
-      "hue.py",
-      "hue.py"
+      "huey.py",
+      "huey.py"
     ],
     [
-      "hue_props.py",
-      "hue_props.py"
+      "huey_props.py",
+      "huey_props.py"
     ],
     [
-      "hue_shift.py",
-      "hue_shift.py"
+      "huey_shift.py",
+      "huey_shift.py"
     ],
     [
-      "hue_views.py",
-      "hue_views.py"
+      "huey_views.py",
+      "huey_views.py"
     ],
     [
       "scene_bench.py",

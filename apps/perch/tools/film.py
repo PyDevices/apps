@@ -102,7 +102,7 @@ class Film:
         self.dock.buttons[index].get_coords(area)
         self.touch((area.x1 + area.x2) // 2, (area.y1 + area.y2) // 2, save)
 
-    def on_hue(self):
+    def on_huey(self):
         x, y = self.stage._origin()
         return int(x), int(y - self.h * 0.12)
 
@@ -128,7 +128,7 @@ def tour(film):
     film.press(1, True)  # autumn: the colours come over it as the coast is redrawn
     film.settle(True)
     film.run(12, True)
-    film.touch(*film.on_hue(), save=True)  # a finger on it
+    film.touch(*film.on_huey(), save=True)  # a finger on it
     film.run(26, True)
     film.press(0, True)  # the workbench
     film.settle(True)

@@ -18,7 +18,7 @@ import time
 import lvgl as lv
 import svgio
 
-from . import hue_props, hue_shift, hue_views, hue, scene_bench, scene_coast, scene_desk
+from . import huey_props, huey_shift, huey_views, huey, scene_bench, scene_coast, scene_desk
 from .vec import Doc, at, circle
 
 TICK_MS = 40
@@ -52,9 +52,9 @@ _WORK_LOOKS = (((0.9, 0.55), (0.75, 0.35)), ((0.9, 0.55), (-0.6, -0.3)), ((-0.5,
 _BUG = (300, -150)  # where a bug hovers and the tongue strikes, in the head's units
 # the solder joint on the workbench's board, in the chameleon's units: x, y, radius
 _JOINT = (
-    (scene_bench.BOARD_X + 34 - scene_bench.HUE_X) / scene_bench.HUE_SCALE,
-    (scene_bench.BOARD_Y + 97.5 - scene_bench.HUE_Y) / scene_bench.HUE_SCALE,
-    7 / scene_bench.HUE_SCALE,
+    (scene_bench.BOARD_X + 34 - scene_bench.HUEY_X) / scene_bench.HUEY_SCALE,
+    (scene_bench.BOARD_Y + 97.5 - scene_bench.HUEY_Y) / scene_bench.HUEY_SCALE,
+    7 / scene_bench.HUEY_SCALE,
 )
 _HELD = ("flower", "flag", "sparkler", "magnifier", "balloon", "mug")
 _CHOICES = ("blink", "blink", "look", "look", "stroll", "tongue", "turn", "hold")
@@ -91,7 +91,7 @@ PLACES = {
         "variants": ("board", "brand", "copper", "leaf"),
         "build": _bench,
         "schemes": None,
-        "at": (scene_bench.HUE_X, scene_bench.HUE_Y, scene_bench.HUE_SCALE),
+        "at": (scene_bench.HUEY_X, scene_bench.HUEY_Y, scene_bench.HUEY_SCALE),
         "walk": None,
         "life": "work",
         "first": ("blink", "look"),
@@ -161,7 +161,7 @@ class _Random:
 def _pose(doc, spec, scheme):
     """The chameleon's shapes for a pose, and the box they fit in."""
     kind = spec[0]
-    draw = hue.draw
+    draw = huey.draw
     if kind == "stand":
         look, far = _LOOKS[spec[1]]
         return draw(doc, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None), _BODY
@@ -176,18 +176,18 @@ def _pose(doc, spec, scheme):
     if kind == "work":
         look, far = _WORK_LOOKS[spec[1]]
         nod = 0 if spec[1] == 2 else 6
-        body = hue_props.hold(doc, "iron", lean=80, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None, nod=nod)
+        body = huey_props.hold(doc, "iron", lean=80, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None, nod=nod)
         # the joint glows where the iron's tip rests on the board
         glow = doc.radial([(0, 0xFFF3B0, 0.9), (0.5, 0xFFB26B, 0.45), (1, 0xFFB26B, 0)])
         return body + circle(_JOINT[0], _JOINT[1], _JOINT[2], glow), _HOLD
     if kind == "hold":
         mood = "happy" if spec[2] else "calm"
-        return hue_props.hold(doc, spec[1], look=(0.4, -0.2), look_far=(-0.5, 0.1), mood=mood, colors=scheme, perch=None), _HOLD
+        return huey_props.hold(doc, spec[1], look=(0.4, -0.2), look_far=(-0.5, 0.1), mood=mood, colors=scheme, perch=None), _HOLD
     if kind == "front":
         mood = "happy" if spec[1] else "calm"
-        return hue_views.front(doc, look=(0.0, 0.1), hand=spec[1], blink=spec[2], mood=mood, colors=scheme, perch=None), _FRONT
+        return huey_views.front(doc, look=(0.0, 0.1), hand=spec[1], blink=spec[2], mood=mood, colors=scheme, perch=None), _FRONT
     if kind == "sleep":
-        return hue.draw_sleep(doc, colors=scheme, perch=None), _SLEEP
+        return huey.draw_sleep(doc, colors=scheme, perch=None), _SLEEP
     raise ValueError("no such pose: %r" % (spec,))
 
 
@@ -290,9 +290,9 @@ class Stage:
         self._air_layer.set_size(self.w, self.h)
         self._air_layer.remove_flag(lv.obj.FLAG.CLICKABLE)
         self._air_layer.remove_flag(lv.obj.FLAG.SCROLLABLE)
-        self.hue = lv.image(root)
-        self.hue.remove_flag(lv.obj.FLAG.CLICKABLE)
-        self.hue.add_flag(lv.obj.FLAG.HIDDEN)
+        self.huey = lv.image(root)
+        self.huey.remove_flag(lv.obj.FLAG.CLICKABLE)
+        self.huey.add_flag(lv.obj.FLAG.HIDDEN)
         self.bug = lv.image(root)
         self.bug.remove_flag(lv.obj.FLAG.CLICKABLE)
         self.bug.add_flag(lv.obj.FLAG.HIDDEN)
@@ -563,16 +563,16 @@ class Stage:
             self._loose = frame
         self._shown = frame
         self.pose = spec
-        self.hue.set_src(frame[0])
-        self._place_hue()
-        self.hue.remove_flag(lv.obj.FLAG.HIDDEN)
+        self.huey.set_src(frame[0])
+        self._place_huey()
+        self.huey.remove_flag(lv.obj.FLAG.HIDDEN)
         self._first("first_pose_ms")
 
-    def _place_hue(self):
+    def _place_huey(self):
         if self._shown is None:
             return
         ox, oy = self._origin()
-        self.hue.set_pos(round(ox) + self._shown[2], round(oy) + self._shown[3])
+        self.huey.set_pos(round(ox) + self._shown[2], round(oy) + self._shown[3])
 
     # -- the place ------------------------------------------------------
 
@@ -644,7 +644,7 @@ class Stage:
         rest = self._rest()
         blends = []
         if not moved and old_scheme and old_scheme != new_scheme and rest[0] != "sleep" and not was_asleep:
-            blends = [hue_shift.between(old_scheme, new_scheme, t) for t in (0.33, 0.67)]
+            blends = [huey_shift.between(old_scheme, new_scheme, t) for t in (0.33, 0.67)]
         if old_scheme != new_scheme:
             # nothing drawn in the old colours will be wanted again
             self._forget()
@@ -683,7 +683,7 @@ class Stage:
             self.stats["scenes"] += 1
             self.ground.invalidate()
             if moved:
-                self.hue.add_flag(lv.obj.FLAG.HIDDEN)
+                self.huey.add_flag(lv.obj.FLAG.HIDDEN)
                 self._shown = self.pose = None
             self._painted = (place, self._ground_key(), view)
             self._first("first_picture_ms")
@@ -694,9 +694,9 @@ class Stage:
             self._set_air()
         while blends:
             yield from self._blend(rest, blends.pop(0))
-        for name in list(hue.COLORS):
+        for name in list(huey.COLORS):
             if ">" in name:
-                del hue.COLORS[name]
+                del huey.COLORS[name]
         self.scheme = new_scheme
         yield from self._make(rest)
         self._show(rest)
@@ -792,7 +792,7 @@ class Stage:
         while (goal - self._walked) * facing > 0:
             self._show(("walk", (phase // 3) % 8))
             self._walked += per_tick * facing
-            self._place_hue()
+            self._place_huey()
             phase += 1
             yield 1
         self._show(("stand", 0, 0))
@@ -808,7 +808,7 @@ class Stage:
         if self._bug_frame is None:
             t0 = time.ticks_us()
             doc = Doc()
-            doc.add(hue._bug(0, 0, 1.4))
+            doc.add(huey._bug(0, 0, 1.4))
             text = doc.source((-30, -30, 60, 60))
             t0 = self._since(t0, "build")
             w, h = self._decoder.open(text, width=max(2, int(60 * k * s + 0.5)))

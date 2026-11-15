@@ -10,8 +10,8 @@ same season to night.
 
 import math
 
-from . import hue_props
-from . import hue_shift  # noqa: F401  (its colour schemes)
+from . import huey_props
+from . import huey_shift  # noqa: F401  (its colour schemes)
 from .vec import at, circle, ellipse, group, limb, line, mix, path, pts, rect, smooth
 
 W, H = 800, 480
@@ -345,7 +345,7 @@ def _drift(season_name, night, rng):
 
 
 # The chameleon in each season: its colour scheme, what it holds, its pose.
-_HUE = {
+_HUEY = {
     "spring": ("blossom", "flower", {"mood": "happy", "look": (0.6, -0.3), "look_far": (-0.5, 0.2)}),
     "summer": ("leaf", "plane", {"mood": "calm", "look": (0.7, -0.4), "look_far": (0.2, 0.5)}),
     "autumn": ("sunset", "sparkler", {"mood": "happy", "look": (0.8, -0.6), "look_far": (-0.6, -0.5)}),
@@ -385,20 +385,20 @@ def _driftwood(x, y, s, night):
     return b"".join(out)
 
 
-def draw(doc, season="summer", night=False, pose=None, colors=None, drift=True, who="chameleon", hue_at=(322, 404), hue_scale=0.6):
+def draw(doc, season="summer", night=False, pose=None, colors=None, drift=True, who="chameleon", huey_at=(322, 404), huey_scale=0.6):
     """Add the coast to *doc*.
 
     Args:
         doc: The `vec.Doc` to draw into.
         season (str): "spring", "summer", "autumn" or "winter".
         night (bool): The same place after dark, the lighthouse lit.
-        pose (dict): Arguments for `hue.draw`, over the season's own.
+        pose (dict): Arguments for `huey.draw`, over the season's own.
         colors (str): The chameleon's scheme, or None for the season's own.
         drift (bool): Draw what the air carries: petals, leaves, snow, fireflies.
         who (str): "chameleon", on a driftwood bough, "stage" for the bough alone,
             or None for the place without either.
-        hue_at: Where the chameleon's perch is.
-        hue_scale (float): The chameleon's size.
+        huey_at: Where the chameleon's perch is.
+        huey_scale (float): The chameleon's size.
     """
     s = SEASONS[season]
     staged = who in ("chameleon", "stage")
@@ -444,12 +444,12 @@ def draw(doc, season="summer", night=False, pose=None, colors=None, drift=True, 
     else:
         add(_snowman(112 if staged else 500, 458 if staged else 452))
     if who in ("chameleon", "stage"):
-        add(_driftwood(hue_at[0], hue_at[1], hue_scale, night))
+        add(_driftwood(huey_at[0], huey_at[1], huey_scale, night))
     if who == "chameleon":
-        scheme, prop, default = _HUE["night" if night else season]
+        scheme, prop, default = _HUEY["night" if night else season]
         options = dict(default)
         options.update(pose or {})
-        body = hue_props.hold(doc, prop, perch=None, colors=colors or scheme, **options)
-        add(at(hue_at[0], hue_at[1], body, scale=hue_scale))
+        body = huey_props.hold(doc, prop, perch=None, colors=colors or scheme, **options)
+        add(at(huey_at[0], huey_at[1], body, scale=huey_scale))
     if drift:
         add(_drift(season, night, rng))

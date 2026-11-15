@@ -11,10 +11,10 @@ one drawing, from the whole bench down to the board's parts.
 
 import math
 
-from . import hue_props
-from . import hue_shift  # noqa: F401  (its colour schemes)
-from . import hue_views
-from . import hue
+from . import huey_props
+from . import huey_shift  # noqa: F401  (its colour schemes)
+from . import huey_views
+from . import huey
 from .vec import at, circle, ellipse, group, limb, line, path, pts, rect, smooth
 
 WALL = 0x17364A
@@ -53,7 +53,7 @@ SHADOW = 0x000000
 # The board's top-left corner; it is 204 wide and 130 tall.
 BOARD_X, BOARD_Y = 453, 262
 # The helping-hands bar the chameleon stands on: where its perch is, and its size.
-HUE_X, HUE_Y, HUE_SCALE = 322, 404, 0.6
+HUEY_X, HUEY_Y, HUEY_SCALE = 322, 404, 0.6
 # The wire rack on the pegboard that it hangs from: the rod's left end and top.
 RACK_X, RACK_Y = 210, 188
 
@@ -625,14 +625,14 @@ def _chameleon(doc, pose, look, look_far, mood, blink, colors):
     # the chameleon, staged for one of its three places on the bench
     if pose == "front":
         # on the top edge of the board, facing out, one hand up
-        body = hue_views.front(doc, look=look or (0.0, 0.2), look_other=look_far, blink=blink, mood=mood or "calm", colors=colors or "brand", hand=1, perch=None)
+        body = huey_views.front(doc, look=look or (0.0, 0.2), look_other=look_far, blink=blink, mood=mood or "calm", colors=colors or "brand", hand=1, perch=None)
         return at(BOARD_X + 96, BOARD_Y + 1, body, scale=0.44)
     if pose == "hang":
         # head down from the wire rack, by its tail and hind feet
-        body = hue.draw_hang(doc, look=look or (0.5, 0.6), look_far=look_far, mood=mood or "happy", colors=colors or "copper", perch=None)
+        body = huey.draw_hang(doc, look=look or (0.5, 0.6), look_far=look_far, mood=mood or "happy", colors=colors or "copper", perch=None)
         return at(RACK_X + 108, RACK_Y, body, scale=0.4)
     # on the bar of the helping hands, iron in hand, its tip on the joint
-    body = hue_props.hold(
+    body = huey_props.hold(
         doc,
         "iron",
         lean=80,
@@ -644,9 +644,9 @@ def _chameleon(doc, pose, look, look_far, mood, blink, colors):
         perch=None,
         nod=6,
     )
-    out = ellipse(HUE_X - 16, 446, 104, 9, SHADOW, opacity=0.16)
+    out = ellipse(HUEY_X - 16, 446, 104, 9, SHADOW, opacity=0.16)
     glow = doc.radial([(0, 0xFFF3B0, 0.9), (0.5, 0xFFB26B, 0.45), (1, 0xFFB26B, 0)])
-    return out + at(HUE_X, HUE_Y, body, scale=HUE_SCALE) + circle(BOARD_X + 34, BOARD_Y + 97.5, 7, glow)
+    return out + at(HUEY_X, HUEY_Y, body, scale=HUEY_SCALE) + circle(BOARD_X + 34, BOARD_Y + 97.5, 7, glow)
 
 
 def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=None, blink=0, colors=None):
@@ -662,7 +662,7 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
         look_far: Where the chameleon's other eye points, or None.
         mood (str): The mood, as the mascot takes it, or None for the pose's own.
         blink (float): 0 with the eyes open, 1 closed.
-        colors (str): The chameleon's scheme, from `hue.COLORS`,
+        colors (str): The chameleon's scheme, from `huey.COLORS`,
             or None for the one that suits where it is: "board" over the mat,
             "brand" on the board, "copper" against the pegboard.
     """
@@ -672,9 +672,9 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
     doc.add(_bench(), _mug(60, 344), _mat(), _lamp_arm(), _lamp_light())
     doc.add(_cable(), _holder(), at(BOARD_X, BOARD_Y, _board(doc)))
     doc.add(_meter(712, 392), _leads(), _iron(112, 452, pose != "solder"), _breadboard(), _wires())
-    doc.add(_hands(HUE_X, HUE_Y), _parts())
+    doc.add(_hands(HUEY_X, HUEY_Y), _parts())
     if who == "chameleon":
         doc.add(_chameleon(doc, pose, look, look_far, mood, blink, colors))
     else:
-        doc.add(ellipse(HUE_X - 16, 446, 104, 9, SHADOW, opacity=0.16))
+        doc.add(ellipse(HUEY_X - 16, 446, 104, 9, SHADOW, opacity=0.16))
     doc.add(_lamp_head())

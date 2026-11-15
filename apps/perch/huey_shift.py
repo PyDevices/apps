@@ -8,10 +8,10 @@ of colour is a handful of redraws. Each scheme here comes with the ground it
 was made for.
 """
 
-from .hue import COLORS
+from .huey import COLORS
 from .vec import mix
 
-# More schemes, in hue's order: skin, shade, light, belly, spots, deep.
+# More schemes, in huey's order: skin, shade, light, belly, spots, deep.
 COLORS.update(
     {
         "blossom": (0xF59AB8, 0xD0668F, 0xFFC7D8, 0xFFF1E0, 0xFFFFFF, 0x9A3D68),

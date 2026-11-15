@@ -17,9 +17,9 @@ def _still(view, **options):
 
 
 STILLS = [
-    ("bench_hue_wide", _still((0, 0, 800, 480)), 800),
-    ("bench_hue_mid", _still((163, 168, 520, 312)), 800),
-    ("bench_hue_close", _still((328, 222, 270, 162)), 800),
-    ("bench_hue_front", _still((428, 118, 290, 174), pose="front"), 800),
-    ("bench_hue_hang", _still((212, 167, 300, 180), pose="hang"), 800),
+    ("bench_huey_wide", _still((0, 0, 800, 480)), 800),
+    ("bench_huey_mid", _still((163, 168, 520, 312)), 800),
+    ("bench_huey_close", _still((328, 222, 270, 162)), 800),
+    ("bench_huey_front", _still((428, 118, 290, 174), pose="front"), 800),
+    ("bench_huey_hang", _still((212, 167, 300, 180), pose="hang"), 800),
 ]

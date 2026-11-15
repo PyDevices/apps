@@ -11,10 +11,10 @@ one drawing gives a wide shot, a close-up and everything between.
 
 import math
 
-from . import hue_props
-from . import hue_shift
-from . import hue_views
-from . import hue
+from . import huey_props
+from . import huey_shift
+from . import huey_views
+from . import huey
 from .vec import at, circle, ellipse, line, mix, path, pts, rect, smooth
 
 W, H = 800, 480
@@ -414,7 +414,7 @@ def _scheme(time, spot):
     if time == "night":
         return "night"
     if spot == "monitor":
-        return "brand" if time == "day" else hue_shift.between("brand", "sunset", 0.35)
+        return "brand" if time == "day" else huey_shift.between("brand", "sunset", 0.35)
     return "leaf" if time == "day" else "sunset"
 
 
@@ -423,17 +423,17 @@ def _chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave,
     if colors is None:
         colors = _scheme(time, spot)
     if pose == "front":
-        body = hue_views.front(doc, look=look, look_other=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None)
+        body = huey_views.front(doc, look=look, look_other=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None)
     elif pose == "three_quarter":
-        body = hue_views.three_quarter(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None)
+        body = huey_views.three_quarter(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None)
     elif pose == "sit":
-        body = hue.draw_sit(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None, wave=wave)
+        body = huey.draw_sit(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None, wave=wave)
     elif pose == "sleep":
-        body = hue.draw_sleep(doc, colors=colors, perch=None)
+        body = huey.draw_sleep(doc, colors=colors, perch=None)
     elif pose == "hold":
-        body = hue_props.hold(doc, prop, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None)
+        body = huey_props.hold(doc, prop, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None)
     else:
-        body = hue.draw(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None, nod=nod)
+        body = huey.draw(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None, nod=nod)
     # its shadow lies on what it stands on
     shadow = ellipse(x - 4, y + 2, 170 * scale, 5, 0x000000, opacity=0.16) if spot == "books" else b""
     return shadow + at(x, y, body, scale=scale)
@@ -454,9 +454,9 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
         bubble (bool): Draw a thought bubble.
         pose (str): The chameleon's: "three_quarter", "side", "front", "sit", "sleep" or "hold".
         spot (str): Where the chameleon perches, a name from `SPOTS`.
-        colors (str): A scheme from `hue.COLORS`, or None for the one that suits the time and the spot.
+        colors (str): A scheme from `huey.COLORS`, or None for the one that suits the time and the spot.
         nod (float): The chameleon's head tilt in the "side" pose, in degrees, positive chin down.
-        prop (str): What it holds in the "hold" pose, a name from `hue_props.PROPS`.
+        prop (str): What it holds in the "hold" pose, a name from `huey_props.PROPS`.
     """
     tone = _toner(time)
     lit = time != "day"

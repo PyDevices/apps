@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: MIT
 """The chameleon from other sides: head-on, turned toward you, from behind, from above.
 
-Each view sits above the origin like the side view in `hue`:
+Each view sits above the origin like the side view in `huey`:
 x to the right, y down, the top of the perch at y = 0. Each returns its
 shapes for a `vec.Doc` and takes the same colours, moods and eyes.
 """
 
-from .hue import COLORS, _eye, _foot, _hand, _perch, _spiral, _spiral_points
+from .huey import COLORS, _eye, _foot, _hand, _perch, _spiral, _spiral_points
 from .vec import at, circle, ellipse, limb, path, smooth
 
 _PINK = 0xFF8F8F
@@ -40,7 +40,7 @@ def front(doc, look=(0.0, 0.15), look_other=None, blink=0, mood="calm", colors="
         look_other: Where the eye on the right points, or None for the same way.
         blink (float): 0 with the eyes open, 1 closed.
         mood (str): "calm", "happy", "curious" or "sleepy".
-        colors (str): A name from `hue.COLORS`.
+        colors (str): A name from `huey.COLORS`.
         hand (float): 0 with both hands on the perch, 1 with one raised in a wave.
         curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
         perch (str): "twig", "wire", or None for no perch.
@@ -120,7 +120,7 @@ def three_quarter(doc, look=(0.4, 0.1), look_far=None, blink=0, mood="calm", col
         look_far: Where the far eye points, or None for the same way.
         blink (float): 0 with the eyes open, 1 closed.
         mood (str): "calm", "happy", "curious" or "sleepy".
-        colors (str): A name from `hue.COLORS`.
+        colors (str): A name from `huey.COLORS`.
         curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
         perch (str): "twig", "wire", or None for no perch.
     """
@@ -185,7 +185,7 @@ def back(doc, look=(-0.7, 0.3), blink=0, mood="calm", colors="leaf", curl=1.0, p
         look: Where its one visible eye points, each of x and y from -1 to 1.
         blink (float): 0 with the eye open, 1 closed.
         mood (str): "calm", "happy", "curious" or "sleepy".
-        colors (str): A name from `hue.COLORS`.
+        colors (str): A name from `huey.COLORS`.
         curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
         perch (str): "twig", "wire", or None for no perch.
     """
@@ -247,7 +247,7 @@ def above(doc, look=(0.6, 0.0), look_other=None, blink=0, mood="calm", colors="l
         look_other: Where the lower eye points, or None for the same way.
         blink (float): 0 with the eyes open, 1 closed.
         mood (str): "calm", "happy", "curious" or "sleepy".
-        colors (str): A name from `hue.COLORS`.
+        colors (str): A name from `huey.COLORS`.
         curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
         leaf (bool): Draw the leaf it lies on.
     """

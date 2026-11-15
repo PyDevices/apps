@@ -21,11 +21,11 @@ _MID = (150, 190, 480, 288)
 _CLOSE = (262, 270, 250, 150)
 
 STILLS = [
-    ("coast_hue_spring", _still(_WIDE, season="spring"), 800),
-    ("coast_hue_summer", _still(_WIDE, season="summer"), 800),
-    ("coast_hue_autumn", _still(_WIDE, season="autumn"), 800),
-    ("coast_hue_winter", _still(_WIDE, season="winter"), 800),
-    ("coast_hue_night", _still(_WIDE, season="summer", night=True), 800),
-    ("coast_hue_autumn_mid", _still((120, 170, 500, 300), season="autumn"), 800),
-    ("coast_hue_winter_close", _still((300, 250, 270, 162), season="winter"), 800),
+    ("coast_huey_spring", _still(_WIDE, season="spring"), 800),
+    ("coast_huey_summer", _still(_WIDE, season="summer"), 800),
+    ("coast_huey_autumn", _still(_WIDE, season="autumn"), 800),
+    ("coast_huey_winter", _still(_WIDE, season="winter"), 800),
+    ("coast_huey_night", _still(_WIDE, season="summer", night=True), 800),
+    ("coast_huey_autumn_mid", _still((120, 170, 500, 300), season="autumn"), 800),
+    ("coast_huey_winter_close", _still((300, 250, 270, 162), season="winter"), 800),
 ]
