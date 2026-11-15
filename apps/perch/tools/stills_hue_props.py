@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """Stills of the chameleon holding things: each a name, a function that returns SVG text, and a width."""
 
-from perch.chameleon_props import NAVY, ORDER, PROPS, _BOX, at, hold, rect
+from perch.hue_props import NAVY, ORDER, PROPS, _BOX, at, hold, rect
 from perch.vec import Doc
 
 
@@ -38,7 +38,7 @@ def _holding(prop, view=None, **options):
 _FULL = (-250, -350, 570, 471)
 
 STILLS = [
-    ("chameleon_props_sheet", _sheet, 1416),
+    ("hue_props_sheet", _sheet, 1416),
     ("chameleon_holds_iron", _holding("iron", colors="leaf", mood="calm", look=(0.9, 0.3), look_far=(0.8, 0.2)), 920),
     ("chameleon_holds_magnifier", _holding("magnifier", colors="sunset", mood="curious", look=(0.95, 0.35), look_far=(-0.5, -0.5)), 920),
     ("chameleon_holds_sparkler", _holding("sparkler", wear="party_hat", colors="brand", mood="happy", perch="wire"), 920),

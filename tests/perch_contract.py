@@ -149,7 +149,7 @@ settle()
 check(stage.variant == "autumn" and stage.scheme == "sunset", "the coast's next season is autumn, in sunset colours")
 check(pixel(W // 2, 8) != summer_sky, "the sky is redrawn for the season")
 check(pixel(*body) != summer_body, "the chameleon's colours change with the season")
-check(not [n for n in stagemod.mascot_chameleon.COLORS if ">" in n], "the blended schemes are dropped after the change")
+check(not [n for n in stagemod.hue.COLORS if ">" in n], "the blended schemes are dropped after the change")
 
 # A walk carries it along the perch, and it ends standing.
 start = stage.hue.get_x()

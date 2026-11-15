@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: MIT
 """Stills of the chameleon from other sides: each a name, a function that returns SVG text, and a width."""
 
-from perch import mascot_chameleon
-from perch.chameleon_views import above, at, back, front, limb, path, three_quarter
-from perch.mascot_chameleon import NAVY
+from perch import hue
+from perch.hue_views import above, at, back, front, limb, path, three_quarter
+from perch.hue import NAVY
 from perch.vec import Doc, rect
 
 
@@ -26,7 +26,7 @@ def _turnaround():
     doc.add(limb(-900, 12, 830, 5, 0.004, 19, 13, 0x7A5440))
     doc.add(path("M-890 15Q0 24 826 9", None, 0x5B3B2E, 4, opacity=0.8))
     doc.add(path("M-820 5Q-300 9 300 3", None, 0x9C7257, 2.6))
-    doc.add(at(-640, 0, mascot_chameleon.draw(doc, colors="leaf", perch=None)))
+    doc.add(at(-640, 0, hue.draw(doc, colors="leaf", perch=None)))
     doc.add(at(-180, 0, three_quarter(doc, colors="leaf", perch=None)))
     doc.add(at(230, 0, front(doc, colors="leaf", perch=None)))
     doc.add(at(650, 0, back(doc, colors="leaf", perch=None)))

@@ -10,8 +10,8 @@ same season to night.
 
 import math
 
-from . import chameleon_props
-from . import chameleon_shift  # noqa: F401  (its colour schemes)
+from . import hue_props
+from . import hue_shift  # noqa: F401  (its colour schemes)
 from .vec import at, circle, ellipse, group, limb, line, mix, path, pts, rect, smooth
 
 W, H = 800, 480
@@ -392,7 +392,7 @@ def draw(doc, season="summer", night=False, pose=None, colors=None, drift=True, 
         doc: The `vec.Doc` to draw into.
         season (str): "spring", "summer", "autumn" or "winter".
         night (bool): The same place after dark, the lighthouse lit.
-        pose (dict): Arguments for `mascot_chameleon.draw`, over the season's own.
+        pose (dict): Arguments for `hue.draw`, over the season's own.
         colors (str): The chameleon's scheme, or None for the season's own.
         drift (bool): Draw what the air carries: petals, leaves, snow, fireflies.
         who (str): "chameleon", on a driftwood bough, "stage" for the bough alone,
@@ -449,7 +449,7 @@ def draw(doc, season="summer", night=False, pose=None, colors=None, drift=True, 
         scheme, prop, default = _HUE["night" if night else season]
         options = dict(default)
         options.update(pose or {})
-        body = chameleon_props.hold(doc, prop, perch=None, colors=colors or scheme, **options)
+        body = hue_props.hold(doc, prop, perch=None, colors=colors or scheme, **options)
         add(at(hue_at[0], hue_at[1], body, scale=hue_scale))
     if drift:
         add(_drift(season, night, rng))

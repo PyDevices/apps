@@ -18,7 +18,7 @@ import time
 import lvgl as lv
 import svgio
 
-from . import chameleon_props, chameleon_shift, chameleon_views, mascot_chameleon, scene_bench, scene_coast, scene_desk
+from . import hue_props, hue_shift, hue_views, hue, scene_bench, scene_coast, scene_desk
 from .vec import Doc, at, circle
 
 TICK_MS = 40
@@ -161,7 +161,7 @@ class _Random:
 def _pose(doc, spec, scheme):
     """The chameleon's shapes for a pose, and the box they fit in."""
     kind = spec[0]
-    draw = mascot_chameleon.draw
+    draw = hue.draw
     if kind == "stand":
         look, far = _LOOKS[spec[1]]
         return draw(doc, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None), _BODY
@@ -176,18 +176,18 @@ def _pose(doc, spec, scheme):
     if kind == "work":
         look, far = _WORK_LOOKS[spec[1]]
         nod = 0 if spec[1] == 2 else 6
-        body = chameleon_props.hold(doc, "iron", lean=80, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None, nod=nod)
+        body = hue_props.hold(doc, "iron", lean=80, look=look, look_far=far, blink=spec[2], colors=scheme, perch=None, nod=nod)
         # the joint glows where the iron's tip rests on the board
         glow = doc.radial([(0, 0xFFF3B0, 0.9), (0.5, 0xFFB26B, 0.45), (1, 0xFFB26B, 0)])
         return body + circle(_JOINT[0], _JOINT[1], _JOINT[2], glow), _HOLD
     if kind == "hold":
         mood = "happy" if spec[2] else "calm"
-        return chameleon_props.hold(doc, spec[1], look=(0.4, -0.2), look_far=(-0.5, 0.1), mood=mood, colors=scheme, perch=None), _HOLD
+        return hue_props.hold(doc, spec[1], look=(0.4, -0.2), look_far=(-0.5, 0.1), mood=mood, colors=scheme, perch=None), _HOLD
     if kind == "front":
         mood = "happy" if spec[1] else "calm"
-        return chameleon_views.front(doc, look=(0.0, 0.1), hand=spec[1], blink=spec[2], mood=mood, colors=scheme, perch=None), _FRONT
+        return hue_views.front(doc, look=(0.0, 0.1), hand=spec[1], blink=spec[2], mood=mood, colors=scheme, perch=None), _FRONT
     if kind == "sleep":
-        return mascot_chameleon.draw_sleep(doc, colors=scheme, perch=None), _SLEEP
+        return hue.draw_sleep(doc, colors=scheme, perch=None), _SLEEP
     raise ValueError("no such pose: %r" % (spec,))
 
 
@@ -644,7 +644,7 @@ class Stage:
         rest = self._rest()
         blends = []
         if not moved and old_scheme and old_scheme != new_scheme and rest[0] != "sleep" and not was_asleep:
-            blends = [chameleon_shift.between(old_scheme, new_scheme, t) for t in (0.33, 0.67)]
+            blends = [hue_shift.between(old_scheme, new_scheme, t) for t in (0.33, 0.67)]
         if old_scheme != new_scheme:
             # nothing drawn in the old colours will be wanted again
             self._forget()
@@ -694,9 +694,9 @@ class Stage:
             self._set_air()
         while blends:
             yield from self._blend(rest, blends.pop(0))
-        for name in list(mascot_chameleon.COLORS):
+        for name in list(hue.COLORS):
             if ">" in name:
-                del mascot_chameleon.COLORS[name]
+                del hue.COLORS[name]
         self.scheme = new_scheme
         yield from self._make(rest)
         self._show(rest)
@@ -808,7 +808,7 @@ class Stage:
         if self._bug_frame is None:
             t0 = time.ticks_us()
             doc = Doc()
-            doc.add(mascot_chameleon._bug(0, 0, 1.4))
+            doc.add(hue._bug(0, 0, 1.4))
             text = doc.svg((-30, -30, 60, 60)).encode()
             t0 = self._since(t0, "build")
             w, h = self._decoder.open(text, width=max(2, int(60 * k * s + 0.5)))

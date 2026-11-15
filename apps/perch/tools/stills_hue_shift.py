@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Stills of the chameleon's colours: each a name, a function that returns SVG text, and a width."""
 
-from perch import mascot_chameleon
-from perch.chameleon_shift import GROUNDS, between, mix
+from perch import hue
+from perch.hue_shift import GROUNDS, between, mix
 from perch.vec import Doc, at, rect
 
 
@@ -19,7 +19,7 @@ def _panels(cells, columns):
         for i, (ground, scheme, pose) in enumerate(cells):
             x, y = (i % columns) * w, (i // columns) * h
             doc.add(rect(x, y, w + 1, h + 1, ground))
-            doc.add(at(x - _VIEW[0], y - _VIEW[1], mascot_chameleon.draw(doc, colors=scheme, **pose)))
+            doc.add(at(x - _VIEW[0], y - _VIEW[1], hue.draw(doc, colors=scheme, **pose)))
         rows = (len(cells) + columns - 1) // columns
         return doc.svg((0, 0, w * columns, h * rows))
 
@@ -51,6 +51,6 @@ _POSES = (
 
 STILLS = [
     ("chameleon_schemes", _panels([(GROUNDS[n], n, _POSES[i]) for i, n in enumerate(_ALL)], 4), 1600),
-    ("chameleon_shift", _shift("leaf", "sunset"), 1600),
-    ("chameleon_shift_night", _shift("blossom", "night"), 1600),
+    ("hue_shift", _shift("leaf", "sunset"), 1600),
+    ("hue_shift_night", _shift("blossom", "night"), 1600),
 ]

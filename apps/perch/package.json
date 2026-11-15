@@ -11,20 +11,20 @@
       "app.json"
     ],
     [
-      "chameleon_props.py",
-      "chameleon_props.py"
+      "hue.py",
+      "hue.py"
     ],
     [
-      "chameleon_shift.py",
-      "chameleon_shift.py"
+      "hue_props.py",
+      "hue_props.py"
     ],
     [
-      "chameleon_views.py",
-      "chameleon_views.py"
+      "hue_shift.py",
+      "hue_shift.py"
     ],
     [
-      "mascot_chameleon.py",
-      "mascot_chameleon.py"
+      "hue_views.py",
+      "hue_views.py"
     ],
     [
       "scene_bench.py",
