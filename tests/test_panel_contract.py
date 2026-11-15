@@ -110,6 +110,13 @@ class _Contract:
         result, out = self.contract("1024", "600")
         self.assertEqual(result.returncode, 0, out)
 
+    def test_the_panel_builds_on_a_160x128_screen_under_an_app_header(self):
+        # What an app gets of a 160 x 128 display under a 64-pixel header.
+        result, out = self.contract("160", "64", "--build-only")
+        self.assertEqual(result.returncode, 0, out)
+        self.assertIn("BUILT 160x64", out)
+        self.assertIn("RESULT OK", out)
+
     def test_the_old_patch_handling_fails_the_patch_follow_checks(self):
         result, out = self.contract("--plant")
         self.assertEqual(result.returncode, 1, out)

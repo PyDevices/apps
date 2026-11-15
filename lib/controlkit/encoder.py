@@ -40,13 +40,32 @@ _SWEEP = 270
 _FAST_MS = 60
 
 
+#: The smallest square, in pixels, that still holds a ring and a knob.
+MIN_ROOM = 10
+
+
 def geometry(width, height, scale):
-    """The sizes of one encoder that fits a *width* x *height* cell."""
+    """The sizes of one encoder that fits a *width* x *height* cell.
+
+    A cell too short for the legend and a knob of `MIN_ROOM` pixels drops the
+    legend (``"legend"`` is then 0). One too small even for that raises
+    ValueError.
+    """
     legend = max(16, int(20 * scale))
     room = min(width - 4, height - legend - 2)
+    if room < MIN_ROOM:
+        legend = 0
+        room = min(width - 4, height - 2)
+    if room < MIN_ROOM:
+        raise ValueError(
+            "an encoder needs a cell of at least %d x %d pixels, not %d x %d"
+            % (MIN_ROOM + 4, MIN_ROOM + 2, width, height)
+        )
     led_ring = room / 2 - max(3, room * 0.07)
     lens = max(1.6, led_ring * 0.085)
-    knob_r = led_ring - lens * 1.5 - max(2, led_ring * 0.07)
+    # In a small cell the margins leave the knob nothing: it shrinks less
+    # than the ring, and overlaps the LEDs.
+    knob_r = max(led_ring * 0.5, led_ring - lens * 1.5 - max(2, led_ring * 0.07))
     size = int(2 * (led_ring + lens + 2)) | 1
     pointer_w = max(2, int(knob_r * 0.09 + 0.5))
     return {
@@ -100,6 +119,8 @@ class Encoder:
         legend.set_style_text_letter_space(1 if width >= 100 else 0, 0)
         legend.set_style_text_color(lv.color_hex(theme["legend"] if enabled else theme["legend_dim"]), 0)
         legend.set_pos(0, max(0, (geom["legend"] - 16) // 2))
+        if not geom["legend"]:
+            legend.add_flag(lv.obj.FLAG.HIDDEN)
         self.legend = legend
 
         # The knob and its unlit ring, centred in the room under the legend.

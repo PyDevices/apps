@@ -254,6 +254,33 @@ except ValueError:
     check("a mode that isn't one of MODES is refused", True)
 scr.delete()
 
+# A small screen: the panel's cells on a 160 x 128 display under an app's
+# 64-pixel header are about 25 x 12. Every cell gets positive sizes or a
+# clear refusal, never a negative canvas.
+sound = True
+for w in range(2, 80, 3):
+    for h in range(2, 80, 3):
+        try:
+            g = encoder_module.geometry(w, h, 0.15)
+        except ValueError as e:
+            sound = sound and min(w - 4, h - 2) < encoder_module.MIN_ROOM and "at least" in str(e)
+            continue
+        sound = sound and g["size"] > 0 and g["led_ring"] > 0 and g["knob_r"] > 0 and g["size"] <= max(w, h)
+check("an encoder's geometry is positive in every cell it accepts", sound)
+small = encoder_module.geometry(25, 12, 0.133)
+check("a cell too short for the legend drops it and keeps the knob", small["legend"] == 0 and small["size"] > 0, str(small))
+scr = screen()
+tiny = encoder_module.Encoder(_Panel(), scr, 0, "Cutoff", 10, 10, 25, 12, small, BLACK)
+tiny.set_value(100)
+check("an encoder in a 25 x 12 cell draws, with no legend",
+      _headless.refresh() > 0 and tiny.legend.has_flag(lv.obj.FLAG.HIDDEN), str(small))
+scr.delete()
+try:
+    encoder_module.geometry(12, 8, 0.1)
+    check("a cell too small for any knob is refused with its minimum", False, "no error")
+except ValueError as e:
+    check("a cell too small for any knob is refused with its minimum", "14 x 12" in str(e), str(e))
+
 scr = screen()
 edges = []
 grid = PadGrid(scr, 10, 10, 320, 320, BLACK, cols=4, rows=4,
