@@ -13,7 +13,7 @@ the screen for long; `Stage.stats` says how long each took.
 """
 
 import gc
-import time
+from multimer import ticks_diff, ticks_ms, ticks_us
 
 import lvgl as lv
 import svgio
@@ -135,6 +135,19 @@ _SIN = (
 )  # fmt: skip
 
 
+def _uncache(picture):
+    """Make LVGL forget *picture*: it may know it by an address the next one is given."""
+    try:
+        lv.image.cache_drop(picture)
+        lv.image.header_cache_drop(picture)
+    except TypeError:
+        # CPython's binding has these as methods of an image; any image will do
+        any_image = lv.image(lv.screen_active())
+        any_image.cache_drop(picture)
+        any_image.header_cache_drop(picture)
+        any_image.delete()
+
+
 def _decoder(memory):
     """A decoder that works in *memory* bytes of its own, where this svgio has that.
 
@@ -247,7 +260,7 @@ class Stage:
             "rests": 0,
             "slow_steps": {},
         }
-        self._born = time.ticks_ms()
+        self._born = ticks_ms()
         self._asked = self._born  # when the change being drawn was asked for
         # The poses' pictures live in one block, taken first of all. A heap
         # that grows when it must (an ESP32's) collects before it grows, every
@@ -346,8 +359,8 @@ class Stage:
 
     def _since(self, t0, phase):
         """Add the microseconds since *t0* to a phase of `stats`; return now."""
-        now = time.ticks_us()
-        self.stats[phase] += time.ticks_diff(now, t0)
+        now = ticks_us()
+        self.stats[phase] += ticks_diff(now, t0)
         return now
 
     def _roomiest(self, what, decoder):
@@ -357,7 +370,7 @@ class Stage:
 
     def _first(self, what):
         if self.stats[what] is None:
-            self.stats[what] = time.ticks_diff(time.ticks_ms(), self._born)
+            self.stats[what] = ticks_diff(ticks_ms(), self._born)
 
     def _tidy(self):
         # svgio asks MicroPython for memory hundreds of times in a parse, and
@@ -366,7 +379,7 @@ class Stage:
         # ESP32-P4 a place parsed in 0.8 s just after one and in 5 s without.
         # Decoders with memory of their own don't need that, but what Python
         # dropped still has to go, and better now than in the middle of a walk.
-        t0 = time.ticks_us()
+        t0 = ticks_us()
         gc.collect()
         self._collected = self._ticks
         self._since(t0, "tidy")
@@ -447,7 +460,7 @@ class Stage:
         x, y, k = PLACES[self.place]["at"]
         vx, vy, vw, vh = self._rect
         s = self.w / vw
-        t0 = time.ticks_us()
+        t0 = ticks_us()
         doc = Doc()
         body, (rx, ry, rw, rh) = _pose(doc, spec, scheme)
         if flip:
@@ -466,27 +479,27 @@ class Stage:
         self._since(t0, "build")
         self._step = ("build", spec)
         yield
-        t0 = time.ticks_us()
+        t0 = ticks_us()
         # not the place's decoder: a place may be parsed between these steps
         decoder = self._poser
         w, h = decoder.open(text, width=max(2, int(rw * k * s + 0.5)))
         text = None
-        self.stats["parse_max"] = max(self.stats["parse_max"], time.ticks_diff(time.ticks_us(), t0))
+        self.stats["parse_max"] = max(self.stats["parse_max"], ticks_diff(ticks_us(), t0))
         self._since(t0, "parse")
         self._step = ("parse", spec)
         yield
         self._step = ("alloc", spec)
-        t0 = time.ticks_us()
+        t0 = ticks_us()
         data = self._drawing = self._buffer(w * h * 3)
         self._since(t0, "alloc")
         yield
         self._step = ("draw", spec)
-        t0 = time.ticks_us()
+        t0 = ticks_us()
         planes = memoryview(data)
         decoder.decode(planes[: w * h * 2], planes[w * h * 2 :])
         self._roomiest("pose_memory", decoder)
         planes = decoder = self._drawing = None
-        self.stats["draw_max"] = max(self.stats["draw_max"], time.ticks_diff(time.ticks_us(), t0))
+        self.stats["draw_max"] = max(self.stats["draw_max"], ticks_diff(ticks_us(), t0))
         self._since(t0, "draw")
         self.stats["poses"] += 1
         frame = (self._descriptor(data, w, h, lv.COLOR_FORMAT.RGB565A8), data, round(rx * k * s), round(ry * k * s))
@@ -558,8 +571,7 @@ class Stage:
         self._bytes -= len(frame[1])
         self._spare(frame[1])
         # LVGL may remember a picture by its address, which the next one could be given
-        lv.image.cache_drop(frame[0])
-        lv.image.header_cache_drop(frame[0])
+        _uncache(frame[0])
 
     def _forget(self, keep_scheme=None):
         """Drop the kept poses, all of them or all but one scheme's."""
@@ -580,8 +592,7 @@ class Stage:
     def _put(self, frame, spec):
         if self._loose is not None and self._loose is not frame:
             # the pose it was showing wasn't kept: its buffer can be used again
-            lv.image.cache_drop(self._loose[0])
-            lv.image.header_cache_drop(self._loose[0])
+            _uncache(self._loose[0])
             self._spare(self._loose[1])
             self._loose = None
         if frame not in self._frames.values():
@@ -610,7 +621,7 @@ class Stage:
         key = (self.place, self._ground_key())
         doc = self._docs.get(key)
         if doc is None:
-            t0 = time.ticks_us()
+            t0 = ticks_us()
             doc = Doc()
             PLACES[self.place]["build"](doc, self.variant)
             self._since(t0, "build")
@@ -685,7 +696,7 @@ class Stage:
         if self._painted != (place, self._ground_key(), view):
             doc = self._shapes()
             yield
-            t0 = time.ticks_us()
+            t0 = ticks_us()
             text = doc.source(self._rect)
             doc = None
             t0 = self._since(t0, "build")
@@ -706,7 +717,7 @@ class Stage:
                 top = area.y1
                 for y0 in range(0, self.h, band):
                     y1 = min(y0 + band, self.h)
-                    t0 = time.ticks_us()
+                    t0 = ticks_us()
                     self._decoder.decode(self._ground, stride=self.w, rows=(y0, y1))
                     self._since(t0, "draw")
                     area.y1, area.y2 = top + y0, top + y1 - 1
@@ -714,7 +725,7 @@ class Stage:
                     if y1 < self.h:
                         yield
             else:
-                t0 = time.ticks_us()
+                t0 = ticks_us()
                 self._decoder.decode(self._ground, stride=self.w)
                 self._since(t0, "draw")
                 self.ground.invalidate()
@@ -725,7 +736,7 @@ class Stage:
                 self._shown = self.pose = None
             self._painted = (place, self._ground_key(), view)
             self._first("first_picture_ms")
-            self.stats["picture_ms"] = time.ticks_diff(time.ticks_ms(), self._asked)
+            self.stats["picture_ms"] = ticks_diff(ticks_ms(), self._asked)
             self._set_air()
             yield
         else:
@@ -741,7 +752,7 @@ class Stage:
         self.scheme = new_scheme
         yield from self._make(rest)
         self._show(rest)
-        self.stats["change_ms"] = time.ticks_diff(time.ticks_ms(), self._asked)
+        self.stats["change_ms"] = ticks_diff(ticks_ms(), self._asked)
         self._forget(new_scheme)
         self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
         # what it will want next, drawn ahead while it stands there
@@ -782,7 +793,7 @@ class Stage:
                 # A collection reads every picture held, which takes a third
                 # of a second on a board. Left alone it would come when the
                 # heap filled, as likely as not mid-stride; here it is still.
-                t0 = time.ticks_us()
+                t0 = ticks_us()
                 gc.collect()
                 self._collected = self._ticks
                 self._since(t0, "tidy")
@@ -857,7 +868,7 @@ class Stage:
         x, y, k = PLACES[self.place]["at"]
         s = self.w / self._rect[2]
         if self._bug_frame is None:
-            t0 = time.ticks_us()
+            t0 = ticks_us()
             doc = Doc()
             doc.add(huey._bug(0, 0, 1.4))
             text = doc.source((-30, -30, 60, 60))
@@ -993,7 +1004,7 @@ class Stage:
 
     def tick(self, timer=None):
         """One step: part of a place or a pose drawn, a picture changed, the air moved."""
-        t0 = time.ticks_us()
+        t0 = ticks_us()
         self._ticks += 1
         self._first("first_tick_ms")
         loading = self._loader is not None
@@ -1014,7 +1025,7 @@ class Stage:
                     except StopIteration:
                         self._life = self._live()
         self._move_air()
-        spent = time.ticks_diff(time.ticks_us(), t0)
+        spent = ticks_diff(ticks_us(), t0)
         longest = "tick_load_us" if loading else "tick_show_us"
         if spent > self.stats[longest]:
             self.stats[longest] = spent
@@ -1037,7 +1048,7 @@ class Stage:
         place = place or self.place
         if variant is None:
             variant = self.variant if place == self.place else PLACES[place]["variants"][0]
-        self._asked = time.ticks_ms()
+        self._asked = ticks_ms()
         self._loader = self._change(place, variant, view or self.view)
         return True
 

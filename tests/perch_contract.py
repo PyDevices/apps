@@ -29,8 +29,8 @@ from perch import stage as stagemod
 
 PLANT = os.getenv("PERCH_PLANT")
 PLANTS = ("no_paint", "hidden", "same_colours", "no_walk", "deaf", "hoard", "leak")
-# One more where svgio gives a decoder working memory of its own.
-ROOMY = hasattr(stagemod.svgio.SvgDecoder(), "memory")
+# One more where svgio gives a decoder working memory of its own (on CPython it only takes the argument).
+ROOMY = sys.implementation.name != "cpython" and hasattr(stagemod.svgio.SvgDecoder(), "memory")
 if ROOMY:
     PLANTS += ("cramped",)
 
