@@ -6,7 +6,7 @@
 hmilink for the desktop's two processes, and the UI worker's board config
 into vendor/board/.
 
-midiports comes from a tagged pydevices release, pinned here; adafruit_midi
+midiports comes from a pydevices commit, pinned here; adafruit_midi
 comes from the list in midiports' own package.json at that tag, and the board
 config is that release's board_configs/workerdisplay. When midiports ships as
 a wheel the MIDI half goes away and the wheel carries it.
@@ -20,6 +20,8 @@ import urllib.request
 
 PYDEVICES = "v0.7.6"  # a pydevices release tag
 RAW = "https://raw.githubusercontent.com/PyDevices/pydevices/%s/" % PYDEVICES
+# midiports.LOOPBACK isn't in a release yet either: a pydevices commit, until one carries it.
+MIDIPORTS = "b76ea088abe522e83a572454a5f7836ea1e2491d"
 # hmilink isn't in a release yet: a pydevices main commit, until one carries it.
 HMILINK = "aa6911844168c21296a8f72dc825d744bf2a6c1f"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -56,7 +58,8 @@ def fetch(package_json, dest, skip=(), raw=RAW):
 
 
 def main():
-    fetch("midiports/package.json", DEST, SKIP)
+    fetch("midiports/package.json", DEST, SKIP,
+          "https://raw.githubusercontent.com/PyDevices/pydevices/%s/" % MIDIPORTS)
     # The engine process is an hmilink device and the UI one of its panels
     # (desktop/device.py, desktop/linkrunner.py).
     fetch("hmilink/package.json", DEST, ("hmilink/osc.py",),

@@ -6,7 +6,7 @@
 runner and mixer, live MIDI from a Windows port, and the shared UI drawing.
 
     python.exe -I desktop/app.py --engines processes|threads --seconds 60 --out runs/x
-        [--midi "PyDevices Loopback"] [--no-ui] [--min-frames 1024] [--plant delay|drop]
+        [--midi PORT] [--no-ui] [--min-frames 1024] [--plant delay|drop]
 
 It loads the demo song, adds a fifth track (Karplus, a sound that decays, so
 every key's onset can be found), selects it for live MIDI, plays the song in
@@ -28,12 +28,14 @@ def main():
     import threading
     import time
 
+    import midiports
+
     ap = argparse.ArgumentParser()
     ap.add_argument("--engines", choices=("processes", "threads"), default="processes")
     ap.add_argument("--count", type=int, default=5)
     ap.add_argument("--seconds", type=float, default=60)
     ap.add_argument("--out", default="runs/spike")
-    ap.add_argument("--midi", default="PyDevices Loopback")
+    ap.add_argument("--midi", default=midiports.LOOPBACK)
     ap.add_argument("--no-ui", action="store_true")
     ap.add_argument("--start-frames", type=int, default=1536)
     ap.add_argument("--min-frames", type=int, default=1024)

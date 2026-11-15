@@ -5,7 +5,7 @@
 """Play keys into a Windows MIDI port, stamping each with perf_counter_ns
 (QueryPerformanceCounter: the same clock in every process on the machine).
 
-    python.exe -I desktop/send.py --port "PyDevices Loopback" --out runs/x --seconds 60
+    python.exe -I desktop/send.py --out runs/x --seconds 60
 
 Waits for ``<out>/ready`` (the app writes it when the song starts), then
 sends a note-on every 400-700 ms (random, seeded) at a random pitch from
@@ -25,8 +25,10 @@ sys.path.append(os.path.join(ROOT, "lib"))
 
 
 def main():
+    import midiports
+
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", default="PyDevices Loopback")
+    ap.add_argument("--port", default=midiports.LOOPBACK)
     ap.add_argument("--out", required=True)
     ap.add_argument("--seconds", type=float, default=60)
     ap.add_argument("--seed", type=int, default=1)
