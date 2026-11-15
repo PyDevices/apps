@@ -48,11 +48,11 @@ class Knob:
         self.value.center()
         # The name, on two lines if it needs them.
         self.name = theme.label(self.root, name, "muted")
-        self.name.set_width(size)
+        self.name.set_width(size - 4)            # two pixels each side, so neighbours' names never run together
         self.name.set_height(2 * lh)
         self.name.set_long_mode(lv.label.LONG_MODE.WRAP)
         self.name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-        self.name.set_pos(0, size - px(6))
+        self.name.set_pos(2, size - px(6))
         self.on_touch = None
         self.drag = None
         self.root.add_event_cb(lambda e: self._pressed(), lv.EVENT.PRESSED, None)

@@ -88,8 +88,11 @@ class TransportBar:
         app.tips.add(self.metronome.obj, "Metronome")
         at += bh + px(30)
 
-        theme.label(self.root, "Pattern", "muted").set_pos(at, (h - px(18)) // 2)
-        at += px(68)
+        word = theme.label(self.root, "Pattern", "muted")
+        word.set_pos(at, (h - px(18)) // 2)
+        word.update_layout()
+        # In a small window the word is wider than its design size: text stops shrinking first.
+        at += max(px(68), word.get_width() + px(10))
         self.slots = []
         self.dots = []
         for i in range(PATTERN_SLOTS):
