@@ -29,7 +29,7 @@ control surface never needs this package.
 | `Slider` | `slider` | A fader, vertical or horizontal, with an optional lamp |
 | `LedMeter` | `meter` | A column or row of lit segments, green, amber and red |
 | `LampButton` | `lamp_button` | A labelled push button with a coloured lamp, momentary or toggle |
-| `PadGrid` | `pad_grid` | A grid of illuminated pads, each lit in any colour |
+| `PadGrid` | `pad_grid` | A grid of illuminated pads, each lit in any colour, with an optional legend; reports a tap, or each finger landing and lifting |
 | `Lamp` | `_draw` | An indicator LED, the lamp the encoder and the buttons use |
 
 Every control takes a theme, a parent and coordinates in its parent. The
