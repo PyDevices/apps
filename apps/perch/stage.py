@@ -1198,7 +1198,20 @@ class Stage:
         self._docs = {}
         self._doc_order = []
         self._shown = self._made = self._loose = self._bug_frame = self.pose = None
-        self._slab = self._slab_block = self._drawing = None
+        # svgio keeps a Buffer's bytes after the Buffer is collected, for the
+        # next one, and gives them back to the system only when it is closed.
+        # So they are closed here, megabytes that another app may want, once
+        # nothing will draw from them: the two images are hidden first.
+        for image in (self.huey, self.ground):
+            try:
+                image.add_flag(lv.obj.FLAG.HIDDEN)
+            except Exception:
+                pass  # deleted already, with its screen
+        for block in (self._slab_block, self._ground_block):
+            if hasattr(block, "close"):
+                block.close()
+        self._ground = memoryview(bytearray(0))
+        self._slab = self._slab_block = self._ground_block = self._drawing = None
         self._slots = {}
         self._bytes = 0
         self._air = []
