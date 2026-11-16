@@ -280,6 +280,24 @@ def forced_low_heap_restarts_into_the_requested_app():
 
 
 @check
+def a_low_reading_with_room_to_allocate_does_not_restart():
+    # A heap that grows on demand reads low with room to spare: the launcher
+    # tries the allocation before it restarts.
+    if not MICROPYTHON:
+        print("    (CPython has no heap to read: skipped)")
+        return
+    la = _launcher()
+    la.boot("clock")
+    gc.collect()
+    la.min_free = gc.mem_free() // 4
+    la.min_block = None
+    expect(la._low(la.min_free - 1) is None, "restarted with %d B there to allocate" % la.min_free)
+    la.min_free = gc.mem_free() + gc.mem_alloc()  # more than the whole heap
+    expect(la._low(la.min_free - 1) is not None, "no restart with the heap short")
+    la.stop()
+
+
+@check
 def no_free_block_restarts():
     if not MICROPYTHON:
         print("    (CPython has no heap to read: skipped)")
