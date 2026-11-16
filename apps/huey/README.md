@@ -21,12 +21,34 @@ is for hearing the answer, and without one Huey's words are only shown. It
 runs on MicroPython-compatible boards.
 
 Huey thinks on a server: any that speaks OpenAI's API for speech to text,
-chat and text to speech. As installed he asks [DeepInfra](https://deepinfra.com),
-and wants your key in a file on the board:
+chat and text to speech. As installed he asks
+[lite-assistant](https://github.com/PyDevices/lite-assistant) running on a
+computer on your network, and needs two things from you: where that computer
+is, and a key for the board.
+
+Give the board its own key on the computer that runs lite-assistant:
 
 ```bash
-mpftp put deepinfra.key /deepinfra.key
+lite-assistant users add my-board   # prints the board's key, once
 ```
+
+Save the key on one line in a file, and put it on the board:
+
+```bash
+mpftp put lite-assistant.key /lite-assistant.key
+```
+
+Then put the server's address in `/data/huey/settings.json` on the board.
+It is the computer's address on your network, lite-assistant's port, and
+`/v1`:
+
+```json
+{"base_url": "http://192.168.0.10:5000/v1"}
+```
+
+Until it has an address, Huey says in his bubble where it goes. On Windows
+with lite-assistant running in WSL, the board reaches it at the Windows
+computer's address when WSL's networking mode is `mirrored`.
 
 ## Talk to him
 
@@ -46,32 +68,31 @@ Settings are one JSON file, `settings.json` in the app's data folder
 
 | Setting | As installed | What it is |
 |---|---|---|
-| `base_url` | `https://api.deepinfra.com/v1/openai` | The server: the address its `chat/completions` is under |
-| `key_file` | `/deepinfra.key` | A file with the API key on one line, or `""` for a server that asks for none |
-| `stt_model` | `openai/whisper-large-v3-turbo` | The model that turns your question into text |
-| `chat_model` | `mistralai/Mistral-Small-3.2-24B-Instruct-2506` | The model that answers |
-| `tts_model` | `inworld-ai/realtime-tts-1.5-mini` | The model that speaks the answer |
-| `voice` | `Dennis` | A voice of that model's, a man's since Huey is a he; `""` for the model's own |
+| `base_url` | `""` | The server: the address its `chat/completions` is under |
+| `key_file` | `/lite-assistant.key` | A file with the API key on one line, or `""` for a server that asks for none |
+| `stt_model` | `moonshine` | The model that turns your question into text |
+| `chat_model` | `gemma-4-E2B-it` | The model that answers |
+| `tts_model` | `kokoro` | The model that speaks the answer |
+| `voice` | `am_puck` | A voice of that model's, a man's since Huey is a he; `""` for the model's own |
 | `speech_rate` | `24000` | The rate of speech sent as bare PCM; WAV carries its own |
 | `volume` | `80` | How loud Huey speaks, 0 to 100 |
 | `listen_seconds` | `12` | The longest question |
 | `place` | `desk` | Where Huey is when the app opens: `coast`, `bench` or `desk` |
 
-To use a server of your own, such as
-[lite-assistant](https://github.com/PyDevices/lite-assistant) on a computer
-on your network, change the address, the models and the key file.
-[`settings.example.json`](settings.example.json) does that:
+To ask [DeepInfra](https://deepinfra.com) instead, copy
+[`settings.example.json`](settings.example.json) to
+`/data/huey/settings.json` and put your DeepInfra key in `/deepinfra.key`:
 
-```json
-{
-  "base_url": "http://192.168.1.20:5000/v1",
-  "key_file": "",
-  "stt_model": "moonshine",
-  "chat_model": "e2b",
-  "tts_model": "kokoro",
-  "voice": "am_puck"
-}
+```bash
+mpftp put settings.example.json /data/huey/settings.json
+mpftp put deepinfra.key /deepinfra.key
 ```
+
+On an ESP32-P4 board a turn through DeepInfra takes about 3 to 4 s from letting go
+to Huey's first word, and one through lite-assistant about 5 to 7 s, most of
+it the chat model on the computer. Huey keeps his connections to the server
+open between questions and starts speaking as soon as the words of his
+answer are in, before the rest of it.
 
 Over `https` the connection is encrypted, but MicroPython doesn't check the
 server's certificate.

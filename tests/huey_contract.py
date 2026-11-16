@@ -35,6 +35,7 @@ PLANT = os.getenv("HUEY_PLANT")
 PLANTS = (
     "deaf", "no_key", "short_wav", "forgetful", "no_act", "strict", "wrong_rate", "lost_sound",
     "odd_frames", "shut_mouth", "open_speaker", "quiet_trouble", "hot_mic", "tap_asks", "leak",
+    "no_address", "bubble_first", "late_voice", "no_rest",
 )  # fmt: skip
 
 stagemod.CACHE_BYTES = 900 * 1024
@@ -84,6 +85,14 @@ elif PLANT == "tap_asks":
     turnmod.SHORTEST = 0.0
 elif PLANT == "leak":
     actor.Actor.close = lambda self: None
+elif PLANT == "no_address":
+    turnmod.settingsmod.DEFAULTS["base_url"] = "http://stand-in/v1"
+elif PLANT == "bubble_first":
+    huey._Show._head = lambda self: self.stage._origin()
+elif PLANT == "late_voice":
+    acting.early = lambda text: None
+elif PLANT == "no_rest":
+    turnmod.Turn._read_rest = lambda self, turn, chat, wait=True: chat.close()
 elif PLANT is not None:
     raise SystemExit("no such plant: %r" % PLANT)
 
@@ -111,15 +120,24 @@ def remove(path):
         pass
 
 
+ADDRESS = "http://stand-in.invalid:5000/v1"
 write(key_path, huey_fakes.KEY + "\n")
+# no server named yet: the app opens all the same, and says what it needs
 write(settings_path, '{"key_file": "%s", "place": "desk", "volume": 55}' % key_path)
 
 server = huey_fakes.Server()
 sound = huey_fakes.Sound()
 scope = huey_fakes.Scope(lv, (W, H), folder)
-huey.start(scope, server.post, sound.microphone, sound.open_speaker)
+try:
+    huey.start(scope, server.post, sound.microphone, sound.open_speaker)
+except Exception as e:
+    check(False, "the app opens with something in its way (%r)" % (e,))
 stage, show, turn = scope.huey
 worker = scope.worker
+check(show.said is not None and "base_url" in show.said and settings_path in show.said, "with no server named, the bubble says which setting and which file")
+write(settings_path, '{"base_url": "%s", "key_file": "%s", "place": "desk", "volume": 55}' % (ADDRESS, key_path))
+show.say(None, False)
+show.note("Hold me to talk")
 
 
 def step(n=1):
@@ -201,7 +219,7 @@ worker.run()
 headers, body = server.sent("/audio/transcriptions")
 check(headers.get("Authorization") == "Bearer " + huey_fakes.KEY, "the key in the file the settings name goes with each request")
 at = body.find(b"RIFF")
-check(at > 0 and b"whisper" in body[:at], "the question goes up as a WAV file with the model's name")
+check(at > 0 and turn.settings["stt_model"].encode() in body[:at], "the question goes up as a WAV file with the model's name")
 size = int.from_bytes(body[at + 40 : at + 44], "little")
 recorded = body[at + 44 : at + 44 + size]
 check(size > 16000 * 2 * 0.5 and body[at + 44 + size :].startswith(b"\r\n--"), "the WAV says how long it is, and is all there")
@@ -225,6 +243,8 @@ check(("hold", "mug", 0) in poses and ("hold", "mug", 1) in poses, "he speaks ho
 check(mouths == {True, False}, "his mouth opens and closes with the sound")
 headers, body = server.sent("/audio/speech")
 check(__import__("json").loads(body.decode())["input"] == show.said, "the words in the bubble are the words spoken")
+check(server.early == [True], "the voice is asked for once, while the rest of the reply is still arriving")
+check(len(turn.history) == 2 and turn.history[1]["content"].startswith('{"say": "Winter!'), "the whole reply is remembered, once")
 check(sound.speaker is not None and sound.speaker.rate == 24000, "the speaker is opened at the speech's own rate")
 check(bytes(sound.speaker.got) == server.speech, "every byte of the speech reaches the speaker, and nothing else")
 check(sound.speaker.volume == 55, "at the volume in the settings")
@@ -297,7 +317,7 @@ check(show.said is not None and "key_fill" in show.said, "a setting there isn't 
 check(len(server.calls) == calls and not worker.jobs, "and none of them sends anything")
 
 # Closing lets go of the pictures, the microphone and the speaker.
-write(settings_path, '{"key_file": "%s"}' % key_path)
+write(settings_path, '{"base_url": "%s", "key_file": "%s"}' % (ADDRESS, key_path))
 x, y = on_huey()
 _headless.touch(x, y, True, 0)
 step(3)

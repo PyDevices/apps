@@ -3,6 +3,9 @@
 # SPDX-License-Identifier: MIT
 """The app's settings: which server Huey talks to, with which models and key.
 
+The defaults ask lite-assistant, a server for a computer on your own
+network, whose address only you know: ``base_url`` has to be set.
+
 They are one JSON file, ``settings.json`` in the app's data folder
 (``/data/huey`` on a board). `load` reads it over `DEFAULTS`, so the file
 holds only what differs, and no file at all means the defaults.
@@ -12,15 +15,17 @@ import json
 
 #: Every setting and its value when the file doesn't give one.
 DEFAULTS = {
-    # an OpenAI-compatible server: the address its /chat/completions is under
-    "base_url": "https://api.deepinfra.com/v1/openai",
+    # an OpenAI-compatible server: the address its /chat/completions is
+    # under; "" until it is set, since only you know where your server runs
+    "base_url": "",
     # a file holding the API key on one line; "" for a server that asks for none
-    "key_file": "/deepinfra.key",
-    "stt_model": "openai/whisper-large-v3-turbo",
-    "chat_model": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
-    "tts_model": "inworld-ai/realtime-tts-1.5-mini",
+    "key_file": "/lite-assistant.key",
+    # what lite-assistant calls its models
+    "stt_model": "moonshine",
+    "chat_model": "gemma-4-E2B-it",
+    "tts_model": "kokoro",
     # a voice the speech model has, or "" for its own: Huey is a he, so a man's
-    "voice": "Dennis",
+    "voice": "am_puck",
     # the rate of speech that comes back as bare PCM; WAV carries its own
     "speech_rate": 24000,
     # how loud Huey speaks, 0 to 100

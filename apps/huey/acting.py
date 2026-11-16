@@ -65,11 +65,12 @@ class Act:
 
     def record(self):
         """The reply as the model should have written it, for the history it is shown."""
-        out = {"say": self.say}
+        # "say" first, as the model is asked to write it: a dict's order isn't kept everywhere
+        out = ['"say": ' + json.dumps(self.say)]
         for key in ("mood", "colors", "prop", "place", "variant"):
             if getattr(self, key) is not None:
-                out[key] = getattr(self, key)
-        return json.dumps(out)
+                out.append('"%s": %s' % (key, json.dumps(getattr(self, key))))
+        return "{" + ", ".join(out) + "}"
 
 
 def _object(text):
@@ -105,6 +106,46 @@ def _clip(text):
     return cut.rsplit(" ", 1)[0] + "..."
 
 
+def words(say):
+    """The words Huey speaks for the model's *say*: what `read` gives as an act's ``say``."""
+    return _clip(_plain(say))
+
+
+def early(text):
+    """The words of a reply still arriving, once its ``say`` is complete, or None until then.
+
+    This is the reply as `read` would take it if *text* is the JSON object
+    it was asked for, so speech can be asked for before the rest arrives.
+    """
+    start = text.lstrip()
+    if start.startswith("```"):
+        start = start[3:].lstrip("json \t\r\n")
+    at = text.find('"say"')
+    if at < 0 or start[:1] != "{":
+        return None
+    at += 5
+    while at < len(text) and text[at] in " \t\r\n:":
+        at += 1
+    if at >= len(text) or text[at] != '"':
+        return None
+    end = at + 1
+    while True:
+        end = text.find('"', end)
+        if end < 0:
+            return None
+        back = end - 1
+        while text[back] == "\\":
+            back -= 1
+        if (end - 1 - back) % 2 == 0:
+            break  # not escaped
+        end += 1
+    try:
+        say = json.loads(text[at : end + 1])
+    except ValueError:
+        return None
+    return words(say) or None
+
+
 def read(text, place):
     """Make an `Act` of the model's reply *text*, given the *place* Huey is in.
 
@@ -124,7 +165,7 @@ def read(text, place):
         say = _plain(say) if isinstance(say, str) else ""
     if not say:
         raise ValueError("the reply had nothing to say")
-    act = Act(_clip(say))
+    act = Act(words(say))
 
     def choose(key, allowed):
         value = found.get(key)

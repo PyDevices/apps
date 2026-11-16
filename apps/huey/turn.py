@@ -42,17 +42,28 @@ class Turn:
             ``ring(level)`` for how loud the microphone hears, None when he isn't listening.
         worker: The app's ``scope.worker``.
         path (str): The settings file.
-        post: What sends a request; `web.post` unless a test gives its own.
+        post: What sends a request; a `web.Session`'s, kept from turn to
+            turn, unless a test gives its own.
         microphone: What opens the microphone at a rate, in place of the board's.
         speaker: What opens the speaker at a rate and a count of channels, in place of the board's.
     """
 
-    def __init__(self, stage, show, worker, path, post=web.post, microphone=None, speaker=None):
+    def __init__(self, stage, show, worker, path, post=None, microphone=None, speaker=None):
         self.stage = stage
         self.show = show
         self.worker = worker
         self.path = path
+        #: The connections to the server, kept open across legs and turns:
+        #: one for words, one for speech, which can be asked for while the
+        #: reply still arrives. None when a test sends its own way.
+        self.session = self.voice_session = None
+        speech_post = None
+        if post is None:
+            self.session = web.Session()
+            self.voice_session = web.Session()
+            post, speech_post = self.session.post, self.voice_session.post
         self._post = post
+        self._speech_post = speech_post
         self._microphone = microphone
         self._speaker = speaker
         #: "idle", "listen", "hear", "think", "voice" (the speech is on its way) or "speak".
@@ -70,11 +81,16 @@ class Turn:
         self.settings = None
         self._client = None
         self._recorder = None
+        for session in (self.session, self.voice_session):
+            if session is not None:
+                session.close()
         self._player = None
         self._id = 0
         self._began = 0
         self._format = None
         self._act = None
+        self._asked = None
+        self._rest = None  # (turn, text): the whole reply, come after his words
         self._timing = {}
         self._open_for = 0
         self._until = 0
@@ -120,13 +136,15 @@ class Turn:
             self.settings = settingsmod.load(self.path)
         except ValueError as e:
             return "My settings need a fix: %s." % (e,)
+        if not self.settings["base_url"]:
+            return "Tell me where my server is: its address goes in %s as base_url." % self.path
         try:
             key = settingsmod.read_key(self.settings)
         except OSError:
             return "I need a key to think with. Put it in %s, a file the settings name." % self.settings["key_file"]
         if network is not None and not network.WLAN(network.STA_IF).isconnected():
             return "I'm not on Wi-Fi, so I can't think. Join a network and hold me again."
-        self._client = Client(self.settings, key, self._post)
+        self._client = Client(self.settings, key, self._post, self._speech_post)
         return None
 
     def _stop(self, why):
@@ -173,9 +191,26 @@ class Turn:
             return
         self.state = "listen"
         self._began = ticks_ms()
+        self._warm()
         self.stage.listen()
         self.show.say(None, False)
         self.show.note("Listening")
+
+    def _warm(self):
+        """While the question is asked, open the connections its answer will need."""
+        sessions, base = (self.session, self.voice_session), self._client.base
+        if sessions[0] is None:
+            return
+
+        def warm():
+            for session in sessions:
+                try:
+                    session.warm(base, 30)
+                except Exception as e:
+                    # the leg that needs it opens it again, and says so if it can't
+                    print("huey: opening a connection early:", e)
+
+        self.worker.submit(self._job(warm))
 
     def release(self):
         """The finger lifts: the question is over, and its answer is on the way."""
@@ -243,28 +278,51 @@ class Turn:
         messages.extend(self.history)
         messages.append({"role": "user", "content": text})
         client = self._client
-        self.worker.submit(self._job(lambda: client.chat(messages)), lambda reply, error: self._on_reply(turn, text, reply, error))
 
-    def _on_reply(self, turn, asked, reply, error):
+        def think():
+            # read until the words he says are whole; the rest comes while he says them
+            chat = client.chat_stream(messages)
+            try:
+                while not chat.done and acting.early(chat.text) is None:
+                    chat.more()
+            except Exception:
+                chat.close()
+                raise
+            return chat
+
+        self.worker.submit(self._job(think), lambda chat, error: self._on_reply(turn, text, chat, error))
+
+    def _on_reply(self, turn, asked, chat, error):
         if turn != self._id:
+            if chat is not None:
+                chat.close()
             return
         if error is not None:
             self._stop("I couldn't think of an answer: %s." % (error,))
             return
         self._leg("reply")
-        try:
-            act = self._act = acting.read(reply, self.stage.place)
-        except ValueError:
-            self._stop("I lost my words. Hold me and ask again?")
-            return
-        self.history.append({"role": "user", "content": asked})
-        self.history.append({"role": "assistant", "content": act.record()})
-        self.history = self.history[-KEPT:] if KEPT else []
-        self._timing["said"] = act.say
-        self.show.say(act.say, False)
-        self.stage.perform(act.colors, act.place, act.variant)
+        self._asked = asked
+        if chat.done:
+            try:
+                act = acting.read(chat.text, self.stage.place)
+            except ValueError:
+                self._stop("I lost my words. Hold me and ask again?")
+                return
+            say, chat = act.say, None
+        else:
+            # the words are whole and the rest is on its way: he can begin
+            act = None
+            say = acting.early(chat.text)
+        self._act = act
+        self._rest = None
+        self._timing["said"] = say
+        self.show.say(say, False)
+        if act is not None:
+            self._acted(act)
         if self.mute:
-            self._speak_silently()
+            self._speak_silently(say)
+            if chat is not None:
+                self.worker.submit(self._job(lambda: self._read_rest(turn, chat)))
             return
         self.state = "voice"
         self._format = None
@@ -272,40 +330,90 @@ class Turn:
             player = self._player = Player(self.settings["volume"])
         else:
             player = self._player = Player(self.settings["volume"], self._speaker)
-        client, say = self._client, act.say
+        client = self._client
 
         def fetch():
-            speech = client.speak(say)
             try:
-                player.frame = 2 * speech.channels
-                self._format = (turn, speech.rate, speech.channels)
-                while turn == self._id:
-                    if not player.has_room():
-                        time.sleep(0.02)
-                        continue
-                    data = speech.read(4096)
-                    if not data:
-                        break
-                    player.put(data)
+                speech = client.speak(say)
+                try:
+                    player.frame = 2 * speech.channels
+                    self._format = (turn, speech.rate, speech.channels)
+                    while turn == self._id and self._player is player:
+                        if not player.has_room():
+                            if chat is not None and not chat.done:
+                                self._read_rest(turn, chat, False)
+                            else:
+                                time.sleep(0.02)
+                            continue
+                        data = speech.read(4096)
+                        if not data:
+                            break
+                        player.put(data)
+                finally:
+                    speech.close()
+                    player.end()
             finally:
-                speech.close()
-                player.end()
+                if chat is not None:
+                    self._read_rest(turn, chat)
 
         self.worker.submit(self._job(fetch), lambda _, error: self._on_spoken(turn, error))
+
+    def _read_rest(self, turn, chat, wait=True):
+        """On the worker: more of the reply, all of it when *wait*, handed to `tick` once it is all here."""
+        if chat.done:
+            return  # an earlier call read the end and handed it over
+        try:
+            chat.more()
+            while wait and turn == self._id and not chat.done:
+                chat.more()
+        except Exception as e:
+            # he has said his words; what he does with them is lost
+            print("huey: the rest of the reply:", e)
+            chat.close()
+            return
+        if not chat.done:
+            if wait:
+                chat.close()  # the turn moved on
+        else:
+            self._rest = (turn, chat.text)
+
+    def _acted(self, act):
+        """The reply is all here: remember it, and act it out."""
+        self.history.append({"role": "user", "content": self._asked})
+        self.history.append({"role": "assistant", "content": act.record()})
+        self.history = self.history[-KEPT:] if KEPT else []
+        self.stage.perform(act.colors, act.place, act.variant)
+        if self.state == "speak":
+            self.stage.mood = act.mood or "calm"
+            self.stage.prop = act.prop
 
     def _on_spoken(self, turn, error):
         if turn == self._id and error is not None:
             self._stop("I couldn't find my voice: %s." % (error,))
 
-    def _speak_silently(self):
+    def _speak_silently(self, say):
         self.state = "speak"
         self._leg("voice")
-        self._until = 60 * len(self._act.say) + 800
-        self.stage.speak(self._act.mood or "calm", self._act.prop)
+        self._until = 60 * len(say) + 800
+        self._pose()
+
+    def _pose(self):
+        act = self._act
+        self.stage.speak((act and act.mood) or "calm", act and act.prop)
 
     # -- every tick --------------------------------------------------------
 
     def tick(self):
+        rest = self._rest
+        if rest is not None and rest[0] == self._id:
+            # the reply is all here, perhaps after his words were said
+            self._rest = None
+            try:
+                self._act = acting.read(rest[1], self.stage.place)
+            except ValueError:
+                pass  # nothing more to act out than the words he said
+            else:
+                self._acted(self._act)
         state = self.state
         if state == "idle":
             return
@@ -335,15 +443,14 @@ class Turn:
                     # the words are on the screen: the turn goes on without sound
                     print("huey: no speaker:", e)
                     self.mute = True
-                    self._id += 1
                     self._drop_player()
-                    self._speak_silently()
+                    self._speak_silently(self._timing["said"])
                     self.show.note("No speaker here: read my words")
                     return
                 self._leg("voice")
                 self.state = "speak"
                 self.show.note("")
-                self.stage.speak(self._act.mood or "calm", self._act.prop)
+                self._pose()
         elif state == "speak":
             if self._player is None:
                 # no speaker: his mouth keeps time with the length of the words
@@ -388,3 +495,6 @@ class Turn:
             except Exception as e:
                 print("huey: closing the microphone:", e)
         self._recorder = None
+        for session in (self.session, self.voice_session):
+            if session is not None:
+                session.close()

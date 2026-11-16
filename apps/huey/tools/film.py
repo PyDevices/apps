@@ -40,7 +40,7 @@ def main():
     with open(out + "/huey.key", "w") as f:
         f.write(huey_fakes.KEY)
     with open(out + "/settings.json", "w") as f:
-        f.write('{"key_file": "%s/huey.key"}' % out)
+        f.write('{"base_url": "http://stand-in.invalid:5000/v1", "key_file": "%s/huey.key"}' % out)
     voice._TAIL_MS = 0
     server = huey_fakes.Server()
     server.heard = "Which season do you like best?"
@@ -90,7 +90,7 @@ def main():
     shoot("5_answer_arrives")
     settle()
     step(10)
-    shoot("6_finding_its_voice")
+    shoot("6_finding_his_voice")
     scope.worker.run()
     shot = False
     for _ in range(600):
@@ -103,7 +103,7 @@ def main():
     step(12)
     shoot("8_settling")
     step(260)
-    shoot("9_back_to_its_own_life")
+    shoot("9_back_to_his_own_life")
     server.status = 401
     _headless.touch(*((int(stage._origin()[0]), int(stage._origin()[1] - h * 0.1)) + (True, 0)))
     step(4)

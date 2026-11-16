@@ -78,6 +78,64 @@ class Speech:
         self._reply.close()
 
 
+class Chat:
+    """A reply on its way: `text` so far, `more` to read the next of it, and `done` once it is all here.
+
+    A server that sends the reply whole, not in pieces, gives a `Chat` that
+    is done at once.
+    """
+
+    def __init__(self, reply):
+        self._reply = reply
+        self._parts = []
+        self._held = b""
+        self.done = False
+        if "event-stream" not in reply.headers.get("content-type", ""):
+            try:
+                found = json.loads(reply.read_all(65536).decode())
+            finally:
+                self.close()
+            self._parts.append(found["choices"][0]["message"]["content"] or "")
+
+    @property
+    def text(self):
+        return "".join(self._parts)
+
+    def more(self):
+        """Wait for the next of the reply, and take it in."""
+        if self.done:
+            return
+        data = self._reply.read(1024)
+        if not data:
+            self.close()
+            return
+        lines = (self._held + data).split(b"\n")
+        self._held = lines.pop()
+        for line in lines:
+            line = line.strip()
+            if not line.startswith(b"data:"):
+                continue
+            line = line[5:].strip()
+            if line == b"[DONE]":
+                # all of it is here; what follows is the end of the stream
+                self._reply.read_all(1024)
+                self.close()
+                return
+            event = json.loads(line)
+            if event.get("error"):
+                trouble = event["error"]
+                raise ServerError("the reply stopped: %s" % (trouble.get("message", trouble) if isinstance(trouble, dict) else trouble,))
+            choices = event.get("choices")
+            piece = choices and (choices[0].get("delta") or {}).get("content")
+            if piece:
+                self._parts.append(piece)
+
+    def close(self):
+        """Stop reading, whether or not all of it came."""
+        self.done = True
+        self._reply.close()
+
+
 class Client:
     """The three calls of a turn, against one server.
 
@@ -86,18 +144,21 @@ class Client:
             ``speech_rate``, as `settings.load` gives them.
         key (str): The API key, or ``""`` for a server that asks for none.
         post: What sends a request; `web.post` unless a test gives its own.
+        speech_post: What sends the request for speech, when it isn't
+            *post*: speech can be asked for while a reply still arrives.
     """
 
-    def __init__(self, settings, key, post=web.post):
+    def __init__(self, settings, key, post=web.post, speech_post=None):
         self.settings = settings
         self._key = key
         self._post = post
+        self._speech_post = speech_post or post
         self.base = settings["base_url"].rstrip("/")
 
-    def _send(self, path, headers, pieces, timeout):
+    def _send(self, path, headers, pieces, timeout, post=None):
         if self._key:
             headers["Authorization"] = "Bearer " + self._key
-        reply = self._post(self.base + path, headers, pieces, timeout)
+        reply = (post or self._post)(self.base + path, headers, pieces, timeout)
         if reply.status != 200:
             try:
                 said = reply.read_all(4096).decode()
@@ -133,18 +194,35 @@ class Client:
         found = self._json("/audio/transcriptions", {"Content-Type": "multipart/form-data; boundary=" + _EDGE}, pieces, 60)
         return found["text"].strip()
 
+    def _chat_body(self, messages):
+        body = {"model": self.settings["chat_model"], "messages": messages, "max_tokens": 200, "temperature": 0.7}
+        # lite-assistant otherwise offers the model its own tools, which
+        # grows the prompt a hundredfold; other servers pass over it
+        body["builtin_tools"] = False
+        return body
+
     def chat(self, messages):
         """The model's reply to *messages*, as text."""
-        body = {"model": self.settings["chat_model"], "messages": messages, "max_tokens": 200, "temperature": 0.7}
-        found = self._json("/chat/completions", {"Content-Type": "application/json"}, [json.dumps(body).encode()], 60)
+        found = self._json("/chat/completions", {"Content-Type": "application/json"}, [json.dumps(self._chat_body(messages)).encode()], 60)
         return found["choices"][0]["message"]["content"] or ""
+
+    def chat_stream(self, messages):
+        """The model's reply to *messages* as a `Chat`, to read as it arrives."""
+        body = self._chat_body(messages)
+        body["stream"] = True
+        reply = self._send("/chat/completions", {"Content-Type": "application/json"}, [json.dumps(body).encode()], 60)
+        try:
+            return Chat(reply)
+        except Exception:
+            reply.close()
+            raise
 
     def speak(self, text):
         """*text* as speech: a `Speech` to read and then close."""
         body = {"model": self.settings["tts_model"], "input": text, "response_format": "wav"}
         if self.settings["voice"]:
             body["voice"] = self.settings["voice"]
-        reply = self._send("/audio/speech", {"Content-Type": "application/json"}, [json.dumps(body).encode()], 60)
+        reply = self._send("/audio/speech", {"Content-Type": "application/json"}, [json.dumps(body).encode()], 60, self._speech_post)
         try:
             return Speech(reply, self.settings["speech_rate"])
         except Exception:
