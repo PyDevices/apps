@@ -8,9 +8,9 @@ three ring modes, built on a
 display with no window and driven by hand and by a host. The planted run
 stops a slider from reporting its changes and must fail the callback checks.
 
-MicroPython comes from ``PYDEVICES_MICROPYTHON``, ``micropython`` on PATH, or
+MicroPython comes from ``OMNIPYTHON_MICROPYTHON``, ``micropython`` on PATH, or
 a ``bin/micropython`` in a folder above this one, and needs LVGL. With none,
-its half is skipped loudly; ``PYDEVICES_REQUIRE_MICROPYTHON=1`` makes that a
+its half is skipped loudly; ``OMNIPYTHON_REQUIRE_MICROPYTHON=1`` makes that a
 failure.
 """
 
@@ -36,7 +36,7 @@ def _has_lvgl(interpreter):
 def _micropython():
     """The first MicroPython that can import lvgl, or None."""
     candidates = []
-    explicit = os.environ.get("PYDEVICES_MICROPYTHON")
+    explicit = os.environ.get("OMNIPYTHON_MICROPYTHON")
     if explicit:
         candidates.append(explicit)
     found = shutil.which("micropython")
@@ -72,7 +72,7 @@ class _Contract:
     def setUp(self):
         if self.interpreter is None:
             message = "no interpreter with lvgl for this half: the controls checks did NOT run here"
-            if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
+            if os.environ.get("OMNIPYTHON_REQUIRE_MICROPYTHON") == "1":
                 self.fail(message)
             sys.stderr.write("\n*** " + message + " ***\n")
             self.skipTest(message)

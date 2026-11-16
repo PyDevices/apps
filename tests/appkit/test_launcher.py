@@ -96,7 +96,7 @@ class Supervise(ContractCase):
                     "p = %r\n"
                     "n = int(open(p).read()) if os.path.exists(p) else 0\n"
                     "open(p, 'w').write(str(n + 1))\n"
-                    "assert os.environ.get('PYDEVICES_SUPERVISED') == '1'\n"
+                    "assert os.environ.get('OMNIPYTHON_SUPERVISED') == '1'\n"
                     "sys.exit(75 if n < 2 else 3)\n" % counter
                 )
             result = run(SUPERVISE + [sys.executable, script])

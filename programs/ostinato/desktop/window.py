@@ -2,9 +2,9 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The desktop app's window: pydevices' WinDisplay, maximised, as the installed PWA is.
+"""The desktop app's window: omnipython's WinDisplay, maximised, as the installed PWA is.
 
-``PYDEVICES_MAXIMIZED=1`` makes the desktop board config open WinDisplay
+``OMNIPYTHON_MAXIMIZED=1`` makes the desktop board config open WinDisplay
 maximised at the work area, DPI aware, with LVGL the client area at scale 1.
 Here the window gets its title, and its events pass through the page's
 shortcut filter on their way to LVGL (``page.see_event``), as the browser
@@ -22,7 +22,7 @@ _get_client_rect = None
 
 def client_rect(hwnd):
     """The window's client size (w, h). Its own prototype of GetClientRect:
-    pydevices' uwin32 sets argtypes on the shared user32 functions, with a
+    omnipython's uwin32 sets argtypes on the shared user32 functions, with a
     RECT of its own that wintypes.RECT doesn't pass as."""
     global _get_client_rect
     if _get_client_rect is None:
@@ -53,7 +53,7 @@ def open_window(page):
     # The installed PWA's canvas keeps the size it opened at; here the window
     # does: restored or dragged smaller, it goes back to maximised (LVGL draws
     # at one fixed size, so a smaller window would cut the UI off).
-    keep = bool(hwnd) and os.environ.get("PYDEVICES_MAXIMIZED") == "1"
+    keep = bool(hwnd) and os.environ.get("OMNIPYTHON_MAXIMIZED") == "1"
     size = []                # the maximised client size, as first seen
     next_look = [0.0]
     u = ctypes.WinDLL("user32")     # its own handle: uwin32 sets argtypes on windll's

@@ -25,14 +25,14 @@ import deskkit
 deskkit.run()
 ```
 
-The firmware needs `lvgl`, `requests` and the `pydevices` package, which has
+The firmware needs `lvgl`, `requests` and the `omnipython` package, which has
 `wifi_manager`.
 
 ## The first time it starts
 
 1. **Wi-Fi.** The screen shows a QR code. Join the board's network with your
    phone, then pick your own network and type its password. The board remembers
-   it. The [Wi-Fi guide](https://github.com/PyDevices/pydevices/blob/main/docs/guides/wifi.md)
+   it. The [Wi-Fi guide](https://github.com/PyDevices/omnipython/blob/main/docs/guides/wifi.md)
    has the details. It needs a network with a plain password: one with a
    sign-in page or a company login won't work.
 2. **Where you are.** The board asks [ipwho.is](https://ipwho.is) where its

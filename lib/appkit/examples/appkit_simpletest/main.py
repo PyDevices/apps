@@ -8,8 +8,8 @@ and a greeter with a button. appkit.run() finds them, shows a home screen
 with a button for each, and closes one app completely before it opens the
 next, so each app gets back the memory the last one used.
 
-Needs: appkit, pydevices' appdev, and LVGL with a board_config that has a
-display, which a PyDevices board package or pydevices-desktop provides.
+Needs: appkit, omnipython's appdev, and LVGL with a board_config that has a
+display, which a PyDevices board package or omnipython-desktop provides.
 
 Run it from this folder:
     micropython main.py

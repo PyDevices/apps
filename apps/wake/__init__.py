@@ -9,7 +9,7 @@ a webcam's, is downmixed as the packets land); one without 16 kHz is
 taken at 48, 32 or 24 kHz and filtered down (``feed.py``). The host starts
 at high speed, which reaches a webcam's mic behind the board's hub, and
 if no mic turns up it starts again at full speed, which is how a
-full-speed mic behind the hub is reached. It needs pydevices' ``usb-core``,
+full-speed mic behind the hub is reached. It needs omnipython's ``usb-core``,
 ``usb-host-audio`` and ``medialink``, and firmware built with ``tflite`` and
 audiodsp's ``audiofeatures``.
 The model, ``hey_jarvis.json``, loads from a ``models`` folder: the SD card's

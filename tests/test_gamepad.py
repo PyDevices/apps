@@ -8,8 +8,8 @@ over.
     python -m unittest tests.test_gamepad
 
 The screen checks run `gamepad_contract.py` in a fresh interpreter, against
-pydevices' ``usb-hid`` and ``usb-host-hid`` from ``$PYDEVICES_DIR`` (or a
-``pydevices`` checkout beside this one) and LVGL for CPython. Without them
+omnipython's ``usb-hid`` and ``usb-host-hid`` from ``$OMNIPYTHON_DIR`` (or a
+``omnipython`` checkout beside this one) and LVGL for CPython. Without them
 they skip, unless ``GAMEPAD_REQUIRE=1`` says they must run.
 """
 
@@ -234,8 +234,8 @@ class WatchTest(unittest.TestCase):
         self.assertTrue(w.poll(20 + LOOK_MS, _since))
 
 
-def _pydevices():
-    return os.getenv("PYDEVICES_DIR") or os.path.join(ROOT, "..", "pydevices")
+def _omnipython():
+    return os.getenv("OMNIPYTHON_DIR") or os.path.join(ROOT, "..", "omnipython")
 
 
 class ScreenTest(unittest.TestCase):
@@ -250,7 +250,7 @@ class ScreenTest(unittest.TestCase):
         # The bench's 800 x 480 panels, and the smallest screen the app is for.
         for screen in ("800x480", "480x320"):
             with self.subTest(screen=screen):
-                env = dict(os.environ, PYDEVICES_DIR=_pydevices(), GAMEPAD_SCREEN=screen)
+                env = dict(os.environ, OMNIPYTHON_DIR=_omnipython(), GAMEPAD_SCREEN=screen)
                 r = subprocess.run(
                     [sys.executable, os.path.join(TESTS, "gamepad_contract.py")],
                     capture_output=True, text=True, timeout=120, env=env,

@@ -9,7 +9,7 @@ to a front panel.
   every side applies the same way. Imports on CPython, Pyodide and
   MicroPython.
 - `songmodel.link`: the project as an ``hmilink`` model, so any screen can
-  be a front panel (needs ``hmilink``, from pydevices).
+  be a front panel (needs ``hmilink``, from omnipython).
 - ``page.html``: the browser front panel a device serves on its hmilink port,
   and ``page_data``, the same page as a module (`page`); tools/songmodel_page.py
   writes the one from the other.

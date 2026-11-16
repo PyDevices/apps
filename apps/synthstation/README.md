@@ -14,7 +14,7 @@ or any file tool:
 
 - `apps/synthstation/` to `/apps/synthstation/`
 - `lib/controlkit/` from this repository to `/lib/controlkit/`, and audioinstruments' `lib/audioinstruments/panel_view.py` beside it
-- audioinstruments' `lib/` and `packages/midiports` from pydevices, to `/lib/`
+- audioinstruments' `lib/` and `packages/midiports` from omnipython, to `/lib/`
 
 It needs a display and an audio out, and a USB MIDI keyboard to play.
 
@@ -128,7 +128,7 @@ python -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
 They open, play and close every instrument with a stand-in keyboard and
-speaker, on CPython and on unix MicroPython (`PYDEVICES_MICROPYTHON`
+speaker, on CPython and on unix MicroPython (`OMNIPYTHON_MICROPYTHON`
 names one with LVGL and audiodsp).
 
 Made by [PyDevices](https://pydevices.com).

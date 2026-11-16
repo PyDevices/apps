@@ -17,7 +17,7 @@
       "latest"
     ],
     [
-      "github:PyDevices/pydevices/packages/vtterm",
+      "github:PyDevices/omnipython/packages/vtterm",
       "main"
     ]
   ],

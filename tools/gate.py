@@ -34,11 +34,11 @@ What it needs, on Windows:
 * REAPER, with a configuration (``--reaper-cfg``) in which that output is
   enabled. The gate never touches any other REAPER configuration.
 * a CPython venv (``--venv``) with ``omnipython-audiodsp`` at the pin
-  audioeffects names in its ``AUDIODSP_PIN`` and ``pydevices-desktop``.
+  audioeffects names in its ``AUDIODSP_PIN`` and ``omnipython-desktop``.
 
 Everything the interpreters import is staged into ``--stage`` from the
 sibling checkouts' ``origin/main``: audioinstruments' and audioeffects' ``lib``,
-pydevices' ``midiports`` and ``uwin32``, and this checkout's ``lib``.
+omnipython's ``midiports`` and ``uwin32``, and this checkout's ``lib``.
 The WAV files, the logs and REAPER's project of the song are left in
 ``<stage>/out`` and ``<stage>/song``.
 """
@@ -104,7 +104,7 @@ def stage(args):
         for name in os.listdir(os.path.join(tmp, "lib")):
             shutil.move(os.path.join(tmp, "lib", name), lib)
         shutil.rmtree(os.path.join(tmp, "lib"))
-    heads["pydevices"] = _archive(args.pydevices, ["midiports/midiports", "utils/uwin32.py"], tmp)
+    heads["omnipython"] = _archive(args.omnipython, ["midiports/midiports", "utils/uwin32.py"], tmp)
     shutil.move(os.path.join(tmp, "midiports", "midiports"), lib)
     shutil.move(os.path.join(tmp, "utils", "uwin32.py"), lib)
     shutil.rmtree(tmp)
@@ -342,11 +342,11 @@ def main(argv=None):
     ap.add_argument("--circuitpython", default=None)
     ap.add_argument("--audioinstruments", default=_find_sibling("audioinstruments"))
     ap.add_argument("--audioeffects", default=_find_sibling("audioeffects"))
-    ap.add_argument("--pydevices", default=_find_sibling("pydevices"))
+    ap.add_argument("--omnipython", default=_find_sibling("omnipython"))
     ap.add_argument("--max-lag", type=int, default=250)
     ap.add_argument("--heap", default="64M", help="MicroPython's and CircuitPython's heap")
     args = ap.parse_args(argv)
-    anchor = os.path.dirname(args.pydevices) if args.pydevices else ""
+    anchor = os.path.dirname(args.omnipython) if args.omnipython else ""
     args.venv_python = args.venv_python or os.path.join(args.stage, "venv", "Scripts", "python.exe")
     args.micropython = args.micropython or os.path.join(anchor, "bin", "micropython")
     args.circuitpython = args.circuitpython or os.path.join(anchor, "bin", "circuitpython")
@@ -357,8 +357,8 @@ def main(argv=None):
         with open(rpp, "w") as f:
             f.write('<REAPER_PROJECT 0.1 "7.0" 0\n>\n')
     info, heads = stage(args)
-    print("staged audioinstruments %s, audioeffects %s, pydevices %s; the song: %d parts, %.0f s"
-          % (heads["audioinstruments"], heads["audioeffects"], heads["pydevices"],
+    print("staged audioinstruments %s, audioeffects %s, omnipython %s; the song: %d parts, %.0f s"
+          % (heads["audioinstruments"], heads["audioeffects"], heads["omnipython"],
              len(info["parts"]), info["seconds"]))
     results = {}
     for name in args.only or INTERPRETERS:

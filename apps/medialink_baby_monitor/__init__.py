@@ -15,7 +15,7 @@ over the room's own noise elsewhere.
 
 Needs: on the monitor, a microphone that boarddev.pcm_in() reaches; on the
 listener, a speaker that boarddev.pcm_out() reaches. A PyDevices board
-package or pydevices-desktop provides both. Both need a network: a board
+package or omnipython-desktop provides both. Both need a network: a board
 already on Wi-Fi with mdns in its firmware, or python-zeroconf on CPython.
 Set PEER_ADDRESS on the listener to skip the search. A device that lacks
 any of these says so on screen and the app stays open.

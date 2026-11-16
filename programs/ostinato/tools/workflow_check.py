@@ -227,7 +227,7 @@ def run(s):
     check(px_[0] > 180 and px_[1] < 110 and armed == app.project()["tracks"][2]["id"],
           "rec look: armed record is red %s and Keys is marked armed (%s)" % (px_, armed))
 
-    # -- tooltips (hover needs pydevices' display_driver to pass a released mouse on)
+    # -- tooltips (hover needs omnipython's display_driver to pass a released mouse on)
     s.reset()
     g = app.geom()
     away = (10 / dpr, (g["tracks"][-1][1] + g["tracks"][-1][3] + 40) / dpr)

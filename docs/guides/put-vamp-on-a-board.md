@@ -3,12 +3,12 @@
 Vamp plays Ostinato's songs: the sound and the song on one MicroPython, an
 ESP32-P4 board or a desktop interpreter, with the screens somewhere else.
 Ostinato's window and a browser page edit the song it plays, live, over
-[hmilink](https://github.com/PyDevices/pydevices/tree/main/hmilink). A MIDI
+[hmilink](https://github.com/PyDevices/omnipython/tree/main/hmilink). A MIDI
 keyboard on the board plays the selected track.
 
 You need the [apps repo installed](../get-started/install.md), a General MIDI
-SoundFont, [mpftp](https://github.com/PyDevices/mpftp) installed, and a clone
-of [pydevices](https://github.com/PyDevices/pydevices) beside the apps repo, where
+SoundFont, [mpftp](https://github.com/PyDevices/mcuctl) installed, and a clone
+of [omnipython](https://github.com/PyDevices/omnipython) beside the apps repo, where
 `tools/vamp_files.py` finds hmilink (`--hmilink DIR` names it otherwise).
 
 ## On a board
@@ -30,7 +30,7 @@ import vamp; vamp.run()
 
 ## On a desktop MicroPython
 
-With the apps repo's `programs/` and `lib/`, hmilink, audioinstruments' and audioeffects' `lib/` and pydevices' `lib/`
+With the apps repo's `programs/` and `lib/`, hmilink, audioinstruments' and audioeffects' `lib/` and omnipython's `lib/`
 on `MICROPYPATH`:
 
 ```bash
@@ -77,11 +77,11 @@ With no router, the panel's board can be the access point instead: start it with
 `vamp.run_panel("192.168.4.2", "--ap", "NAME", "PASSWORD")`, join the box's board
 to that network, and start the box. The first board to join gets 192.168.4.2.
 
-In a desktop window, with `pydevices-desktop` and `pydevices-lvgl` installed
+In a desktop window, with `omnipython-desktop` and `omnipython-lvgl` installed
 and the apps repo's `programs/` and `lib/` and hmilink on `PYTHONPATH`:
 
 ```bash
-PYDEVICES_WIDTH=800 PYDEVICES_HEIGHT=480 PYDEVICES_SCALE=1 python -m vamp.panel_main --box HOST:9100
+OMNIPYTHON_WIDTH=800 OMNIPYTHON_HEIGHT=480 OMNIPYTHON_SCALE=1 python -m vamp.panel_main --box HOST:9100
 ```
 
 ## Record a take

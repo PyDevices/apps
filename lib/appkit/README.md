@@ -5,7 +5,7 @@ memory back when it closes. A launcher and the apps it runs make an **app
 set**: a watch with a face, a step counter and a TV remote, or a panel with
 a camera, a music player and a home screen.
 
-appkit builds on [appdev](https://github.com/PyDevices/pydevices/blob/main/docs/guides/the-app-loop.md)
+appkit builds on [appdev](https://github.com/PyDevices/omnipython/blob/main/docs/guides/the-app-loop.md)
 and runs wherever appdev does: CPython, MicroPython and CircuitPython, on a
 desktop or a board. You don't need it to write an app. A script that builds
 an `App` and runs works exactly as before. appkit is for when you want
@@ -13,13 +13,13 @@ several apps on one device and a way to move between them.
 
 ## Install
 
-pydevices is frozen into the firmware, and appkit needs it for `appdev`,
+omnipython is frozen into the firmware, and appkit needs it for `appdev`,
 `events` and `multimer`. appkit itself comes from this repository: copy the
 files of [`lib/appkit`](lib/appkit) to `/lib/appkit` on a board, with
-[mpftp](https://github.com/PyDevices/mpftp), `mpremote` or any file tool. On a
+[mpftp](https://github.com/PyDevices/mcuctl), `mpremote` or any file tool. On a
 CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
-appkit's Home and its apps draw with [iconkit](https://github.com/PyDevices/pydevices/tree/main/packages/iconkit), which lives in the pydevices repository as its own package (`omnipython-iconkit`). Including appkit's `manifest.py` in a firmware build freezes iconkit with it, from the folder you pass as `iconkit=` (pydevices' `packages/iconkit`) or, without that, from the omnipython-lib tree in `$PYDEVICES_LIBRARY`; with neither the build stops and says so. Getting appkit with `require("appkit", library="omnipython-lib")` brings iconkit along. Otherwise install iconkit the way you do pydevices itself.
+appkit's Home and its apps draw with [iconkit](https://github.com/PyDevices/omnipython/tree/main/packages/iconkit), which lives in the omnipython repository as its own package (`omnipython-iconkit`). Including appkit's `manifest.py` in a firmware build freezes iconkit with it, from the folder you pass as `iconkit=` (omnipython's `packages/iconkit`) or, without that, from the omnipython-lib tree in `$OMNIPYTHON_LIBRARY`; with neither the build stops and says so. Getting appkit with `require("appkit", library="omnipython-lib")` brings iconkit along. Otherwise install iconkit the way you do omnipython itself.
 
 On a Wi-Fi board, `omip` installs appkit, or an app with
 everything it needs, into the folders appkit looks in:
@@ -308,10 +308,10 @@ python -m appkit.launcher -- micropython main.py
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-Run them from this folder. They take pydevices' `lib` from this repository
-(or `PYDEVICES_LIB`), iconkit from `packages/iconkit/lib` in the same
-pydevices checkout (or `ICONKIT_LIB`) and, for the MicroPython half, a unix `micropython`
-(from `PYDEVICES_MICROPYTHON` or `PATH`). Without one, the MicroPython checks
+Run them from this folder. They take omnipython's `lib` from this repository
+(or `OMNIPYTHON_LIB`), iconkit from `packages/iconkit/lib` in the same
+omnipython checkout (or `ICONKIT_LIB`) and, for the MicroPython half, a unix `micropython`
+(from `OMNIPYTHON_MICROPYTHON` or `PATH`). Without one, the MicroPython checks
 skip loudly.
 
 Planned work is in [ROADMAP.md](ROADMAP.md).

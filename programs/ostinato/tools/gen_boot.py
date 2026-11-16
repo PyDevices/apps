@@ -22,7 +22,7 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 # the song as its model): scripts/fetch_midi.py fetches them beside the rest.
 DESKTOP_ONLY = ("vendor/lib/midiports/windows.py", "vendor/lib/midiports/loopback.py", "vendor/lib/hmilink/", "lib/songmodel/link.py", "lib/songmodel/page_data.py")
 # songmodel (the song model Ostinato shares with Vamp) is in the apps repo's lib/, two
-# folders up; iconkit (its icons) is in the pydevices repo, where tools/iconkit_lib.py
+# folders up; iconkit (its icons) is in the omnipython repo, where tools/iconkit_lib.py
 # finds it. The page fetches both as lib/<package>/...: tools/serve.py serves them
 # there, and a published copy carries them at that path.
 LIB = ROOT.parent.parent / "lib"
@@ -51,9 +51,9 @@ def main():
     # iconkit's icons, drawn by LVGL; its pygraphics drawing (gfx.py) and MicroPython manifest aren't used here.
     icons = {src: dest for src, dest in tree("iconkit", "iconkit/", iconkit_lib.find(), "lib/").items()
              if not src.endswith(("/gfx.py", "/manifest.py"))}
-    ui = {"packages": [whl("pydevices"), whl("pydevices-lvgl")],
+    ui = {"packages": [whl("omnipython"), whl("omnipython-lvgl")],
           "files": {**shared, **icons, **tree("app/ui"), **tree("vendor/board")}}
-    engine = {"packages": [whl("pydevices"), whl("numpy"), whl("omnipython-audiodsp"), whl("omnipython-audioeffects"),
+    engine = {"packages": [whl("omnipython"), whl("numpy"), whl("omnipython-audiodsp"), whl("omnipython-audioeffects"),
                            whl("omnipython-audioinstruments")],
               "files": {**shared, **tree("app/engine"), **tree("vendor/lib")}}
     cfg = {"ui": ui, "engine": engine, "versions": {k: v["version"] for k, v in w.items()}}

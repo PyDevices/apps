@@ -6,8 +6,8 @@ CircuitPython, then once per planted fault.
 
     python -m unittest discover -s tests
 
-The interpreters: this Python; ``$PYDEVICES_MICROPYTHON`` and
-``$PYDEVICES_CIRCUITPYTHON``, else ``micropython`` and ``circuitpython`` on
+The interpreters: this Python; ``$OMNIPYTHON_MICROPYTHON`` and
+``$OMNIPYTHON_CIRCUITPYTHON``, else ``micropython`` and ``circuitpython`` on
 the PATH, else ``bin/`` in a folder above this checkout. One that isn't
 there is skipped, loudly. The ``lib`` folders of audioinstruments and
 audioeffects (``$AUDIOINSTRUMENTS_DIR`` and ``$AUDIOEFFECTS_DIR``, else
@@ -69,8 +69,8 @@ def _cmd(kind):
         env = dict(os.environ)
         env["PYTHONPATH"] = os.pathsep.join(audio_libs() + [env["PYTHONPATH"]] if env.get("PYTHONPATH") else audio_libs())
         return [sys.executable, CONTRACT], env
-    exe = _find("PYDEVICES_MICROPYTHON", "micropython") if kind == "micropython" else \
-        _find("PYDEVICES_CIRCUITPYTHON", "circuitpython")
+    exe = _find("OMNIPYTHON_MICROPYTHON", "micropython") if kind == "micropython" else \
+        _find("OMNIPYTHON_CIRCUITPYTHON", "circuitpython")
     if exe is None:
         return None, None
     env = dict(os.environ)

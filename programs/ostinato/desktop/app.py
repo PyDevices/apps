@@ -212,11 +212,11 @@ def run_ui(a, runner, orchestrate, state):
     import types
 
     if a.width and a.height:
-        os.environ["PYDEVICES_WIDTH"] = str(a.width)
-        os.environ["PYDEVICES_HEIGHT"] = str(a.height)
-        os.environ["PYDEVICES_SCALE"] = "1"
+        os.environ["OMNIPYTHON_WIDTH"] = str(a.width)
+        os.environ["OMNIPYTHON_HEIGHT"] = str(a.height)
+        os.environ["OMNIPYTHON_SCALE"] = "1"
     else:
-        os.environ["PYDEVICES_MAXIMIZED"] = "1"
+        os.environ["OMNIPYTHON_MAXIMIZED"] = "1"
     os.environ["ENGINES"] = str(a.count)
     import engines as link
     import page

@@ -10,7 +10,7 @@ audiopump ring, and audiodsp's pump plays that ring on the codec. Python only
 keeps the clock feedback in step and follows the PC's volume. The meter is
 the pump's own tap, so it shows whatever the pump plays.
 
-It needs micropython-lib's ``usb-device`` and pydevices' ``usb-device-audio`` in
+It needs micropython-lib's ``usb-device`` and omnipython's ``usb-device-audio`` in
 ``/lib``, and gallery's spectrum analyzer for the meter.
 """
 

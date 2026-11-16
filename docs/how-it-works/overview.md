@@ -17,7 +17,7 @@ board's General MIDI player, runs this engine.
 
 ## The libraries underneath
 
-- `midiports` and `hmilink`, in [pydevices](https://github.com/PyDevices/pydevices),
+- `midiports` and `hmilink`, in [omnipython](https://github.com/PyDevices/omnipython),
   give MIDI transports and the link between a device and its panels.
 - Adafruit's `adafruit_midi` parses MIDI messages.
 - [audiodsp](https://github.com/PyDevices/audiodsp) supplies the DSP kernels.

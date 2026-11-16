@@ -2,8 +2,8 @@
 export default {
  "ui": {
   "packages": [
-   "vendor/wheels/pydevices-0.7.8-py3-none-any.whl",
-   "vendor/wheels/pydevices_lvgl-9.5.52-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
+   "vendor/wheels/omnipython-0.7.8-py3-none-any.whl",
+   "vendor/wheels/omnipython_lvgl-9.5.52-cp314-cp314-pyemscripten_2026_0_wasm32.whl"
   ],
   "files": {
    "lib/songmodel/__init__.py": "songmodel/__init__.py",
@@ -43,7 +43,7 @@ export default {
  },
  "engine": {
   "packages": [
-   "vendor/wheels/pydevices-0.7.8-py3-none-any.whl",
+   "vendor/wheels/omnipython-0.7.8-py3-none-any.whl",
    "vendor/wheels/numpy-2.4.3-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
    "vendor/wheels/omnipython_audiodsp-0.6.13.dev1-cp314-cp314-pyemscripten_2026_0_wasm32.whl",
    "vendor/wheels/omnipython_audioeffects-0.5.0.dev1-py3-none-any.whl",
@@ -81,9 +81,9 @@ export default {
  },
  "versions": {
   "numpy": "2.4.3",
-  "pydevices": "0.7.8",
+  "omnipython": "0.7.8",
   "omnipython-audiodsp": "0.6.13.dev1",
-  "pydevices-lvgl": "9.5.52",
+  "omnipython-lvgl": "9.5.52",
   "omnipython-audioinstruments": "0.5.0",
   "omnipython-audioeffects": "0.5.0.dev1"
  }

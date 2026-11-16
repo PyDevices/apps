@@ -33,7 +33,7 @@
       "latest"
     ],
     [
-      "github:PyDevices/pydevices/packages/castdisplay",
+      "github:PyDevices/omnipython/packages/castdisplay",
       "main"
     ]
   ],

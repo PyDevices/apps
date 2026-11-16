@@ -565,7 +565,7 @@ def data_root_moves_with_set_root_and_back():
 @check
 def restart_file_follows_the_data_root():
     getenv = data._getenv
-    data._getenv = lambda name: None if name == "PYDEVICES_NEXT_APP" else getenv(name)
+    data._getenv = lambda name: None if name == "OMNIPYTHON_NEXT_APP" else getenv(name)
     data.set_root(_tmp("root2"))
     try:
         path = L._state_path()

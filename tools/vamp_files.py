@@ -18,7 +18,7 @@ screen that joins a box somewhere else::
     import vamp; vamp.run_panel("<the box's address>")
 
 ``--hmilink`` names the hmilink package to copy (the folder holding
-``__init__.py``); the default is a pydevices checkout beside this one, else
+``__init__.py``); the default is an omnipython checkout beside this one, else
 Ostinato's vendor/lib. ``--song`` is the song the box opens, /vamp_song.json
 on the board (default: Ostinato's SoundFont check song).
 """
@@ -48,7 +48,7 @@ def _hmilink():
     for _ in range(3):
         parent = os.path.dirname(parent)
         for inside in (("packages", "hmilink", "hmilink"), ("hmilink", "hmilink")):
-            p = os.path.join(parent, "pydevices", *inside)
+            p = os.path.join(parent, "omnipython", *inside)
             if os.path.isfile(os.path.join(p, "__init__.py")):
                 return p
     return os.path.join(OSTINATO, "vendor", "lib", "hmilink")

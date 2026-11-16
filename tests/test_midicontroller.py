@@ -8,7 +8,7 @@ at 800 x 480 and at 480 x 320 with no text cut off or drawn over.
     python -m unittest tests.test_midicontroller
 
 The screen checks run `midicontroller_contract.py` in a fresh interpreter,
-against pydevices' ``midiports`` from ``$PYDEVICES_DIR`` (or a ``pydevices``
+against omnipython's ``midiports`` from ``$OMNIPYTHON_DIR`` (or a ``omnipython``
 checkout beside this one) and LVGL for CPython. Without them they skip,
 unless ``MIDICONTROLLER_REQUIRE=1`` says they must run.
 """
@@ -495,8 +495,8 @@ class BleLinkTest(unittest.TestCase):
             loop.loop.close()
 
 
-def _pydevices():
-    return os.getenv("PYDEVICES_DIR") or os.path.join(ROOT, "..", "pydevices")
+def _omnipython():
+    return os.getenv("OMNIPYTHON_DIR") or os.path.join(ROOT, "..", "omnipython")
 
 
 class ScreenTest(unittest.TestCase):
@@ -511,7 +511,7 @@ class ScreenTest(unittest.TestCase):
         # The bench's 800 x 480 panels, and the smallest screen the app is for.
         for screen in ("800x480", "480x320"):
             with self.subTest(screen=screen):
-                env = dict(os.environ, PYDEVICES_DIR=_pydevices(), MIDICONTROLLER_SCREEN=screen)
+                env = dict(os.environ, OMNIPYTHON_DIR=_omnipython(), MIDICONTROLLER_SCREEN=screen)
                 r = subprocess.run(
                     [sys.executable, os.path.join(TESTS, "midicontroller_contract.py")],
                     capture_output=True, text=True, timeout=180, env=env,

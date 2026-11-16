@@ -8,7 +8,7 @@ does, and checks the box keeps the song and the time.
     python tools/vamp_link_check.py HOST:PORT [--song FILE] [--browser] [--json OUT]
 
 The box is already running: on desktop MicroPython, or on the board over its
-Ethernet port. This Python needs hmilink (``$HMILINK_PATH``, a pydevices
+Ethernet port. This Python needs hmilink (``$HMILINK_PATH``, an omnipython
 checkout beside this one, or Ostinato's vendor/lib) and, for ``--browser``,
 Playwright. The default song is Ostinato's SoundFont check song. The check is one panel. It loads a song, presses Play, changes
 the tempo, mutes a track, adds a note and puts a reverb on the master, then
@@ -40,7 +40,7 @@ def _hmilink():
     parent = ROOT
     for _ in range(3):
         parent = os.path.dirname(parent)
-        found.append(os.path.join(parent, "pydevices", "hmilink"))
+        found.append(os.path.join(parent, "omnipython", "hmilink"))
     found.append(os.path.join(OSTINATO, "vendor", "lib"))
     for p in found:
         if p and os.path.isfile(os.path.join(p, "hmilink", "__init__.py")):

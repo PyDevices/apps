@@ -8,7 +8,7 @@
 
 No caching, so an edit shows on reload. ``/lib/`` is the apps repo's ``lib/``, two
 folders up, where the song model Ostinato shares with Vamp lives (songmodel);
-``/lib/iconkit/`` is iconkit from the pydevices repo (tools/iconkit_lib.py). ``--isolate`` adds the COOP/COEP
+``/lib/iconkit/`` is iconkit from the omnipython repo (tools/iconkit_lib.py). ``--isolate`` adds the COOP/COEP
 headers that SharedArrayBuffer needs (P0's SAB comparison only).
 """
 

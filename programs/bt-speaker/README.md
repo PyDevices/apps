@@ -14,7 +14,7 @@ and the Pimoroni Pico Plus 2 W with a Pico-Audio board and a Pico-OLED-2.23.
 ## Put it on a board
 
 The firmware needs `btclassic`. Install your board's package from
-[pydevices](https://github.com/PyDevices/pydevices) first (it brings
+[omnipython](https://github.com/PyDevices/omnipython) first (it brings
 `board_config` and `board_peripherals`), then, from the apps repo's root:
 
 ```bash

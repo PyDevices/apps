@@ -76,9 +76,9 @@ while argv:
 opts["turns"].sort(key=lambda turn: turn[0])
 opts["shots"].sort()
 w, h = size.lower().split("x")
-setenv("PYDEVICES_WIDTH", w)
-setenv("PYDEVICES_HEIGHT", h)
-setenv("PYDEVICES_SCALE", "1")
+setenv("OMNIPYTHON_WIDTH", w)
+setenv("OMNIPYTHON_HEIGHT", h)
+setenv("OMNIPYTHON_SCALE", "1")
 
 import appkit  # noqa: E402
 import lvgl as lv  # noqa: E402

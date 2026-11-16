@@ -7,7 +7,7 @@ Run on CPython, on unix MicroPython at the T-Watch S3's heap (8M) and at a
 tight one (see ``_harness.TIGHT_HEAP``), and with each planted leak, which
 must fail. The MicroPython runs need a ``micropython`` binary (see
 ``_harness.micropython``); without one they skip loudly, and
-``PYDEVICES_REQUIRE_MICROPYTHON=1`` turns the skip into a failure.
+``OMNIPYTHON_REQUIRE_MICROPYTHON=1`` turns the skip into a failure.
 """
 
 import sys

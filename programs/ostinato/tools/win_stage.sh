@@ -15,7 +15,7 @@ done
 mkdir -p "$DEST/vendor"
 rsync -a --delete --exclude __pycache__ "$ROOT/vendor/lib/" "$DEST/vendor/lib/"
 # songmodel, which Ostinato shares with Vamp, lives in the apps repo's lib/; iconkit,
-# its icons, in the pydevices repo (tools/iconkit_lib.py says where it is).
+# its icons, in the omnipython repo (tools/iconkit_lib.py says where it is).
 mkdir -p "$DEST/lib"
 rsync -a --delete --exclude __pycache__ "$ROOT/../../lib/songmodel/" "$DEST/lib/songmodel/"
 ICONKIT_LIB=$(python3 "$ROOT/tools/iconkit_lib.py") || exit 1

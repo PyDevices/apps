@@ -4,12 +4,12 @@
 """Synth Station's tests: the MIDI parser here, the whole app in station_check.py.
 
 station_check.py runs on CPython and on unix MicroPython (from
-``PYDEVICES_MICROPYTHON``, ``micropython`` on PATH, or a ``bin/micropython``
+``OMNIPYTHON_MICROPYTHON``, ``micropython`` on PATH, or a ``bin/micropython``
 in a folder above this one, with LVGL and audiodsp). Both need
 audioinstruments with its ``panel_view`` module, and controlkit, on the path:
 ``SYNTHSTATION_PATH`` adds folders in front (``:``-separated), for a
 checkout of either. With no MicroPython its half is skipped loudly;
-``PYDEVICES_REQUIRE_MICROPYTHON=1`` makes that a failure.
+``OMNIPYTHON_REQUIRE_MICROPYTHON=1`` makes that a failure.
 """
 
 from pathlib import Path
@@ -23,12 +23,12 @@ from unittest import mock
 
 TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parents[1]  # the apps folder, which holds the synthstation package
-#: A pydevices checkout: its lib/ (audiodev) and packages/midiports. From the anchor, next to this repo.
-PYDEVICES = Path(os.environ.get("PYDEVICES_DIR", TESTS.parents[2].parent / "pydevices"))
+#: An omnipython checkout: its lib/ (audiodev) and packages/midiports. From the anchor, next to this repo.
+PYDEVICES = Path(os.environ.get("OMNIPYTHON_DIR", TESTS.parents[2].parent / "omnipython"))
 CHECK = TESTS / "station_check.py"
 EXTRA = [p for p in os.environ.get("SYNTHSTATION_PATH", "").split(":") if p]
 PATH = EXTRA + [str(LIB), str(PYDEVICES / "packages" / "midiports")]
-#: pydevices' own lib (audiodev): after the frozen copy on MicroPython.
+#: omnipython's own lib (audiodev): after the frozen copy on MicroPython.
 REPO_LIB = str(PYDEVICES / "lib")
 
 sys.path[:0] = [str(LIB)]
@@ -38,7 +38,7 @@ from synthstation.midi import Parser  # noqa: E402
 
 
 def _micropython():
-    explicit = os.environ.get("PYDEVICES_MICROPYTHON")
+    explicit = os.environ.get("OMNIPYTHON_MICROPYTHON")
     if explicit:
         return explicit
     found = shutil.which("micropython")
@@ -157,7 +157,7 @@ class _Station:
     def setUp(self):
         if self.interpreter is None:
             message = "no micropython binary: the Synth Station checks did NOT run on MicroPython"
-            if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
+            if os.environ.get("OMNIPYTHON_REQUIRE_MICROPYTHON") == "1":
                 self.fail(message)
             sys.stderr.write("\n*** " + message + " ***\n")
             self.skipTest(message)

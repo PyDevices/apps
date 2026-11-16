@@ -14,8 +14,8 @@ from boarddev import env_set
 from pyscript import document, window
 
 W, H = int(window.innerWidth), int(window.innerHeight)
-env_set("PYDEVICES_WIDTH", W)
-env_set("PYDEVICES_HEIGHT", H)
+env_set("OMNIPYTHON_WIDTH", W)
+env_set("OMNIPYTHON_HEIGHT", H)
 
 import time
 

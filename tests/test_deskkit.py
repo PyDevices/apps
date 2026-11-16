@@ -361,7 +361,7 @@ class IconsTest(unittest.TestCase):
 
 
 def _micropython():
-    named = os.environ.get("PYDEVICES_MICROPYTHON") or shutil.which("micropython")
+    named = os.environ.get("OMNIPYTHON_MICROPYTHON") or shutil.which("micropython")
     if named:
         return named
     for parent in TESTS.parents:
@@ -383,7 +383,7 @@ class ContractTest(unittest.TestCase):
         interpreter = _micropython()
         if interpreter is None or not _has_lvgl(interpreter):
             message = "no MicroPython with LVGL: the swipe checks did NOT run"
-            if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
+            if os.environ.get("OMNIPYTHON_REQUIRE_MICROPYTHON") == "1":
                 self.fail(message)
             self.skipTest(message)
         env = dict(os.environ)

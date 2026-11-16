@@ -12,7 +12,7 @@ cd programs/ostinato && python -m unittest discover -s tests
 
 MicroPython and CircuitPython runs get `MICROPYPATH` from the test wrapper
 and need `-X heapsize=64M`: five instruments outgrow the 8 MB default.
-Vamp's tests need hmilink, from `$HMILINK_PATH` or a pydevices checkout
+Vamp's tests need hmilink, from `$HMILINK_PATH` or an omnipython checkout
 beside this one. CI sets `VAMP_REQUIRE=1` so a missing piece fails instead of
 skipping.
 

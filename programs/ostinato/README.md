@@ -7,7 +7,7 @@ and export a WAV or a MIDI file. It installs as an app and works offline.
 
 Runs on: a desktop browser (Chrome or Edge) or a Windows desktop with Python 3.14 or later. Put it there with the steps under [Run it](#run-it) or [Run it on the desktop](#run-it-on-the-desktop).
 
-It's built from PyDevices: LVGL draws the interface, audioinstruments' 33
+It's built from OmniPython: LVGL draws the interface, audioinstruments' 33
 instruments and 44 effects make the sound, and `midiports` and
 `adafruit_midi` read the keyboard, all running in Pyodide in Web Workers.
 
@@ -17,7 +17,7 @@ Every command here runs from this folder, `programs/ostinato` in the apps repo.
 
 ```bash
 bash scripts/vendor_pyscript.sh               # Pyodide, which fetch_wheels.py reads numpy's name from
-.venv/bin/python scripts/fetch_wheels.py      # the PyDevices wheels it runs on
+.venv/bin/python scripts/fetch_wheels.py      # the OmniPython wheels it runs on
 .venv/bin/python scripts/fetch_midi.py        # midiports, adafruit_midi, the board config
 .venv/bin/python tools/gen_boot.py            # what each worker loads
 .venv/bin/python tools/serve.py               # http://127.0.0.1:8765/
@@ -38,13 +38,13 @@ Ostinato also runs as a native Windows app on Python 3.14 or later, without a br
 It opens maximised, plays through WASAPI, and reads every MIDI input it finds.
 
 Install Python 3.14 from python.org, then make a virtual environment with the
-released PyDevices stack:
+released OmniPython stack:
 
 ```bat
 py -3.14 -m venv %USERPROFILE%\ostinato-venv
 %USERPROFILE%\ostinato-venv\Scripts\python -m pip install --pre --no-cache-dir ^
   --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple ^
-  pydevices pydevices-desktop omnipython-audiodsp pydevices-lvgl ^
+  omnipython omnipython-desktop omnipython-audiodsp omnipython-lvgl ^
   omnipython-audioinstruments omnipython-audioeffects numpy
 ```
 
@@ -109,7 +109,7 @@ for the rest; the script says how many bars that changed.
 - `index.html` keeps only what has to be on the page: the canvas and its
   input, Web MIDI, and the AudioContext.
 - `app/ui/` is the interface, in a worker. It draws LVGL on an
-  OffscreenCanvas through pydevices' `displaydev.workerdisplay`.
+  OffscreenCanvas through omnipython's `displaydev.workerdisplay`.
 - `app/engine/` makes the sound, one worker per track. Each worker renders
   its track and hands it to the master worker (`app/engine/master.py`),
   which sums them, runs the master effects, and is the one stream the
@@ -119,7 +119,7 @@ for the rest; the script says how many bars that changed.
 - The buttons' icons are images from `iconkit`, in the apps repo's `lib/iconkit/`.
   Icons that its shared sets lack are in `app/ui/_icons_<size>.py`; remake them
   with `.venv/bin/python scripts/make_icons.py PATH_TO_material-design-icons PATH_TO_make_icons.py`,
-  where the second is [iconkit's generator](https://github.com/PyDevices/pydevices/tree/main/packages/iconkit).
+  where the second is [iconkit's generator](https://github.com/PyDevices/omnipython/tree/main/packages/iconkit).
 - `workers/` is pyscript-template's worker kit.
 
 `songmodel.model` imports on CPython, Pyodide and MicroPython. The engine and

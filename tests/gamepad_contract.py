@@ -3,13 +3,13 @@
 # SPDX-License-Identifier: MIT
 """The Gamepad app on real LVGL with no window, its USB on both ends stood in.
 
-The gamepad side drives pydevices' real ``usb_hid``, whose USB interface is
+The gamepad side drives omnipython's real ``usb_hid``, whose USB interface is
 replaced by one that keeps what it would send. The tester side reads through
 the real ``usb.host.hid_generic``, from a stand-in device that answers with
 ``usb_hid``'s own gamepad descriptor and plays back those reports. So a press
 on the screen of one goes through both modules and lights the other.
 
-    PYDEVICES_DIR=../pydevices python tests/gamepad_contract.py
+    OMNIPYTHON_DIR=../omnipython python tests/gamepad_contract.py
 
 Each screen is drawn under the board shell's own header, on a display of
 ``GAMEPAD_SCREEN`` (``800x480`` unless set), and checked for text that is
@@ -24,7 +24,7 @@ import types
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-_PYDEVICES = os.getenv("PYDEVICES_DIR") or os.path.join(_ROOT, "..", "pydevices")
+_PYDEVICES = os.getenv("OMNIPYTHON_DIR") or os.path.join(_ROOT, "..", "omnipython")
 _USB = os.path.join(_PYDEVICES, "packages", "usb")
 # lib first: tests/appkit would hide the real appkit.
 sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE, os.path.join(_USB, "usb-hid")]
@@ -137,7 +137,7 @@ try:
 
     usb_hid.Device.GAMEPAD
 except (ImportError, AttributeError) as e:
-    print("SKIP: pydevices' usb-hid and usb-host-hid aren't at %s (%s); set PYDEVICES_DIR" % (_PYDEVICES, e))
+    print("SKIP: omnipython's usb-hid and usb-host-hid aren't at %s (%s); set OMNIPYTHON_DIR" % (_PYDEVICES, e))
     sys.exit(2)
 
 usb_hid.time = types.SimpleNamespace(

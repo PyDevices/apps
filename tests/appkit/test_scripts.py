@@ -24,11 +24,11 @@ import sys
 import tempfile
 import unittest
 
-from _harness import ICONKIT_LIB, LIB, PYDEVICES_LIB, TESTS, ContractCase, need_micropython, run
+from _harness import ICONKIT_LIB, LIB, OMNIPYTHON_LIB, TESTS, ContractCase, need_micropython, run
 
 sys.path.insert(0, str(LIB))
-if PYDEVICES_LIB is not None:
-    sys.path.insert(1, str(PYDEVICES_LIB))
+if OMNIPYTHON_LIB is not None:
+    sys.path.insert(1, str(OMNIPYTHON_LIB))
 if ICONKIT_LIB is not None:
     sys.path.insert(1, str(ICONKIT_LIB))
 from appkit import index  # noqa: E402  (runs without the rest of appkit)
@@ -65,14 +65,14 @@ ROUND_TRIP = [
 
 
 def _libs():
-    """The pydevices and iconkit source folders, as strings, for a path."""
-    return [str(p) for p in (PYDEVICES_LIB, ICONKIT_LIB) if p is not None]
+    """The omnipython and iconkit source folders, as strings, for a path."""
+    return [str(p) for p in (OMNIPYTHON_LIB, ICONKIT_LIB) if p is not None]
 
 
 def _board_configs():
-    if PYDEVICES_LIB is None:
+    if OMNIPYTHON_LIB is None:
         return None
-    path = PYDEVICES_LIB.parent / "board_configs" / "desktop"
+    path = OMNIPYTHON_LIB.parent / "board_configs" / "desktop"
     return path if path.is_dir() else None
 
 
@@ -112,7 +112,7 @@ class RoundTrip(ContractCase):
 
     def setUp(self):
         if _board_configs() is None:
-            self.skipTest("no pydevices board_configs/desktop: the round trip needs a display")
+            self.skipTest("no omnipython board_configs/desktop: the round trip needs a display")
         self.tmp = tempfile.TemporaryDirectory()
 
     def tearDown(self):
@@ -124,8 +124,8 @@ class RoundTrip(ContractCase):
         if plant:
             env["APPKIT_PLANT"] = plant
         # board_config for the desktop, and the desktop helpers it imports
-        # (usdl2 and the rest, in utils/), after pydevices' lib.
-        configs = os.pathsep.join((str(PYDEVICES_LIB.parent / "utils"), str(_board_configs())))
+        # (usdl2 and the rest, in utils/), after omnipython's lib.
+        configs = os.pathsep.join((str(OMNIPYTHON_LIB.parent / "utils"), str(_board_configs())))
         mp_path = os.pathsep.join(p for p in (env.pop("FROZEN", None), str(LIB), *_libs(), configs) if p)
         env["MICROPYPATH"] = mp_path.replace(os.pathsep, ":") + ":.frozen"
         env["PYTHONPATH"] = os.pathsep.join(
@@ -344,9 +344,9 @@ class Index(unittest.TestCase):
                 "include(%r, apps=%r, index_dir=%r%s)\n"
                 % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"), extra)
             )
-        env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "PYDEVICES_LIBRARY")}
+        env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "OMNIPYTHON_LIBRARY")}
         if library:
-            env["PYDEVICES_LIBRARY"] = str(library)
+            env["OMNIPYTHON_LIBRARY"] = str(library)
         return subprocess.run(
             [sys.executable, "-I", str(manifestfile), "--freeze", board], capture_output=True, text=True, cwd=tmp, env=env
         )
@@ -363,7 +363,7 @@ class Index(unittest.TestCase):
             result = self._freeze(found, tmp, iconkit=None)
             self.assertNotEqual(result.returncode, 0, result.stdout)
             self.assertIn("iconkit is not found", result.stdout + result.stderr)
-            self.assertIn("PYDEVICES_LIBRARY", result.stdout + result.stderr)
+            self.assertIn("OMNIPYTHON_LIBRARY", result.stdout + result.stderr)
             # A folder that is not iconkit's.
             result = self._freeze(found, tmp, iconkit=tmp)
             self.assertNotEqual(result.returncode, 0, result.stdout)
