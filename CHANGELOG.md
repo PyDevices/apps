@@ -1,10 +1,16 @@
 # Changelog
 
-## Unreleased
+## 0.1.2.dev13
 
 - Huey: a new app. Hold Huey the chameleon, ask him something out loud, and he answers in speech and a speech bubble, acting the answer out with a mood, colours, a prop or a place. It talks to an OpenAI-compatible server named in its settings file.
+- Huey's Perch: a new app of vector art drawn by svgio. Huey, a chameleon, walks, catches bugs and changes colour at the coast, a workbench and a desk, with each season ready before it shows. It needs firmware with `svgio`.
 - appkit: a worker's `done()` runs on the main thread on an ESP32 too. There it could run on the worker's own thread, and a `done()` that submitted the next job could stop every timer on the board.
-- Huey's Perch: a new app of vector art drawn by svgio. Huey, a chameleon, walks, catches bugs and changes colour at the coast, a workbench and a desk. It needs firmware with `svgio`.
+- Synth Station: an instrument for each MIDI channel, with one voice cap shared by every instrument playing; on boards that play through `audio_out` it caps voices and counts underruns.
+- Stompbox: a level meter and a clip light beside Master.
+- Ostinato: layouts for phones and for windows around 1280x720; `fetch_midi.py` finds midiports where it lives now.
+- controlkit: an encoder's ring can fill from the middle or show one dot, and an encoder in a small cell drops its legend.
+- sayso: Spotify's limits are checked before a request, and removed endpoints are marked.
+- songmodel: the front panel page installs with the package.
 
 ## 0.1.2.dev12
 
