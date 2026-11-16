@@ -100,7 +100,7 @@ jobs:
           echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/app_packages\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "perch=$(has '^(apps/perch/|tests/(test_perch|perch_contract|perch_drawings|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "perch=$(has '^(apps/perch/|tests/(test_perch|perch_contract|perch_drawings|_headless)\.py$|tests/perch_drawings\.golden$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "huey=$(has '^(apps/(huey|perch)/|tests/(test_huey|huey_contract|huey_fakes|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "midicontroller=$(has '^(apps/midicontroller/|lib/(touchkit|appkit|controlkit)/|tests/(test_midicontroller|midicontroller_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
@@ -248,7 +248,7 @@ jobs:
       - name: Install LVGL, svgio and iconkit for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl pydevices-desktop pydevices omnipython-iconkit resvg_py pillow
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl "pydevices-desktop>=0.8.0.dev21" "pydevices>=0.8.0.dev21" omnipython-iconkit resvg_py pillow
 
       - name: Perch's tests
         env:
@@ -274,7 +274,7 @@ jobs:
       - name: Install LVGL, svgio and pydevices for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl pydevices-desktop pydevices resvg_py pillow
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl "pydevices-desktop>=0.8.0.dev21" "pydevices>=0.8.0.dev21" resvg_py pillow
 
       - name: Huey's tests
         env:

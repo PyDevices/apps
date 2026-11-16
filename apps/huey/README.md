@@ -16,9 +16,9 @@ omip.install("github:PyDevices/apps/apps/huey")
 
 That installs [Huey's Perch](../perch) too, whose stage and drawings this app
 uses. Home shows Huey on the Desk page. It needs a display with touch, LVGL,
-firmware with `svgio`, a microphone, Wi-Fi and a board with PSRAM; a speaker
-is for hearing the answer, and without one Huey's words are only shown. It
-runs on MicroPython-compatible boards.
+a firmware whose `svgio` has `expand` and `Buffer`, a microphone, Wi-Fi and
+a board with PSRAM; a speaker is for hearing the answer, and without one
+Huey's words are only shown. It runs on MicroPython-compatible boards.
 
 Huey thinks on a server: any that speaks OpenAI's API for speech to text,
 chat and text to speech. As installed he asks

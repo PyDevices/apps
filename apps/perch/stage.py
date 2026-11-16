@@ -27,11 +27,11 @@ NAVY = 0x0B2A4A
 DOCS_KEPT = 3  # places whose shapes are kept, so going back to one skips building it
 CACHE_BYTES = 6 * 1024 * 1024  # poses kept, beside the one on screen and the one just drawn
 STRIDE = 63.3  # how far a full turn of the walk carries the body, in its own units
-# Working memory for the two decoders, where this svgio gives a decoder its
-# own: a place at 800 pixels wide wants about 600 KB, a pose about 150.
+# Working memory for the two decoders: a place at 800 pixels wide wants about
+# 600 KB, a pose about 150.
 PLACE_MEMORY = 768 * 1024
 POSE_MEMORY = 256 * 1024
-BAND_ROWS = 120  # a place is painted about this many rows a tick, where svgio draws bands
+BAND_ROWS = 120  # a place is painted about this many rows a tick
 SLAB_SPARE = 1024 * 1024  # room beside the kept poses for the one on screen and the one being drawn
 REST_TICKS = 30000 // TICK_MS  # a collection about this often, while the chameleon stands still
 
@@ -148,16 +148,35 @@ def _uncache(picture):
         any_image.delete()
 
 
-def _decoder(memory):
-    """A decoder that works in *memory* bytes of its own, where this svgio has that.
+def _check_svgio():
+    """Raise, naming what's missing, when this firmware's svgio is older than the drawings need.
 
-    Its parses and draws then ask the heap for nothing, so they take the same
-    time whatever the heap holds. An older svgio gives a plain decoder.
+    The drawings are records of svgio's compact form; the decoders work in
+    memory of their own, so a parse or a draw takes the same time whatever
+    the heap holds; the place is drawn in bands; colours are swapped as a
+    pose is drawn; and the pictures live in Buffers outside the heap.
     """
-    try:
-        return svgio.SvgDecoder(memory=memory)
-    except TypeError:
-        return svgio.SvgDecoder()
+    lacks = [name for name in ("expand", "Buffer") if not hasattr(svgio, name)]
+    if hasattr(svgio, "Buffer") and not hasattr(svgio.Buffer, "close"):
+        lacks.append("Buffer.close")
+    if not hasattr(svgio.SvgDecoder, "close"):
+        lacks.append("SvgDecoder.close")
+    if not lacks:
+        try:
+            decoder = svgio.SvgDecoder(memory=64 * 1024)
+        except TypeError:
+            lacks.append("SvgDecoder(memory=)")
+        else:
+            if not hasattr(decoder, "memory_peak"):
+                lacks.append("SvgDecoder.memory_peak")
+            decoder.open(b'<svg xmlns="http://www.w3.org/2000/svg" width="2" height="2"><rect width="2" height="2" fill="#fff"/></svg>')
+            try:
+                decoder.decode(bytearray(8), rows=(0, 2), colors={0xFFFFFF: 0})
+            except TypeError:
+                lacks.append("decode(rows=, colors=)")
+            decoder.close()
+    if lacks:
+        raise RuntimeError("Huey's drawings need a newer firmware: its svgio lacks %s" % ", ".join(lacks))
 
 
 class _Random:
@@ -220,6 +239,7 @@ class Stage:
     """
 
     def __init__(self, root, size, place="coast", variant=None, view="wide", seed=7):
+        _check_svgio()
         self.w, self.h = size
         self.root = root
         self.random = _Random(seed)
@@ -236,7 +256,7 @@ class Stage:
         #: to its picture and to the chameleon standing in it, and from opening
         #: to the first tick, place, pose and step of a walk; and the most
         #: bytes of picture ever held, and the most working memory a place
-        #: and a pose took in their decoders (0 from an svgio without it);
+        #: and a pose took in their decoders;
         #: ``rests``, the collections made while the chameleon stood still;
         #: ``swaps``, the changes of colour made by swapping colours as svgio drew;
         #: and ``slow_steps``, what the showing ticks over 150 ms were doing.
@@ -271,13 +291,9 @@ class Stage:
         self._asked = self._born  # when the change being drawn was asked for
         # The poses' pictures live in one block, taken first of all. A
         # collection reads every block of the heap it keeps, a third of a
-        # second for six megabytes of pictures on a board, so where svgio has
-        # buffers outside the heap the block is one of those. Otherwise it is
-        # a bytearray, and on a heap that grows when it must (an ESP32's)
-        # taking it first means the next thing that doesn't fit doubles the
-        # heap: that room is what keeps collections rare.
-        # (The Buffer itself is kept beside its memoryview, which alone
-        # wouldn't keep it.)
+        # second for six megabytes of pictures on a board, so the block is an
+        # svgio Buffer, outside the heap. (The Buffer itself is kept beside
+        # its memoryview, which alone wouldn't keep it.)
         try:
             self._slab, self._slab_block = self._bytes_for(CACHE_BYTES + SLAB_SPARE)
         except MemoryError:
@@ -285,11 +301,8 @@ class Stage:
         self._slots = {}  # id of a buffer cut from the slab -> (where, bytes)
         self._drawing = None  # the buffer a pose is being drawn into
         self._collected = 0  # the tick of the last collection
-        self._decoder = _decoder(PLACE_MEMORY)
-        self._poser = _decoder(POSE_MEMORY)
-        # an svgio whose decoders have memory of their own also draws in bands
-        self._bands = hasattr(self._decoder, "memory")
-        self._swaps = None  # whether svgio swaps colours as it draws: not asked yet
+        self._decoder = svgio.SvgDecoder(memory=PLACE_MEMORY)
+        self._poser = svgio.SvgDecoder(memory=POSE_MEMORY)
         self._noted = {}  # (pose, scheme) -> the colours it draws, in order
         self._prepare = None  # getting ready for the next change of colours, a step a tick
         self._eager = False  # whether that comes before drawing poses ahead
@@ -378,7 +391,7 @@ class Stage:
         return now
 
     def _roomiest(self, what, decoder):
-        peak = getattr(decoder, "memory_peak", 0)
+        peak = decoder.memory_peak
         if peak > self.stats[what]:
             self.stats[what] = peak
 
@@ -399,8 +412,8 @@ class Stage:
         self._since(t0, "tidy")
 
     def _bytes_for(self, size):
-        """*size* bytes for pictures, outside the collector's heap where svgio has such: a view of them, and their owner."""
-        block = svgio.Buffer(size) if hasattr(svgio, "Buffer") else bytearray(size)
+        """*size* bytes for pictures, outside the collector's heap: a view of them, and their owner."""
+        block = svgio.Buffer(size)
         return memoryview(block), block
 
     def _buffer(self, size):
@@ -557,17 +570,8 @@ class Stage:
         old colours, built again in the new only to pair each colour with its
         counterpart, then drawn three times from the one parse, two on the
         way and the last in the new colours, which is kept. Gives False,
-        having drawn nothing, when svgio can't swap colours or the two
-        schemes' colours don't pair off.
+        having drawn nothing, when the two schemes' colours don't pair off.
         """
-        if self._swaps is None:
-            try:
-                self._poser.decode(bytearray(8), rows=(0, 0), colors={})
-                self._swaps = True
-            except (TypeError, RuntimeError, ValueError) as e:
-                self._swaps = not isinstance(e, TypeError)
-        if not self._swaps:
-            return False
         flip = self._facing < 0
         x, y, k = PLACES[self.place]["at"]
         s = self.w / self._rect[2]
@@ -841,13 +845,8 @@ class Stage:
             self._forget()
         # What the last place and its poses left is collected. A collection
         # has the poses' block to read, a third of a second on a board, so it
-        # waits until the new picture is up; an older svgio needs it before
-        # every parse.
+        # waits until the new picture is up.
         tidy = moved or old_scheme != new_scheme
-        if tidy and not self._bands:
-            self._tidy()
-            tidy = False
-            yield
         # Where the colours change, the chameleon turns through them while the
         # place is painted, a step of each a tick, not after it.
         shift = self._recolour(rest, old_scheme, new_scheme) if blends else None
@@ -865,32 +864,26 @@ class Stage:
             self._since(t0, "parse")
             shift = self._beside(shift)
             yield
-            if self._bands:
-                # a band a tick, so the picture arrives down the screen and
-                # no tick waits for all of it. Bands are whole strips of
-                # svgio's, so no row is drawn twice, and LVGL is told of the
-                # band alone: redrawing the whole screen for each cost more
-                # than the bands saved.
-                strip = max(1, 65536 // (4 * self.w))
-                band = strip * max(1, (BAND_ROWS + strip - 1) // strip)
-                area = lv.area_t()
-                self.ground.get_coords(area)
-                top = area.y1
-                for y0 in range(0, self.h, band):
-                    y1 = min(y0 + band, self.h)
-                    t0 = ticks_us()
-                    self._decoder.decode(self._ground, stride=self.w, rows=(y0, y1))
-                    self._since(t0, "draw")
-                    area.y1, area.y2 = top + y0, top + y1 - 1
-                    self.ground.invalidate_area(area)
-                    if y1 < self.h:
-                        shift = self._beside(shift)
-                        yield
-            else:
+            # a band a tick, so the picture arrives down the screen and
+            # no tick waits for all of it. Bands are whole strips of
+            # svgio's, so no row is drawn twice, and LVGL is told of the
+            # band alone: redrawing the whole screen for each cost more
+            # than the bands saved.
+            strip = max(1, 65536 // (4 * self.w))
+            band = strip * max(1, (BAND_ROWS + strip - 1) // strip)
+            area = lv.area_t()
+            self.ground.get_coords(area)
+            top = area.y1
+            for y0 in range(0, self.h, band):
+                y1 = min(y0 + band, self.h)
                 t0 = ticks_us()
-                self._decoder.decode(self._ground, stride=self.w)
+                self._decoder.decode(self._ground, stride=self.w, rows=(y0, y1))
                 self._since(t0, "draw")
-                self.ground.invalidate()
+                area.y1, area.y2 = top + y0, top + y1 - 1
+                self.ground.invalidate_area(area)
+                if y1 < self.h:
+                    shift = self._beside(shift)
+                    yield
             self._roomiest("place_memory", self._decoder)
             self.stats["scenes"] += 1
             if moved:
@@ -912,8 +905,8 @@ class Stage:
             if shift is not None:
                 yield
         if blends and not self._shifted:
-            # an svgio that draws only the colours it parsed: each step is a
-            # pose built and parsed afresh
+            # the two schemes' colours don't pair off: each step is a pose
+            # built and parsed afresh
             for t in blends:
                 yield from self._blend(rest, huey_shift.between(old_scheme, new_scheme, t))
         for name in list(huey.COLORS):
@@ -1272,7 +1265,7 @@ class Stage:
             except Exception:
                 pass  # deleted already, with its screen
         for block in (self._slab_block, self._ground_block):
-            if hasattr(block, "close"):
+            if block is not None:
                 block.close()
         self._ground = memoryview(bytearray(0))
         self._slab = self._slab_block = self._ground_block = self._drawing = None

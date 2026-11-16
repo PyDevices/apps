@@ -1,1 +1,1 @@
-{"name": "perch", "title": "Huey's Perch", "category": "Desk", "icon": "photo_library", "color": "#2F8F5B", "needs": ["svgio"]}
+{"name": "perch", "title": "Huey's Perch", "category": "Desk", "icon": "photo_library", "color": "#2F8F5B", "needs": ["svgio.expand", "svgio.Buffer"]}

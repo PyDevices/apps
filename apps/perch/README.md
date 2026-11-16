@@ -16,10 +16,11 @@ import omip
 omip.install("github:PyDevices/apps/apps/perch")
 ```
 
-Home shows it on the Desk page. It needs a display, LVGL and firmware with
-`svgio`; Home leaves it out where `svgio` is missing. Pictures are kept in
-memory once drawn, about 8 MB on a 720 x 720 screen, so it wants a board with
-PSRAM.
+Home shows it on the Desk page. It needs a display, LVGL and a firmware
+whose `svgio` has `expand` and `Buffer`. Home leaves it out on an older
+firmware, and opened there it says what its `svgio` lacks. Pictures are kept
+in memory once drawn, about 8 MB on a 720 x 720 screen, so it wants a board
+with PSRAM.
 
 ## Play it
 

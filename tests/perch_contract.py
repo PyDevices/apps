@@ -29,8 +29,8 @@ from perch import stage as stagemod
 
 PLANT = os.getenv("PERCH_PLANT")
 PLANTS = ("no_paint", "hidden", "same_colours", "no_walk", "deaf", "hoard", "leak")
-# One more where svgio gives a decoder working memory of its own (on CPython it only takes the argument).
-ROOMY = sys.implementation.name != "cpython" and hasattr(stagemod.svgio.SvgDecoder(), "memory")
+# One more where the decoders work in memory of their own (CPython's svgio only takes the argument).
+ROOMY = sys.implementation.name != "cpython"
 if ROOMY:
     PLANTS += ("cramped",)
 
@@ -196,8 +196,7 @@ for view in ("mid", "close", "wide"):
     check(stage.held_bytes() <= allowance, "the pictures held stay within the allowance in the %s view" % view)
     check(stage._shown[0].header.w <= W and stage._shown[0].header.h <= H, "a pose is never larger than the screen in the %s view" % view)
 check(stage.stats["peak"] <= allowance, "the most ever held stayed within the allowance")
-if stage._swaps:
-    check(stage.stats["swaps"] >= 6, "each change of colours was made by swapping them, where svgio does that")
+check(stage.stats["swaps"] >= 6, "each change of colours was made by swapping them as svgio drew")
 if ROOMY:
     # every place and pose so far was drawn inside its decoder's own memory
     check(0 < stage.stats["place_memory"] <= stagemod.PLACE_MEMORY, "a place fits its decoder's working memory")
