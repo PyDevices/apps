@@ -31,6 +31,7 @@ INTERPRETER = os.getenv("HUEY_INTERPRETER")
 PLANTS = (
     "deaf", "no_key", "short_wav", "forgetful", "no_act", "strict", "wrong_rate", "lost_sound",
     "odd_frames", "shut_mouth", "open_speaker", "quiet_trouble", "hot_mic", "tap_asks", "leak",
+    "no_address", "bubble_first", "late_voice", "no_rest",
 )  # fmt: skip
 
 
@@ -93,10 +94,21 @@ class HueyOnCPythonTest(_Both, unittest.TestCase):
     cpython = True
 
 
+class _Server(http.server.HTTPServer):
+    def handle_error(self, request, client_address):
+        pass  # a client hanging up mid-reply is what some tests do
+
+
 class _Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = "HTTP/1.1"  # a connection stays open for the next request
+
     def do_POST(self):
         body = self.rfile.read(int(self.headers["Content-Length"]))
         self.server.seen.append((self.path, dict(self.headers), body))
+        self.server.peers.append(self.client_address)
+        if self.server.hang_up:
+            # answer, then let this connection go, as a server does with one left idle
+            self.close_connection = True
         if self.path.endswith("/audio/speech"):
             sound = b"RIFF\xff\xff\xff\xffWAVEfmt \x10\x00\x00\x00\x01\x00\x01\x00\xc0\x5d\x00\x00\x80\xbb\x00\x00\x02\x00\x10\x00data\xff\xff\xff\xff"
             sound += bytes(range(256)) * 40
@@ -142,8 +154,10 @@ class ClientOverHTTPTest(unittest.TestCase):
         from apps.huey import client, settings
 
         cls.client_module = client
-        cls.server = http.server.HTTPServer(("127.0.0.1", 0), _Handler)
+        cls.server = _Server(("127.0.0.1", 0), _Handler)
         cls.server.seen = []
+        cls.server.peers = []
+        cls.server.hang_up = False
         threading.Thread(target=cls.server.serve_forever, daemon=True).start()
         cls.settings = dict(settings.DEFAULTS)
         cls.settings["base_url"] = "http://127.0.0.1:%d/v1" % cls.server.server_address[1]
@@ -196,3 +210,92 @@ class ClientOverHTTPTest(unittest.TestCase):
         speech.close()
         self.assertEqual(got, bytes(range(256)) * 40)
         self.assertNotIn("Authorization", self.server.seen[-1][1])
+
+
+@unittest.skipIf(_cpython_has() and os.getenv("HUEY_REQUIRE") != "1", _cpython_has())
+class SessionTest(unittest.TestCase):
+    """One connection kept open across the three legs, and opened again when the server lets it go."""
+
+    setUpClass = classmethod(ClientOverHTTPTest.setUpClass.__func__)
+    tearDownClass = classmethod(ClientOverHTTPTest.tearDownClass.__func__)
+
+    def setUp(self):
+        from apps.huey import web
+
+        self.web = web
+        self.server.hang_up = False
+        self.session = web.Session()
+        self.client = self.client_module.Client(self.settings, "a-key", self.session.post)
+
+    def tearDown(self):
+        self.session.close()
+
+    def turn(self):
+        """The three legs of a turn, each read to its end."""
+        self.assertEqual(self.client.transcribe(memoryview(bytes(400)), 16000), "what do you eat")
+        self.assertEqual(self.client.chat([{"role": "user", "content": "what do you eat"}]), '{"say": "Crickets."}')
+        speech = self.client.speak("Crickets.")
+        got = b""
+        while True:
+            piece = speech.read(4096)
+            if not piece:
+                break
+            got += piece
+        speech.close()
+        self.assertEqual(got, bytes(range(256)) * 40)
+
+    def test_two_turns_share_one_connection(self):
+        before = len(self.server.peers)
+        self.turn()
+        self.turn()
+        self.assertEqual(len(set(self.server.peers[before:])), 1, self.server.peers[before:])
+        self.assertEqual(self.session.opened, 1)
+
+    def test_warm_opens_the_connection_the_next_request_uses(self):
+        before = len(self.server.peers)
+        self.session.warm(self.settings["base_url"])
+        self.assertEqual(self.session.opened, 1)
+        self.turn()
+        self.assertEqual(self.session.opened, 1)
+        self.assertEqual(len(set(self.server.peers[before:])), 1)
+
+    def test_a_connection_the_server_closed_is_opened_again(self):
+        self.server.hang_up = True
+        self.turn()
+        self.assertEqual(self.session.opened, 3)
+
+    def test_a_closed_connection_found_only_by_using_it_is_opened_again(self):
+        # with nothing to ask whether the connection is still open, the request fails on it and goes again
+        held, self.web.select = self.web.select, None
+        try:
+            self.server.hang_up = True
+            self.turn()
+            self.turn()
+            self.assertEqual(self.session.opened, 6)
+            self.assertEqual(self.session.resent, 5)
+        finally:
+            self.web.select = held
+
+    def test_speech_cut_short_leaves_the_next_request_a_clean_connection(self):
+        speech = self.client.speak("Crickets.")
+        speech.read(100)
+        speech.close()
+        cut = self.server.peers[-1]
+        before = len(self.server.peers)
+        # the reply itself must say the connection is spent, not only a look at the socket
+        held, self.web.select = self.web.select, None
+        try:
+            self.turn()
+        finally:
+            self.web.select = held
+        self.assertEqual(self.session.opened, 2)
+        # nothing more went down the connection the speech was cut off on
+        self.assertEqual(self.session.resent, 0)
+        self.assertNotIn(cut, self.server.peers[before:])
+
+    def test_a_refusal_keeps_the_connection(self):
+        refused = self.client_module.Client(self.settings, "another-key", self.session.post)
+        with self.assertRaises(self.client_module.ServerError):
+            refused.chat([{"role": "user", "content": "hello"}])
+        self.turn()
+        self.assertEqual(self.session.opened, 1)

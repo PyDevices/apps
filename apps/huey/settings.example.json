@@ -1,8 +1,8 @@
 {
-  "base_url": "http://192.168.1.20:5000/v1",
-  "key_file": "",
-  "stt_model": "moonshine",
-  "chat_model": "e2b",
-  "tts_model": "kokoro",
-  "voice": "am_puck"
+  "base_url": "https://api.deepinfra.com/v1/openai",
+  "key_file": "/deepinfra.key",
+  "stt_model": "openai/whisper-large-v3-turbo",
+  "chat_model": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+  "tts_model": "inworld-ai/realtime-tts-1.5-mini",
+  "voice": "Dennis"
 }

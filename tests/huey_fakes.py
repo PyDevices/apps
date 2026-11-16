@@ -69,9 +69,15 @@ class Server:
         self.speech_kind = "audio/wav"
         self.status = 200
         self.calls = []
+        #: For each request for speech: True when a reply sent in pieces was still arriving.
+        self.early = []
+        self._chat = None
 
     def post(self, url, headers, pieces, timeout=30):
-        path = url.split("/v1/openai", 1)[1]
+        path = url
+        for known in ("/audio/transcriptions", "/chat/completions", "/audio/speech"):
+            if url.endswith(known):
+                path = known
         body = b"".join(bytes(piece) for piece in pieces)
         self.calls.append((path, dict(headers), body))
         if self.status != 200:
@@ -81,8 +87,19 @@ class Server:
         if path == "/chat/completions":
             chats = len([call for call in self.calls if call[0] == path])
             text = self.replies[min(chats, len(self.replies)) - 1]
+            if json.loads(body).get("stream"):
+                # as a server streams it: a few characters an event
+                events = []
+                for at in range(0, len(text), 7):
+                    events.append("data: " + json.dumps({"choices": [{"delta": {"content": text[at : at + 7]}}]}) + "\n\n")
+                events.append("data: [DONE]\n\n")
+                reply = self._reply(200, "text/event-stream", "".join(events).encode(), chunked=True)
+                self._chat = reply._stream
+                return reply
             return self._reply(200, "application/json", json.dumps({"choices": [{"message": {"role": "assistant", "content": text}}]}).encode())
         if path == "/audio/speech":
+            chat = self._chat
+            self.early.append(chat is not None and chat.at < len(chat.data))
             sound = self.speech
             if self.speech_kind == "audio/wav":
                 sound = wav_header(len(sound), 24000) + sound

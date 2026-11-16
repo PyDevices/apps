@@ -15,7 +15,7 @@ Which server, which models and which key file are in one settings file,
 
 import lvgl as lv
 
-from . import web
+from .settings import DEFAULTS
 from .actor import Actor
 from .turn import Turn
 from ..perch.stage import TICK_MS
@@ -106,6 +106,9 @@ class _Show:
 
     def _head(self):
         """Where Huey's head is on the screen, near enough."""
+        if self.stage.place is None:
+            # his first place is still being drawn
+            return self.w // 2, self.h // 3
         ox, oy = self.stage._origin()
         k = self.stage._shown[0].header.h / 250 if self.stage._shown else self.h / 800
         return int(ox + 60 * k), int(oy - 150 * k)
@@ -204,12 +207,13 @@ class _Show:
                 self.note("")
 
 
-def start(scope, post=web.post, microphone=None, speaker=None):
+def start(scope, post=None, microphone=None, speaker=None):
     """Open the app on *scope*, as `main` does.
 
     Args:
         scope: The app's scope.
-        post: What sends a request to the server, in place of `web.post`.
+        post: What sends a request to the server, in place of the
+            connection the app keeps open to it.
         microphone: What opens a microphone at a rate, in place of the board's.
         speaker: What opens a speaker at a rate and a count of channels, in place of the board's.
     """
@@ -225,12 +229,12 @@ def start(scope, post=web.post, microphone=None, speaker=None):
     show = _Show(root, scope.size, stage)
     turn = Turn(stage, show, scope.worker, path, post, microphone, speaker)
     why = turn.ready()
+    place = turn.settings["place"] if turn.settings else DEFAULTS["place"]
+    if place != stage.place:
+        stage.go(place)
     if why:
         show.say(why, True)
     else:
-        place = turn.settings["place"]
-        if place != stage.place:
-            stage.go(place)
         show.note("Hold me to talk")
 
     point = lv.point_t()
