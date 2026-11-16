@@ -52,9 +52,9 @@ SHADOW = 0x000000
 
 # The board's top-left corner; it is 204 wide and 130 tall.
 BOARD_X, BOARD_Y = 453, 262
-# The helping-hands bar the chameleon stands on: where its perch is, and its size.
+# The helping-hands bar the chameleon stands on: where his perch is, and its size.
 HUEY_X, HUEY_Y, HUEY_SCALE = 322, 404, 0.6
-# The wire rack on the pegboard that it hangs from: the rod's left end and top.
+# The wire rack on the pegboard that he hangs from: the rod's left end and top.
 RACK_X, RACK_Y = 210, 188
 
 
@@ -622,13 +622,13 @@ def _rack(x0, y):
 
 
 def _chameleon(doc, pose, look, look_far, mood, blink, colors):
-    # the chameleon, staged for one of its three places on the bench
+    # the chameleon, staged for one of his three places on the bench
     if pose == "front":
         # on the top edge of the board, facing out, one hand up
         body = huey_views.front(doc, look=look or (0.0, 0.2), look_other=look_far, blink=blink, mood=mood or "calm", colors=colors or "brand", hand=1, perch=None)
         return at(BOARD_X + 96, BOARD_Y + 1, body, scale=0.44)
     if pose == "hang":
-        # head down from the wire rack, by its tail and hind feet
+        # head down from the wire rack, by his tail and hind feet
         body = huey.draw_hang(doc, look=look or (0.5, 0.6), look_far=look_far, mood=mood or "happy", colors=colors or "copper", perch=None)
         return at(RACK_X + 108, RACK_Y, body, scale=0.4)
     # on the bar of the helping hands, iron in hand, its tip on the joint
@@ -654,7 +654,7 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
 
     Args:
         doc: The `vec.Doc` to draw into.
-        who (str): "chameleon", or "stage" for the bench without it.
+        who (str): "chameleon", or "stage" for the bench without him.
         pose (str): What the chameleon is doing: "solder", standing on the
             helping hands with the iron on the board; "front", on top of the
             board, facing you; or "hang", head down from the wire rack.
@@ -663,7 +663,7 @@ def draw(doc, who="chameleon", pose="solder", look=None, look_far=None, mood=Non
         mood (str): The mood, as the mascot takes it, or None for the pose's own.
         blink (float): 0 with the eyes open, 1 closed.
         colors (str): The chameleon's scheme, from `huey.COLORS`,
-            or None for the one that suits where it is: "board" over the mat,
+            or None for the one that suits where he is: "board" over the mat,
             "brand" on the board, "copper" against the pegboard.
     """
     doc.add(_pegboard(), _cabinet(58, 48), _succulent(206, 37), _screwdrivers(268, 102), _pliers(398, 78))

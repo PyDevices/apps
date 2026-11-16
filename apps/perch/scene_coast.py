@@ -344,7 +344,7 @@ def _drift(season_name, night, rng):
     return b"".join(out)
 
 
-# The chameleon in each season: its colour scheme, what it holds, its pose.
+# The chameleon in each season: his colour scheme, what he holds, his pose.
 _HUEY = {
     "spring": ("blossom", "flower", {"mood": "happy", "look": (0.6, -0.3), "look_far": (-0.5, 0.2)}),
     "summer": ("leaf", "plane", {"mood": "calm", "look": (0.7, -0.4), "look_far": (0.2, 0.5)}),

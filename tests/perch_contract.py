@@ -134,7 +134,7 @@ settle()
 corners = ((5, 5), (W - 6, 5), (5, H - 6), (W - 6, H - 6), (W // 2, H // 2))
 check(len(set(colours(corners))) >= 3, "the place is drawn into the picture behind everything")
 
-# The chameleon is on the screen, over its perch.
+# The chameleon is on the screen, over his perch.
 check(not stage.huey.has_flag(lv.obj.FLAG.HIDDEN), "the chameleon is shown once the place is drawn")
 ox, oy = stage._origin()
 check(0 < ox < W and 0 < oy <= H, "the chameleon's perch is on this screen")
@@ -142,7 +142,7 @@ body = (int(ox), int(oy - H * 0.12))
 summer_body = pixel(*body)
 summer_sky = pixel(W // 2, 8)
 
-# Another season: the place is redrawn, and the chameleon takes its colours.
+# Another season: the place is redrawn, and the chameleon takes his colours.
 check(stage.next_variant(), "the next variant is taken when nothing else is being drawn")
 check(not stage.next_view(), "a second change waits for the first")
 settle()
@@ -151,7 +151,7 @@ check(pixel(W // 2, 8) != summer_sky, "the sky is redrawn for the season")
 check(pixel(*body) != summer_body, "the chameleon's colours change with the season")
 check(not [n for n in stagemod.huey.COLORS if ">" in n], "the blended schemes are dropped after the change")
 
-# A walk carries it along the perch, and it ends standing.
+# A walk carries him along the perch, and he ends standing.
 start = stage.huey.get_x()
 stage.cues[:] = ["stroll"]
 furthest = 0
@@ -160,12 +160,12 @@ for _ in range(160):
     step()
     furthest = max(furthest, abs(stage.huey.get_x() - start))
     walked = walked or (stage.pose is not None and stage.pose[0] == "walk")
-check(walked and furthest > W // 30, "a stroll moves the chameleon along its perch")
-check(stage.stats["first_walk_ms"] is not None, "the stage notes when it first walked")
+check(walked and furthest > W // 30, "a stroll moves the chameleon along his perch")
+check(stage.stats["first_walk_ms"] is not None, "the stage notes when he first walked")
 stage.cues[:] = []
 step(60)
 
-# A finger on it is answered; a finger elsewhere brings the buttons.
+# A finger on him is answered; a finger elsewhere brings the buttons.
 ox, oy = stage._origin()
 check(dock.left == 0, "the buttons are away until the screen is touched")
 tap(int(ox), int(oy - H * 0.12))
@@ -203,10 +203,10 @@ if ROOMY:
     check(0 < stage.stats["place_memory"] <= stagemod.PLACE_MEMORY, "a place fits its decoder's working memory")
     check(0 < stage.stats["pose_memory"] <= stagemod.POSE_MEMORY, "a pose fits its decoder's working memory")
 
-# The desk, where it sleeps at night and a finger doesn't wake it.
+# The desk, where he sleeps at night and a finger doesn't wake him.
 stage.go("desk", "night")
 settle()
-check(stage.pose == ("sleep",), "at the desk at night it is asleep")
+check(stage.pose == ("sleep",), "at the desk at night he is asleep")
 
 # Closing lets go of every picture.
 for fn in scope.closers:

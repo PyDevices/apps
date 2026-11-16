@@ -5,7 +5,7 @@
 
 `draw` adds the whole scene to a `vec.Doc`, 800 by 480 units, at one of three
 times of day. The window, the lamp and the light on the desk follow the time,
-and the chameleon takes a pose, a place and the colours of where it stands, so
+and the chameleon takes a pose, a place and the colours of where he stands, so
 one drawing gives a wide shot, a close-up and everything between.
 """
 
@@ -20,7 +20,7 @@ from .vec import at, circle, ellipse, line, mix, path, pts, rect, smooth
 W, H = 800, 480
 DESK_Y = 322  # the back edge of the desk top
 FRONT_Y = 458  # where the top meets the front face
-# where the chameleon perches: the middle of its feet, and how large
+# where the chameleon perches: the middle of his feet, and how large
 SPOTS = {"books": (160, 391, 0.58), "monitor": (338, 75, 0.4)}
 
 NAVY = 0x0B2A4A
@@ -410,7 +410,7 @@ def _stack(tone):
 
 
 def _scheme(time, spot):
-    # it takes its colours from where it stands
+    # he takes his colours from where he stands
     if time == "night":
         return "night"
     if spot == "monitor":
@@ -434,7 +434,7 @@ def _chameleon(doc, time, spot, pose, colors, look, look_far, blink, mood, wave,
         body = huey_props.hold(doc, prop, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, perch=None)
     else:
         body = huey.draw(doc, look=look, look_far=look_far, blink=blink, mood=mood, colors=colors, hand=wave, perch=None, nod=nod)
-    # its shadow lies on what it stands on
+    # his shadow lies on what he stands on
     shadow = ellipse(x - 4, y + 2, 170 * scale, 5, 0x000000, opacity=0.16) if spot == "books" else b""
     return shadow + at(x, y, body, scale=scale)
 
@@ -444,7 +444,7 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
 
     Args:
         doc: The `vec.Doc` to draw into.
-        who (str): "chameleon", or "stage" for the desk without it.
+        who (str): "chameleon", or "stage" for the desk without him.
         time (str): "day", "evening" or "night". The lamp is on after day.
         mood (str): "calm", "happy", "curious" or "sleepy".
         look: Where the near eye points, each of x and y from -1 to 1.
@@ -456,7 +456,7 @@ def draw(doc, who="chameleon", time="day", mood="calm", look=None, look_far=None
         spot (str): Where the chameleon perches, a name from `SPOTS`.
         colors (str): A scheme from `huey.COLORS`, or None for the one that suits the time and the spot.
         nod (float): The chameleon's head tilt in the "side" pose, in degrees, positive chin down.
-        prop (str): What it holds in the "hold" pose, a name from `huey_props.PROPS`.
+        prop (str): What he holds in the "hold" pose, a name from `huey_props.PROPS`.
     """
     tone = _toner(time)
     lit = time != "day"

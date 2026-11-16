@@ -5,7 +5,7 @@
 
 Each prop is a function that returns shapes with its grip at the origin and
 the prop pointing up, so `vec.at` stands it in a hand. `hold` draws the
-chameleon with one hand raised, the prop in it and its toes closed round the
+chameleon with one hand raised, the prop in it and his toes closed round the
 handle.
 """
 

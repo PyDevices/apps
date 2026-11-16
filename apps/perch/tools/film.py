@@ -120,15 +120,15 @@ def tour(film):
     """Twelve seconds: a blink, a walk, the tongue, new colours, another place, a closer view."""
     stage = film.stage
     film.settle(True)
-    # what it does first at the coast: a blink, a stroll, a bug
+    # what he does first at the coast: a blink, a stroll, a bug
     for last in (("happy",), ("stand", 0, 0)):
         while stage.cues or stage.pose != last:
             film.step(True)
     film.run(14, True)
-    film.press(1, True)  # autumn: the colours come over it as the coast is redrawn
+    film.press(1, True)  # autumn: the colours come over him as the coast is redrawn
     film.settle(True)
     film.run(12, True)
-    film.touch(*film.on_huey(), save=True)  # a finger on it
+    film.touch(*film.on_huey(), save=True)  # a finger on him
     film.run(26, True)
     film.press(0, True)  # the workbench
     film.settle(True)
