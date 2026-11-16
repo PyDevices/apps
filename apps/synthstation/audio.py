@@ -274,6 +274,20 @@ class Output:
             block_frames = frames // (blocks - last[0])
             if block_frames:
                 self.worst_pct = w[_MAX_PULL_US] * self.rate // (block_frames * 10000)
+        driver_count = getattr(self._audioif, "i2s_starved_bytes", None) if self._status is not None else None
+        if driver_count is not None:
+            # The I2S driver counts, in its own interrupt, every descriptor
+            # that went out with no audio in it and every stretch the DMA was
+            # stopped. That is the silence itself. The byte totals compared
+            # below miss most of a flash write, which holds off the very
+            # interrupt that counts the bytes clocked out: 64 KB written to
+            # a board's flash cost 750 to 920 ms of sound and they showed 80
+            # to 220.
+            starved = driver_count()
+            if starved > self._starved:
+                self._starved = starved
+                self.underruns += 1
+            return self.load_pct, self.worst_pct, self.underruns
         if self._status is not None:
             dma = dma_now - self._dma_at_start
         else:

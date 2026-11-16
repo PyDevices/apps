@@ -5,8 +5,9 @@
 
 Then the cap shared by several instruments against a stand-in load
 (``synthstation_shared_cap_check.py``), and the readings it works from on a
-board that plays through ``audio_out`` (``synthstation_output_check.py``),
-each on CPython and unix MicroPython.
+board that plays through ``audio_out`` (``synthstation_output_check.py``)
+and on its own I2S wire (``synthstation_starved_check.py``), each on CPython
+and unix MicroPython.
 
     python -m unittest tests.test_synthstation_govern
 """
@@ -127,6 +128,12 @@ class AudioOutReadingsTest(_OnEachInterpreter, unittest.TestCase):
     """The cost and underrun readings through ``audio_out``."""
 
     check = "synthstation_output_check.py"
+
+
+class OwnWireStarvedTest(_OnEachInterpreter, unittest.TestCase):
+    """The starved count on a board's own I2S wire is the driver's."""
+
+    check = "synthstation_starved_check.py"
 
 
 class SharedCapTest(_OnEachInterpreter, unittest.TestCase):
