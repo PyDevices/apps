@@ -258,6 +258,11 @@ class Output:
         status = self._status_block()
         if status is None or self._pump is None:
             return self.load_pct, self.worst_pct, self.underruns
+        # What the DMA has clocked out is read before the pump's counters, not
+        # after: if this thread is held up between the two reads, the bytes
+        # the pump wrote meanwhile must not look like silence. Read the other
+        # way round, a 200 ms pause here was reported as 200 ms starved.
+        dma_now = self._dma() if self._status is not None else 0
         w = struct.unpack_from("<%dQ" % self._pump.STATUS_WORDS, status)
         blocks, nbytes, pull_us = w[_BLOCKS], w[_BYTES], w[_PULL_US]
         last = self._last
@@ -270,7 +275,7 @@ class Output:
             if block_frames:
                 self.worst_pct = w[_MAX_PULL_US] * self.rate // (block_frames * 10000)
         if self._status is not None:
-            dma = self._dma() - self._dma_at_start
+            dma = dma_now - self._dma_at_start
         else:
             # Through audio_out the pump counts what its own I2S clocked out;
             # a desktop's pump never touches I2S and leaves this at 0.
