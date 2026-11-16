@@ -20,6 +20,7 @@ PLANTS = (
     "worker-keep",
     "worker-late",
     "worker-key",
+    "worker-own-lock",
     "worker-release",
     "timer-sync",
     "stack",

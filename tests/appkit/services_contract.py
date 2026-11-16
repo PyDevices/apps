@@ -216,6 +216,46 @@ def worker_key_replaces_a_waiting_job():
 
 
 @check
+def worker_takes_a_job_from_a_callback_inside_submit():
+    # A scheduled callback can run between two bytecodes of submit(), on the
+    # same thread, with the job list's lock held. Here one is made to, on a
+    # thread of its own so that a wait on its own lock fails the check
+    # instead of stopping the run.
+    if not _threaded():
+        return
+    import _thread
+
+    w = W.Worker()
+    owner = _Namespace()
+    ran = []
+    seen = {}
+    queue = W._Base._queue
+
+    def queue_then_callback(self, work, done, key, owner_, release=None):
+        dropped = queue(self, work, done, key, owner_, release)
+        if self is w and not seen:
+            seen["pending"] = w.pending("k", owner)
+            w.submit(lambda: ran.append("inner"))
+            w.cancel(_Namespace())
+            seen["returned"] = True
+        return dropped
+
+    def caller():
+        w.submit(lambda: ran.append("outer"), key="k", owner=owner)
+        seen["finished"] = True
+
+    W._Base._queue = queue_then_callback
+    try:
+        _thread.start_new_thread(caller, ())
+        expect(_wait(lambda: seen.get("finished")), "a submit() from a callback inside submit() waited for its own thread: %r" % (seen,))
+    finally:
+        W._Base._queue = queue
+    expect(seen.get("pending") is True, "pending() from the callback missed the job being queued: %r" % (seen,))
+    expect(_wait(lambda: len(ran) == 2), "the jobs didn't both run: %r" % (ran,))
+    expect(ran == ["outer", "inner"], "the callback's job cut in: %r" % (ran,))
+
+
+@check
 def worker_drops_an_apps_jobs_at_close():
     if not _threaded():
         return
@@ -890,6 +930,11 @@ def _plant_worker_release():
     W._call_release = lambda release: None
 
 
+def _plant_worker_own_lock():
+    # The lock no longer knows its own thread, so a callback waits on it.
+    W._Lock.mine = lambda self: False
+
+
 def _plant_worker_key():
     queue = W._Base._queue
 
@@ -1039,6 +1084,7 @@ PLANTS = {
     "worker-keep": (_plant_worker_keep, "worker_drops_an_apps_jobs_at_close"),
     "worker-late": (_plant_worker_late, "worker_drops_an_apps_jobs_at_close"),
     "worker-key": (_plant_worker_key, "worker_key_replaces_a_waiting_job"),
+    "worker-own-lock": (_plant_worker_own_lock, "worker_takes_a_job_from_a_callback_inside_submit"),
     "worker-release": (_plant_worker_release, "close_during_a_lookup_returns_promptly"),
     "timer-sync": (_plant_timer_sync, "timer_worker_runs_on_a_timer"),
     "stack": (_plant_stack, "worker_stack_is_set_on_a_board"),
