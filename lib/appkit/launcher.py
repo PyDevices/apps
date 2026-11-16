@@ -136,6 +136,28 @@ def _can_allocate(n):
         return False
 
 
+def _can_gather(n, piece=PROBE_LIMIT):
+    """True when *n* bytes can be allocated now, in pieces of *piece*.
+
+    Where the heap grows on demand (an ESP32's PSRAM), ``gc.mem_free()``
+    counts only what the heap holds now, so it can read low while there is
+    room to grow; this asks the allocator instead.
+    """
+    pieces = []
+    got = 0
+    try:
+        while got < n:
+            k = min(piece, n - got)
+            pieces.append(bytearray(k))
+            got += k
+        return True
+    except MemoryError:
+        return False
+    finally:
+        pieces = None
+        gc.collect()
+
+
 def _import(modname):
     mod = __import__(modname)
     for part in modname.split(".")[1:]:
@@ -552,9 +574,11 @@ class Launcher:
 
     *min_free* and *min_block* are the heap thresholds in bytes, checked
     after each close: free heap, and the largest block that can still be
-    allocated. Left as None they are half the free heap and a quarter of
-    the largest free block (looked for up to ``PROBE_LIMIT``, 1 MB),
-    measured when the launcher first starts an app.
+    allocated. Free heap under *min_free* is tried by allocating that much
+    in 1 MB pieces, since a heap that grows on demand reads low. Left as
+    None they are half the free heap and a quarter of the largest free
+    block (looked for up to ``PROBE_LIMIT``, 1 MB), measured when the
+    launcher first starts an app.
     Hosts that can't read their heap (CPython) skip the check and rely on
     ``close()``'s own report. *max_restarts* bounds restarts in a row, so a
     threshold the program can never meet doesn't restart it forever.
@@ -724,7 +748,7 @@ class Launcher:
     def _low(self, free):
         if free is None:
             return None
-        if self.min_free is not None and free < self.min_free:
+        if self.min_free is not None and free < self.min_free and not _can_gather(self.min_free):
             return "free heap %d B is below %d B" % (free, self.min_free)
         if self.min_block and not _can_allocate(self.min_block):
             return "no free block of %d B" % (self.min_block,)
