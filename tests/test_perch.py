@@ -38,6 +38,17 @@ def _run(plant=None, script="perch_contract.py", heap="24M", cpython=False):
     )
 
 
+def _drawings(test, **how):
+    """perch_drawings.py passes, and fails with each of its plants."""
+    done = _run(script="perch_drawings.py", **how)
+    test.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+    test.assertIn("ok", done.stdout)
+    for plant, why in (("nudged", "a still matched with its circles a hundredth bigger"), ("half_table", "a pose matched with half its colours swapped")):
+        done = _run(plant, script="perch_drawings.py", **how)
+        test.assertNotEqual(done.returncode, 0, why)
+        test.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
+
+
 class PerchTest(unittest.TestCase):
     def setUp(self):
         if not INTERPRETER:
@@ -51,29 +62,14 @@ class PerchTest(unittest.TestCase):
         self.assertIn("ok", done.stdout)
 
     def test_every_plant_fails_it(self):
-        # "cramped" needs an svgio whose decoders take working memory
-        roomy = subprocess.run(
-            [INTERPRETER, "-c", "import svgio; print(hasattr(svgio.SvgDecoder(), 'memory'))"], capture_output=True, text=True, timeout=60
-        ).stdout.strip()
-        for plant in PLANTS + (("cramped",) if roomy == "True" else ()):
+        for plant in PLANTS + ("cramped",):
             with self.subTest(plant=plant):
                 done = _run(plant)
                 self.assertNotEqual(done.returncode, 0, "the contract passed with %s planted" % plant)
                 self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
 
-    def test_drawings_are_the_same_as_records_and_as_text(self):
-        done = _run(script="perch_drawings.py", heap="128M")
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        self.assertIn("ok", done.stdout)
-        if "nothing to compare" in done.stdout:
-            self.skipTest("this interpreter's svgio doesn't read the compact form")
-        done = _run("loose_number", script="perch_drawings.py", heap="128M")
-        self.assertNotEqual(done.returncode, 0, "the drawings matched with numbers written loosely")
-        self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
-        if "none compared" not in done.stdout:
-            done = _run("half_table", script="perch_drawings.py", heap="128M")
-            self.assertNotEqual(done.returncode, 0, "a pose matched with half its colours swapped")
-            self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
+    def test_drawings_are_as_golden(self):
+        _drawings(self, heap="128M")
 
 
 def _cpython_has():
@@ -102,11 +98,5 @@ class PerchOnCPythonTest(unittest.TestCase):
                 self.assertNotEqual(done.returncode, 0, "the contract passed with %s planted" % plant)
                 self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
 
-    def test_drawings_are_the_same_as_records_and_as_text(self):
-        done = _run(script="perch_drawings.py", cpython=True)
-        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
-        if "nothing to compare" in done.stdout:
-            self.skipTest("this Python's svgio doesn't read the compact form")
-        done = _run("loose_number", script="perch_drawings.py", cpython=True)
-        self.assertNotEqual(done.returncode, 0, "the drawings matched with numbers written loosely")
-        self.assertIn("FAILED:", done.stdout, done.stdout + done.stderr)
+    def test_drawings_are_as_golden(self):
+        _drawings(self, cpython=True)

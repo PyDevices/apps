@@ -1,4 +1,4 @@
-![Huey's Perch at the workbench: Huey, a green chameleon, solders a circuit board on a cutting mat under a pegboard of tools, with the app's four round buttons down the right side](docs/images/perch.png)
+[![Huey's Perch at the workbench: Huey, a green chameleon, solders a circuit board on a cutting mat under a pegboard of tools, with the app's four round buttons down the right side](docs/images/perch.png)](docs/images/app_tour.mp4)
 
 # Huey's Perch
 
@@ -7,7 +7,8 @@ workbench and on a desk. Every picture is vector art, shapes built in Python
 and drawn by [svgio](https://github.com/PyDevices/micropython-pydevices/tree/main/modules/svgio)
 at the size of your screen, so the same drawing fills a 240 x 240 round panel
 and an 800 x 480 one. Huey walks, blinks, looks around, catches a bug and
-changes colour with the season.
+changes colour with the season. [Watch a twelve-second tour](docs/images/app_tour.mp4)
+of the app, drawn at 800 x 480.
 
 ## On a board
 
@@ -16,10 +17,11 @@ import omip
 omip.install("github:PyDevices/apps/apps/perch")
 ```
 
-Home shows it on the Desk page. It needs a display, LVGL and firmware with
-`svgio`; Home leaves it out where `svgio` is missing. Pictures are kept in
-memory once drawn, about 8 MB on a 720 x 720 screen, so it wants a board with
-PSRAM.
+Home shows it on the Desk page. It needs a display, LVGL and a firmware
+whose `svgio` has `expand` and `Buffer`. Home leaves it out on an older
+firmware, and opened there it says what its `svgio` lacks. Pictures are kept
+in memory once drawn, about 8 MB on a 720 x 720 screen, so it wants a board
+with PSRAM.
 
 ## Play it
 
