@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.2.dev14
+
+- appkit: a worker no longer hangs when a callback submits a job while another `submit()`, `pending()` or `cancel()` is running on the same thread.
+- sayso: the same fix for a callback inside a call on its own thread.
+- The apps are named OmniPython: environment variables begin `OMNIPYTHON_` (the `PYDEVICES_` names are no longer read), and the packages and mip names are `omnipython-*`.
+- Huey: lite-assistant is the default server, and speech starts with the first words.
+- Huey's Perch: needs svgio's compact form; Huey is "he" throughout.
+
 ## 0.1.2.dev13
 
 - Huey: a new app. Hold Huey the chameleon, ask him something out loud, and he answers in speech and a speech bubble, acting the answer out with a mood, colours, a prop or a place. It talks to an OpenAI-compatible server named in its settings file.
