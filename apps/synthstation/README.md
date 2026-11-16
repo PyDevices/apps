@@ -38,7 +38,12 @@ It needs a display and an audio out, and a USB MIDI keyboard to play.
   waits. When the link drops, every note it was playing stops, and the
   board waits for the next connection. The app remembers the choice until
   the board restarts. It stays off until you turn it on, and nothing about
-  Bluetooth starts before that.
+  Bluetooth starts before that. It needs a board whose Bluetooth doesn't
+  share the synth's internal RAM, such as an ESP32-P4 board, whose radio is
+  a separate chip (played on Waveshare's ESP32-P4-WIFI6). On an ESP32-S3
+  the two don't fit together
+  ([omnipython-builds#528](https://github.com/PyDevices/omnipython-builds/issues/528)):
+  the status line ends BT! and the instrument plays on.
 - **With no keyboard**, the panel says NO MIDI under the name, and the
   pads in bank A play notes: the kit's voices on a drum machine, two
   octaves of C major on anything else. The patches move to bank B.
