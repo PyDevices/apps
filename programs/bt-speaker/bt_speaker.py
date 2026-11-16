@@ -30,6 +30,7 @@ from programkit import Board, Press, Rows
 NAME = None  # the name senders see, or None for the board's name
 PHONE = False  # follow a phone's battery and calls (a computer may then treat the speaker as a headset)
 AHEAD_MS = 60  # audio kept queued ahead of the speaker
+BUFFER_MS = 1000  # audio the Bluetooth sink holds; half of it is the delay to the speaker
 HOLD_MS = 1000  # holding a key this long drops the sender
 METER_MS = 50  # meter refresh
 FLOOR_DB = 48  # the meter's left end, in dB below full scale
@@ -70,7 +71,11 @@ rows = Rows(board.display) if board.display is not None else None
 bt = btclassic.Bluetooth()
 bt.config(name=NAME or boarddev.name())
 name = bt.config("name")
-receiver = btclassic.AudioSink(bt)
+# A phone sends its audio in bursts, and this loop reads between redraws, so
+# the sink's fill swings by a tenth of a second or more. A small sink then
+# keeps dropping and repeating frames to stay centred; a second of buffer
+# holds the swing.
+receiver = btclassic.AudioSink(bt, buffer_ms=BUFFER_MS)
 phone = btclassic.HandsFree(bt) if PHONE else None
 print("Pair with %s and play something." % name)
 
