@@ -48,7 +48,7 @@ def front(doc, look=(0.0, 0.15), look_other=None, blink=0, mood="calm", colors="
     skin, shade, light, belly, spots, deep = COLORS[colors]
     blink, look_other, happy = _pose(mood, blink, look, look_other)
     out = []
-    # the tail, hanging out to one side behind it
+    # the tail, hanging out to one side behind him
     tx, ty = -134, -70
     out.append(limb(-30, -66, tx + 35, ty - 30, 0.14, 38, 27, skin))
     out.append(_tail(tx, ty, 46, 27, -40, 1.25 + 0.3 * curl, skin, shade, light))
@@ -58,7 +58,7 @@ def front(doc, look=(0.0, 0.15), look_other=None, blink=0, mood="calm", colors="
         out.append(limb(s * 104, -46, s * 96, -6, -s * 0.2, 22, 16, shade))
     # the crest, seen end on above the shoulders
     out.append(circle(-30, -170, 11, deep) + circle(30, -170, 11, deep) + circle(0, -176, 12, deep))
-    # the body, with the pale belly down its front
+    # the body, with the pale belly down his front
     out.append(path(smooth([(0, -176), (58, -156), (84, -98), (70, -44), (0, -28), (-70, -44), (-84, -98), (-58, -156)], True), skin))
     out.append(path(smooth([(-58, -156), (-84, -98), (-70, -44), (-30, -31), (-52, -56), (-62, -98), (-46, -146)], True), shade))
     out.append(path(smooth([(0, -128), (38, -112), (48, -66), (30, -36), (0, -30), (-30, -36), (-48, -66), (-38, -112)], True), belly))
@@ -66,7 +66,7 @@ def front(doc, look=(0.0, 0.15), look_other=None, blink=0, mood="calm", colors="
         out.append(limb(s * 56, -138, s * 72, -84, s * 0.14, 12, 5, shade))
         out.append(circle(s * 62, -72, 5.5, spots))
         out.append(circle(s * 66, -54, 3.6, spots))
-    # the shadow the head throws on its chest
+    # the shadow the head throws on his chest
     out.append(ellipse(0, -114, 48, 13, shade, opacity=0.4))
     if perch:
         out.append(_perch(perch))
@@ -112,7 +112,7 @@ def front(doc, look=(0.0, 0.15), look_other=None, blink=0, mood="calm", colors="
 
 
 def three_quarter(doc, look=(0.4, 0.1), look_far=None, blink=0, mood="calm", colors="leaf", curl=1.0, perch="twig"):
-    """The chameleon turned halfway toward you, its body running back along the perch.
+    """The chameleon turned halfway toward you, his body running back along the perch.
 
     Args:
         doc: The `vec.Doc` that holds the gradients.
@@ -136,7 +136,7 @@ def three_quarter(doc, look=(0.4, 0.1), look_far=None, blink=0, mood="calm", col
     out.append(limb(-58, -44, -66, -8, 0.24, 24, 16, shade))
     for bx, by, r in ((-70, -112, 8), (-56, -130, 9), (-38, -144, 10), (-18, -152, 10)):
         out.append(circle(bx, by, r, deep))
-    # the body, shortened as it turns away
+    # the body, shortened as he turns away
     out.append(path(smooth([(-84, -84), (-56, -130), (-6, -152), (52, -140), (86, -96), (76, -46), (24, -24), (-36, -26), (-76, -46)], True), skin))
     out.append(path(smooth([(-84, -84), (-76, -46), (-36, -26), (24, -24), (76, -46), (78, -58), (24, -38), (-34, -40), (-70, -56)], True), shade))
     out.append(path(smooth([(-6, -70), (34, -84), (70, -64), (62, -42), (24, -26), (-20, -28), (-30, -48)], True), belly))
@@ -178,11 +178,11 @@ def three_quarter(doc, look=(0.4, 0.1), look_far=None, blink=0, mood="calm", col
 
 
 def back(doc, look=(-0.7, 0.3), blink=0, mood="calm", colors="leaf", curl=1.0, perch="twig"):
-    """The chameleon from behind, looking back at you over its shoulder.
+    """The chameleon from behind, looking back at you over his shoulder.
 
     Args:
         doc: The `vec.Doc` that holds the gradients.
-        look: Where its one visible eye points, each of x and y from -1 to 1.
+        look: Where his one visible eye points, each of x and y from -1 to 1.
         blink (float): 0 with the eye open, 1 closed.
         mood (str): "calm", "happy", "curious" or "sleepy".
         colors (str): A name from `huey.COLORS`.
@@ -211,7 +211,7 @@ def back(doc, look=(-0.7, 0.3), blink=0, mood="calm", colors="leaf", curl=1.0, p
     head.append(circle(170, -148, 2.4, deep))
     head.append(_eye(doc, 110, -164, 39, look, blink, happy, skin, shade, light, deep))
     out.append(at(-52, -66, b"".join(head), scale=0.86))
-    # the body from behind: a wide pear, the spine down its middle
+    # the body from behind: a wide pear, the spine down his middle
     out.append(path(smooth([(0, -196), (50, -178), (86, -116), (78, -52), (0, -30), (-78, -52), (-86, -116), (-50, -178)], True), skin))
     out.append(path(smooth([(-50, -178), (-86, -116), (-78, -52), (-34, -35), (-58, -62), (-64, -116), (-40, -166)], True), shade))
     # bands running out from the spine, and the spots
@@ -237,7 +237,7 @@ def back(doc, look=(-0.7, 0.3), blink=0, mood="calm", colors="leaf", curl=1.0, p
 
 
 def above(doc, look=(0.6, 0.0), look_other=None, blink=0, mood="calm", colors="leaf", curl=1.0, leaf=True):
-    """The chameleon from above, on a leaf, its head to the right.
+    """The chameleon from above, on a leaf, his head to the right.
 
     Unlike the other views it is centred on the origin, about 440 units long.
 
@@ -249,7 +249,7 @@ def above(doc, look=(0.6, 0.0), look_other=None, blink=0, mood="calm", colors="l
         mood (str): "calm", "happy", "curious" or "sleepy".
         colors (str): A name from `huey.COLORS`.
         curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
-        leaf (bool): Draw the leaf it lies on.
+        leaf (bool): Draw the leaf he lies on.
     """
     skin, shade, light, belly, spots, deep = COLORS[colors]
     blink, look_other, happy = _pose(mood, blink, look, look_other)
@@ -261,7 +261,7 @@ def above(doc, look=(0.6, 0.0), look_other=None, blink=0, mood="calm", colors="l
         out.append(path("M-244 58Q0 -70 256 -70", None, 0xB36A1E, 4))
         for x0, y0, x1, y1 in ((-150, 8, -110, -84), (-60, -32, -10, -124), (40, -58, 100, -132), (-120, -6, -60, 92), (-20, -44, 50, 96), (80, -64, 160, 44)):
             out.append(path("M%d %dQ%d %d %d %d" % (x0, y0, (x0 + x1) // 2 + 6, (y0 + y1) // 2, x1, y1), None, 0xB36A1E, 2.4, opacity=0.7))
-    # the limbs, splayed, each ending in its two bundles of toes
+    # the limbs, splayed, each ending in his two bundles of toes
     for x0, y0, x1, y1, bend, turn in ((70, -34, 122, -96, 0.3, 20), (70, 34, 126, 92, -0.3, 160), (-56, -36, -92, -100, -0.3, -30), (-56, 36, -86, 104, 0.3, 200)):
         out.append(limb(x0 + 5, y0 + 9, x1 + 5, y1 + 9, bend, 28, 16, 0x000000, opacity=0.16))
         out.append(limb(x0, y0, x1, y1, bend, 28, 16, shade))

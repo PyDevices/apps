@@ -6,8 +6,8 @@
 A `Stage` draws the place once into one RGB565 buffer behind an ``lv.image``.
 The chameleon is a second image over it: each pose is drawn by svgio into its
 own RGB565A8 buffer and kept, so a walk, a blink or a wave is a change of
-picture and a move, which LVGL blends. The poses it will want are drawn ahead,
-a step a tick, while it stands there. Building the shapes, parsing them and
+picture and a move, which LVGL blends. The poses he will want are drawn ahead,
+a step a tick, while he stands there. Building the shapes, parsing them and
 drawing them are separate steps, each in its own timer tick, so nothing holds
 the screen for long; `Stage.stats` says how long each took.
 """
@@ -42,7 +42,7 @@ _HOLD = (-222, -250, 536, 274)
 _FRONT = (-184, -296, 340, 318)
 _SLEEP = (-222, -226, 506, 248)
 
-# Where its eyes go when it looks about: the near eye, the far eye.
+# Where his eyes go when he looks about: the near eye, the far eye.
 _LOOKS = (
     ((0.5, 0.1), (0.5, 0.1)),
     ((-0.6, 0.2), (0.7, -0.4)),
@@ -77,8 +77,8 @@ def _desk(doc, variant):
 
 # Each place: its variants (the first is where it opens), how to draw one, the
 # colours the chameleon takes there (None when the variant is the scheme),
-# where its perch is and how large it stands, how far along the perch it may
-# walk, what it does there, and what it does first.
+# where his perch is and how large he stands, how far along the perch he may
+# walk, what he does there, and what he does first.
 PLACES = {
     "coast": {
         "variants": ("summer", "autumn", "winter", "night", "spring"),
@@ -304,7 +304,7 @@ class Stage:
         self._wanted = []  # poses to draw ahead, soonest first
         self._maker = None  # the pose being drawn, a step a tick
         self._making = None
-        self._quiet = False  # nothing is drawn while it walks or strikes
+        self._quiet = False  # nothing is drawn while he walks or strikes
         self._life = None
         self._wait = 0
         self._facing = 1
@@ -441,7 +441,7 @@ class Stage:
         if vh > SCENE_H:
             vh = SCENE_H
             vw = vh * aspect
-        # keep the chameleon in the picture, and its face when close
+        # keep the chameleon in the picture, and his face when close
         if view == "close":
             fx, fy = x + 118 * k, y - 118 * k
         elif view == "mid" or vw < SCENE_W * 0.7:
@@ -523,7 +523,7 @@ class Stage:
         return variants[(variants.index(self.variant) + 1) % len(variants)]
 
     def _ahead(self):
-        """What the next change of colours will want, a piece a tick while it stands idle.
+        """What the next change of colours will want, a piece a tick while he stands idle.
 
         The colours of the resting pose here and in the next variant's
         scheme, which pair off into the table the change swaps by, and the
@@ -589,7 +589,7 @@ class Stage:
             if swap.setdefault(a, b) != b:
                 return False
         if fresh:
-            # built just now, not while it stood idle: that was this tick's work
+            # built just now, not while he stood idle: that was this tick's work
             self._step = ("build", rest)
             yield
         for t in (0.33, 0.67, 1):
@@ -788,7 +788,7 @@ class Stage:
         return doc
 
     def _rest(self):
-        """The pose it comes back to in this place."""
+        """The pose he comes back to in this place."""
         life = PLACES[self.place]["life"]
         if life == "work":
             return ("work", 0, 0)
@@ -808,7 +808,7 @@ class Stage:
 
         After a collection the place takes three: its shapes are built,
         parsed, then drawn over the old picture in one go. Where only the colours change, the
-        chameleon is then redrawn part way to the new ones, twice, on its way
+        chameleon is then redrawn part way to the new ones, twice, on his way
         to them.
         """
         self.busy = True
@@ -925,7 +925,7 @@ class Stage:
         self.stats["change_ms"] = ticks_diff(ticks_ms(), self._asked)
         self._forget(new_scheme)
         self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
-        # what it will want next, drawn ahead while it stands there
+        # what he will want next, drawn ahead while he stands there
         wide = view == "wide"
         ahead = []
         if rest[0] != "sleep":
@@ -947,10 +947,10 @@ class Stage:
         self._life = self._live()
         self._wait = 4
 
-    # -- what it does ---------------------------------------------------
+    # -- what he does ---------------------------------------------------
 
     def _live(self):
-        """Its life in this place: one thing after another, for ever."""
+        """His life in this place: one thing after another, for ever."""
         life = PLACES[self.place]["life"]
         rest = self._rest()
         can_walk = PLACES[self.place]["walk"] is not None and self.view == "wide" and rest[0] == "stand"
@@ -958,13 +958,13 @@ class Stage:
         while True:
             self._quiet = False
             if rest[0] == "stand" and not self._have(rest):
-                # it has turned round: the same pose, facing the other way
+                # he has turned round: the same pose, facing the other way
                 yield from self._ready(rest)
             self._show(rest)
             if self._ticks - self._collected > REST_TICKS and self._maker is None:
                 # A collection reads every picture held, which takes a third
                 # of a second on a board. Left alone it would come when the
-                # heap filled, as likely as not mid-stride; here it is still.
+                # heap filled, as likely as not mid-stride; here he is still.
                 t0 = ticks_us()
                 gc.collect()
                 self._collected = self._ticks
@@ -972,7 +972,7 @@ class Stage:
                 self._step = ("tidy", None)
                 self.stats["rests"] += 1
             yield pause
-            # what it was asked to do comes promptly; its own ideas take their time
+            # what he was asked to do comes promptly; his own ideas take their time
             pause = 6 if self.cues else 12 + self.random.below(30)
             if self.cues:
                 what = self.cues.pop(0)
@@ -1034,7 +1034,7 @@ class Stage:
         yield 8
 
     def _catch(self):
-        """A bug drifts in ahead of it, and the tongue takes it."""
+        """A bug drifts in ahead of him, and the tongue takes it."""
         if not (yield from self._ready(("aim",), ("tongue", 0.5), ("tongue", 1), ("happy",))):
             return
         x, y, k = PLACES[self.place]["at"]
@@ -1080,7 +1080,7 @@ class Stage:
         yield 22
 
     def _greet(self):
-        """It turns to face you, waves, and turns back."""
+        """He turns to face you, waves, and turns back."""
         if not (yield from self._ready(("front", 0, 0), ("front", 1, 0), ("front", 1, 1))):
             return
         self._show(("front", 0, 0))
@@ -1093,7 +1093,7 @@ class Stage:
         yield 18
 
     def _react(self):
-        """A finger found it: it is pleased, then goes back to what it was doing."""
+        """A finger found him: he is pleased, then goes back to what he was doing."""
         life = PLACES[self.place]["life"]
         if self._rest()[0] == "sleep":
             yield 1
@@ -1244,7 +1244,7 @@ class Stage:
         return left <= x < left + header.w and top <= y < top + header.h
 
     def tap(self, x, y):
-        """A finger at (*x*, *y*): True when it was on the chameleon, which answers."""
+        """A finger at (*x*, *y*): True when it was on the chameleon, who answers."""
         if self._loader is not None or not self.hit(x, y):
             return False
         self._life = self._react()

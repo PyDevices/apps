@@ -23,7 +23,7 @@ PSRAM.
 
 ## Play it
 
-Touch Huey and it answers. Touch anywhere else for four buttons:
+Touch Huey and he answers. Touch anywhere else for four buttons:
 
 - the next place: coast, workbench, desk
 - the next season or time of day; at the workbench, Huey's next set of colours

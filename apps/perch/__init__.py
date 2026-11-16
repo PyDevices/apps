@@ -4,10 +4,10 @@
 """Huey's Perch: Huey the chameleon at the coast, a workbench and a desk, drawn as vectors.
 
 Every picture is shapes built in Python and drawn by svgio at this screen's
-size. Touch the chameleon and it answers. Touch anywhere else for four
+size. Touch the chameleon and he answers. Touch anywhere else for four
 buttons: the next place, the next season or time of day (at the workbench,
 the next set of colours), a closer view of the same drawing, and something
-for it to do.
+for him to do.
 """
 
 import lvgl as lv
@@ -26,7 +26,7 @@ class _Dock:
     """Four round buttons down the right side, there when touched and gone soon after.
 
     The chameleon keeps to the left and the middle of every place, so this
-    side is the one it is never behind.
+    side is the one he is never behind.
     """
 
     def __init__(self, root, size, actions):

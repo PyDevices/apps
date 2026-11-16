@@ -1,11 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Huey, a chameleon on its perch, drawn from a pose and a set of colours.
+"""Huey, a chameleon on his perch, drawn from a pose and a set of colours.
 
-It sits above the origin: x to the right, y down, the top of the perch at
+He sits above the origin: x to the right, y down, the top of the perch at
 y = 0, about 450 units wide and 260 tall. `draw` returns its shapes for a
-`vec.Doc`. Its two eyes look where they like, each on its own.
+`vec.Doc`. His two eyes look where they like, each on its own.
 """
 
 import math
@@ -109,7 +109,7 @@ def _foot(x, y, skin, deep, turn=0):
 
 
 def _hand(x, y, skin, deep, turn):
-    # the raised hand, its two bundles of toes spread in a wave
+    # the raised hand, his two bundles of toes spread in a wave
     return at(
         x,
         y,
@@ -171,7 +171,7 @@ def _trunk(colors, curl, tail):
     skin, shade, light, belly, spots, deep = COLORS[colors]
     out = []
     if tail:
-        # the tail, wound like a watch spring behind it
+        # the tail, wound like a watch spring behind him
         turns = 1.25 + 0.3 * curl
         tx, ty = -160, -96
         out.append(limb(-86, -110, tx + 43, ty - 36, 0.10, 46, 32, skin))
@@ -189,7 +189,7 @@ def _trunk(colors, curl, tail):
     # shade under the back's curve, and the pale belly
     out.append(path(smooth([(-116, -98), (-106, -66), (-50, -52), (30, -52), (84, -72), (84, -62), (30, -42), (-42, -42), (-102, -58)], True), shade))
     out.append(path(smooth([(-92, -62), (-44, -51), (28, -50), (74, -64), (62, -50), (26, -43), (-42, -43), (-88, -54)], True), belly))
-    # bands down its sides, and a line of spots
+    # bands down his sides, and a line of spots
     for sx, sy, lean in ((-70, -146, -10), (-30, -160, -4), (12, -162, 4)):
         out.append(limb(sx, sy, sx + lean, sy + 62, 0.16, 15, 5, shade))
     for sx, sy, r in ((-88, -98, 5), (-50, -92, 6.5), (-9, -90, 7), (32, -94, 6), (-70, -76, 3.5), (-30, -72, 4), (12, -72, 4)):
@@ -239,7 +239,7 @@ def _upper(doc, colors, look, look_far, blink, mood, curl=1.0, nod=0, tongue=0, 
     else:
         head.append(path("M181 -130Q138 -106 92 -119Q84 -122 84 -131", None, deep, 4))
     if mood == "curious" and tongue <= 0:
-        # the tip of its tongue, tasting the air
+        # the tip of his tongue, tasting the air
         head.append(limb(178, -127, 214, -124, 0.10, 7, 6, 0xFF8F8F))
         head.append(circle(217, -124, 8.5, 0xFF8F8F))
         head.append(circle(219, -127, 2.6, 0xFFC0C0))
@@ -287,7 +287,7 @@ def draw(doc, look=(0.5, 0.1), look_far=None, blink=0, mood="calm", colors="leaf
         hand (float): 0 with both hands on the perch, 1 with one raised in a wave.
         curl (float): How tightly the tail is wound: 0 loose, 1 at rest, 2 tight.
         perch (str): "twig", "wire", "stem", or None for no perch.
-        step (float): Where it is in its walk, 0 to 1 and round again, or None standing.
+        step (float): Where he is in his walk, 0 to 1 and round again, or None standing.
         nod (float): The head's tilt in degrees, positive chin down.
         tongue (float): 0 with the tongue in, 1 with it shot out to *target*.
         target: Where the tongue strikes, ``(x, y)`` in the head's own units.
@@ -352,7 +352,7 @@ def _body_at(body, turn, hip):
 
 
 def draw_sit(doc, look=(0.0, 0.0), look_far=None, blink=0, mood="calm", colors="leaf", perch="twig", wave=0.0):
-    """Sitting up on its haunches, both hands free: how it idles on a desktop.
+    """Sitting up on his haunches, both hands free: how he idles on a desktop.
 
     Args:
         wave (float): 0 with the near hand held out, 1 with it lifted in a wave.
@@ -365,7 +365,7 @@ def draw_sit(doc, look=(0.0, 0.0), look_far=None, blink=0, mood="calm", colors="
         blink = max(blink, 0.5)
     turn, hip = -52, (-36, -44)
     out = []
-    # the tail, wound up on the perch behind it
+    # the tail, wound up on the perch behind him
     tx, ty = -150, -58
     out.append(limb(-62, -52, tx + 46, ty + 2, -0.12, 46, 32, skin))
     out.append(_spiral(tx, ty, 46, 7, 30, 8, 0, 1.55, skin))
@@ -377,7 +377,7 @@ def draw_sit(doc, look=(0.0, 0.0), look_far=None, blink=0, mood="calm", colors="
     out.append(_hand(fx + 52, fy + 34, shade, deep, 100))
     out.append(limb(-16, -30, 44, -8, -0.2, 26, 18, shade))
     out.append(_body_at(_upper(doc, colors, look, look_far, blink, mood, nod=46, tail=False), turn, hip))
-    # the near haunch, folded under it
+    # the near haunch, folded under him
     out.append(ellipse(-26, -40, 38, 29, skin, rot=-24))
     out.append(path("M-56 -30Q-30 -6 4 -22", None, shade, 3.5))
     out.append(limb(-6, -24, 16, -8, -0.2, 22, 17, skin))
@@ -395,7 +395,7 @@ def draw_sit(doc, look=(0.0, 0.0), look_far=None, blink=0, mood="calm", colors="
 
 
 def draw_sleep(doc, colors="leaf", perch="twig"):
-    """Asleep on the perch: belly down, chin on its hand, tail wound tight."""
+    """Asleep on the perch: belly down, chin on his hand, tail wound tight."""
     skin, shade, light, belly, spots, deep = COLORS[colors]
     out = []
     out.append(limb(96, -30, 112, -8, -0.2, 22, 17, shade))
@@ -409,14 +409,14 @@ def draw_sleep(doc, colors="leaf", perch="twig"):
     out.append(_foot(116, 2, shade, deep))
     out.append(_foot(-36, 4, skin, deep))
     out.append(_foot(88, 3, skin, deep))
-    # sleep, rising off it
+    # sleep, rising off him
     for zx, zy, zs, opa in ((206, -128, 1.0, 0.9), (226, -168, 1.35, 0.75), (252, -218, 1.75, 0.6)):
         out.append(path("M%.1f %.1fh%.1fl%.1f %.1fh%.1f" % (zx, zy, 14 * zs, -14 * zs, 16 * zs, 14 * zs), None, LIME, 4.2 * zs ** 0.5, opacity=opa))
     return b"".join(out)
 
 
 def draw_hang(doc, look=(-0.2, 0.2), look_far=None, mood="happy", colors="leaf", perch="twig", wave=1.0):
-    """Hanging head down by its tail and hind feet, hands free.
+    """Hanging head down by his tail and hind feet, hands free.
 
     The perch is still at y = 0; the body hangs about 330 units below it.
     """
