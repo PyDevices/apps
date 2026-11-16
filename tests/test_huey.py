@@ -9,7 +9,7 @@ passes, and each fault it knows how to plant makes it fail.
 It runs twice. On MicroPython it needs the unix port built with LVGL and
 svgio, named in ``HUEY_INTERPRETER``. On CPython it runs on the Python that
 runs this file, which needs the desktop ``lvgl``, ``svgio`` (with resvg-py
-and Pillow), ``multimer`` and pydevices. A half whose interpreter is missing
+and Pillow), ``multimer`` and omnipython. A half whose interpreter is missing
 skips, unless ``HUEY_REQUIRE=1`` says both must run.
 
 The requests the app sends are also read by a real HTTP server on this
@@ -78,7 +78,7 @@ class HueyTest(_Both, unittest.TestCase):
 
 
 def _cpython_has():
-    """Why the CPython half can't run here, or None: it needs LVGL, svgio, multimer and pydevices."""
+    """Why the CPython half can't run here, or None: it needs LVGL, svgio, multimer and omnipython."""
     for name in ("lvgl", "svgio", "multimer", "boarddev", "audiodev"):
         try:
             __import__(name)

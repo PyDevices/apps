@@ -39,7 +39,7 @@ file). Each link above is pinned to a commit, so it keeps working.
 (`human_face_detect_msr_s8_v1.espdl` and `..._mnp_s8_v1.espdl`). Camera loads
 a single-stage detector, so those two files do nothing there. They belong to
 `espdl.HumanFaceDetect`, which the
-[vision module's face example](https://github.com/PyDevices/micropython-pydevices/blob/main/modules/vision/examples/espdl_face_landmarks.py)
+[vision module's face example](https://github.com/PyDevices/omnipython-builds/blob/main/modules/vision/examples/espdl_face_landmarks.py)
 uses.
 
 The YOLO11n weights were trained by Ultralytics, whose own licence is
@@ -50,7 +50,7 @@ fit your use before you ship it in a product.
 ## Put them on the board
 
 On a computer, copy the files into a `models` folder at the top of the SD card.
-Or put them on flash with [mpftp](https://github.com/PyDevices/mpftp) from the
+Or put them on flash with [mpftp](https://github.com/PyDevices/mcuctl) from the
 folder you downloaded to:
 
 ```sh

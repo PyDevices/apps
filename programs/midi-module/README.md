@@ -31,7 +31,7 @@ ones either side of the middle pin.
 ## Put it on a board
 
 Install your board's package from
-[pydevices](https://github.com/PyDevices/pydevices) first (it brings
+[omnipython](https://github.com/PyDevices/omnipython) first (it brings
 `board_config` and `board_peripherals`), and `midiports`:
 
 ```bash

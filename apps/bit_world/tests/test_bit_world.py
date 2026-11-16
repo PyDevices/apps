@@ -4,7 +4,7 @@
 """Bit World's tests: the partial repaint matches a full redraw, and the exit button quits cleanly.
 
 Run them from the app's folder, on a CPython with pygraphics, audiodsp and
-pydevices' ``lib`` importable (``PYDEVICES_LIB`` names a checkout's)::
+omnipython's ``lib`` importable (``OMNIPYTHON_LIB`` names a checkout's)::
 
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest discover -s tests -v
 """
@@ -61,8 +61,8 @@ class ExitTest(unittest.TestCase):
         env = dict(os.environ)
         env.setdefault("SDL_VIDEODRIVER", "dummy")
         env.setdefault("SDL_AUDIODRIVER", "dummy")
-        env.update(PYDEVICES_WIDTH=str(width), PYDEVICES_HEIGHT=str(height), PYDEVICES_SCALE="1")
-        lib = os.environ.get("PYDEVICES_LIB")
+        env.update(OMNIPYTHON_WIDTH=str(width), OMNIPYTHON_HEIGHT=str(height), OMNIPYTHON_SCALE="1")
+        lib = os.environ.get("OMNIPYTHON_LIB")
         if lib:
             env["PYTHONPATH"] = lib + os.pathsep + env.get("PYTHONPATH", "")
         out = subprocess.run(

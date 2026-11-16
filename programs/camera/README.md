@@ -15,8 +15,8 @@ is written and not yet run on a camera.
 
 ## Try it on a desktop
 
-You need desktop MicroPython with LVGL and the PyDevices libraries
-(`bin/micropython` from micropython-pydevices). From this folder:
+You need desktop MicroPython with LVGL and the OmniPython libraries
+(`bin/micropython` from omnipython-builds). From this folder:
 
 ```
 MICROPYTHON=path/to/micropython tools/run.sh
@@ -39,13 +39,13 @@ for the board:
 The mouse works as a touch screen too: click a Menu, Up or Down picture, click
 the page for the knob press, and drag up or down to turn the knob.
 
-`PYDEVICES_WIDTH` and `PYDEVICES_HEIGHT` pick a bigger panel. The layout is
+`OMNIPYTHON_WIDTH` and `OMNIPYTHON_HEIGHT` pick a bigger panel. The layout is
 drawn once at 240x240, enlarged by a whole number and centred, so
-`PYDEVICES_WIDTH=720 PYDEVICES_HEIGHT=720 tools/run.sh` shows it at 3x.
+`OMNIPYTHON_WIDTH=720 OMNIPYTHON_HEIGHT=720 tools/run.sh` shows it at 3x.
 
 ## Put it on a board
 
-The firmware is MicroPython from micropython-pydevices with `cameraif`, `ppa`,
+The firmware is MicroPython from omnipython-builds with `cameraif`, `ppa`,
 `jpegio`, `h264enc` and `vision`. With your board's config installed, one line
 at the board's REPL puts Camera in `/apps/eyecam`, where Home lists it, and
 `mp4mux`, appkit and touchkit in `/lib`:

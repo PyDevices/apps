@@ -17,11 +17,11 @@ import os
 from boarddev import env_get, env_set
 
 # Ostinato lays itself out in real pixels; the desktop board config would
-# otherwise draw everything at 2x. An explicit PYDEVICES_SCALE still wins.
-if env_get("PYDEVICES_SCALE") is None:
-    env_set("PYDEVICES_SCALE", "1")
+# otherwise draw everything at 2x. An explicit OMNIPYTHON_SCALE still wins.
+if env_get("OMNIPYTHON_SCALE") is None:
+    env_set("OMNIPYTHON_SCALE", "1")
 
-import board_config  # pydevices' board_configs/workerdisplay (desktop: board_configs/desktop)
+import board_config  # omnipython's board_configs/workerdisplay (desktop: board_configs/desktop)
 import appdev
 
 app_host = appdev.App.current() or appdev.App(board_config)

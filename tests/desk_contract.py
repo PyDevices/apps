@@ -13,7 +13,7 @@ import sys
 _HERE = __file__.rsplit("/", 1)[0]
 # lib first: tests/appkit would hide the real appkit.
 sys.path[:0] = [_HERE + "/../lib", _HERE]
-_PYDEVICES = os.getenv("PYDEVICES_LIB") or _HERE + "/../../pydevices/lib"
+_PYDEVICES = os.getenv("OMNIPYTHON_LIB") or _HERE + "/../../omnipython/lib"
 sys.path.append(_PYDEVICES)
 
 

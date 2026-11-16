@@ -70,8 +70,8 @@ OPTIONAL = {
 
 #: Import name -> a package.json in another repository, at its main branch.
 ELSEWHERE = {
-    "castdisplay": "github:PyDevices/pydevices/packages/castdisplay",
-    "vtterm": "github:PyDevices/pydevices/packages/vtterm",
+    "castdisplay": "github:PyDevices/omnipython/packages/castdisplay",
+    "vtterm": "github:PyDevices/omnipython/packages/vtterm",
 }
 
 #: Import name -> package on micropython-lib. omip skips it where the firmware
@@ -90,7 +90,7 @@ HTTP = {
     "sayso": (("requests",), ("adafruit_requests",)),
 }
 
-#: pydevices, which every board config installs, and the board config itself.
+#: omnipython, which every board config installs, and the board config itself.
 BOARD = {
     "appdev", "audiodev", "backends", "board_config", "board_peripherals", "boarddev", "display_driver",
     "displaydev", "events", "keys", "multimer", "orientation", "wifi", "wifi_manager",

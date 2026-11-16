@@ -11,7 +11,7 @@
 //   const midi = createMidiRelay();
 //   const ui = startWorker({
 //     name: "ui", main: "ui_main", canvas: document.getElementById("display_canvas"),
-//     packages: ["vendor/wheels/pydevices-....whl", "vendor/wheels/pydevices_lvgl-....whl"],
+//     packages: ["vendor/wheels/omnipython-....whl", "vendor/wheels/omnipython_lvgl-....whl"],
 //     files: { "app/ui_main.py": "ui_main.py" },
 //     ports: { midi: midi.port() },
 //   });

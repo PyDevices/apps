@@ -13,7 +13,7 @@ The ring travels as a medialink event, which the link sends again until the
 house says it arrived, so a lost packet doesn't lose a visitor.
 
 Needs: a microphone and a speaker that boarddev.pcm_in() and pcm_out() reach,
-which a PyDevices board package or pydevices-desktop provides, and a network:
+which a PyDevices board package or omnipython-desktop provides, and a network:
 a board on Wi-Fi with mdns in its firmware, or python-zeroconf on CPython.
 On a computer, hold any key or a mouse button in the window. Without a
 microphone, speaker, network port or mDNS, the screen says which one is

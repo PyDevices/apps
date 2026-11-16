@@ -32,7 +32,7 @@ class HoverStylesTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.frame = _headless.display(W, H)
-        # By path: appkit's package pulls in pydevices, which this test doesn't need.
+        # By path: appkit's package pulls in omnipython, which this test doesn't need.
         spec = importlib.util.spec_from_file_location(
             "hover", os.path.join(ROOT, "lib", "appkit", "hover.py")
         )

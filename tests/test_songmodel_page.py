@@ -107,7 +107,7 @@ class SongmodelPage(unittest.TestCase):
         self._serve(sys.executable, 9561)
 
     def test_micropython_serves_it(self):
-        self._serve(_find("PYDEVICES_MICROPYTHON", "micropython"), 9562)
+        self._serve(_find("OMNIPYTHON_MICROPYTHON", "micropython"), 9562)
 
 
 if __name__ == "__main__":

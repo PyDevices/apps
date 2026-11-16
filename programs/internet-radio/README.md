@@ -14,7 +14,7 @@ ESP32-P4-WIFI6-Touch-LCD-4B.
 ## Put it on a board
 
 Install your board's package from
-[pydevices](https://github.com/PyDevices/pydevices) first (it brings
+[omnipython](https://github.com/PyDevices/omnipython) first (it brings
 `board_config`, `board_peripherals` and `wifi_manager`), and put your network
 in `secrets.py` as `WIFI_SSID` and `WIFI_PASSWORD`. Then, from the apps repo's
 root:

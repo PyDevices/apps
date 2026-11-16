@@ -14,7 +14,7 @@ program's main loop, as Ctrl-C would, so the REPL can run; timers and the
 other apps keep going. A board's one dupterm slot is shared with WebREPL:
 while a WebREPL client is connected, the app waits for it to leave.
 
-It needs vtterm (``mip.install("github:PyDevices/pydevices/packages/vtterm")``)
+It needs vtterm (``mip.install("github:PyDevices/omnipython/packages/vtterm")``)
 and firmware whose palettes has its ANSI palette. Shift+Page Up and Page Down
 page back through what scrolled off the screen.
 """

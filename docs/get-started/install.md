@@ -25,10 +25,10 @@ General MIDI parts stay silent and the run prints `no SoundFont found`.
 ## What else a program needs
 
 - **MIDI ports** (the sound module running live): `midiports`, from the
-  [pydevices](https://github.com/PyDevices/pydevices) repository.
+  [omnipython](https://github.com/PyDevices/omnipython) repository.
 - **Ostinato** in a browser or a desktop window, and **Vamp**: see their
   guides, [Run Ostinato](../guides/run-ostinato.md) and
   [Put Vamp on a board](../guides/put-vamp-on-a-board.md). Vamp also needs
-  `hmilink`, from pydevices.
+  `hmilink`, from omnipython.
 
 Once the pip lines have run, [render a MIDI file](first-program.md).

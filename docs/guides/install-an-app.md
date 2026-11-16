@@ -9,11 +9,11 @@ OmniPython index and micropython-lib, then Home lists it.
 The board needs OmniPython firmware with LVGL, its board config, and Wi-Fi
 details in `secrets.py` (`omip` asks at the REPL if there's none). The board
 config is one line too; the name is the board's folder under
-[board_configs](https://github.com/PyDevices/pydevices/tree/main/board_configs):
+[board_configs](https://github.com/PyDevices/omnipython/tree/main/board_configs):
 
 ```python
 import omip
-omip.install("github:PyDevices/pydevices/board_configs/busdisplay/i80/wt32sc01-plus")
+omip.install("github:PyDevices/omnipython/board_configs/busdisplay/i80/wt32sc01-plus")
 ```
 
 On a CircuitPython board with native USB, the `CIRCUITPY` drive belongs to
@@ -34,7 +34,7 @@ ahead of the frozen one, then reset the board:
 
 ```python
 import mip
-mip.install("github:PyDevices/pydevices/lib/omip.py", target="/")
+mip.install("github:PyDevices/omnipython/lib/omip.py", target="/")
 ```
 
 CircuitPython has no `mip`, and `omip` skips itself as frozen unless you force
@@ -42,13 +42,13 @@ it:
 
 ```python
 import omip
-omip.install("github:PyDevices/pydevices/lib/omip.py", target="/", force=True)
+omip.install("github:PyDevices/omnipython/lib/omip.py", target="/", force=True)
 ```
 
 On an Arduino GIGA, whose firmware has no `omip`, the writable drive is
 `/flash`: put `omip` on it with `mip.install(..., target="/flash/lib")`, and use
 `target="/flash"` where a line below says `target="/"`. The
-[GIGA Display Shield page](https://github.com/PyDevices/pydevices/blob/main/docs/boards/display-boards.md#arduino-giga-r1-wifi--giga-display-shield)
+[GIGA Display Shield page](https://github.com/PyDevices/omnipython/blob/main/docs/boards/display-boards.md#arduino-giga-r1-wifi--giga-display-shield)
 has the lines.
 
 ## Install apps
@@ -123,5 +123,5 @@ tag of this repository, for the app's own files. What it needs from the index
 is that index's latest release.
 
 What each app does, and what it needs from the board, is in
-[the apps](../reference/apps.md). How `omip` finds packages is in pydevices'
-[bring-up guide](https://github.com/PyDevices/pydevices/blob/main/docs/guides/bring-up-a-board.md#2-installing-over-wi-fi).
+[the apps](../reference/apps.md). How `omip` finds packages is in omnipython'
+[bring-up guide](https://github.com/PyDevices/omnipython/blob/main/docs/guides/bring-up-a-board.md#2-installing-over-wi-fi).

@@ -113,7 +113,7 @@ class _OnEachInterpreter:
         sys.path.insert(0, os.path.join(ROOT, "tests"))
         from test_engine import _find
 
-        exe = _find("PYDEVICES_MICROPYTHON", "micropython")
+        exe = _find("OMNIPYTHON_MICROPYTHON", "micropython")
         if exe is None:
             message = "no micropython: %s did NOT run on it" % self.check
             sys.stderr.write("\n*** %s ***\n" % message)

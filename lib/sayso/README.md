@@ -275,7 +275,7 @@ Library code can also use `TokenCache("tokens.json")` with
 The [Spotify app](https://github.com/PyDevices/apps/tree/main/apps/spotify) is an LVGL touch UI for playback
 control, library browse, queue, search, and cover art. It runs on CPython and
 MicroPython, Linux and Windows, on the
-[PyDevices](https://github.com/PyDevices/pydevices) stack. See
+[PyDevices](https://github.com/PyDevices/omnipython) stack. See
 the apps repo for setup;
 `sayso.local.json` and `tokens.json` live in the app directory, not in this
 folder.

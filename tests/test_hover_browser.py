@@ -8,8 +8,8 @@ mouse over one of two buttons with no button down, and checks that only that
 button's pixels change and that they change back when the mouse leaves.
 
 Needs Playwright with Chromium and a wasm build with LVGL: ``bin/micropython.mjs``
-in the workspace, or the folder named by ``PYDEVICES_WASM_DIR``. Without them
-the skip is loud, and ``PYDEVICES_REQUIRE_BROWSER=1`` turns it into a failure.
+in the workspace, or the folder named by ``OMNIPYTHON_WASM_DIR``. Without them
+the skip is loud, and ``OMNIPYTHON_REQUIRE_BROWSER=1`` turns it into a failure.
 """
 
 import functools
@@ -85,7 +85,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
 
 def _wasm_dir():
-    env = os.environ.get("PYDEVICES_WASM_DIR")
+    env = os.environ.get("OMNIPYTHON_WASM_DIR")
     if env:
         return Path(env)
     for parent in ROOT.parents:
@@ -102,7 +102,7 @@ def _missing():
         return "%s is not installed" % e.name
     folder = _wasm_dir()
     if folder is None or not (folder / "micropython.mjs").exists():
-        return "no wasm build (bin/micropython.mjs or PYDEVICES_WASM_DIR)"
+        return "no wasm build (bin/micropython.mjs or OMNIPYTHON_WASM_DIR)"
     return None
 
 
@@ -112,7 +112,7 @@ class HoverInTheBrowser(unittest.TestCase):
         reason = _missing()
         if reason:
             message = "the browser hover gate did NOT run: " + reason
-            if os.environ.get("PYDEVICES_REQUIRE_BROWSER") == "1":
+            if os.environ.get("OMNIPYTHON_REQUIRE_BROWSER") == "1":
                 raise AssertionError(message)
             sys.stderr.write("\n*** " + message + " ***\n")
             raise unittest.SkipTest(message)

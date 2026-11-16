@@ -626,7 +626,7 @@ def _timing_path():
     import os
 
     getenv = getattr(os, "getenv", None)  # boards have none
-    return ((getenv and getenv("PYDEVICES_NEXT_APP")) or "next_app") + ".t"
+    return ((getenv and getenv("OMNIPYTHON_NEXT_APP")) or "next_app") + ".t"
 
 
 def landed(la, name):

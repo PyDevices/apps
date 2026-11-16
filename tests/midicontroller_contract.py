@@ -3,14 +3,14 @@
 # SPDX-License-Identifier: MIT
 """The MIDI Controller app on real LVGL with no window, its USB stood in.
 
-The board side is pydevices' real ``midiports.usb_device``, on a stand-in
+The board side is omnipython's real ``midiports.usb_device``, on a stand-in
 for micropython-lib's ``MIDIInterface`` that keeps each USB-MIDI event it
 would send, and hands in ones a host sent. A computer's own ports are a
 stand-in too: a synth that only listens, and a loopback that hands back
 what it was sent. So each touch on the screen is read back as the bytes
 on the wire, and what comes in is seen to move the controls.
 
-    PYDEVICES_DIR=../pydevices python tests/midicontroller_contract.py
+    OMNIPYTHON_DIR=../omnipython python tests/midicontroller_contract.py
 
 Each view is drawn under the board shell's own header, on a display of
 ``MIDICONTROLLER_SCREEN`` (``800x480`` unless set), and checked for text
@@ -28,7 +28,7 @@ import types
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
-_PYDEVICES = os.getenv("PYDEVICES_DIR") or os.path.join(_ROOT, "..", "pydevices")
+_PYDEVICES = os.getenv("OMNIPYTHON_DIR") or os.path.join(_ROOT, "..", "omnipython")
 # lib first: tests/appkit would hide the real appkit.
 sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE, os.path.join(_PYDEVICES, "packages", "midiports")]
 # multimer, and the shell's header, which draws through iconkit.
@@ -141,7 +141,7 @@ try:
     import midiports
     from midiports import usb_device  # noqa: F401 - the app's USB link is this module
 except ImportError as e:
-    print("SKIP: pydevices' midiports isn't at %s (%s); set PYDEVICES_DIR" % (_PYDEVICES, e))
+    print("SKIP: omnipython's midiports isn't at %s (%s); set OMNIPYTHON_DIR" % (_PYDEVICES, e))
     sys.exit(2)
 for _name in ("linux", "windows"):
     sys.modules["midiports." + _name] = _desk

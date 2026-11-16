@@ -9,7 +9,7 @@ drag an encoder up or down, or click it and use the wheel, and the display
 shows the value. Each edit the panel makes is printed.
 
 Needs: LVGL and a board_config with a display, which a PyDevices board
-package or pydevices-desktop provides, and audioinstruments' panel_view.py
+package or omnipython-desktop provides, and audioinstruments' panel_view.py
 on the path (it lays out the panel from these controls).
 
 Run it:

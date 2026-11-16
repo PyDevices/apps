@@ -16,30 +16,30 @@ TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parents[1] / "lib"  # the apps repo's lib/, where appkit is
 
 
-def _pydevices_lib():
-    """``PYDEVICES_LIB``, or this repository's ``lib``: where appdev, events
+def _omnipython_lib():
+    """``OMNIPYTHON_LIB``, or this repository's ``lib``: where appdev, events
     and multimer come from."""
-    explicit = os.environ.get("PYDEVICES_LIB")
+    explicit = os.environ.get("OMNIPYTHON_LIB")
     if explicit:
         return Path(explicit)
     for parent in TESTS.parents:
         if (parent / "lib" / "appdev").is_dir():
             return parent / "lib"
-    sibling = TESTS.parents[2] / "pydevices" / "lib"  # the pydevices checkout beside the apps repo
+    sibling = TESTS.parents[2] / "omnipython" / "lib"  # the omnipython checkout beside the apps repo
     return sibling if (sibling / "appdev").is_dir() else None
 
 
-PYDEVICES_LIB = _pydevices_lib()
+OMNIPYTHON_LIB = _omnipython_lib()
 
 
 def _iconkit_lib():
-    """``ICONKIT_LIB``, or ``packages/iconkit/lib`` in the pydevices checkout that
-    ``PYDEVICES_LIB`` belongs to: where ``iconkit`` comes from. None when neither exists."""
+    """``ICONKIT_LIB``, or ``packages/iconkit/lib`` in the omnipython checkout that
+    ``OMNIPYTHON_LIB`` belongs to: where ``iconkit`` comes from. None when neither exists."""
     explicit = os.environ.get("ICONKIT_LIB")
     if explicit:
         return Path(explicit)
-    if PYDEVICES_LIB is not None:
-        candidate = PYDEVICES_LIB.parent / "packages" / "iconkit" / "lib"
+    if OMNIPYTHON_LIB is not None:
+        candidate = OMNIPYTHON_LIB.parent / "packages" / "iconkit" / "lib"
         if (candidate / "iconkit").is_dir():
             return candidate
     return None
@@ -50,17 +50,17 @@ ICONKIT_LIB = _iconkit_lib()
 #: About the T-Watch S3's MicroPython heap (its PSRAM).
 WATCH_HEAP = "8M"
 #: A tight heap, where leaks and fragmentation show first. These tests
-#: always compile appdev, multimer and appkit from source (pydevices' lib
+#: always compile appdev, multimer and appkit from source (omnipython's lib
 #: comes ahead of anything frozen), and MicroPython interns every identifier
 #: it compiles on the heap: 256k was enough until appdev grew a little, and
 #: 288k is the smallest that passes now, so 384k keeps a margin.
-TIGHT_HEAP = os.environ.get("PYDEVICES_TIGHT_HEAP", "384k")
+TIGHT_HEAP = os.environ.get("OMNIPYTHON_TIGHT_HEAP", "384k")
 
 
 def micropython():
-    """``PYDEVICES_MICROPYTHON``, ``micropython`` on PATH, or a
+    """``OMNIPYTHON_MICROPYTHON``, ``micropython`` on PATH, or a
     ``bin/micropython`` in a folder above this one; None when there is none."""
-    explicit = os.environ.get("PYDEVICES_MICROPYTHON")
+    explicit = os.environ.get("OMNIPYTHON_MICROPYTHON")
     if explicit:
         return explicit
     found = shutil.which("micropython")
@@ -77,7 +77,7 @@ def need_micropython(case):
     interpreter = micropython()
     if interpreter is None:
         message = "no micropython binary: the appkit checks did NOT run on MicroPython"
-        if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
+        if os.environ.get("OMNIPYTHON_REQUIRE_MICROPYTHON") == "1":
             case.fail(message)
         sys.stderr.write("\n*** " + message + " ***\n")
         case.skipTest(message)
@@ -89,16 +89,16 @@ def run(cmd, *, state_dir=None, timeout=300, extra_env=None, cwd=None):
     env = dict(os.environ)
     env.setdefault("SDL_VIDEODRIVER", "dummy")
     env.setdefault("SDL_AUDIODRIVER", "dummy")
-    paths = [str(LIB)] + [str(p) for p in (PYDEVICES_LIB, ICONKIT_LIB) if p]
+    paths = [str(LIB)] + [str(p) for p in (OMNIPYTHON_LIB, ICONKIT_LIB) if p]
     env["PYTHONPATH"] = os.pathsep.join(paths + [env.get("PYTHONPATH", "")])
-    # MicroPython: pydevices' source ahead of anything frozen into the build.
+    # MicroPython: omnipython's source ahead of anything frozen into the build.
     env["MICROPYPATH"] = ":".join(paths[1:] + [".frozen"])
-    env.pop("PYDEVICES_SUPERVISED", None)
+    env.pop("OMNIPYTHON_SUPERVISED", None)
     own = None
     if state_dir is None:
         own = tempfile.TemporaryDirectory()
         state_dir = own.name
-    env["PYDEVICES_NEXT_APP"] = os.path.join(state_dir, "next_app")
+    env["OMNIPYTHON_NEXT_APP"] = os.path.join(state_dir, "next_app")
     # A folder the checks may write in, and the data root for anything that
     # doesn't set its own: never the real one.
     env["APPKIT_TEST_DIR"] = state_dir

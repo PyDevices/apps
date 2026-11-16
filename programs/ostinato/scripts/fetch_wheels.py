@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Download the newest PyDevices wheels Ostinato runs on into vendor/wheels/.
+"""Download the newest OmniPython wheels Ostinato runs on into vendor/wheels/.
 
 Ostinato always takes the latest released stack, so moving to a new release
 is: run this, run the checks, commit wheels.json. The wheels themselves are
@@ -19,9 +19,9 @@ import urllib.request
 INDEX = "https://test.pypi.org/pypi/%s/json"
 ABI = "cp314-cp314-pyemscripten_2026_0_wasm32"
 PACKAGES = [
-    "pydevices",
+    "omnipython",
     "omnipython-audiodsp",
-    "pydevices-lvgl",
+    "omnipython-lvgl",
     "omnipython-audioinstruments",
     "omnipython-audioeffects",
 ]

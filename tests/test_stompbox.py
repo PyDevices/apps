@@ -33,7 +33,7 @@ class StompboxMeterTest(unittest.TestCase):
             env["PYTHONPATH"] = os.pathsep.join([ROOT, env.get("PYTHONPATH", "")])
             cmd = [sys.executable, CHECK]
         else:
-            exe = _find("PYDEVICES_MICROPYTHON", "micropython")
+            exe = _find("OMNIPYTHON_MICROPYTHON", "micropython")
             if exe is None:
                 message = "no micropython: Stompbox's meter check did NOT run on it"
                 sys.stderr.write("\n*** %s ***\n" % message)

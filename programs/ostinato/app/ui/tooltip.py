@@ -5,7 +5,7 @@
 """Tooltips: what an icon-only button does, shown when the mouse rests on it.
 
 LVGL hovers a released pointer (HOVER_OVER, HOVER_LEAVE) when its input
-driver reports the mouse with the button up, which pydevices' display_driver
+driver reports the mouse with the button up, which omnipython's display_driver
 now does. After DELAY_MS over a control, a small label appears beside it; it
 goes as soon as the pointer leaves or presses. On a touch screen there is no
 hover, so nothing appears and nothing gets in the way.

@@ -11,9 +11,9 @@ unless ``PANEL_REQUIRE=1`` makes that a failure. The planted run swaps in the
 old panel's patch handling and must fail, which proves the patch-follow checks
 can.
 
-MicroPython comes from ``PYDEVICES_MICROPYTHON``, ``micropython`` on PATH,
+MicroPython comes from ``OMNIPYTHON_MICROPYTHON``, ``micropython`` on PATH,
 or a ``bin/micropython`` in a folder above this one, and needs LVGL. With
-none, its half is skipped loudly; ``PYDEVICES_REQUIRE_MICROPYTHON=1`` makes
+none, its half is skipped loudly; ``OMNIPYTHON_REQUIRE_MICROPYTHON=1`` makes
 that a failure.
 """
 
@@ -50,7 +50,7 @@ def _has_lvgl(interpreter):
 def _micropython():
     """The first MicroPython that can import lvgl, or None: a build without LVGL skips, loudly."""
     candidates = []
-    explicit = os.environ.get("PYDEVICES_MICROPYTHON")
+    explicit = os.environ.get("OMNIPYTHON_MICROPYTHON")
     if explicit:
         candidates.append(explicit)
     found = shutil.which("micropython")
@@ -88,7 +88,7 @@ class _Contract:
         _need_the_panel(self)
         if self.interpreter is None:
             message = "no micropython binary with lvgl: the panel checks did NOT run on MicroPython"
-            if os.environ.get("PYDEVICES_REQUIRE_MICROPYTHON") == "1":
+            if os.environ.get("OMNIPYTHON_REQUIRE_MICROPYTHON") == "1":
                 self.fail(message)
             sys.stderr.write("\n*** " + message + " ***\n")
             self.skipTest(message)

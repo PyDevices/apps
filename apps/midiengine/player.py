@@ -39,7 +39,7 @@ CPython or MicroPython with a fake sink and a fake clock.
 
 def _umidiparser_without_native():
     """umidiparser compiled without its ``@micropython.native`` lines, for a
-    MicroPython built with no native emitter (the Windows port's pydevices
+    MicroPython built with no native emitter (the Windows port's omnipython
     variant raises SyntaxError at the first decorator). The same code, run
     as bytecode; a board never comes here."""
     import sys

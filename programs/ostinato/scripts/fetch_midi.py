@@ -6,7 +6,7 @@
 hmilink for the desktop's two processes, and the UI worker's board config
 into vendor/board/.
 
-midiports comes from a pydevices commit, pinned here; adafruit_midi
+midiports comes from an omnipython commit, pinned here; adafruit_midi
 comes from the list in midiports' own package.json at that tag, and the board
 config is that release's board_configs/workerdisplay. When midiports ships as
 a wheel the MIDI half goes away and the wheel carries it.
@@ -18,11 +18,11 @@ import json
 import pathlib
 import urllib.request
 
-PYDEVICES = "v0.7.6"  # a pydevices release tag
-RAW = "https://raw.githubusercontent.com/PyDevices/pydevices/%s/" % PYDEVICES
-# midiports.LOOPBACK isn't in a release yet either: a pydevices commit, until one carries it.
+PYDEVICES = "v0.7.6"  # an omnipython release tag
+RAW = "https://raw.githubusercontent.com/PyDevices/omnipython/%s/" % PYDEVICES
+# midiports.LOOPBACK isn't in a release yet either: an omnipython commit, until one carries it.
 MIDIPORTS = "7edf64f498d844e25194e591d46958da69d53ab9"
-# hmilink isn't in a release yet: a pydevices main commit, until one carries it.
+# hmilink isn't in a release yet: an omnipython main commit, until one carries it.
 HMILINK = "aa6911844168c21296a8f72dc825d744bf2a6c1f"
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DEST = ROOT / "vendor" / "lib"
@@ -49,8 +49,8 @@ def fetch(package_json, dest, skip=(), raw=RAW):
     for target, source in package["urls"]:
         if target in skip:
             continue
-        if source.startswith("github:PyDevices/pydevices/"):
-            source = raw + source[len("github:PyDevices/pydevices/"):]
+        if source.startswith("github:PyDevices/omnipython/"):
+            source = raw + source[len("github:PyDevices/omnipython/"):]
         path = dest / target
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(get(source))
@@ -59,11 +59,11 @@ def fetch(package_json, dest, skip=(), raw=RAW):
 
 def main():
     fetch("packages/midiports/package.json", DEST, SKIP,
-          "https://raw.githubusercontent.com/PyDevices/pydevices/%s/" % MIDIPORTS)
+          "https://raw.githubusercontent.com/PyDevices/omnipython/%s/" % MIDIPORTS)
     # The engine process is an hmilink device and the UI one of its panels
     # (desktop/device.py, desktop/linkrunner.py).
     fetch("hmilink/package.json", DEST, ("hmilink/osc.py",),
-          "https://raw.githubusercontent.com/PyDevices/pydevices/%s/" % HMILINK)
+          "https://raw.githubusercontent.com/PyDevices/omnipython/%s/" % HMILINK)
     # The UI worker draws on the canvas the page hands it (tools/gen_boot.py
     # gives the UI everything in vendor/board/).
     fetch("board_configs/workerdisplay/package.json", BOARD)

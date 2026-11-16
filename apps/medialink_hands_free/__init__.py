@@ -20,7 +20,7 @@ while it loads), ``/models`` on flash, then ``/data/models``. The model files, a
 https://github.com/PyDevices/apps/blob/main/docs/reference/models.md
 
 Needs: a microphone and a speaker that boarddev.pcm_in() and pcm_out()
-reach, which a PyDevices board package or pydevices-desktop provides, and a
+reach, which a PyDevices board package or omnipython-desktop provides, and a
 network: a board already on Wi-Fi with mdns in its firmware, or
 python-zeroconf on CPython. Headphones on a computer keep its speaker out of
 its microphone. A piece that is missing is named on the screen, and the rest

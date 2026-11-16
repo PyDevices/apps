@@ -10,10 +10,10 @@
 #                                                 appkit, iconkit, every app in
 #                                                 apps/, and their index, _appkit_apps
 #
-# appkit's Home and apps draw with iconkit, a package of its own in the pydevices
+# appkit's Home and apps draw with iconkit, a package of its own in the omnipython
 # repository (packages/iconkit). It is frozen with appkit, from the folder that
 # iconkit= names: that repository's packages/iconkit, or <tree>/iconkit in an
-# omnipython-lib tree. Without iconkit=, $PYDEVICES_LIBRARY (the tree build_mp.py
+# omnipython-lib tree. Without iconkit=, $OMNIPYTHON_LIBRARY (the tree build_mp.py
 # sets) is used. With neither, this manifest raises: it never freezes appkit
 # without the icons its Home needs. A build that gets appkit from the library
 # with require("appkit", library="omnipython-lib") gets iconkit from the library
@@ -31,12 +31,12 @@ def _iconkit_folder():
 
     named = options.iconkit
     if named is None:
-        tree = os.environ.get("PYDEVICES_LIBRARY")
+        tree = os.environ.get("OMNIPYTHON_LIBRARY")
         named = os.path.join(tree, "iconkit") if tree else None
     if named is None:
         raise ValueError(
             "appkit manifest: iconkit is not found. appkit's Home draws with it. Pass "
-            'iconkit="/path/to/pydevices/packages/iconkit", or set PYDEVICES_LIBRARY to an '
+            'iconkit="/path/to/omnipython/packages/iconkit", or set OMNIPYTHON_LIBRARY to an '
             "omnipython-lib tree that has iconkit (build_mp.py does)"
         )
     named = os.path.abspath(named)
@@ -48,7 +48,7 @@ def _iconkit_folder():
             return named, source
     raise ValueError(
         "appkit manifest: %s is not iconkit's folder: it has no manifest.py beside lib/iconkit or iconkit. "
-        "Pass iconkit= the packages/iconkit folder of the pydevices repository" % (named,)
+        "Pass iconkit= the packages/iconkit folder of the omnipython repository" % (named,)
     )
 
 

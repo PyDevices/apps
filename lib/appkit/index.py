@@ -40,7 +40,7 @@ def _tile_icons():
     except ImportError as exc:
         raise ImportError(
             "appkit's index needs iconkit to check app icons: pip install omnipython-iconkit, "
-            "or put packages/iconkit/lib from the pydevices repository on the import path"
+            "or put packages/iconkit/lib from the omnipython repository on the import path"
         ) from exc
     return iconkit.names(48)
 

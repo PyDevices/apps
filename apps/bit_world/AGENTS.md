@@ -1,7 +1,7 @@
 # AGENTS.md
 
 - Bit World is a script app (`"script"` in `app.json`): `bit_world.py` builds its own `App` when imported, and the launcher restarts the board into it. Its modules import each other by name, because the launcher puts this folder on `sys.path`; it isn't a package.
-- Run the tests from this folder: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest discover -s tests -v`, on a CPython with pygraphics and audiodsp, and pydevices' `lib` on the path (`PYDEVICES_LIB`).
+- Run the tests from this folder: `SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy python -m unittest discover -s tests -v`, on a CPython with pygraphics and audiodsp, and omnipython's `lib` on the path (`OMNIPYTHON_LIB`).
 - Quitting must leave nothing running: the exit button and Esc call `app.request_quit()`, whose `on_quit` closes the audio, and the launcher restarts back to Home. A timer or stream made outside `app` outlives the quit.
 - Every sprite, palette and synth patch here is a `.py` module, so the app copies to a board and bundles into a web page with no image files.
 - `BIT_WORLD_ACT=0`, `1` or `2` starts in the Workshop, Sky Ruins or Cyber-Deck act, which helps for screenshots.

@@ -43,8 +43,8 @@ env:
   AUDIOEFFECTS_CATALOG_REF: 3a39612f4fc0057c7742e82f636188b6af47ce69
   # The instrument panel isn't in an audioinstruments release yet.
   AUDIOINSTRUMENTS_PANEL_REF: a32dc9891f9e2d8f12692e73fe835cdc6d54e069
-  # hmilink isn't in a pydevices release yet.
-  PYDEVICES_REF: aa6911844168c21296a8f72dc825d744bf2a6c1f
+  # hmilink isn't in an omnipython release yet.
+  OMNIPYTHON_REF: aa6911844168c21296a8f72dc825d744bf2a6c1f
   MICROPYTHON_REF: v1.29.0
 
 jobs:
@@ -115,11 +115,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # iconkit, which draws Ostinato's icons, lives in the pydevices repo.
+      # iconkit, which draws Ostinato's icons, lives in the omnipython repo.
       - uses: actions/checkout@v7
         with:
-          repository: PyDevices/pydevices
-          path: pydevices
+          repository: PyDevices/omnipython
+          path: omnipython
 
       - uses: actions/setup-python@v7
         with:
@@ -132,11 +132,11 @@ jobs:
       - name: Ostinato's tests
         working-directory: programs/ostinato
         env:
-          ICONKIT_LIB: ${{ github.workspace }}/pydevices/packages/iconkit/lib
+          ICONKIT_LIB: ${{ github.workspace }}/omnipython/packages/iconkit/lib
         run: python -m unittest discover -s tests -v
 
   # Synth Station's tests on CPython, against controlkit from lib/,
-  # audioinstruments from its main branch and pydevices from its main branch,
+  # audioinstruments from its main branch and omnipython from its main branch,
   # on a display with no window. Its MicroPython half needs a unix build with
   # LVGL and audiodsp, so it skips here, loudly.
   synthstation:
@@ -156,8 +156,8 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          repository: PyDevices/pydevices
-          path: pydevices
+          repository: PyDevices/omnipython
+          path: omnipython
 
       - uses: actions/setup-python@v7
         with:
@@ -166,18 +166,18 @@ jobs:
       - name: Install LVGL and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl "omnipython-audiodsp>=0.6.13.dev4" numpy
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-lvgl "omnipython-audiodsp>=0.6.13.dev4" numpy
 
       - name: Synth Station's tests
         working-directory: studio/apps/synthstation
         env:
-          PYDEVICES_DIR: ${{ github.workspace }}/pydevices
+          OMNIPYTHON_DIR: ${{ github.workspace }}/omnipython
           SYNTHSTATION_PATH: ${{ github.workspace }}/audioinstruments/lib:${{ github.workspace }}/studio/lib
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: python -m unittest discover -s tests -p 'test_*.py' -v
 
-  # appkit's tests on CPython, against pydevices from its main branch (appdev,
+  # appkit's tests on CPython, against omnipython from its main branch (appdev,
   # events and multimer come from there). Its MicroPython half needs a unix
   # build with LVGL, so it skips here, loudly.
   appkit:
@@ -192,8 +192,8 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          repository: PyDevices/pydevices
-          path: pydevices
+          repository: PyDevices/omnipython
+          path: omnipython
 
       - uses: actions/setup-python@v7
         with:
@@ -202,12 +202,12 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-lvgl
 
       - name: appkit's tests
         working-directory: studio
         env:
-          PYDEVICES_LIB: ${{ github.workspace }}/pydevices/lib
+          OMNIPYTHON_LIB: ${{ github.workspace }}/omnipython/lib
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: python -m unittest discover -s tests/appkit -p 'test_*.py' -v
@@ -248,7 +248,7 @@ jobs:
       - name: Install LVGL, svgio and iconkit for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl "pydevices-desktop>=0.8.0.dev21" "pydevices>=0.8.0.dev21" omnipython-iconkit resvg_py pillow
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-lvgl "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" omnipython-iconkit resvg_py pillow
 
       - name: Perch's tests
         env:
@@ -271,17 +271,17 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install LVGL, svgio and pydevices for CPython
+      - name: Install LVGL, svgio and omnipython for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl "pydevices-desktop>=0.8.0.dev21" "pydevices>=0.8.0.dev21" omnipython-iconkit resvg_py pillow
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-lvgl "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" omnipython-iconkit resvg_py pillow
 
       - name: Huey's tests
         env:
           SDL_VIDEODRIVER: dummy
         run: python -m unittest tests.test_huey -v
 
-  # The Gamepad app on CPython against pydevices' usb-hid and usb-host-hid from
+  # The Gamepad app on CPython against omnipython's usb-hid and usb-host-hid from
   # its main branch, on a display with no window: a press on the gamepad's
   # screen is read back by the tester's.
   gamepad:
@@ -296,8 +296,8 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          repository: PyDevices/pydevices
-          path: pydevices
+          repository: PyDevices/omnipython
+          path: omnipython
           sparse-checkout: |
             lib
             packages/usb
@@ -311,17 +311,17 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-lvgl
 
       - name: The Gamepad app's tests
         working-directory: studio
         env:
-          PYDEVICES_DIR: ${{ github.workspace }}/pydevices
+          OMNIPYTHON_DIR: ${{ github.workspace }}/omnipython
           GAMEPAD_REQUIRE: "1"
           SDL_VIDEODRIVER: dummy
         run: python -m unittest tests.test_gamepad -v
 
-  # The MIDI Controller app on CPython against pydevices' midiports from its
+  # The MIDI Controller app on CPython against omnipython's midiports from its
   # main branch, on a display with no window: each touch is read back as the
   # bytes on the USB wire, and what comes in moves the controls.
   midicontroller:
@@ -336,8 +336,8 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          repository: PyDevices/pydevices
-          path: pydevices
+          repository: PyDevices/omnipython
+          path: omnipython
           sparse-checkout: |
             lib
             packages/midiports
@@ -351,17 +351,17 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-lvgl
 
       - name: The MIDI Controller app's tests
         working-directory: studio
         env:
-          PYDEVICES_DIR: ${{ github.workspace }}/pydevices
+          OMNIPYTHON_DIR: ${{ github.workspace }}/omnipython
           MIDICONTROLLER_REQUIRE: "1"
           SDL_VIDEODRIVER: dummy
         run: python -m unittest tests.test_midicontroller -v
 
-  # Bit World's tests on CPython, against the released pydevices, pygraphics
+  # Bit World's tests on CPython, against the released omnipython, pygraphics
   # and audiodsp, on a display with no window: the partial repaint matches a
   # full redraw, and the exit button quits and closes the audio.
   bit_world:
@@ -376,10 +376,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install pydevices, pygraphics and audiodsp for CPython
+      - name: Install omnipython, pygraphics and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-desktop pydevices-pygraphics omnipython-audiodsp
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-desktop omnipython-pygraphics omnipython-audiodsp
 
       - name: Bit World's tests
         working-directory: apps/bit_world
@@ -455,15 +455,15 @@ jobs:
 
       - uses: actions/checkout@v7
         with:
-          repository: PyDevices/pydevices
-          ref: ${{ env.PYDEVICES_REF }}
-          path: pydevices
+          repository: PyDevices/omnipython
+          ref: ${{ env.OMNIPYTHON_REF }}
+          path: omnipython
 
       # appkit draws its icons from iconkit, and the REPL app's test pages through
       # vtterm's scrollback, both newer than the pin above.
       - uses: actions/checkout@v7
         with:
-          repository: PyDevices/pydevices
+          repository: PyDevices/omnipython
           path: iconkit-src
           sparse-checkout: |
             packages/iconkit/lib
@@ -479,7 +479,7 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ pydevices-lvgl pydevices-pygraphics
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ omnipython-lvgl omnipython-pygraphics
 
       - name: Resolve audioeffects' audiodsp pin
         id: pin
@@ -525,14 +525,14 @@ jobs:
       - name: The apps repo's tests
         working-directory: studio
         env:
-          PYDEVICES_MICROPYTHON: ${{ github.workspace }}/micropython/ports/unix/build-standard/micropython
+          OMNIPYTHON_MICROPYTHON: ${{ github.workspace }}/micropython/ports/unix/build-standard/micropython
           AUDIOINSTRUMENTS_DIR: ${{ github.workspace }}/audioinstruments
           AUDIOINSTRUMENTS_PANEL_DIR: ${{ github.workspace }}/audioinstruments-panel
           PANEL_REQUIRE: "1"
           AUDIOEFFECTS_DIR: ${{ github.workspace }}/audioeffects
           AUDIOINSTRUMENTS_CATALOG: ${{ github.workspace }}/catalogs/audioinstruments/lib/audioinstruments/catalog.json
           AUDIOEFFECTS_CATALOG: ${{ github.workspace }}/catalogs/audioeffects/lib/audioeffects/catalog.json
-          HMILINK_PATH: ${{ github.workspace }}/pydevices/hmilink
+          HMILINK_PATH: ${{ github.workspace }}/omnipython/hmilink
           VAMP_REQUIRE: "1"
           VTTERM_PATH: ${{ github.workspace }}/iconkit-src/packages
           REPL_REQUIRE: "1"

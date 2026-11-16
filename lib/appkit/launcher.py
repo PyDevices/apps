@@ -48,7 +48,7 @@ Browser (wasm)      the page URL's ``?app=``    reload the page
 ==================  ==========================  ===================================
 
 The file is in the data root (see ``appkit.data``), so it moves with
-``data_root``. ``PYDEVICES_NEXT_APP`` overrides its path.
+``data_root``. ``OMNIPYTHON_NEXT_APP`` overrides its path.
 
 A plain script (`Launcher.add_script`, or ``"script"`` in an
 ``app.json``) builds its own ``App`` when imported, so it never runs in the
@@ -249,7 +249,7 @@ def host():
 
 
 def _state_path():
-    path = data._getenv("PYDEVICES_NEXT_APP")
+    path = data._getenv("OMNIPYTHON_NEXT_APP")
     if path:
         return path
     root = data.root()
@@ -437,7 +437,7 @@ def restart_into(name, count=1, path=None):
     elif h == "desktop":
         import os
 
-        if not (hasattr(os, "getenv") and os.getenv("PYDEVICES_SUPERVISED")):
+        if not (hasattr(os, "getenv") and os.getenv("OMNIPYTHON_SUPERVISED")):
             sys.stderr.write(
                 "appkit.launcher: exiting so the program can restart%s; "
                 "run it under `python -m appkit.launcher <command>` to restart automatically\n"
@@ -1006,7 +1006,7 @@ def supervise(cmd):
     A restart is asked for by exit code 75, or by the file named in the
     child's ``APPKIT_RESTART_FILE`` (the exit code can be lost when the
     restart comes from inside a callback). Returns the exit code it finally
-    ends with. The child sees ``PYDEVICES_SUPERVISED=1``.
+    ends with. The child sees ``OMNIPYTHON_SUPERVISED=1``.
     """
     if not cmd:
         raise ValueError("no command to run")
@@ -1017,7 +1017,7 @@ def supervise(cmd):
             import os
 
             status = os.system(
-                "PYDEVICES_SUPERVISED=1 APPKIT_RESTART_FILE=%s " % _quote(flag) + " ".join(_quote(a) for a in cmd)
+                "OMNIPYTHON_SUPERVISED=1 APPKIT_RESTART_FILE=%s " % _quote(flag) + " ".join(_quote(a) for a in cmd)
             )
             code = (status >> 8) & 0xFF if status & 0x7F == 0 else 128 + (status & 0x7F)
         else:
@@ -1025,7 +1025,7 @@ def supervise(cmd):
             import subprocess
 
             env = dict(os.environ)
-            env["PYDEVICES_SUPERVISED"] = "1"
+            env["OMNIPYTHON_SUPERVISED"] = "1"
             env["APPKIT_RESTART_FILE"] = flag
             code = subprocess.call(cmd, env=env)
         asked = _take_flag(flag)

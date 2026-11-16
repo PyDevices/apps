@@ -109,10 +109,10 @@ def main(argv=None):
         return
     if a.size:
         w, h = a.size.lower().split("x")
-        os.environ["PYDEVICES_WIDTH"], os.environ["PYDEVICES_HEIGHT"] = w, h
-        os.environ["PYDEVICES_SCALE"] = "1"
+        os.environ["OMNIPYTHON_WIDTH"], os.environ["OMNIPYTHON_HEIGHT"] = w, h
+        os.environ["OMNIPYTHON_SCALE"] = "1"
     else:
-        os.environ["PYDEVICES_MAXIMIZED"] = "1"
+        os.environ["OMNIPYTHON_MAXIMIZED"] = "1"
     os.environ["ENGINES"] = str(a.count)
 
     import engines

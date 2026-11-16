@@ -6,7 +6,7 @@ The app is a module with a `main(scope)` that builds its screen on
 the app opens and cancels everything it made when the app closes, so one
 app's memory goes back when it's closed.
 
-The apps share code in `lib/`, and draw their icons with [iconkit](https://github.com/PyDevices/pydevices/tree/main/packages/iconkit), a package of the pydevices repository (every icon is on its [icons page](https://github.com/PyDevices/pydevices/blob/main/packages/iconkit/docs/reference/icons.md)):
+The apps share code in `lib/`, and draw their icons with [iconkit](https://github.com/PyDevices/omnipython/tree/main/packages/iconkit), a package of the omnipython repository (every icon is on its [icons page](https://github.com/PyDevices/omnipython/blob/main/packages/iconkit/docs/reference/icons.md)):
 
 - `touchkit`: the helpers the touch-panel apps use (the layout, networking,
   settings, the spectrum and a clock).
@@ -16,4 +16,4 @@ The apps share code in `lib/`, and draw their icons with [iconkit](https://githu
 - `songmodel`: the song that Ostinato and Vamp both edit, and what carries it to a
   front panel.
 
-An app imports from `lib/` and from the libraries in pydevices.
+An app imports from `lib/` and from the libraries in omnipython.

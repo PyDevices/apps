@@ -4,7 +4,7 @@
 
 Huey's Perch is a PyDevices app: Huey, a chameleon, at the coast, at a
 workbench and on a desk. Every picture is vector art, shapes built in Python
-and drawn by [svgio](https://github.com/PyDevices/micropython-pydevices/tree/main/modules/svgio)
+and drawn by [svgio](https://github.com/PyDevices/omnipython-builds/tree/main/modules/svgio)
 at the size of your screen, so the same drawing fills a 240 x 240 round panel
 and an 800 x 480 one. Huey walks, blinks, looks around, catches a bug and
 changes colour with the season. [Watch a twelve-second tour](docs/images/app_tour.mp4)

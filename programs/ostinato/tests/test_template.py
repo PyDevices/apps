@@ -102,7 +102,7 @@ class TemplateTests(unittest.TestCase):
 
     def test_product_sources_are_pinned(self):
         """The workers load exactly the wheels wheels.json pins, and MIDI
-        comes from a tagged pydevices release."""
+        comes from a tagged omnipython release."""
         wheels = json.loads(_read("wheels.json"))
         self.assertTrue(wheels)
         for name, pin in wheels.items():

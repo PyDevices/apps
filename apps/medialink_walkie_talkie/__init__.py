@@ -19,7 +19,7 @@ HOTSPOT_PASSWORD on both: one board starts an access point, the other joins
 it, and both go back to their own network when the app closes.
 
 Needs: a microphone and a speaker that boarddev.pcm_in() and pcm_out() reach,
-which a PyDevices board package or pydevices-desktop provides, and a network:
+which a PyDevices board package or omnipython-desktop provides, and a network:
 a board already on Wi-Fi, with mdns in its firmware. On a computer, hold any
 key or a mouse button in the window; CPython also needs python-zeroconf for
 mdns. Without a microphone, speaker, network port or mDNS, the screen says

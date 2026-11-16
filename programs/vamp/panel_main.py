@@ -10,9 +10,9 @@ On a board with an 800x480 touch screen, with the files from
     import vamp; vamp.run_panel("192.168.1.50")
 
 On a desktop, with this repository's ``programs/`` and ``lib/`` and hmilink on
-the path, and pydevices-desktop for the window::
+the path, and omnipython-desktop for the window::
 
-    PYDEVICES_WIDTH=800 PYDEVICES_HEIGHT=480 PYDEVICES_SCALE=1 python -m vamp.panel_main --box HOST[:9100]
+    OMNIPYTHON_WIDTH=800 OMNIPYTHON_HEIGHT=480 OMNIPYTHON_SCALE=1 python -m vamp.panel_main --box HOST[:9100]
 
 The box is a running Vamp (``vamp.main``). The board joins the Wi-Fi network it
 already knows before it looks for the box; with ``--ap SSID PASSWORD`` it is

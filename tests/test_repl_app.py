@@ -5,7 +5,7 @@
 
 The app runs here with LVGL, the display and ``os.dupterm`` replaced by
 stand-ins, so what's checked is its key handling and vtterm's screen. vtterm
-(with palettes, the pydevices ``lib/`` folder and pygraphics) comes from ``$VTTERM_PATH``, else a pydevices
+(with palettes, the omnipython ``lib/`` folder and pygraphics) comes from ``$VTTERM_PATH``, else an omnipython
 checkout beside this one; without it the test is skipped, and fails when
 ``REPL_REQUIRE=1`` is set.
 """
@@ -26,7 +26,7 @@ KEYDOWN = 0x300
 
 def _find_vtterm():
     explicit = os.environ.get("VTTERM_PATH")
-    candidates = [Path(explicit)] if explicit else [p / "pydevices" / "packages" for p in ROOT.parents]
+    candidates = [Path(explicit)] if explicit else [p / "omnipython" / "packages" for p in ROOT.parents]
     for c in candidates:
         if (c / "vtterm" / "vtterm" / "keys.py").is_file():
             return [str(c / "vtterm"), str(c / "palettes" / "lib"), str(c.parent / "lib")]
