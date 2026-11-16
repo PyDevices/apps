@@ -76,6 +76,58 @@ def _release_all(releases):
         _call_release(release)
 
 
+def _check(work, done, release):
+    if not callable(work):
+        raise ValueError("work must be callable")
+    if done is not None and not callable(done):
+        raise ValueError("done must be callable")
+    if release is not None and not callable(release):
+        raise ValueError("release must be callable")
+
+
+class _Lock:
+    """The job list's lock, which a callback can't wait on for ever.
+
+    A scheduled callback (a timer, a job's ``done()``) can run between two
+    bytecodes of a ``submit()`` on the same thread, with this lock held. If
+    it submits a job too, a plain lock would have it wait for its own thread.
+    Here it asks `mine` first, and hands a change to `later`, which makes it
+    once the outer call has let go.
+    """
+
+    def __init__(self):
+        import _thread
+
+        self._lock = _thread.allocate_lock()
+        self._owner = None
+        self._later = []
+
+    def mine(self):
+        """True when this thread holds the lock: the caller is a callback inside it."""
+        return self._owner is not None and self._owner == _ident()
+
+    def later(self, fn, *args):
+        """Call ``fn(*args)`` when the lock is let go."""
+        self._later.append((fn, args))
+
+    def __enter__(self):
+        self._lock.acquire()
+        self._owner = _ident()
+        return self
+
+    def __exit__(self, *exc):
+        self._owner = None
+        self._lock.release()
+        later = self._later
+        while later:
+            try:
+                fn, args = later.pop(0)
+            except IndexError:  # another thread made the call
+                break
+            fn(*args)
+        return False
+
+
 class _Base:
     def __init__(self):
         self._jobs = []  # [key, work, done, owner, release]
@@ -88,12 +140,7 @@ class _Base:
 
     def _queue(self, work, done, key, owner, release=None):
         """Queue a job; returns the releases of any waiting jobs it replaced."""
-        if not callable(work):
-            raise ValueError("work must be callable")
-        if done is not None and not callable(done):
-            raise ValueError("done must be callable")
-        if release is not None and not callable(release):
-            raise ValueError("release must be callable")
+        _check(work, done, release)
         dropped = []
         if key is not None:
             kept = []
@@ -142,7 +189,7 @@ class Worker(_Base):
         import _thread
 
         _Base.__init__(self)
-        self._lock = _thread.allocate_lock()
+        self._lock = _Lock()
         self._thread = None  # the thread's identity, once it is running
         self._wake = _thread.allocate_lock()
         self._wake.acquire()
@@ -164,7 +211,13 @@ class Worker(_Base):
 
     def submit(self, work, done=None, key=None, owner=None, release=None):
         """Run ``work()`` on the thread, then ``done(value, error)`` on the main thread."""
-        with self._lock:
+        lock = self._lock
+        if lock.mine():
+            # A callback inside this thread's own submit() or cancel().
+            _check(work, done, release)
+            lock.later(self.submit, work, done, key, owner, release)
+            return
+        with lock:
             dropped = self._queue(work, done, key, owner, release)
         _release_all(dropped)
         if self._wake.locked():
@@ -177,12 +230,20 @@ class Worker(_Base):
         """True while a job with *key* is waiting or running."""
         if self._key is not None and self._key == key:
             return True
-        with self._lock:
+        lock = self._lock
+        if lock.mine():
+            # A callback inside this thread's own call: the list as it stands.
+            return any(j[0] == key and j[3] is owner for j in self._jobs)
+        with lock:
             return any(j[0] == key and j[3] is owner for j in self._jobs)
 
     def cancel(self, owner):
         """Drop everything *owner* queued that hasn't started."""
-        with self._lock:
+        lock = self._lock
+        if lock.mine():
+            lock.later(self.cancel, owner)
+            return
+        with lock:
             dropped = self._dropped(owner)
         _release_all(dropped)
 

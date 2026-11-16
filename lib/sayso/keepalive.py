@@ -260,6 +260,7 @@ class Session:
     def __init__(self):
         self._conns = {}
         self._lock = _lock()
+        self._holder = None  # the thread inside request(), while one is
 
     def _conn(self, host, port):
         key = (host, port)
@@ -288,7 +289,13 @@ class Session:
         if data is not None or method in ("POST", "PUT", "PATCH", "DELETE"):
             head.append("Content-Length: %d" % (len(data) if data else 0))
         req = ("\r\n".join(head) + "\r\n\r\n").encode("utf-8")
+        me = _thread.get_ident() if _thread is not None else None
+        if me is not None and self._holder == me:
+            # A timer or other scheduled callback, run part way through this
+            # thread's own request: waiting for the lock would wait for ever.
+            raise RuntimeError("a request from a callback inside another request on the same thread")
         self._lock.acquire()
+        self._holder = me
         try:
             c = self._conn(host, port)
             for attempt in (0, 1):
@@ -307,6 +314,7 @@ class Session:
                         continue
                     raise
         finally:
+            self._holder = None
             self._lock.release()
 
     def _exchange(self, c, req, data, got_any):
