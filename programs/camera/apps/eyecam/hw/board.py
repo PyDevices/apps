@@ -810,7 +810,10 @@ def build(scope):
     # Camera, bc.sdcard the card, bc.led the pin, bc.accelerometer the sensor.
     source = open_source(bc, _here + "/testcard.jpg")
     print("eyecam: picture from the %s source" % source.kind)
-    preview = Preview(source)
+    # Adopted first, so it closes last, after the recorder that reads it. The
+    # camera's frame buffers (about 12.7 MB on the Eye) live outside the
+    # Python heap and come back only when it is closed.
+    preview = scope.adopt(Preview(source))
     # One full frame of scratch for photos and video frames, made once: a
     # 4 MB buffer per photo would grow the Python heap into the PSRAM the
     # encoder and the models need. The factory's largest picture is 1920x1080,

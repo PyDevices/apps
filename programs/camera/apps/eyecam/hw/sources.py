@@ -70,8 +70,9 @@ class CsiSource:
 
     kind = CSI
 
-    def __init__(self, camera):
+    def __init__(self, camera, forget=None):
         self.cam = camera
+        self._forget = forget
 
     def size(self):
         s = self.cam.size()
@@ -87,7 +88,11 @@ class CsiSource:
         pass
 
     def deinit(self):
-        self.cam.deinit()
+        try:
+            self.cam.deinit()
+        finally:
+            if self._forget is not None:
+                self._forget()
 
 
 class UvcSource:
@@ -230,7 +235,16 @@ def open_source(board_config, testcard_path, usb_wait_ms=3000):
 
     def csi():
         cam = getattr(board_config, "camera", None)  # made on first use
-        return CsiSource(landscape(cam)) if cam is not None else None
+        if cam is None:
+            return None
+
+        def forget():
+            # board_config keeps the camera it made, and a deinited one can't
+            # stream again: drop it so the next open makes a new one.
+            if getattr(board_config, "__dict__", {}).get("camera") is cam:
+                del board_config.camera
+
+        return CsiSource(landscape(cam), forget)
 
     def uvc():
         dev = _usb_camera(usb_wait_ms)
