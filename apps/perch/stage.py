@@ -19,7 +19,7 @@ import lvgl as lv
 import svgio
 
 from . import huey_props, huey_shift, huey_views, huey, scene_bench, scene_coast, scene_desk
-from .vec import Doc, at, circle
+from .vec import Doc, at, circle, colours, mix
 
 TICK_MS = 40
 SCENE_W, SCENE_H = 800, 480
@@ -233,6 +233,7 @@ class Stage:
         #: bytes of picture ever held, and the most working memory a place
         #: and a pose took in their decoders (0 from an svgio without it);
         #: ``rests``, the collections made while the chameleon stood still;
+        #: ``swaps``, the changes of colour made by swapping colours as svgio drew;
         #: and ``slow_steps``, what the showing ticks over 150 ms were doing.
         self.stats = {
             "build": 0,
@@ -258,20 +259,24 @@ class Stage:
             "place_memory": 0,
             "pose_memory": 0,
             "rests": 0,
+            "swaps": 0,
             "slow_steps": {},
         }
         self._born = ticks_ms()
         self._asked = self._born  # when the change being drawn was asked for
-        # The poses' pictures live in one block, taken first of all. A heap
-        # that grows when it must (an ESP32's) collects before it grows, every
-        # time something doesn't fit, and a collection reads every picture
-        # held: a third of a second with six megabytes of them. Taken first,
-        # the block is most of the heap, so the next thing that doesn't fit
-        # doubles it, and that room is what keeps collections rare.
+        # The poses' pictures live in one block, taken first of all. A
+        # collection reads every block of the heap it keeps, a third of a
+        # second for six megabytes of pictures on a board, so where svgio has
+        # buffers outside the heap the block is one of those. Otherwise it is
+        # a bytearray, and on a heap that grows when it must (an ESP32's)
+        # taking it first means the next thing that doesn't fit doubles the
+        # heap: that room is what keeps collections rare.
+        # (The Buffer itself is kept beside its memoryview, which alone
+        # wouldn't keep it.)
         try:
-            self._slab = memoryview(bytearray(CACHE_BYTES + SLAB_SPARE))
+            self._slab, self._slab_block = self._bytes_for(CACHE_BYTES + SLAB_SPARE)
         except MemoryError:
-            self._slab = None  # a pose then takes its buffer from the heap
+            self._slab = self._slab_block = None  # a pose then takes its buffer from the heap
         self._slots = {}  # id of a buffer cut from the slab -> (where, bytes)
         self._drawing = None  # the buffer a pose is being drawn into
         self._collected = 0  # the tick of the last collection
@@ -279,6 +284,7 @@ class Stage:
         self._poser = _decoder(POSE_MEMORY)
         # an svgio whose decoders have memory of their own also draws in bands
         self._bands = hasattr(self._decoder, "memory")
+        self._swaps = None  # whether svgio swaps colours as it draws: not asked yet
         self._docs = {}  # (place, what the ground shows) -> its shapes
         self._doc_order = []
         self._frames = {}  # (spec, flip, scheme) -> (descriptor, buffer, x offset, y offset)
@@ -306,7 +312,7 @@ class Stage:
 
         # the place: one buffer, navy until the first one is drawn
         # svgio fills it: a row at a time from Python takes seconds on a board
-        self._ground = bytearray(self.w * (self.h + 2) * 2)
+        self._ground, self._ground_block = self._bytes_for(self.w * (self.h + 2) * 2)
         fill = '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d"><rect width="%d" height="%d" fill="#%06x"/></svg>'
         self._decoder.open((fill % (self.w, self.h, self.w, self.h, NAVY)).encode())
         self._decoder.decode(self._ground, stride=self.w)
@@ -384,6 +390,11 @@ class Stage:
         self._collected = self._ticks
         self._since(t0, "tidy")
 
+    def _bytes_for(self, size):
+        """*size* bytes for pictures, outside the collector's heap where svgio has such: a view of them, and their owner."""
+        block = svgio.Buffer(size) if hasattr(svgio, "Buffer") else bytearray(size)
+        return memoryview(block), block
+
     def _buffer(self, size):
         """A buffer of *size* bytes for a pose's picture: a piece of the slab, if one is free."""
         if self._slab is None:
@@ -445,22 +456,10 @@ class Stage:
     def _key(self, spec, scheme=None):
         return (spec, self._facing < 0, scheme or self.scheme)
 
-    def _make(self, spec, scheme=None, keep=True):
-        """Draw the pose *spec* in four steps: its shapes, the parse, its buffer, the picture.
-
-        A generator: each ``next`` does one step. The pose is kept under its
-        key, or left in ``_made`` when it isn't to be kept.
-        """
-        scheme = scheme or self.scheme
-        flip = self._facing < 0
-        key = (spec, flip, scheme)
-        if keep and key in self._frames:
-            return
-        self._making = key
+    def _source(self, spec, scheme, flip):
+        """The pose *spec* as svgio opens it, and the box of the chameleon's units it shows."""
         x, y, k = PLACES[self.place]["at"]
         vx, vy, vw, vh = self._rect
-        s = self.w / vw
-        t0 = ticks_us()
         doc = Doc()
         body, (rx, ry, rw, rh) = _pose(doc, spec, scheme)
         if flip:
@@ -474,8 +473,110 @@ class Stage:
             bottom = min(ry + rh, (vy + vh - y) / k)
             rx, ry, rw, rh = left, top, max(right - left, 1), max(bottom - top, 1)
         doc.add(body)
-        text = doc.source((rx, ry, rw, rh))
-        doc = body = None
+        return doc.source((rx, ry, rw, rh)), rx, ry, rw, rh
+
+    def _keep(self, key, frame):
+        """Hold a pose's picture under *key*, letting the least lately used go for room."""
+        self._frames[key] = frame
+        self._order.append(key)
+        self._bytes += len(frame[1])
+        while self._bytes > CACHE_BYTES and len(self._order) > 2:
+            old = self._order[0]
+            if self._frames[old] is self._shown:
+                old = self._order[1]
+            self._drop(old)
+
+    def _beside(self, steps):
+        """One step of the change of colours *steps*, taken beside another job; None once it is done."""
+        if steps is not None:
+            try:
+                next(steps)
+                return steps
+            except StopIteration as e:
+                self._shifted = e.value
+        return None
+
+    def _recolour(self, rest, old, new):
+        """Take the resting pose from scheme *old* to *new* by swapping its colours.
+
+        A generator, a step a tick: the pose is built and parsed once in the
+        old colours, built again in the new only to pair each colour with its
+        counterpart, then drawn three times from the one parse, two on the
+        way and the last in the new colours, which is kept. Gives False,
+        having drawn nothing, when svgio can't swap colours or the two
+        schemes' colours don't pair off.
+        """
+        if self._swaps is None:
+            try:
+                self._poser.decode(bytearray(8), rows=(0, 0), colors={})
+                self._swaps = True
+            except (TypeError, RuntimeError, ValueError) as e:
+                self._swaps = not isinstance(e, TypeError)
+        if not self._swaps:
+            return False
+        flip = self._facing < 0
+        x, y, k = PLACES[self.place]["at"]
+        s = self.w / self._rect[2]
+        t0 = ticks_us()
+        huey._kept_text.clear()  # so every colour is drawn, and noted
+        was = colours()
+        text, rx, ry, rw, rh = self._source(rest, old, flip)
+        colours(False)
+        t0 = self._since(t0, "build")
+        w, h = self._poser.open(text, width=max(2, int(rw * k * s + 0.5)))
+        text = None
+        self._since(t0, "parse")
+        self._step = ("parse", rest)
+        yield
+        t0 = ticks_us()
+        huey._kept_text.clear()
+        now = colours()
+        self._source(rest, new, flip)
+        colours(False)
+        self._since(t0, "build")
+        self._step = ("build", rest)
+        swap = {}
+        if len(was) != len(now):
+            return False
+        for a, b in zip(was, now):
+            if swap.setdefault(a, b) != b:
+                return False
+        yield
+        for t in (0.33, 0.67, 1):
+            t0 = ticks_us()
+            data = self._drawing = self._buffer(w * h * 3)
+            planes = memoryview(data)
+            part = swap if t == 1 else dict((a, mix(a, b, t)) for a, b in swap.items())
+            self._poser.decode(planes[: w * h * 2], planes[w * h * 2 :], colors=part)
+            planes = self._drawing = None
+            self._since(t0, "draw")
+            self.stats["poses"] += 1
+            frame = (self._descriptor(data, w, h, lv.COLOR_FORMAT.RGB565A8), data, round(rx * k * s), round(ry * k * s))
+            if t == 1:
+                self._keep((rest, flip, new), frame)
+                self.stats["swaps"] += 1
+            else:
+                self._put(frame, rest)
+                self._step = ("draw", rest)
+                yield
+        return True
+
+    def _make(self, spec, scheme=None, keep=True):
+        """Draw the pose *spec* in four steps: its shapes, the parse, its buffer, the picture.
+
+        A generator: each ``next`` does one step. The pose is kept under its
+        key, or left in ``_made`` when it isn't to be kept.
+        """
+        scheme = scheme or self.scheme
+        flip = self._facing < 0
+        key = (spec, flip, scheme)
+        if keep and key in self._frames:
+            return
+        self._making = key
+        x, y, k = PLACES[self.place]["at"]
+        s = self.w / self._rect[2]
+        t0 = ticks_us()
+        text, rx, ry, rw, rh = self._source(spec, scheme, flip)
         self._since(t0, "build")
         self._step = ("build", spec)
         yield
@@ -507,14 +608,7 @@ class Stage:
         if not keep:
             self._made = frame
         elif key not in self._frames:
-            self._frames[key] = frame
-            self._order.append(key)
-            self._bytes += len(data)
-            while self._bytes > CACHE_BYTES and len(self._order) > 2:
-                old = self._order[0]
-                if self._frames[old] is self._shown:
-                    old = self._order[1]
-                self._drop(old)
+            self._keep(key, frame)
         self.stats["peak"] = max(self.stats["peak"], self.held_bytes())
 
     def _frame(self, spec):
@@ -680,7 +774,7 @@ class Stage:
         rest = self._rest()
         blends = []
         if not moved and old_scheme and old_scheme != new_scheme and rest[0] != "sleep" and not was_asleep:
-            blends = [huey_shift.between(old_scheme, new_scheme, t) for t in (0.33, 0.67)]
+            blends = [0.33, 0.67]
         if old_scheme != new_scheme:
             # nothing drawn in the old colours will be wanted again
             self._forget()
@@ -693,8 +787,13 @@ class Stage:
             self._tidy()
             tidy = False
             yield
+        # Where the colours change, the chameleon turns through them while the
+        # place is painted, a step of each a tick, not after it.
+        shift = self._recolour(rest, old_scheme, new_scheme) if blends else None
+        self._shifted = False
         if self._painted != (place, self._ground_key(), view):
             doc = self._shapes()
+            shift = self._beside(shift)
             yield
             t0 = ticks_us()
             text = doc.source(self._rect)
@@ -703,6 +802,7 @@ class Stage:
             self._decoder.open(text, width=self.w)
             text = None
             self._since(t0, "parse")
+            shift = self._beside(shift)
             yield
             if self._bands:
                 # a band a tick, so the picture arrives down the screen and
@@ -723,6 +823,7 @@ class Stage:
                     area.y1, area.y2 = top + y0, top + y1 - 1
                     self.ground.invalidate_area(area)
                     if y1 < self.h:
+                        shift = self._beside(shift)
                         yield
             else:
                 t0 = ticks_us()
@@ -744,8 +845,15 @@ class Stage:
         if tidy:
             self._tidy()
             yield
-        while blends:
-            yield from self._blend(rest, blends.pop(0))
+        while shift is not None:
+            shift = self._beside(shift)
+            if shift is not None:
+                yield
+        if blends and not self._shifted:
+            # an svgio that draws only the colours it parsed: each step is a
+            # pose built and parsed afresh
+            for t in blends:
+                yield from self._blend(rest, huey_shift.between(old_scheme, new_scheme, t))
         for name in list(huey.COLORS):
             if ">" in name:
                 del huey.COLORS[name]
@@ -1090,7 +1198,7 @@ class Stage:
         self._docs = {}
         self._doc_order = []
         self._shown = self._made = self._loose = self._bug_frame = self.pose = None
-        self._slab = self._drawing = None
+        self._slab = self._slab_block = self._drawing = None
         self._slots = {}
         self._bytes = 0
         self._air = []

@@ -12,7 +12,7 @@ handle.
 import math
 
 from . import huey
-from .vec import at, circle, ellipse, group, line, path, pts, rect, smooth
+from .vec import at, circle, ellipse, group, limb, line, path, pts, rect, smooth
 
 NAVY = 0x0B2A4A
 LIME = 0xC4DC4C
@@ -345,13 +345,14 @@ def party_hat():
 
 
 def _fist(skin, shade, deep):
-    # the two bundles of toes closed round a handle, over the open hand beneath
+    # three toes wrapped across a handle, the knuckle of the thumb side below them
     return (
-        ellipse(0, -10, 19, 18, skin)
-        + ellipse(0, -17, 18, 9.5, skin)
-        + path("M-17 -9Q0 -3 17 -9", None, deep, 2.2)
-        + path("M-15 -20Q0 -26 13 -21", None, shade, 2.4, opacity=0.9)
-        + ellipse(-11, 0, 7, 5, shade, opacity=0.55)
+        ellipse(0, -8, 17, 15, shade)
+        + limb(-15, -19, 15, -20, 0.05, 11, 10, skin)
+        + limb(-16, -10, 16, -11, 0.05, 12, 11, skin)
+        + limb(-14, -1, 14, -2, 0.05, 11, 10, skin)
+        + path("M-15 -14.5Q0 -13 15 -15.5M-15 -5.5Q0 -4 14 -6.5", None, deep, 1.8)
+        + path("M-9 -22.5Q0 -24 8 -23", None, shade, 1.6, opacity=0.7)
     )
 
 

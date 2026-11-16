@@ -17,11 +17,15 @@ LIME = 0xC4DC4C
 WHITE = 0xFFFFFF
 
 # The colours it can take: (skin, shade, light, belly, spots, deep).
+# No two colours of a scheme are the same number, nor the same as a colour
+# drawn whatever the scheme (the lime, white, a glow): a change of scheme
+# redraws a pose by swapping each colour for its counterpart, which needs one
+# to be told from another. Where two would be alike, one is a step away.
 COLORS = {
     "leaf": (0x6FC24B, 0x3E9440, 0xA9E36B, 0xE4F5A8, 0xFFE25A, 0x25663A),
-    "brand": (0x3F8FD6, 0x2767AC, 0x7DBBF0, 0xC4DC4C, 0xC4DC4C, 0x1A4A80),
-    "sunset": (0xF47C4C, 0xCC4A33, 0xFFB26B, 0xFFE3A6, 0x8A3F78, 0x8E2B2B),
-    "board": (0x239468, 0x146B4B, 0x56C492, 0xF4CD52, 0xF4CD52, 0x0C4A35),
+    "brand": (0x3F8FD6, 0x2767AC, 0x7DBBF0, 0xC4DC4D, 0xC5DC4C, 0x1A4A80),
+    "sunset": (0xF47C4C, 0xCC4A33, 0xFFB26A, 0xFFE3A6, 0x8A3F78, 0x8E2B2B),
+    "board": (0x239468, 0x146B4B, 0x56C492, 0xF4CD52, 0xF4CD53, 0x0C4A35),
 }
 
 _CROUCH = 22
@@ -434,12 +438,14 @@ def draw_hang(doc, look=(-0.2, 0.2), look_far=None, mood="happy", colors="leaf",
     out.append(limb(hip[0], hip[1], -18, 6, 0.24, 32, 18, skin))
     if perch:
         out.append(_perch(perch))
-    # three turns of tail round the perch, and its tip
-    for i in range(3):
-        cx = 96 + i * 21
-        out.append(limb(cx - 5, -9, cx + 6, 20, 0, 20 - i * 3, 18 - i * 3, skin))
-        out.append(limb(cx - 6, -8, cx - 1, 6, 0, 4, 3, light))
-    out.append(path("M162 22q16 6 20 -8q2 -12 -9 -12q-8 1 -7 8", None, skin, 9))
+    # four turns of tail wound close round the perch, thinning to a curled tip
+    for i in range(4):
+        cx = 94 + i * 15
+        w = 21 - i * 2.5
+        out.append(limb(cx - 7, -12, cx + 7, 21, 0, w + 3, w + 2, shade))
+        out.append(limb(cx - 8, -12, cx + 5, 21, 0, w, w - 1, skin))
+        out.append(limb(cx - 9, -9, cx - 5, 3, 0, 3.5, 2.5, light))
+    out.append(path("M150 21q10 9 17 0q5 -9 -4 -12q-7 0 -6 6", None, skin, 7))
     out.append(_foot(-52, 3, shade, deep, 180))
     out.append(_foot(-18, 2, skin, deep, 180))
     # the near arm, thrown wide
