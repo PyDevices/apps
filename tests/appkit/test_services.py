@@ -16,6 +16,7 @@ CONTRACT = "services_contract.py"
 
 PLANTS = (
     "worker-thread",
+    "worker-stays",
     "worker-keep",
     "worker-late",
     "worker-key",

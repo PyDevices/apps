@@ -143,6 +143,7 @@ class Worker(_Base):
 
         _Base.__init__(self)
         self._lock = _thread.allocate_lock()
+        self._thread = None  # the thread's identity, once it is running
         self._wake = _thread.allocate_lock()
         self._wake.acquire()
         if stack is None and _on_board():
@@ -186,6 +187,7 @@ class Worker(_Base):
         _release_all(dropped)
 
     def _loop(self):
+        self._thread = _ident()
         while True:
             job = None
             with self._lock:
@@ -197,12 +199,32 @@ class Worker(_Base):
             done, owner, value, error = self._run(job)
             job = None
             if done is not None and not _gone(owner):
-                _deliver(done, owner, value, error)
+                _deliver(done, owner, value, error, self._thread)
             done = owner = value = error = None
 
 
-def _deliver(done, owner, value, error):
+def _ident():
+    import _thread
+
+    return _thread.get_ident()
+
+
+def _deliver(done, owner, value, error, worker=None):
+    """Schedule ``done(value, error)`` for the main thread; *worker* is the worker thread's identity."""
+
     def run(_):
+        if worker is not None and _ident() == worker:
+            # Where threads share one interpreter lock (an ESP32), a scheduled
+            # call runs on whichever thread looks for one next, and that can be
+            # the worker itself, in the middle of taking its next job with its
+            # lock held: a done() that submits a job then waits for that lock
+            # for ever, and nothing scheduled runs again. So from here the call
+            # is handed on, until the main thread is the one that finds it.
+            try:
+                multimer.schedule(run, None)
+            except RuntimeError:
+                print("appkit.worker: dropped a done(): the schedule queue stayed full")
+            return
         _call_done(done, owner, value, error)
 
     for _ in range(50):

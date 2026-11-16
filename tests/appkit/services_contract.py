@@ -161,6 +161,40 @@ def worker_delivers_on_the_main_thread():
 
 
 @check
+def worker_hands_done_on_from_its_own_thread():
+    # On a board a scheduled call can run on the worker's thread. Here the
+    # first one is made to: done() must still arrive on the main thread, once.
+    if not _threaded():
+        return
+    main = _ident()
+    s = AppScope(_app(), "w")
+    got = []
+    seen = []
+    real = W.multimer
+
+    class _OnTheSpot:
+        def __getattr__(self, name):
+            return getattr(real, name)
+
+        def schedule(self, fn, arg):
+            seen.append(_ident())
+            if len(seen) == 1:
+                fn(arg)  # at once, on the thread that asked: the worker
+            else:
+                real.schedule(fn, arg)
+
+    W.multimer = _OnTheSpot()
+    try:
+        s.worker.submit(lambda: "value", lambda value, error: got.append((value, _ident())))
+        expect(_wait(lambda: len(got) == 1), "done() not called: %r" % (got,))
+    finally:
+        W.multimer = real
+    expect(seen and seen[0] != main, "the first call wasn't scheduled from the worker thread: %r" % (seen,))
+    expect(got == [("value", main)], "done() ran on the worker thread, or twice: %r, main is %r" % (got, main))
+    s.close()
+
+
+@check
 def worker_key_replaces_a_waiting_job():
     if not _threaded():
         return
@@ -830,7 +864,15 @@ def shell_data_root_moves_it():
 
 def _plant_worker_thread():
     # done() called straight from the worker thread.
-    W._deliver = lambda done, owner, value, error: W._call_done(done, owner, value, error)
+    W._deliver = lambda done, owner, value, error, worker=None: W._call_done(done, owner, value, error)
+
+
+def _plant_worker_stays():
+    # done() runs on whichever thread the scheduled call lands on.
+    def deliver(done, owner, value, error, worker=None):
+        W.multimer.schedule(lambda _: W._call_done(done, owner, value, error), None)
+
+    W._deliver = deliver
 
 
 def _plant_worker_keep():
@@ -993,6 +1035,7 @@ def _plant_home_hook():
 #: plant name -> (how to plant it, the check that must then fail)
 PLANTS = {
     "worker-thread": (_plant_worker_thread, "worker_delivers_on_the_main_thread"),
+    "worker-stays": (_plant_worker_stays, "worker_hands_done_on_from_its_own_thread"),
     "worker-keep": (_plant_worker_keep, "worker_drops_an_apps_jobs_at_close"),
     "worker-late": (_plant_worker_late, "worker_drops_an_apps_jobs_at_close"),
     "worker-key": (_plant_worker_key, "worker_key_replaces_a_waiting_job"),
