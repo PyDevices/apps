@@ -1,0 +1,1 @@
+{"name": "huey", "title": "Huey", "category": "Desk", "icon": "record_voice_over", "color": "#3E9440", "needs": ["svgio", "socket", "_thread"]}

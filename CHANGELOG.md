@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Huey: a new app. Hold Huey the chameleon, ask him something out loud, and he answers in speech and a speech bubble, acting the answer out with a mood, colours, a prop or a place. It talks to an OpenAI-compatible server named in its settings file.
+- appkit: a worker's `done()` runs on the main thread on an ESP32 too. There it could run on the worker's own thread, and a `done()` that submitted the next job could stop every timer on the board.
 - Huey's Perch: a new app of vector art drawn by svgio. Huey, a chameleon, walks, catches bugs and changes colour at the coast, a workbench and a desk. It needs firmware with `svgio`.
 
 ## 0.1.2.dev12

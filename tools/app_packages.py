@@ -17,6 +17,9 @@ eyecam) gets a package.json of its own, so
 the same way. The program's other files, such as its ``main.py``, are left to
 lines of their own.
 
+An app that imports from another app (``from ..perch import stage``) installs
+that app as well.
+
 What an app needs is read from its imports, and from the imports of this
 repository's libraries it uses. Every name an app imports has to be known
 below: from an index, from the firmware or the board config, or one of the
@@ -100,7 +103,7 @@ FIRMWARE = {
     "audiofeatures", "audiomixer", "audiomp3", "audiopump", "audiospeed", "cameraif", "castif", "earful",
     "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "image", "jpegio", "json", "lvgl", "machine",
     "math", "mdns", "micropython", "microcontroller", "network", "numpy", "os", "platform", "ppa", "random",
-    "scipy", "select", "socket", "struct", "svgio", "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab",
+    "scipy", "select", "socket", "ssl", "struct", "svgio", "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab",
     "usb",
 }
 
@@ -140,6 +143,18 @@ def imported(paths, dotted=False):
                     names.update(node.module + "." + alias.name for alias in node.names)
                 else:
                     names.add(node.module.split(".")[0])
+    return names
+
+
+def sibling_apps(paths):
+    """The other apps the Python files in *paths* import from, as ``from ..perch import stage`` does."""
+    names = set()
+    for path in paths:
+        with open(path, encoding="utf-8") as f:
+            tree = ast.parse(f.read(), path)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.level == 2:
+                names.update([node.module.split(".")[0]] if node.module else [alias.name for alias in node.names])
     return names
 
 
@@ -193,6 +208,12 @@ def needs(folder):
         lib_needs(package, closure)
     deps = [[package, "latest"] for package in sorted(closure)]
     deps += [[url, "main"] for url in sorted(elsewhere)]
+    # an app that draws with another's modules installs that app too
+    top = [os.path.join(folder, name) for name in os.listdir(folder) if name.endswith(".py")]
+    for other in sorted(sibling_apps(top)):
+        if not os.path.isfile(os.path.join(APPS, other, "app.json")):
+            raise SystemExit("%s imports from ..%s, which isn't an app here" % (os.path.relpath(folder, ROOT), other))
+        deps.append(["github:PyDevices/apps/apps/" + other, "main"])
     for package in closure:
         upstream.update(HTTP.get(package, ((), ()))[0])
     bundle = sorted({name for package in closure for name in HTTP.get(package, ((), ()))[1]})
