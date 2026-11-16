@@ -163,6 +163,8 @@ class Station:
         self._panel_midi = False
         #: Whether the channel list ends with the Bluetooth MIDI switch.
         self._ble_ok = _midi.ble_available()
+        #: Whether the remembered Bluetooth switch has been acted on.
+        self._ble_started = False
         try:
             import audioinstruments as ai
 
@@ -358,6 +360,7 @@ class Station:
         if inputs is None:
             return
         self.prefs["ble"] = bool(on)
+        self._ble_started = True
         try:
             inputs.set_ble(on, self.parser)
         except Exception as e:  # said on the status line by ble_text()
@@ -377,8 +380,6 @@ class Station:
 
     def _open_midi(self, _timer=None):
         self.inputs = _midi.Inputs().open()
-        if self._ble_ok and self.prefs.get("ble"):
-            self.set_ble(True)
         self._show_midi()
         self._first_instrument(KEYBOARD_WAIT_MS)
 
@@ -739,6 +740,12 @@ class Station:
         self._fill_menus()
         self._open_panel()
         self.loading = False
+        if self._ble_ok and self.prefs.get("ble") and not self._ble_started:
+            # After the sound: on a board short of internal RAM, Bluetooth
+            # failing to start is said on the status line, and the
+            # instrument still plays.
+            self._ble_started = True
+            self.set_ble(True)
         self._status_tick()
 
     def _open_panel(self):

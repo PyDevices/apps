@@ -119,7 +119,7 @@ def main(scope):
     st = state = {
         "module": None, "out": None, "port": None, "host": None, "ch": 0, "level": [0] * 16,
         "seen": [0] * 16, "midi": None, "error": None, "short": None, "shown": None, "bank": None, "bank_name": "",
-        "merged": False, "midi_told": False, "ticks": 0, "ble": None, "ble_shown": None,
+        "merged": False, "midi_told": False, "ticks": 0, "ble": None, "ble_shown": None, "ble_resumed": False,
         "since": ticks_ms(), "player": None, "player_shown": None, "browse": None, "marked": None, "widgets": {},
     }
     watch = midiin.Watch()  # names the hub's MIDI devices for the status line
@@ -171,6 +171,16 @@ def main(scope):
             return
         st["module"], st["out"], st["bank"] = module, out, bank
         st["bank_name"] = banks.name_of(bank)
+        resume_ble()
+
+    def resume_ble():
+        """Turn Bluetooth MIDI back on if it was left on, once: after the
+        sound starts, so a board short of internal RAM still plays and says
+        why Bluetooth didn't start."""
+        if ble_ok and prefs.get("ble") and not st["ble_resumed"]:
+            st["ble_resumed"] = True
+            ble_btn.add_state(lv.STATE.CHECKED)
+            set_ble(True)
 
     def stop_audio():
         out, module = st["out"], st["module"]
@@ -895,9 +905,8 @@ def main(scope):
     elif found:
         show_picker(found)
     setup_timer = scope.every(SETUP_MS, setup)
-    if ble_ok and prefs.get("ble"):
-        ble_btn.add_state(lv.STATE.CHECKED)
-        set_ble(True)
+    if not found or st["error"]:  # no sound to wait for
+        resume_ble()
     def service(t):
         """The port and the player on one timer, the port first: a key
         played never waits behind a file's backlog."""
