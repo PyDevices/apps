@@ -285,6 +285,9 @@ class Stage:
         # an svgio whose decoders have memory of their own also draws in bands
         self._bands = hasattr(self._decoder, "memory")
         self._swaps = None  # whether svgio swaps colours as it draws: not asked yet
+        self._noted = {}  # (pose, scheme) -> the colours it draws, in order
+        self._prepare = None  # getting ready for the next change of colours, a step a tick
+        self._eager = False  # whether that comes before drawing poses ahead
         self._docs = {}  # (place, what the ground shows) -> its shapes
         self._doc_order = []
         self._frames = {}  # (spec, flip, scheme) -> (descriptor, buffer, x offset, y offset)
@@ -486,6 +489,44 @@ class Stage:
                 old = self._order[1]
             self._drop(old)
 
+    def _colours_of(self, spec, scheme):
+        """Every colour the pose *spec* draws in *scheme*, in order: noted once, and kept."""
+        key = (spec, scheme)
+        noted = self._noted.get(key)
+        if noted is None:
+            t0 = ticks_us()
+            huey._kept_text.clear()  # so every colour is drawn, and noted
+            noted = colours()
+            _pose(Doc(), spec, scheme)
+            colours(False)
+            if len(self._noted) >= 8:
+                self._noted.clear()
+            self._noted[key] = noted
+            self._since(t0, "build")
+        return noted
+
+    def _next_variant(self):
+        variants = PLACES[self.place]["variants"]
+        return variants[(variants.index(self.variant) + 1) % len(variants)]
+
+    def _ahead(self):
+        """What the next change of colours will want, a piece a tick while it stands idle.
+
+        The colours of the resting pose here and in the next variant's
+        scheme, which pair off into the table the change swaps by, and the
+        next variant's place, if it has one of its own. Then the change has
+        only to parse and draw.
+        """
+        rest = self._rest()
+        if rest[0] == "sleep":
+            return
+        following = self._next_variant()
+        schemes = PLACES[self.place]["schemes"]
+        yield self._colours_of(rest, self.scheme)
+        yield self._colours_of(rest, schemes[following] if schemes else following)
+        if schemes:
+            yield self._shapes(following)
+
     def _beside(self, steps):
         """One step of the change of colours *steps*, taken beside another job; None once it is done."""
         if steps is not None:
@@ -517,31 +558,27 @@ class Stage:
         flip = self._facing < 0
         x, y, k = PLACES[self.place]["at"]
         s = self.w / self._rect[2]
+        was = self._colours_of(rest, old)
         t0 = ticks_us()
-        huey._kept_text.clear()  # so every colour is drawn, and noted
-        was = colours()
         text, rx, ry, rw, rh = self._source(rest, old, flip)
-        colours(False)
         t0 = self._since(t0, "build")
         w, h = self._poser.open(text, width=max(2, int(rw * k * s + 0.5)))
         text = None
         self._since(t0, "parse")
         self._step = ("parse", rest)
         yield
-        t0 = ticks_us()
-        huey._kept_text.clear()
-        now = colours()
-        self._source(rest, new, flip)
-        colours(False)
-        self._since(t0, "build")
-        self._step = ("build", rest)
+        fresh = (rest, new) not in self._noted
+        now = self._colours_of(rest, new)
         swap = {}
         if len(was) != len(now):
             return False
         for a, b in zip(was, now):
             if swap.setdefault(a, b) != b:
                 return False
-        yield
+        if fresh:
+            # built just now, not while it stood idle: that was this tick's work
+            self._step = ("build", rest)
+            yield
         for t in (0.33, 0.67, 1):
             t0 = ticks_us()
             data = self._drawing = self._buffer(w * h * 3)
@@ -647,6 +684,15 @@ class Stage:
     def _work(self):
         """One step of drawing a pose ahead: the next in the queue, or the one begun."""
         if self._maker is None:
+            if self._prepare is not None and (self._eager or not self._wanted):
+                # getting ready for the next change of colours: before the
+                # poses when colours were what last changed, as the next
+                # change is likely the same again; otherwise once they're drawn
+                try:
+                    next(self._prepare)
+                except StopIteration:
+                    self._prepare = None
+                return
             while self._wanted:
                 spec = self._wanted.pop(0)
                 if not self._have(spec):
@@ -706,18 +752,19 @@ class Stage:
 
     # -- the place ------------------------------------------------------
 
-    def _ground_key(self):
+    def _ground_key(self, variant=None):
         # the bench is the same bench whatever colours the chameleon wears
-        return self.variant if PLACES[self.place]["schemes"] else None
+        return (variant or self.variant) if PLACES[self.place]["schemes"] else None
 
-    def _shapes(self):
-        """The place's shapes, built now or kept from the last time it was shown."""
-        key = (self.place, self._ground_key())
+    def _shapes(self, variant=None):
+        """The place's shapes in *variant* (the one showing, unless given), built now or kept from before."""
+        variant = variant or self.variant
+        key = (self.place, self._ground_key(variant))
         doc = self._docs.get(key)
         if doc is None:
             t0 = ticks_us()
             doc = Doc()
-            PLACES[self.place]["build"](doc, self.variant)
+            PLACES[self.place]["build"](doc, variant)
             self._since(t0, "build")
             self._docs[key] = doc
             while len(self._doc_order) >= DOCS_KEPT:
@@ -756,6 +803,7 @@ class Stage:
         self._quiet = False
         # a pose half drawn is dropped: the poses share one decoder
         self._maker = self._making = self._drawing = None
+        self._prepare = None
         self.bug.add_flag(lv.obj.FLAG.HIDDEN)
         old_scheme = self.scheme
         schemes = PLACES[place]["schemes"]
@@ -844,7 +892,8 @@ class Stage:
             self._set_air()
         if tidy:
             self._tidy()
-            yield
+            if not self._shifted:
+                yield
         while shift is not None:
             shift = self._beside(shift)
             if shift is not None:
@@ -877,6 +926,8 @@ class Stage:
                 if wide:
                     ahead.extend((("aim",), ("tongue", 0.5), ("tongue", 1), ("happy",)))
         self._wanted = ahead
+        self._prepare = self._ahead()
+        self._eager = not moved
         if not self.cues:
             self.cues.extend(PLACES[place]["first"])
         self.busy = False
