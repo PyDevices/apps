@@ -213,6 +213,10 @@ class Stage:
     `next_view` change what is shown, and `tap` is a finger on the picture.
     `cues` is a list of things for the chameleon to do next ("stroll",
     "tongue", "blink", "look", "turn", "hold"), ahead of its own choices.
+    `wears` is a scheme from `huey.COLORS` for him to wear wherever he is, or
+    None for the colours of the place; the next `go` puts it on.
+
+    A stage with more poses is a subclass whose `shapes` draws them.
     """
 
     def __init__(self, root, size, place="coast", variant=None, view="wide", seed=7):
@@ -220,6 +224,7 @@ class Stage:
         self.root = root
         self.random = _Random(seed)
         self.cues = []
+        self.wears = None
         #: What the work cost, for whoever is timing it. Microseconds in
         #: ``build`` (the shapes, in Python), ``tidy`` (the
         #: collection as a place or the colours change), ``alloc`` (finding a
@@ -456,6 +461,14 @@ class Stage:
 
     # -- poses ----------------------------------------------------------
 
+    def shapes(self, doc, spec, scheme):
+        """The chameleon's shapes for the pose *spec* in *scheme*, and the box they fit in.
+
+        Returns:
+            The shapes, and ``(x, y, width, height)`` in the chameleon's units.
+        """
+        return _pose(doc, spec, scheme)
+
     def _key(self, spec, scheme=None):
         return (spec, self._facing < 0, scheme or self.scheme)
 
@@ -464,7 +477,7 @@ class Stage:
         x, y, k = PLACES[self.place]["at"]
         vx, vy, vw, vh = self._rect
         doc = Doc()
-        body, (rx, ry, rw, rh) = _pose(doc, spec, scheme)
+        body, (rx, ry, rw, rh) = self.shapes(doc, spec, scheme)
         if flip:
             body = at(0, 0, body, flip=True)
             rx = -rx - rw
@@ -497,7 +510,7 @@ class Stage:
             t0 = ticks_us()
             huey._kept_text.clear()  # so every colour is drawn, and noted
             noted = colours()
-            _pose(Doc(), spec, scheme)
+            self.shapes(Doc(), spec, scheme)
             colours(False)
             if len(self._noted) >= 8:
                 self._noted.clear()
@@ -523,7 +536,7 @@ class Stage:
         following = self._next_variant()
         schemes = PLACES[self.place]["schemes"]
         yield self._colours_of(rest, self.scheme)
-        yield self._colours_of(rest, schemes[following] if schemes else following)
+        yield self._colours_of(rest, self.wears or (schemes[following] if schemes else following))
         if schemes:
             yield self._shapes(following)
 
@@ -807,7 +820,7 @@ class Stage:
         self.bug.add_flag(lv.obj.FLAG.HIDDEN)
         old_scheme = self.scheme
         schemes = PLACES[place]["schemes"]
-        new_scheme = schemes[variant] if schemes else variant
+        new_scheme = self.wears or (schemes[variant] if schemes else variant)
         moved = place != self.place or view != self.view
         was_asleep = self.place is not None and self._rest() == ("sleep",)
         if moved:

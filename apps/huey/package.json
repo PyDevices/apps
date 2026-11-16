@@ -1,0 +1,53 @@
+{
+  "description": "Huey, an app for Home",
+  "target": "apps/huey",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "acting.py",
+      "acting.py"
+    ],
+    [
+      "actor.py",
+      "actor.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "client.py",
+      "client.py"
+    ],
+    [
+      "settings.example.json",
+      "settings.example.json"
+    ],
+    [
+      "settings.py",
+      "settings.py"
+    ],
+    [
+      "turn.py",
+      "turn.py"
+    ],
+    [
+      "voice.py",
+      "voice.py"
+    ],
+    [
+      "web.py",
+      "web.py"
+    ]
+  ],
+  "deps": [
+    [
+      "github:PyDevices/apps/apps/perch",
+      "main"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}
