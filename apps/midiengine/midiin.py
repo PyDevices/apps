@@ -6,7 +6,34 @@
 Instruments and the midiEngine hear every USB MIDI device at once, through
 ``midiports.usb_host.all_ports()``. `Watch` names the ones open now,
 for the status line, and notices when one comes or goes.
+`ble_available` says whether a board can take Bluetooth MIDI too.
 """
+
+import sys
+
+
+def ble_available():
+    """True on a board whose firmware has Bluetooth LE, as
+    ``midiports.ble.available()`` says, without importing the port: that
+    waits until the player turns it on. Starts nothing."""
+    if sys.implementation.name not in ("micropython", "circuitpython"):
+        return False
+    if sys.platform in ("webassembly", "emscripten"):
+        return False
+    for mod in ("bluetooth", "_bleio"):
+        try:
+            __import__(mod)
+            return True
+        except ImportError:
+            pass
+    return False
+
+
+def ble_text(port):
+    """The status line for a Bluetooth MIDI input."""
+    if port.state == "connected":
+        return "MIDI: Bluetooth"
+    return "Bluetooth MIDI: waiting as %s" % (port.name,)
 
 
 def name(dev):

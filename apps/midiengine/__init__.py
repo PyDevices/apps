@@ -18,7 +18,9 @@ channel card shows the selected channel's number, instrument and program
 channel, and a CC7 or CC10 arriving on it moves them). The master card
 has the MASTER level (the output's volume, kept as a preference), reverb
 and chorus for the whole module, and PANIC, which stops the player and
-every sound.
+every sound. On a board with Bluetooth LE, BT MIDI under PANIC makes the
+board a Bluetooth MIDI instrument, named midiEngine, that a controller, a
+phone or a computer connects to; it's remembered, and off until turned on.
 
 The Library button swaps the lower cards for the browser: the genres
 down the left, the pieces of one (or all of them) on the right, each
@@ -117,7 +119,7 @@ def main(scope):
     st = state = {
         "module": None, "out": None, "port": None, "host": None, "ch": 0, "level": [0] * 16,
         "seen": [0] * 16, "midi": None, "error": None, "short": None, "shown": None, "bank": None, "bank_name": "",
-        "merged": False, "midi_told": False, "ticks": 0,
+        "merged": False, "midi_told": False, "ticks": 0, "ble": None, "ble_shown": None,
         "since": ticks_ms(), "player": None, "player_shown": None, "browse": None, "marked": None, "widgets": {},
     }
     watch = midiin.Watch()  # names the hub's MIDI devices for the status line
@@ -221,6 +223,19 @@ def main(scope):
         return True
 
     def midi(t):
+        ble = st["ble"]
+        if ble is not None:
+            try:
+                data = ble.read() if ble.any() else None
+            except Exception as e:  # the link stopped: said, and the key shows it off
+                st["ble"] = None
+                ble.close()
+                ble_btn.clear_state(lv.STATE.CHECKED)
+                status.set_text("Bluetooth MIDI stopped: %s" % (e,))
+                data = None
+            module = st["module"]
+            if data and module is not None:
+                module.feed(data)
         port = st["port"]
         if port is None:
             return
@@ -531,8 +546,44 @@ def main(scope):
             module.panic()
         st["level"] = [0] * 16
 
-    panic_btn, _ = key(mast, "PANIC", panic, PW, LOW_H - 28 - PAD, font=ui.small, color=ui.BG)
+    def set_ble(on):
+        """Bluetooth MIDI on or off, remembered. Off lets go of every note
+        it left sounding; a failure to start is said on the status line."""
+        prefs["ble"] = bool(on)
+        port = st["ble"]
+        if on and port is None:
+            try:
+                from midiports import ble
+
+                st["ble"] = ble.ports("midiEngine")[0]
+            except Exception as e:
+                prefs["ble"] = False
+                ble_btn.clear_state(lv.STATE.CHECKED)
+                status.set_text("Bluetooth MIDI didn't start: %s" % (e,))
+                return
+        elif not on and port is not None:
+            st["ble"] = None
+            port.close()
+            try:
+                data = port.read()  # the note-offs closing left
+            except Exception:  # the link had stopped: off either way
+                data = None
+            if data and st["module"] is not None:
+                st["module"].feed(data)
+            status.set_text(st["midi"] or "Bluetooth MIDI off")
+        st["ble_shown"] = None
+
+    ble_ok = midiin.ble_available()
+    PH = LOW_H - 28 - PAD
+    if ble_ok:
+        PH = (PH - 8) // 2
+    panic_btn, _ = key(mast, "PANIC", panic, PW, PH, font=ui.small, color=ui.BG)
     panic_btn.set_pos(MAST_W - PAD - PW, 28)
+    ble_btn = None
+    if ble_ok:
+        ble_btn, _ = key(mast, "BT MIDI", lambda: set_ble(ble_btn.has_state(lv.STATE.CHECKED)),
+                         PW, PH, font=ui.small, checkable=True)
+        ble_btn.set_pos(MAST_W - PAD - PW, 28 + PH + 8)
     panic_btn.set_style_border_width(2, 0)
     panic_btn.set_style_border_color(ui.BAD, 0)
     panic_btn.set_style_text_color(ui.BAD, 0)
@@ -775,6 +826,10 @@ def main(scope):
             strip[3].set_style_text_color(ui.WHITE if c == ch else ui.MUTED, 0)
 
     def tick(t):
+        ble = st["ble"]
+        if ble is not None and ble.state != st["ble_shown"]:
+            st["ble_shown"] = ble.state
+            status.set_text(midiin.ble_text(ble))
         module = st["module"]
         level, seen = st["level"], st["seen"]
         for ch, strip in enumerate(strips):
@@ -815,6 +870,10 @@ def main(scope):
             status.set_text("no MIDI in: plug a keyboard in")
 
     def close():
+        ble = st["ble"]
+        st["ble"] = None
+        if ble is not None:
+            ble.close()
         port = st["port"]
         st["port"] = None
         files.stop()  # its notes off reach the parts before the output goes
@@ -836,6 +895,9 @@ def main(scope):
     elif found:
         show_picker(found)
     setup_timer = scope.every(SETUP_MS, setup)
+    if ble_ok and prefs.get("ble"):
+        ble_btn.add_state(lv.STATE.CHECKED)
+        set_ble(True)
     def service(t):
         """The port and the player on one timer, the port first: a key
         played never waits behind a file's backlog."""
