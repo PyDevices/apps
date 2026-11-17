@@ -74,6 +74,7 @@ class Output:
         self._starved = 0
         self._base = 0
         self._last = None
+        self._driver_last = None
         self._gov = None
         self._block_us = None
         self._owner = None
@@ -93,6 +94,9 @@ class Output:
             import _audioif  # the pump's I2S driver, on a board
         except ImportError:
             _audioif = None
+        # The I2S driver's own count of silence, for when audio_out plays
+        # through the pump into this board's I2S.
+        self._driver_count = getattr(_audioif, "i2s_starved_bytes", None)
         wire = getattr(getattr(bp, "AUDIO_OUT", None), "wire", None)
         if wire is not None and _audioif is not None and hasattr(_audioif, "i2s_start"):
             self._audioif = _audioif
@@ -115,6 +119,7 @@ class Output:
         self._starved = 0
         self._base = 0
         self._last = None
+        self._driver_last = None
         self._gov = None
         self._block_us = None
         self._owner = None
@@ -294,6 +299,22 @@ class Output:
             # Through audio_out the pump counts what its own I2S clocked out;
             # a desktop's pump never touches I2S and leaves this at 0.
             dma = w[_DMA_BYTES] if self._pump.STATUS_WORDS > _DMA_BYTES else 0
+        if dma and self._status is None and self._driver_count is not None:
+            # audio_out plays through the pump into this board's I2S, so the
+            # driver's count is the silence. The byte totals below are
+            # published at different moments of a block: their difference
+            # swings by about a block while nothing is missing, and every new
+            # high in that swing read as a 1 ms underrun.
+            starved = self._driver_count()
+            prev = self._driver_last
+            self._driver_last = starved
+            if prev is not None:
+                # The count starts again from 0 when the channel reopens.
+                rise = starved - prev if starved >= prev else starved
+                if rise:
+                    self._starved += rise
+                    self.underruns += 1
+            return self.load_pct, self.worst_pct, self.underruns
         if dma:
             # On a board the DMA clocks out silence when the pump is late:
             # bytes it sent that the pump never wrote are a gap you heard.

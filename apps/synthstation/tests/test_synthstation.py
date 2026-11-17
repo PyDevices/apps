@@ -249,6 +249,73 @@ class BleInputs(unittest.TestCase):
         self.assertEqual(inputs.ble_text(), "Bluetooth MIDI stopped: no radio")
 
 
+class _FakePumpOwner:
+    """audiodev's pump owner: a status block whose two byte totals swing by a
+    block while nothing is missing, as they do on a board."""
+
+    def __init__(self):
+        self.words = [0] * 24
+        self.words[0] = 1
+
+    def status(self):
+        import struct
+
+        return struct.pack("<24Q", *self.words)
+
+
+class AudioOutCounts(unittest.TestCase):
+    """Through audio_out on a board, Synth Station's underruns are the I2S
+    driver's count, not the swing between the pump's byte totals."""
+
+    def setUp(self):
+        self.starved = 0
+        self.owner = _FakePumpOwner()
+        bp = types.ModuleType("board_peripherals")
+        pumpmod = types.ModuleType("audiopump")
+        pumpmod.STATUS_WORDS = 24
+        drv = types.ModuleType("_audioif")
+        drv.i2s_starved_bytes = lambda: self.starved
+        dev = types.ModuleType("audiodev")
+        dev.pump = types.SimpleNamespace(owner=lambda: self.owner)
+        self.mods = mock.patch.dict(sys.modules, {"board_peripherals": bp, "audiopump": pumpmod,
+                                                   "_audioif": drv, "audiodev": dev})
+        self.mods.start()
+        from synthstation import audio
+
+        self.out = audio.Output(None)
+        self.out._out = types.SimpleNamespace(pumped=True)
+
+    def tearDown(self):
+        self.mods.stop()
+
+    def step(self, swing):
+        w = self.owner.words
+        w[0] += 1
+        w[1] += 1024
+        w[12] += 1000
+        w[15] += 1024  # the sink
+        w[21] = w[15] + swing  # the DMA, ahead or behind by part of a block
+        return self.out.load()
+
+    def test_swing_is_not_an_underrun(self):
+        for swing in (0, 176, 700, 1024, 1400, 300, 1700):
+            self.step(swing)
+        self.assertEqual(self.out.underruns, 0)
+        self.assertEqual(self.out.starved_ms(), 0)
+
+    def test_driver_count_is(self):
+        self.step(500)
+        self.starved = 1920  # 10 ms at 48 kHz stereo
+        self.step(500)
+        self.step(500)
+        self.starved = 0  # the channel reopened and counts again from 0
+        self.step(500)
+        self.starved = 960
+        self.step(500)
+        self.assertEqual(self.out.underruns, 2)
+        self.assertEqual(self.out.starved_ms(), 15)
+
+
 class _Station:
     interpreter = None
 
