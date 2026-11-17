@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.2.dev15
+
+- appkit: a launcher switch tries to allocate the heap an app wants before it restarts the board. On an ESP32 whose heap grows on demand, switching apps no longer restarts it for room it could have had.
+- Camera: closing it closes the camera, and the next open makes a new one, so its frame buffers are free again. A 1080P photo on the ESP32-P4X-EYE encodes on the P4's JPEG engine, in under a second instead of ten.
+- Synth Station, midiEngine: play them over Bluetooth MIDI on a board with Bluetooth LE. It uses `midiports.ble` from omnipython 0.8.0.dev24 or later.
+- Synth Station: a pause in the main thread no longer counts as starved sound, and a board playing on its own I2S reports the silence the driver counted, where the firmware has it.
+- Bluetooth speaker: a one-second sink, so a phone's bursts don't drop frames; it needs omnipython 0.8.0.dev20 or later.
+- Home: a Wi-Fi connection that `boot.py` already made stays up, and a running WebREPL is left alone.
+- Bit World: colors come from the palettes library, which installing the app now pulls in.
+
 ## 0.1.2.dev14
 
 - appkit: a worker no longer hangs when a callback submits a job while another `submit()`, `pending()` or `cancel()` is running on the same thread.
