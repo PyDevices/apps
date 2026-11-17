@@ -83,22 +83,18 @@ def hostname():
 
 
 def _station_state():
-    """What ``boot.py`` left the station doing: ``"connected"``, ``"joining"``
-    (active and mid-join), or None for anything else, which is a board nothing
-    has joined yet. A board set up with ``mcuctl wifi enable`` joins in
-    ``boot.py``, before any app starts, and stays reachable through it.
-    CircuitPython has no ``network`` module, so it is always None there: its
-    radio and web workflow are the runtime's."""
+    """``"connected"`` when ``boot.py`` already joined the station, else None.
+    A board set up with ``mcuctl wifi enable`` joins in ``boot.py``, before
+    any app starts, and stays reachable through it. CircuitPython has no
+    ``network`` module, so it is always None there: its radio and web
+    workflow are the runtime's."""
     if _CP:
         return None
     try:
         import network
 
-        station = network.WLAN(network.STA_IF)
-        if station.isconnected():
+        if network.WLAN(network.STA_IF).isconnected():
             return "connected"
-        if station.active() and station.status() == network.STAT_CONNECTING:
-            return "joining"
     except Exception:
         pass  # no network module (a desktop), or a port that can't say
     return None
@@ -142,8 +138,6 @@ def up():
             else:
                 _join_failed()
         return False
-    if _station_state() == "joining":
-        return False  # boot.py's join is still going: don't restart it
     if not _started:
         _started = True
         try:
@@ -225,15 +219,12 @@ def boot():
     and keep trying in the background; System's Wi-Fi setup asks for one.
     Call it on the main thread once the launcher has booted.
 
-    A station that ``boot.py`` already joined, or is still joining, is left
-    alone: no rejoin, no second WebREPL, so a board set up with
+    A station that ``boot.py`` already joined is left alone: no rejoin, no
+    second WebREPL, so a board set up with
     ``mcuctl wifi enable`` keeps its connection."""
     settings.move_hostname()
-    state = _station_state()
-    if state == "connected":
+    if _station_state() == "connected":
         joined = True
-    elif state == "joining":
-        joined = False  # `up`, from the timer below, notices when it lands
     else:
         try:
             import wifi_manager

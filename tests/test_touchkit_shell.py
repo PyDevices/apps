@@ -450,30 +450,6 @@ class BootPyJoinedTest(unittest.TestCase):
         self.webrepl.start.assert_called_once_with()
         self.manager.connect.assert_not_called()
 
-    def test_a_station_still_joining_is_waited_for_not_restarted(self):
-        station = _FakeStation(active=True, connected=False, status=1001)
-        self._boot(station)
-        self.manager.connect.assert_not_called()
-        self.assertEqual(station.told, [])
-        self.assertIsNotNone(self.poll)  # it keeps watching for the join
-        self.timer.delete.assert_not_called()
-        self.webrepl.start.assert_not_called()
-
-    def test_a_join_that_finishes_gets_webrepl_and_stops_the_watch(self):
-        station = _FakeStation(active=True, connected=False, status=1001)
-        self._boot(station)
-        landed = {
-            "wifi": types.SimpleNamespace(radio=types.SimpleNamespace(connected=True)),
-            "webrepl": self.webrepl,
-        }
-        with mock.patch.dict(sys.modules, landed):
-            with mock.patch.object(self.net, "keep_time"):
-                timer = mock.MagicMock()
-                self.poll(timer)
-        timer.delete.assert_called_once()
-        self.webrepl.start.assert_called_once_with()
-        self.manager.connect.assert_not_called()
-
     def test_an_active_idle_station_is_joined_as_before(self):
         station = _FakeStation(active=True, connected=False, status=1000)
         self._boot(station)
