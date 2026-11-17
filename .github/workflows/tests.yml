@@ -166,7 +166,7 @@ jobs:
       - name: Install LVGL and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install omnipython-lvgl "omnipython-audiodsp>=0.6.13.dev4" numpy
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-audiodsp>=0.6.13.dev4" numpy
 
       - name: Synth Station's tests
         working-directory: studio/apps/synthstation
@@ -202,7 +202,7 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install omnipython-lvgl
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1"
 
       - name: appkit's tests
         working-directory: studio
@@ -248,7 +248,7 @@ jobs:
       - name: Install LVGL, svgio and iconkit for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install omnipython-lvgl "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" omnipython-iconkit resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" "omnipython-iconkit>=0.1.0.dev3" resvg_py pillow
 
       - name: Perch's tests
         env:
@@ -274,7 +274,7 @@ jobs:
       - name: Install LVGL, svgio and omnipython for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install omnipython-lvgl "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" omnipython-iconkit resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" "omnipython-iconkit>=0.1.0.dev3" resvg_py pillow
 
       - name: Huey's tests
         env:
@@ -311,7 +311,7 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install omnipython-lvgl
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1"
 
       - name: The Gamepad app's tests
         working-directory: studio
@@ -351,7 +351,7 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install omnipython-lvgl
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1"
 
       - name: The MIDI Controller app's tests
         working-directory: studio
@@ -379,7 +379,7 @@ jobs:
       - name: Install omnipython, pygraphics and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-desktop>=0.8.0.dev22" "omnipython-pygraphics>=0.1.7.dev0" "omnipython-palettes>=0.0.16.dev0" omnipython-audiodsp
+          python -m pip install "omnipython-desktop>=0.8.0.dev22" "omnipython-pygraphics>=0.1.7.dev0" "omnipython-palettes>=0.0.16.dev0" "omnipython-audiodsp>=0.6.16.dev6" "omnipython>=0.8.0.dev22"
 
       - name: Bit World's tests
         working-directory: apps/bit_world
@@ -479,7 +479,7 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install omnipython-lvgl "omnipython-pygraphics>=0.1.7.dev0"
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-pygraphics>=0.1.7.dev0"
 
       - name: Resolve audioeffects' audiodsp pin
         id: pin
