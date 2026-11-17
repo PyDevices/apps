@@ -31,7 +31,7 @@ The libraries the apps share (`appkit`, `controlkit`, `deskkit`, `sayso`,
 their own names. Each is imported directly, as in `import controlkit`:
 
 ```bash
-pip install -i https://test.pypi.org/simple/ omnipython-applibs
+pip install omnipython-applibs
 ```
 
 On a board, use `mip.install("applibs", index="https://lib.omnipython.org")`.

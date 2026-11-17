@@ -16,7 +16,7 @@ import json
 import pathlib
 import urllib.request
 
-INDEX = "https://test.pypi.org/pypi/%s/json"
+INDEX = "https://pypi.org/pypi/%s/json"
 ABI = "cp314-cp314-pyemscripten_2026_0_wasm32"
 PACKAGES = [
     "omnipython",
@@ -32,7 +32,7 @@ DEST = ROOT / "vendor" / "wheels"
 
 def pick(name):
     """The newest version with a browser wheel, pre-releases included: the
-    stack's fixes reach TestPyPI as .devN/rcN first."""
+    stack's fixes reach PyPI as .devN/rcN first."""
     from packaging.version import Version
 
     with urllib.request.urlopen(INDEX % name) as resp:
