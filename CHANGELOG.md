@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2.dev16
+
+- omnipython-applibs is on PyPI, pre-releases included: `pip install --pre omnipython-applibs`.
+
 ## 0.1.2.dev15
 
 - appkit: a launcher switch tries to allocate the heap an app wants before it restarts the board. On an ESP32 whose heap grows on demand, switching apps no longer restarts it for room it could have had.
