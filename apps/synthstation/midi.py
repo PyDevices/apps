@@ -11,6 +11,12 @@ and Linux it's every MIDI input port the computer has, through
 ``midiports.windows`` or ``midiports.linux``. In a browser it's every MIDI
 input the browser offers, through ``midiports.webmidi``.
 
+Bluetooth MIDI is one more input, on a board whose firmware has Bluetooth LE:
+`Inputs.set_ble` makes the board a BLE-MIDI instrument, advertised under the
+app's name, that a controller, a phone or a computer connects to, through
+``midiports.ble``. It's off until the player turns it on, so nothing about
+Bluetooth starts or takes memory before then.
+
 `Parser` turns the bytes into calls on an object you pass, with no
 allocation per message, so a quiet keyboard costs nothing beside the audio.
 """
@@ -27,6 +33,25 @@ NO_INPUT = "no MIDI input on this computer"
 DESKTOPS = ("win32", "linux", "darwin")
 #: The most reads of one port in one poll.
 READS_PER_POLL = 64
+#: The name a board advertises its Bluetooth MIDI under.
+BLE_NAME = "Synth Station"
+
+
+def ble_available():
+    """True on a board whose firmware has Bluetooth LE, as
+    ``midiports.ble.available()`` says, without importing the port: that
+    waits until the player turns it on. Starts nothing."""
+    if sys.implementation.name not in ("micropython", "circuitpython"):
+        return False
+    if sys.platform in ("webassembly", "emscripten"):
+        return False
+    for name in ("bluetooth", "_bleio"):
+        try:
+            __import__(name)
+            return True
+        except ImportError:
+            pass
+    return False
 
 
 def _name(dev):
@@ -53,6 +78,9 @@ class Inputs:
         self._desktop_names = []
         self._usb = False
         self._buf = bytearray(64)
+        #: The Bluetooth MIDI input while it's on, and why it stopped if it did.
+        self.ble = None
+        self.ble_why = None
 
     # ---- opening --------------------------------------------------------------
 
@@ -157,21 +185,75 @@ class Inputs:
         self.ports = [webmidi.page_in()]
         self.kind = "web"
 
+    def set_ble(self, on, parser=None, name=BLE_NAME):
+        """Turn the Bluetooth MIDI input on or off. Turning it on starts
+        advertising as *name*; an error starting it is raised. Turning it
+        off hands *parser* a note-off for every note it left sounding."""
+        if on and self.ble is None:
+            from midiports import ble
+
+            self.ble_why = None
+            try:
+                self.ble, _out = ble.ports(name)  # the output stays unused: closing it closes the link
+            except Exception as e:
+                self.ble_why = str(e) or type(e).__name__
+                raise
+        elif not on and self.ble is not None:
+            port = self.ble
+            self.ble = None
+            port.close()
+            if parser is not None:
+                buf = self._buf
+                try:
+                    for _ in range(READS_PER_POLL):
+                        n = port.readinto(buf)
+                        if not n:
+                            break
+                        parser.feed(buf, n)
+                except Exception as e:  # the link had stopped: said, as in poll
+                    self.ble_why = str(e) or type(e).__name__
+
+    def ble_text(self):
+        """What the Bluetooth MIDI input is doing, for the status line, or
+        None while it's off."""
+        port = self.ble
+        if port is None:
+            return "Bluetooth MIDI stopped: %s" % (self.ble_why,) if self.ble_why else None
+        if port.state == "connected":
+            return "Bluetooth"
+        return "Bluetooth: waiting as %s" % (port.name,)
+
     # ---- reading --------------------------------------------------------------
 
     def names(self):
         """The devices heard now, as a list of strings."""
         if self.kind == "usb":
-            return [_name(d) for d in getattr(self.ports[0], "devices", ())]
-        if self.kind == "web":
-            return self.ports[0].names
-        if self.kind == "device":
-            return ["USB MIDI"]
-        return list(self._desktop_names)
+            found = [_name(d) for d in getattr(self.ports[0], "devices", ())]
+        elif self.kind == "web":
+            found = list(self.ports[0].names)
+        elif self.kind == "device":
+            found = ["USB MIDI"]
+        else:
+            found = list(self._desktop_names)
+        if self.ble is not None and self.ble.state == "connected":
+            found.append("Bluetooth")
+        return found
 
     def poll(self, parser):
         """Feed everything waiting on every port to *parser*."""
         buf = self._buf
+        ble = self.ble
+        if ble is not None:
+            try:
+                for _ in range(READS_PER_POLL):
+                    n = ble.readinto(buf)
+                    if not n:
+                        break
+                    parser.feed(buf, n)
+            except Exception as e:  # the link stopped: said on the status line, not retried
+                self.ble = None
+                self.ble_why = str(e) or type(e).__name__
+                ble.close()
         for port in self.ports:
             any_ = getattr(port, "any", None)
             # Ask first where the port can say: reading an empty USB port
@@ -187,6 +269,7 @@ class Inputs:
                 parser.feed(buf, n)
 
     def close(self):
+        self.set_ble(False)
         ports = self.ports
         self.ports = []
         for port in ports:

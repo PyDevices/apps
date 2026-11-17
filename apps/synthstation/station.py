@@ -161,6 +161,10 @@ class Station:
         self._since_log = 0
         self._names = None
         self._panel_midi = False
+        #: Whether the channel list ends with the Bluetooth MIDI switch.
+        self._ble_ok = _midi.ble_available()
+        #: Whether the remembered Bluetooth switch has been acted on.
+        self._ble_started = False
         try:
             import audioinstruments as ai
 
@@ -257,8 +261,13 @@ class Station:
         """The channels, with a star on each that has an instrument of its own."""
         text = "%d%s" if self._short else "Ch %d%s"
         star = "*" if self._short else " *"
-        self.channels.set_options("\n".join(
-            text % (c + 1, star if c and c in self.parts else "") for c in range(CHANNELS)))
+        options = [text % (c + 1, star if c and c in self.parts else "") for c in range(CHANNELS)]
+        if self._ble_ok:
+            # Last, so it's one more step for an encoder and one tap for a finger.
+            on = self.inputs is not None and self.inputs.ble is not None
+            options.append(("BT on" if on else "BT off") if self._short else
+                           ("Bluetooth on" if on else "Bluetooth off"))
+        self.channels.set_options("\n".join(options))
         self.channels.set_selected(self.channel)
 
     def _place_menu(self):
@@ -338,7 +347,28 @@ class Station:
         self.choose(self.instruments[at][0])
 
     def _channel_changed(self, _event):
-        self.show(self.channels.get_selected())
+        at = self.channels.get_selected()
+        if at == CHANNELS:
+            self.set_ble(self.inputs is None or self.inputs.ble is None)
+            return
+        self.show(at)
+
+    def set_ble(self, on):
+        """Turn Bluetooth MIDI on or off, and remember it for the next time
+        the app opens. A failure to start is said where the MIDI status is."""
+        inputs = self.inputs
+        if inputs is None:
+            return
+        self.prefs["ble"] = bool(on)
+        self._ble_started = True
+        try:
+            inputs.set_ble(on, self.parser)
+        except Exception as e:  # said on the status line by ble_text()
+            print("synthstation: Bluetooth MIDI didn't start:", e)
+            self.prefs["ble"] = False
+        self._fill_channels()
+        self._shown = None
+        self._status_tick()
 
     def _show_in_menu(self, name):
         for i, (module, _) in enumerate(self.instruments):
@@ -366,9 +396,18 @@ class Station:
         self.pick(self.prefs["name"])
 
     def _midi_text(self):
+        text = self._inputs_text()
+        ble = self.inputs.ble_text() if self.inputs is not None else None
+        if ble is not None and ble != "Bluetooth":  # while connected, it's one of the names
+            text += " " + ble + "."
+        return text
+
+    def _inputs_text(self):
         inputs = self.inputs
         if inputs is None:
             return "MIDI: looking..."
+        if inputs.kind is None and inputs.names():
+            return "MIDI: " + " + ".join(inputs.names())
         if inputs.kind is None:
             if inputs.why == _midi.NO_INPUT:
                 return "No MIDI keyboard: the pads play notes."
@@ -384,7 +423,7 @@ class Station:
 
     def has_midi(self):
         inputs = self.inputs
-        return inputs is not None and inputs.kind is not None and bool(inputs.names())
+        return inputs is not None and bool(inputs.names())
 
     def _show_midi(self):
         text = self._midi_text()
@@ -701,6 +740,12 @@ class Station:
         self._fill_menus()
         self._open_panel()
         self.loading = False
+        if self._ble_ok and self.prefs.get("ble") and not self._ble_started:
+            # After the sound: on a board short of internal RAM, Bluetooth
+            # failing to start is said on the status line, and the
+            # instrument still plays.
+            self._ble_started = True
+            self.set_ble(True)
         self._status_tick()
 
     def _open_panel(self):
@@ -948,9 +993,13 @@ class Station:
     def _status_text(self):
         """The display's second line: render load and underruns."""
         load, worst, underruns = self.output.load()
-        if load is None:
-            return "LOAD --"
-        return "LOAD %d%% U%d" % (load, underruns)
+        text = "LOAD --" if load is None else "LOAD %d%% U%d" % (load, underruns)
+        inputs = self.inputs
+        if inputs is not None and inputs.ble is not None:
+            text += " BT" if inputs.ble.state == "connected" else " BT..."
+        elif inputs is not None and inputs.ble_why:
+            text += " BT!"
+        return text
 
     def _status_tick(self, _timer=None):
         if self.inputs is not None and self.panel is None:

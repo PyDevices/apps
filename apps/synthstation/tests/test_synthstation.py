@@ -151,6 +151,104 @@ class WebInputs(unittest.TestCase):
         self.assertEqual(inputs.why, "midiports isn't installed")
 
 
+class _FakeBle:
+    """``midiports.ble``'s input as Inputs sees it: messages queued, a
+    note-off for each held note on close, an error once the queue is read."""
+
+    def __init__(self, name):
+        self.name = name
+        self.state = "advertising"
+        self.queue = []
+        self.error = None
+        self.closed = False
+
+    def readinto(self, buf):
+        if self.queue:
+            msg = self.queue.pop(0)
+            buf[:len(msg)] = msg
+            return len(msg)
+        if self.error is not None:
+            raise self.error
+        return None
+
+    def close(self):
+        self.closed = True
+        self.state = "closed"
+        self.queue.append(b"\x80\x3c\x00")  # the note the test leaves held
+
+
+class BleInputs(unittest.TestCase):
+    """Bluetooth MIDI as one more input, with midiports.ble stood in for."""
+
+    def setUp(self):
+        self.opened = []
+
+        def ports(name):
+            port = _FakeBle(name)
+            self.opened.append(port)
+            return port, object()
+
+        self.ble = types.SimpleNamespace(ports=ports)
+        package = types.ModuleType("midiports")
+        package.ble = self.ble
+        patcher = mock.patch.dict(sys.modules, {"midiports": package, "midiports.ble": self.ble})
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_off_until_turned_on_and_never_offered_off_a_board(self):
+        inputs = midi.Inputs()
+        self.assertIsNone(inputs.ble)
+        self.assertIsNone(inputs.ble_text())
+        self.assertEqual(self.opened, [])
+        self.assertFalse(midi.ble_available())  # CPython: a computer's paired devices are its MIDI ports
+
+    def test_on_it_advertises_and_its_notes_reach_the_parser(self):
+        inputs = midi.Inputs()
+        inputs.set_ble(True)
+        port = self.opened[0]
+        self.assertEqual(port.name, "Synth Station")
+        self.assertEqual(inputs.ble_text(), "Bluetooth: waiting as Synth Station")
+        self.assertEqual(inputs.names(), [])
+        port.state = "connected"
+        self.assertEqual(inputs.names(), ["Bluetooth"])
+        port.queue += [b"\x90\x3c\x64", b"\x91\x40\x50"]
+        sink = Sink()
+        inputs.poll(Parser(sink))
+        self.assertEqual(sink.got, [("on", 60, 100, 0), ("on", 64, 80, 1)])
+
+    def test_off_lets_go_of_the_notes_it_left(self):
+        inputs = midi.Inputs()
+        inputs.set_ble(True)
+        sink = Sink()
+        inputs.set_ble(False, Parser(sink))
+        self.assertTrue(self.opened[0].closed)
+        self.assertIsNone(inputs.ble)
+        self.assertEqual(sink.got, [("off", 60, 0)])
+
+    def test_a_stopped_link_is_said_after_its_last_notes(self):
+        inputs = midi.Inputs()
+        inputs.set_ble(True)
+        port = self.opened[0]
+        port.queue.append(b"\x80\x40\x00")
+        port.error = OSError("radio gone")
+        sink = Sink()
+        inputs.poll(Parser(sink))
+        self.assertEqual(sink.got[0], ("off", 64, 0))
+        self.assertIsNone(inputs.ble)
+        self.assertEqual(inputs.ble_text(), "Bluetooth MIDI stopped: radio gone")
+
+    def test_a_failure_to_start_is_raised_and_kept(self):
+        def broken(name):
+            raise OSError("no radio")
+
+        self.ble.ports = broken
+        inputs = midi.Inputs()
+        with self.assertRaises(OSError):
+            inputs.set_ble(True)
+        self.assertIsNone(inputs.ble)
+        self.assertEqual(inputs.ble_text(), "Bluetooth MIDI stopped: no radio")
+
+
 class _Station:
     interpreter = None
 

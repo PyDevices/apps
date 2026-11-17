@@ -28,6 +28,22 @@ It needs a display and an audio out, and a USB MIDI keyboard to play.
 - **On Windows or Linux**, every MIDI input port the computer has is heard:
   a USB keyboard, a loopback from a DAW or a sequencer. It needs
   [midiports](../midiports).
+- **Over Bluetooth**, on a board whose firmware has Bluetooth LE, pick
+  Bluetooth off at the end of the channel list (BT off on a small screen)
+  to turn it on. The board then shows up as a Bluetooth MIDI instrument
+  named Synth Station, which a BLE-MIDI controller, a phone app or a
+  computer's Bluetooth MIDI settings connect to. It plays alongside the
+  other keyboards. The splash says whether it's waiting or connected, and
+  the status line ends BT once something is connected and BT... while it
+  waits. When the link drops, every note it was playing stops, and the
+  board waits for the next connection. The app remembers the choice until
+  the board restarts. It stays off until you turn it on, and nothing about
+  Bluetooth starts before that. It needs a board whose Bluetooth doesn't
+  share the synth's internal RAM, such as an ESP32-P4 board, whose radio is
+  a separate chip (played on Waveshare's ESP32-P4-WIFI6). On an ESP32-S3
+  the two don't fit together
+  ([omnipython-builds#528](https://github.com/PyDevices/omnipython-builds/issues/528)):
+  the status line ends BT! and the instrument plays on.
 - **With no keyboard**, the panel says NO MIDI under the name, and the
   pads in bank A play notes: the kit's voices on a drum machine, two
   octaves of C major on anything else. The patches move to bank B.
