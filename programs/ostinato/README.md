@@ -42,7 +42,7 @@ released OmniPython stack:
 
 ```bat
 py -3.14 -m venv %USERPROFILE%\ostinato-venv
-%USERPROFILE%\ostinato-venv\Scripts\python -m pip install --pre --no-cache-dir ^
+%USERPROFILE%\ostinato-venv\Scripts\python -m pip install --no-cache-dir ^
   omnipython omnipython-desktop omnipython-audiodsp omnipython-lvgl ^
   omnipython-audioinstruments omnipython-audioeffects numpy
 ```
