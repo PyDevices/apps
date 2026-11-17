@@ -352,3 +352,155 @@ class DroppedNetworkTest(unittest.TestCase):
         wifi = types.SimpleNamespace(radio=types.SimpleNamespace(connected=True))
         poll, timer = self._boot(wifi, joined=False, cp=False)
         timer.delete.assert_called_once()
+
+
+class _FakeStation:
+    """One ``network.WLAN(STA_IF)``: what it was told, and what it reports."""
+
+    def __init__(self, active, connected, status):
+        self._active = active
+        self._connected = connected
+        self._status = status
+        self.told = []
+
+    def active(self, flag=None):
+        if flag is None:
+            return self._active
+        self.told.append(("active", flag))
+        self._active = flag
+
+    def isconnected(self):
+        return self._connected
+
+    def status(self, what=None):
+        return self._status
+
+    def connect(self, *args):
+        self.told.append(("connect",) + args)
+
+    def disconnect(self):
+        self.told.append(("disconnect",))
+
+
+class BootPyJoinedTest(unittest.TestCase):
+    """A board whose boot.py joined Wi-Fi keeps that connection through Home's boot."""
+
+    def _fakes(self, station, listening):
+        network = types.SimpleNamespace(
+            STA_IF=0,
+            STAT_IDLE=1000,
+            STAT_CONNECTING=1001,
+            STAT_GOT_IP=1010,
+            WLAN=lambda _interface: station,
+        )
+        self.manager = types.SimpleNamespace(connect=mock.MagicMock(return_value=None))
+        self.webrepl = types.SimpleNamespace(
+            listen_s=object() if listening else None, start=mock.MagicMock()
+        )
+        self.lvgl = mock.MagicMock()
+        return {
+            "network": network,
+            "lvgl": self.lvgl,
+            "wifi": types.SimpleNamespace(radio=types.SimpleNamespace(connected=station._connected)),
+            "wifi_manager": self.manager,
+            "webrepl": self.webrepl,
+            "touchkit.settings": types.SimpleNamespace(
+                get=lambda key, default=None: default, move_hostname=lambda: None
+            ),
+        }
+
+    def _boot(self, station, listening=False):
+        fakes = self._fakes(station, listening)
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            net._CP = False
+            with mock.patch.object(net, "keep_time") as keep_time:
+                net.boot()
+                self.keep_time = keep_time
+                timers = self.lvgl.timer_create.call_args_list
+                self.poll = timers[0].args[0] if timers else None
+                self.net = net
+                if self.poll:
+                    self.timer = mock.MagicMock()
+                    self.poll(self.timer)
+            sys.modules.pop("touchkit.net", None)
+
+    def test_a_connected_station_is_not_joined_again(self):
+        station = _FakeStation(active=True, connected=True, status=1010)
+        self._boot(station, listening=True)
+        self.manager.connect.assert_not_called()
+        self.assertEqual(station.told, [])
+
+    def test_a_connected_station_keeps_the_webrepl_boot_py_started(self):
+        station = _FakeStation(active=True, connected=True, status=1010)
+        self._boot(station, listening=True)
+        self.webrepl.start.assert_not_called()
+
+    def test_a_connected_station_still_gets_the_clock_kept(self):
+        station = _FakeStation(active=True, connected=True, status=1010)
+        self._boot(station, listening=True)
+        self.keep_time.assert_called()
+
+    def test_a_connected_station_without_webrepl_gets_it(self):
+        station = _FakeStation(active=True, connected=True, status=1010)
+        self._boot(station, listening=False)
+        self.webrepl.start.assert_called_once_with()
+        self.manager.connect.assert_not_called()
+
+    def test_an_active_idle_station_is_joined_as_before(self):
+        station = _FakeStation(active=True, connected=False, status=1000)
+        self._boot(station)
+        self.assertEqual(
+            self.manager.connect.call_args_list,
+            [mock.call(setup=False), mock.call(setup=False, wait=False)],
+        )
+
+    def test_a_station_that_was_never_started_is_joined_as_before(self):
+        station = _FakeStation(active=False, connected=False, status=1000)
+        self._boot(station)
+        self.assertEqual(
+            self.manager.connect.call_args_list,
+            [mock.call(setup=False), mock.call(setup=False, wait=False)],
+        )
+
+    def test_circuitpython_is_left_to_its_own_path(self):
+        # No network module there: wifi_manager joins, or finds itself joined.
+        station = _FakeStation(active=True, connected=True, status=1010)
+        fakes = self._fakes(station, listening=False)
+        fakes["network"] = None  # an import of None raises ImportError
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            net._CP = True
+            self.assertIsNone(net._station_state())
+            sys.modules.pop("touchkit.net", None)
+
+
+class WebreplOnTest(unittest.TestCase):
+    def _on(self, listen_s):
+        fakes = {
+            "lvgl": mock.MagicMock(),
+            "webrepl": types.SimpleNamespace(listen_s=listen_s, start=mock.MagicMock()),
+            "touchkit.settings": types.SimpleNamespace(
+                get=lambda key, default=None: default, move_hostname=lambda: None
+            ),
+        }
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.net", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import net
+
+            result = net.webrepl_on()
+            sys.modules.pop("touchkit.net", None)
+        return result
+
+    def test_a_listener_boot_py_opened_counts(self):
+        self.assertTrue(self._on(object()))
+
+    def test_no_listener_does_not(self):
+        self.assertFalse(self._on(None))

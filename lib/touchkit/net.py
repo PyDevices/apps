@@ -82,6 +82,24 @@ def hostname():
     return boarddev.name()
 
 
+def _station_state():
+    """``"connected"`` when ``boot.py`` already joined the station, else None.
+    A board set up with ``mcuctl wifi enable`` joins in ``boot.py``, before
+    any app starts, and stays reachable through it. CircuitPython has no
+    ``network`` module, so it is always None there: its radio and web
+    workflow are the runtime's."""
+    if _CP:
+        return None
+    try:
+        import network
+
+        if network.WLAN(network.STA_IF).isconnected():
+            return "connected"
+    except Exception:
+        pass  # no network module (a desktop), or a port that can't say
+    return None
+
+
 def up():
     """True when the station is connected. When it isn't, starts a join: in
     the background on MicroPython. On CircuitPython a join holds the screen
@@ -199,15 +217,22 @@ def boot():
     """Join a known network quietly (``secrets.py``'s or one wifi_manager
     remembered), then start WebREPL. With none in range, carry on offline
     and keep trying in the background; System's Wi-Fi setup asks for one.
-    Call it on the main thread once the launcher has booted."""
-    settings.move_hostname()
-    try:
-        import wifi_manager
+    Call it on the main thread once the launcher has booted.
 
-        joined = wifi_manager.connect(setup=False)
-    except Exception as e:
-        print("touchkit: wifi:", e)
-        joined = False
+    A station that ``boot.py`` already joined is left alone: no rejoin, no
+    second WebREPL, so a board set up with
+    ``mcuctl wifi enable`` keeps its connection."""
+    settings.move_hostname()
+    if _station_state() == "connected":
+        joined = True
+    else:
+        try:
+            import wifi_manager
+
+            joined = wifi_manager.connect(setup=False)
+        except Exception as e:
+            print("touchkit: wifi:", e)
+            joined = False
     if joined:
         start_webrepl()
         keep_time()  # outside the try: a missing deskkit must be seen
