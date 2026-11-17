@@ -29,6 +29,12 @@ keyboard sends it over MIDI, the way a hardware tone module does.
   local server.
 - The rest is in [Ostinato's roadmap](programs/ostinato/ROADMAP.md).
 
+## Home
+
+- Stay reachable over WebREPL however the board restarts: when `boot.py` has
+  already joined Wi-Fi, Home leaves the connection alone, so a script app or a
+  reset that skips `main.py` no longer drops it.
+
 ## Synth Station
 
 - [Synth Station's roadmap](apps/synthstation/ROADMAP.md).
