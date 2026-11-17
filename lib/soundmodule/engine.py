@@ -81,7 +81,10 @@ voices, and its output is one voice of a mixer the pool plays into too.
 
 ``prepare()`` opens the SoundFont before anything plays. Reading a big
 bank's presets takes a moment and some megabytes, and done on the first
-program change it would land inside whatever sent it. Once it is open a
+program change it would land inside whatever sent it. It makes channel 1's
+and the drums' instruments too (``ready()``): a part's instrument is made
+on its first program change or note, and working out a big bank's preset
+takes long enough on a board to hear as a late first note. Once it is open a
 part costs only its patch list, and its samples are read on its notes, the
 bank keeping a bounded number of them: on a board, half the memory free
 once the bank is open (``CACHE_SHARE``); on a desktop, soundfont's own
@@ -96,6 +99,9 @@ MicroPython or CircuitPython with stand-in instruments (``create=``).
 import sys
 
 DRUM_CHANNEL = 9  # MIDI channel 10
+#: The parts ``prepare()`` makes ready: a keyboard plays these with no
+#: program change, so nothing else comes before their first note.
+READY_CHANNELS = (0, DRUM_CHANNEL)
 MELODIC = "soundfont"
 DRUMS = "soundfont_drums"
 PERCUSSION_BANK = 128
@@ -462,7 +468,19 @@ class Module:
             elif self.cache_bytes is not None:
                 self.loaded.cache_bytes = self.cache_bytes
             self.kit_programs()
+            self.ready()
         return self.loaded
+
+    def ready(self, channels=READY_CHANNELS):
+        """Make these parts' instruments now, so the first key played on
+        one isn't what makes it: channel 1 and the drums unless told
+        otherwise, the two a keyboard reaches with no program change. A
+        part that can't be made is left for its first note, and ``error``
+        stays as it was."""
+        error = self.error
+        for channel in channels:
+            self.instrument(self.parts[channel])
+        self.error = error
 
     def _trim(self):
         """Let every sample go once an unbounded bank holds more than
