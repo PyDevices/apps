@@ -28,7 +28,10 @@ class Photo:
         self.storage = storage
         self.lights = lights
         self.work = work  # a buffer of at least 1920*1080*2 bytes to scale into, or None to allocate
-        self._enc = jpegio.JpegEncoder(quality=QUALITY) if jpegio else None
+        # exact=False: the P4's JPEG engine reads the frame in place. The
+        # default widens a copy first, 6.2 MB at 1080P, which a running camera
+        # leaves no room for, and the encode then takes 9 s in software.
+        self._enc = jpegio.JpegEncoder(quality=QUALITY, exact=False) if jpegio else None
 
     def take(self, magnify, resolution, flash):
         if self._enc is None or not self.storage.ready():
