@@ -379,7 +379,7 @@ jobs:
       - name: Install omnipython, pygraphics and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "omnipython-desktop>=0.8.0.dev22" "omnipython-pygraphics>=0.1.7.dev0" omnipython-palettes omnipython-audiodsp
+          python -m pip install -i https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ "omnipython-desktop>=0.8.0.dev22" "omnipython-pygraphics>=0.1.7.dev0" "omnipython-palettes>=0.0.16.dev0" omnipython-audiodsp
 
       - name: Bit World's tests
         working-directory: apps/bit_world
