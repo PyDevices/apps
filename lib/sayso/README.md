@@ -24,7 +24,7 @@ sayso is pure Python and imports as `sayso`. It lives in this repository's
 `lib/` and comes with the other shared libraries:
 
 ```bash
-pip install -i https://test.pypi.org/simple/ omnipython-applibs
+pip install --pre omnipython-applibs
 ```
 
 On a board, use `mip.install("applibs", index="https://lib.omnipython.org")`.

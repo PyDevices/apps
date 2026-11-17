@@ -43,7 +43,6 @@ released OmniPython stack:
 ```bat
 py -3.14 -m venv %USERPROFILE%\ostinato-venv
 %USERPROFILE%\ostinato-venv\Scripts\python -m pip install --pre --no-cache-dir ^
-  --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple ^
   omnipython omnipython-desktop omnipython-audiodsp omnipython-lvgl ^
   omnipython-audioinstruments omnipython-audioeffects numpy
 ```
