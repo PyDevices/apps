@@ -55,6 +55,67 @@ class RepaintTest(unittest.TestCase):
         self.assertEqual(repaint_check.check(800, 480, 60, report=lambda line: None), 0)
 
 
+class ColorTest(unittest.TestCase):
+    """The colors come from the palettes library and match what the art was drawn with."""
+
+    #: Every named color as RGB565, as the art code first drew them.
+    COLORS = {
+        "ABYSS": 0x0884,
+        "AMBER": 0xe445,
+        "AQUA_GLOW": 0x5f7f,
+        "BRONZE": 0x61e4,
+        "COPPER": 0x9ac5,
+        "CORAL": 0xfb0a,
+        "CREAM": 0xff9c,
+        "CRIMSON": 0xc148,
+        "CYAN": 0x25da,
+        "DARK_MOSS": 0x0984,
+        "DARK_WOOD": 0x20a2,
+        "DEEP_SLATE": 0x1949,
+        "DEEP_TEAL": 0x09a8,
+        "EMERALD": 0x566d,
+        "FOREST": 0x1ac7,
+        "GOLD": 0xfe08,
+        "ICE_CYAN": 0xbfff,
+        "LIME_GLOW": 0x9fb0,
+        "MAGENTA": 0xba16,
+        "MIST": 0x8519,
+        "MOSS": 0x3469,
+        "NEON_PINK": 0xfb78,
+        "NIGHT": 0x10c6,
+        "OAK": 0x3923,
+        "ORANGE": 0xfc67,
+        "PLUM": 0x30a8,
+        "SILVER": 0xc6bd,
+        "SLATE": 0x2a0d,
+        "STEEL": 0x4b32,
+        "SUN_YELLOW": 0xff4f,
+        "TEAL": 0x1370,
+        "VIOLET": 0x6992,
+        "VOID": 0x0042,
+        "WHITE": 0xffff,
+    }
+
+    def test_each_color_keeps_its_value(self):
+        import bit_palette
+
+        for name, value in self.COLORS.items():
+            self.assertEqual(getattr(bit_palette, name), value, name)
+
+    def test_the_transparent_key_is_never_drawn(self):
+        import bit_palette
+
+        # (0, 4, 0) is 0x0020 in RGB565, the key; the next value up stands in for it.
+        self.assertEqual(bit_palette.rgb565(0, 4, 0), bit_palette.KEY + 1)
+        self.assertNotIn(bit_palette.KEY, [getattr(bit_palette, name) for name in self.COLORS])
+
+    def test_lerp_ends_are_the_colors(self):
+        import bit_palette
+
+        self.assertEqual(bit_palette.lerp565(bit_palette.VOID_RGB, bit_palette.SILVER_RGB, 0.0), bit_palette.VOID)
+        self.assertEqual(bit_palette.lerp565(bit_palette.VOID_RGB, bit_palette.SILVER_RGB, 1.0), bit_palette.SILVER)
+
+
 class ExitTest(unittest.TestCase):
     def run_app(self, width, height, prelude=""):
         """Run the app on a desktop display of this size; return frames, quit, closes and its size."""

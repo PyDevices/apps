@@ -11,7 +11,7 @@ it.
 
 Copy `apps/bit_world/` to `/apps/bit_world/` with mpftp, mpremote or any
 file tool, leaving out `tests/` and `docs/`. Home shows it on the Desk page.
-It needs a display and the pygraphics, audiodsp and multimer libraries, and
+It needs a display and the pygraphics, palettes, audiodsp and multimer libraries, and
 plays its music through the board's audio out when there is one.
 
 It turns a portrait panel to landscape when the display can turn what's

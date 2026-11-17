@@ -4,15 +4,16 @@
 
 """Provide the color palette, layout scaler, and math helpers for Bit World.
 
-Defines the 32-color Cozy Sci-Fi and Solarpunk RGB565 palette, portable random
-number and integer trigonometry helpers, a responsive layout scaler for
+Declares the 32-color Cozy Sci-Fi and Solarpunk palette for the palettes
+library, with portable random number and integer trigonometry helpers, a responsive layout scaler for
 landscape screens from 480x320 to 800x480, and dithered transition routines.
 
-Needs: pygraphics.
+Needs: palettes, pygraphics.
 """
 
 from array import array
 from random import getrandbits, seed
+from palettes import Palette
 from pygraphics import RGB565, FrameBuffer
 
 # Change these to match your setup.
@@ -21,10 +22,70 @@ REF_HEIGHT = 480  # Reference landscape design height in pixels
 KEY = 0x0020  # Transparent color key; rgb565() shifts any matching color by +1
 
 
+class BitPalette(Palette):
+    """Bit World's 32 hand-tuned colors, each under the name the art code uses.
+
+    The palettes library turns each ``(0xRRGGBB, name)`` pair into an RGB565
+    attribute named in capitals (``BitPalette().DEEP_SLATE``).
+    """
+
+    _names = (
+        # Deep space, chassis shadow, and metallic slate tones.
+        (0x060812, "Void"),
+        (0x0B1022, "Abyss"),
+        (0x121A34, "Night"),
+        (0x1C2848, "Deep Slate"),
+        (0x2E4068, "Slate"),
+        (0x4E6694, "Steel"),
+        (0x84A0CC, "Mist"),
+        (0xC0D4EE, "Silver"),
+        # Maker-lab warm brass, copper, amber, gold, and cream highlights.
+        (0x201410, "Dark Wood"),
+        (0x3A241A, "Oak"),
+        (0x623C20, "Bronze"),
+        (0x9C582A, "Copper"),
+        (0xE0882C, "Amber"),
+        (0xFAC040, "Gold"),
+        (0xFFEA78, "Sun Yellow"),
+        (0xF8F2E0, "Cream"),
+        (0xFFFFFF, "White"),
+        # Bioluminescent cyan and hologram teal tones.
+        (0x083444, "Deep Teal"),
+        (0x106C80, "Teal"),
+        (0x20B8D4, "Cyan"),
+        (0x5CEEF8, "Aqua Glow"),
+        (0xBCFCFF, "Ice Cyan"),
+        # Solarpunk flora and mossy ruin greens.
+        (0x0E3024, "Dark Moss"),
+        (0x185838, "Forest"),
+        (0x308E4E, "Moss"),
+        (0x54CC6C, "Emerald"),
+        (0x9EF484, "Lime Glow"),
+        # Plasma, crystal, and sunset accent colors.
+        (0x301444, "Plum"),
+        (0x683094, "Violet"),
+        (0xBC40B0, "Magenta"),
+        (0xF86CC6, "Neon Pink"),
+        (0xC42A44, "Crimson"),
+        (0xF86054, "Coral"),
+        (0xFC8E38, "Orange"),
+    )
+
+    def __init__(self):
+        super().__init__("bit_world", 16)
+
+
+PALETTE = BitPalette()
+
+
+# Move a color that equals the transparent key off it by one step.
+def keyed(c):
+    return c + 1 if c == KEY else c
+
+
 # Convert 8-bit red, green, and blue channels into a 16-bit RGB565 integer.
 def rgb565(r, g, b):
-    c = ((int(r) & 0xF8) << 8) | ((int(g) & 0xFC) << 3) | (int(b) >> 3)
-    return c + 1 if c == KEY else c
+    return keyed(PALETTE.color565(int(r), int(g), int(b)))
 
 
 # Interpolate linearly between two RGB tuples and return an RGB565 color.
@@ -39,58 +100,59 @@ def lerp565(rgb_a, rgb_b, t):
     return rgb565(r, g, b)
 
 
-# Deep space, chassis shadow, and metallic slate tones.
-VOID_RGB = (6, 8, 18)
-ABYSS_RGB = (11, 16, 34)
-NIGHT_RGB = (18, 26, 52)
-DEEP_SLATE_RGB = (28, 40, 72)
-SLATE_RGB = (46, 64, 104)
-STEEL_RGB = (78, 102, 148)
-MIST_RGB = (132, 160, 204)
-SILVER_RGB = (192, 212, 238)
+# Look up a palette color's red, green, and blue channels by its name.
+def rgb_of(name):
+    for value, entry in BitPalette._names:
+        if entry == name:
+            return (value >> 16, value >> 8 & 0xFF, value & 0xFF)
+    raise KeyError(name)
 
-VOID = rgb565(*VOID_RGB)
-ABYSS = rgb565(*ABYSS_RGB)
-NIGHT = rgb565(*NIGHT_RGB)
-DEEP_SLATE = rgb565(*DEEP_SLATE_RGB)
-SLATE = rgb565(*SLATE_RGB)
-STEEL = rgb565(*STEEL_RGB)
-MIST = rgb565(*MIST_RGB)
-SILVER = rgb565(*SILVER_RGB)
 
-# Maker-lab warm brass, copper, amber, gold, and cream highlights.
-DARK_WOOD = rgb565(32, 20, 16)
-OAK = rgb565(58, 36, 26)
-BRONZE = rgb565(98, 60, 32)
-COPPER = rgb565(156, 88, 42)
-AMBER = rgb565(224, 136, 44)
-GOLD = rgb565(250, 192, 64)
-SUN_YELLOW = rgb565(255, 234, 120)
-CREAM = rgb565(248, 242, 224)
-WHITE = rgb565(255, 255, 255)
+# The gradients blend between these, so they need the channels, not RGB565.
+VOID_RGB = rgb_of("Void")
+ABYSS_RGB = rgb_of("Abyss")
+NIGHT_RGB = rgb_of("Night")
+DEEP_SLATE_RGB = rgb_of("Deep Slate")
+SLATE_RGB = rgb_of("Slate")
+STEEL_RGB = rgb_of("Steel")
+MIST_RGB = rgb_of("Mist")
+SILVER_RGB = rgb_of("Silver")
 
-# Bioluminescent cyan and hologram teal tones.
-DEEP_TEAL = rgb565(8, 52, 68)
-TEAL = rgb565(16, 108, 128)
-CYAN = rgb565(32, 184, 212)
-AQUA_GLOW = rgb565(92, 238, 248)
-ICE_CYAN = rgb565(188, 252, 255)
-
-# Solarpunk flora and mossy ruin greens.
-DARK_MOSS = rgb565(14, 48, 36)
-FOREST = rgb565(24, 88, 56)
-MOSS = rgb565(48, 142, 78)
-EMERALD = rgb565(84, 204, 108)
-LIME_GLOW = rgb565(158, 244, 132)
-
-# Plasma, crystal, and sunset accent colors.
-PLUM = rgb565(48, 20, 68)
-VIOLET = rgb565(104, 48, 148)
-MAGENTA = rgb565(188, 64, 176)
-NEON_PINK = rgb565(248, 108, 198)
-CRIMSON = rgb565(196, 42, 68)
-CORAL = rgb565(248, 96, 84)
-ORANGE = rgb565(252, 142, 56)
+# Each color as RGB565, from the palette.
+VOID = keyed(PALETTE.VOID)
+ABYSS = keyed(PALETTE.ABYSS)
+NIGHT = keyed(PALETTE.NIGHT)
+DEEP_SLATE = keyed(PALETTE.DEEP_SLATE)
+SLATE = keyed(PALETTE.SLATE)
+STEEL = keyed(PALETTE.STEEL)
+MIST = keyed(PALETTE.MIST)
+SILVER = keyed(PALETTE.SILVER)
+DARK_WOOD = keyed(PALETTE.DARK_WOOD)
+OAK = keyed(PALETTE.OAK)
+BRONZE = keyed(PALETTE.BRONZE)
+COPPER = keyed(PALETTE.COPPER)
+AMBER = keyed(PALETTE.AMBER)
+GOLD = keyed(PALETTE.GOLD)
+SUN_YELLOW = keyed(PALETTE.SUN_YELLOW)
+CREAM = keyed(PALETTE.CREAM)
+WHITE = keyed(PALETTE.WHITE)
+DEEP_TEAL = keyed(PALETTE.DEEP_TEAL)
+TEAL = keyed(PALETTE.TEAL)
+CYAN = keyed(PALETTE.CYAN)
+AQUA_GLOW = keyed(PALETTE.AQUA_GLOW)
+ICE_CYAN = keyed(PALETTE.ICE_CYAN)
+DARK_MOSS = keyed(PALETTE.DARK_MOSS)
+FOREST = keyed(PALETTE.FOREST)
+MOSS = keyed(PALETTE.MOSS)
+EMERALD = keyed(PALETTE.EMERALD)
+LIME_GLOW = keyed(PALETTE.LIME_GLOW)
+PLUM = keyed(PALETTE.PLUM)
+VIOLET = keyed(PALETTE.VIOLET)
+MAGENTA = keyed(PALETTE.MAGENTA)
+NEON_PINK = keyed(PALETTE.NEON_PINK)
+CRIMSON = keyed(PALETTE.CRIMSON)
+CORAL = keyed(PALETTE.CORAL)
+ORANGE = keyed(PALETTE.ORANGE)
 
 # Flat 75-entry uint16 lookup table mapping byte (b - 46) for '.'..'x' to RGB565.
 PALETTE_LUT = array(
