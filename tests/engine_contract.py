@@ -35,7 +35,8 @@ PLANTS = ("bank-ignored", "lsb-ignored", "eager-bank", "macro-shift", "level-lin
           "identity-any-device", "tally-final", "pipe-drops-peek", "frames-miscounted",
           "rpn-ignored", "rpn-null-ignored", "rpn-lsb-kept", "reset-keeps-bend", "reset-keeps-expression",
           "fixed-range-unscaled", "reset-keeps-rpn", "volume-as-macro", "sends-last-wins", "fill-skipped",
-          "expression-passthrough", "expression-forgotten", "expression-level-ignored")
+          "expression-passthrough", "expression-forgotten", "expression-level-ignored", "ready-skipped",
+          "ready-keeps-error")
 
 RESULTS = [0, 0]
 
@@ -154,6 +155,24 @@ def check_gm_without_setup():
     part = m.parts[0]
     check("a part with no setup plays General MIDI", part.inst_name == engine.MELODIC and len(made) == 1,
           "made %r" % (part.inst_name,))
+
+
+def check_ready():
+    m, made = module()
+    m.ready()
+    names = [m.parts[c].inst_name for c in engine.READY_CHANNELS]
+    check("ready() makes channel 1's and the drums' instruments before a note",
+          len(made) == 2 and names == [engine.MELODIC, engine.DRUMS], "made %d, %r" % (len(made), names))
+    m.feed(bytes((0x90, 60, 100, 0x99, 36, 100)))
+    check("their first notes make nothing more", len(made) == 2 and made[0].notes == [60] and made[1].notes == [36],
+          "made %d" % len(made))
+
+    def create(name, rate, channels, bank, pool=None):
+        raise OSError("no bank")
+
+    m = engine.Module(48000, 2, create=create, mixer=Mixer(), effects=False)
+    m.ready()
+    check("a part ready() can't make leaves no error behind", m.error is None and m.parts[0].inst is None, repr(m.error))
 
 
 def check_bank_instruments():
@@ -493,6 +512,14 @@ def plant(name):
                 self.mixer.voice[part.channel].panning = (part.pan - 64) / 63.0
 
         M._level = _level
+    elif name == "ready-skipped":
+        M.ready = lambda self, channels=engine.READY_CHANNELS: None
+    elif name == "ready-keeps-error":
+        def ready(self, channels=engine.READY_CHANNELS):
+            for channel in channels:
+                self.instrument(self.parts[channel])
+
+        M.ready = ready
     elif name == "identity-wrong":
         engine.identity_reply = lambda device_id=0x7F: bytes((0xF0, 0x7E, 0x7F, 0x06, 0x02, 0x7D, 0xF7))
     elif name == "identity-any-device":
@@ -646,6 +673,7 @@ def main(argv):
             tmp = argv[i + 1]
     print("soundmodule contract on %s %s" % (sys.implementation.name, sys.platform))
     check_gm_without_setup()
+    check_ready()
     check_bank_instruments()
     check_fill()
     check_lsb_patch()

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """The sound module's engine: sixteen parts, one per MIDI channel, mixed through chorus and reverb."""
 
-from typing import Any, Callable, ContextManager
+from typing import Any, Callable, ContextManager, Sequence
 
 DRUM_CHANNEL: int
 MELODIC: str
@@ -156,6 +156,8 @@ class Module:
     def voice_count(self, count: int) -> None: ...
     def prepare(self) -> Any:
         """Open the bank now, so no part has to; None with the reason in `error`."""
+    def ready(self, channels: Sequence[int] = ...) -> None:
+        """Make these parts' instruments now, so a first note doesn't have to."""
     def wanted(self, part: Part) -> str | None:
         """The instrument the part's bank and program ask for."""
     def instrument(self, part: Part) -> Any:
