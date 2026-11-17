@@ -19,7 +19,7 @@ An appkit script app: choosing it on Home restarts the board into it, so it
 has the panel to itself, and quitting restarts back to Home. Without a
 launcher, put this folder on ``sys.path`` and ``import bit_world``.
 
-Needs: audiodsp, multimer, pygraphics.
+Needs: audiodsp, multimer, palettes, pygraphics.
 """
 
 import gc
