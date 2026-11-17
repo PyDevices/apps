@@ -6,6 +6,7 @@
 from typing import Any, Callable, ContextManager, Sequence
 
 DRUM_CHANNEL: int
+READY_CHANNELS: tuple[int, ...]
 MELODIC: str
 DRUMS: str
 PERCUSSION_BANK: int
