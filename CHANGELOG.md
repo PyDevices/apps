@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- The 0.1.2 release: everything in 0.1.2.dev1 to 0.1.2.dev16 below. `pip install omnipython-applibs` gets it from PyPI.
+
 ## 0.1.2.dev16
 
 - omnipython-applibs is on PyPI, pre-releases included: `pip install --pre omnipython-applibs`.
