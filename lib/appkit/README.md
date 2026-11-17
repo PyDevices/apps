@@ -234,8 +234,10 @@ A script needs a fresh program, so choosing it restarts into it. The script
 has the board until its `App` quits, even if it keeps running on timers
 after its last line. Then the program restarts to the home screen.
 
-While a script runs, the board has no WebREPL. The script starts before the
-program joins Wi-Fi and starts WebREPL, so connect again after the script
+While a script runs, the board has no WebREPL unless `boot.py` started it:
+the script starts before the program joins Wi-Fi and starts WebREPL. A board
+set up with `mcuctl wifi enable` joins and starts WebREPL in `boot.py`, so it
+stays reachable while a script runs. Otherwise, connect again after the script
 quits, or reset the board.
 `launcher.add_script("blocks", "examples.blocks")` registers one without a
 folder.
