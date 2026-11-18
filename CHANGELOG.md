@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3.dev1
+
+- soundmodule: opening a bank makes channel 1's and the drums' instruments, so the first key on a keyboard plays on time. With a large SoundFont on an ESP32-P4 that first note took 200 ms or more; it now takes about 50 ms. It needs audioinstruments 0.5.3.dev2 or later.
+- Ostinato installs the released stack without `--pre`.
+
 ## 0.1.2
 
 - The 0.1.2 release: everything in 0.1.2.dev1 to 0.1.2.dev16 below. `pip install omnipython-applibs` gets it from PyPI.
