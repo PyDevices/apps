@@ -23,7 +23,7 @@ import audiocore
 import audiomixer
 import audiopump
 
-from apps.stompbox import BLOCK_FRAMES, CHANNELS, SAMPLE_RATE, effects, engine, meter
+from apps.stompbox import BLOCK_FRAMES, CHANNELS, SAMPLE_RATE, effects, engine, meter, wavfile
 
 #: Each fault a check here has to catch.
 PLANTS = (
@@ -105,6 +105,24 @@ class Through(effects.Effect):
 
 
 effects.LIBRARIES["check"] = Through
+
+
+class RacingTap:
+    """A tap whose pump sends one more block just before every third read."""
+
+    def __init__(self, tap, send):
+        self._tap = tap
+        self._send = send
+        self._reads = 0
+
+    def stats(self):
+        return self._tap.stats()
+
+    def readinto(self, buf):
+        self._reads += 1
+        if self._reads % 3 == 0:
+            self._send()
+        return self._tap.readinto(buf)
 
 
 class Clip:
@@ -234,10 +252,25 @@ def main():
     check(near(level, -5) and not clipped, "the meter reads while a recording runs (%.1f dB)" % db(level))
     level, clipped = play(eng, out, Clip(tone(1.5)))
     check(clipped, "and after it stops (%.1f dB, %r)" % (db(level), clipped))
+
+    # The pump adds a block between the count and the read: the take runs on unbroken.
+    eng.set_input(Clip(tone(LOUD)))
+    eng.play()
+    eng.service()
+    eng.record(path)
+    eng._tap = RacingTap(eng._tap, lambda: audiopump.pull(out.sample, 1, status))
+    for _ in range(blocks):
+        audiopump.pull(out.sample, 1, status)
+        eng.service()
+    eng.stop_recording()
+    pcm = wavfile.read(path)[2]
+    steepest = max(abs(pcm[i] - pcm[i - 2]) for i in range(2, len(pcm), 2))
+    limit = 1.2 * LOUD * 32767 * 2 * math.pi * 480 / SAMPLE_RATE
+    check(steepest <= limit, "a block arriving during a read leaves no splice (a step of %d, at most %d)" % (steepest, limit))
     import os
 
     os.remove(path)
-    print("ok  a late tick, and a recording beside the meter")
+    print("ok  a late tick, a recording beside the meter, and a block arriving during a read")
 
     eng.close()
     check(audiopump.tap() is None, "close lets go of the pump's tap")

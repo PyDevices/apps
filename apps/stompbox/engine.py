@@ -150,19 +150,28 @@ class Engine:
         tap = self._tap
         if tap is None:
             return
-        written = tap.stats()[0]
-        new = (written - self._seen) & 0xFFFFFFFF
-        if not new:
+        # The tap hands back its newest audio, and the pump can add a block
+        # between asking how much there is and reading it. A read counts only
+        # if the count is the same on both sides of it, so it ends where the
+        # count says and joins on to the last one.
+        for _ in range(4):
+            written = tap.stats()[0]
+            new = (written - self._seen) & 0xFFFFFFFF
+            if not new:
+                return
+            room = len(self._heard) * 2
+            lost = 0
+            if new > room:
+                lost = new - room
+                new = room
+            n = tap.readinto(memoryview(self._heard)[:new // 2])
+            if tap.stats()[0] == written:
+                break
+        else:
+            return  # the next call picks up from the same place
+        if not n:  # already read at this count: the next block brings more
             return
-        room = len(self._heard) * 2
-        lost = 0
-        if new > room:
-            lost = new - room
-            new = room
-        n = tap.readinto(memoryview(self._heard)[:new // 2])
         self._seen = written
-        if not n:
-            return
         samples = memoryview(self._heard)[:n // 2]
         self._level.feed(samples)
         if self._recorder is not None:
