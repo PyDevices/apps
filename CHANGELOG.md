@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3.dev2
+
+- Stompbox: recordings keep every block the audio pump sends. A block that landed while the recorder was reading used to be lost and another doubled, about 29 splices a second on an ESP32-P4.
+
 ## 0.1.3.dev1
 
 - soundmodule: opening a bank makes channel 1's and the drums' instruments, so the first key on a keyboard plays on time. With a large SoundFont on an ESP32-P4 that first note took 200 ms or more; it now takes about 50 ms. It needs audioinstruments 0.5.3.dev2 or later.
