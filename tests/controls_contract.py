@@ -6,12 +6,14 @@
 Builds each control on a display with no window and drives it the way a host
 and a hand do. Prints one ``PASS name`` or ``FAIL name: why`` line per check,
 and exits 1 if anything failed. ``--plant`` makes a slider stop reporting its
-changes, so the callback checks must fail: that is how test_controls.py knows
+changes, an envelope ignore its rates and a routing diagram put every node
+on one row, so those checks must fail: that is how test_controls.py knows
 they can.
 
     micropython controls_contract.py [--plant]
 """
 
+import gc
 import sys
 
 import _headless
@@ -22,7 +24,11 @@ PLANT = "--plant" in sys.argv[1:]
 _headless.display(800, 480)
 _headless.pointer()
 
-from controlkit import LampButton, LedMeter, PadGrid, RingButton, Slider, SpectrumBars  # noqa: E402
+from controlkit import EnvelopeView, LampButton, LedMeter, PadGrid, RingButton, RoutingDiagram, Slider, SpectrumBars  # noqa: E402
+from controlkit import envelope_view as envelope_module  # noqa: E402
+from controlkit import routing_diagram as routing_module  # noqa: E402
+from controlkit.mock import ENVELOPES, ROUTINGS, MockEnvelope  # noqa: E402
+from routing_algorithms import ALGORITHMS, graph  # noqa: E402
 from controlkit import slider as slider_module  # noqa: E402
 from controlkit import encoder as encoder_module  # noqa: E402
 from controlkit.theme import BLACK  # noqa: E402
@@ -35,6 +41,17 @@ if PLANT:
             self._show(value)
 
     slider_module.Slider._change = _silent_change
+
+    # An envelope whose segments are all one width, whatever their rates.
+    envelope_module._SHORTEST = 1.0
+
+    # A diagram with every node on the bottom row.
+    _arrange = routing_module.arrange
+
+    def _flat_arrange(nodes, edges, carriers):
+        return {name: (float(i), 0) for i, name in enumerate(_arrange(nodes, edges, carriers))}
+
+    routing_module.arrange = _flat_arrange
 
 failures = []
 
@@ -350,6 +367,259 @@ check("levels are clamped, and missing bands read as silence",
       bars.levels[0] == 1.0 and bars.levels[1] == 0.5 and bars.levels[9] == 0.5, str(bars.levels))
 bars.clear()
 check("clear drops every bar to the floor", heights() == [2] * 10, str(heights()))
+scr.delete()
+
+# ---- EnvelopeView ------------------------------------------------------------
+
+
+def pixel(x, y):
+    """The (red, green, blue) on the display at (*x*, *y*), each 0 to 255."""
+    frame = _headless._state["frame"]
+    at = (int(y) * 800 + int(x)) * 2
+    value = frame[at] | (frame[at + 1] << 8)
+    return (value >> 11) * 255 // 31, ((value >> 5) & 63) * 255 // 63, (value & 31) * 255 // 31
+
+
+def near(a, b, slack=1.5):
+    return abs(a[0] - b[0]) <= slack and abs(a[1] - b[1]) <= slack
+
+
+scr = screen()
+view = EnvelopeView(scr, 20, 30, 240, 160, BLACK, stages=4, sustain=2, maximum=99,
+                    rates=(99, 50, 20, 60), levels=(99, 70, 40, 0))
+_headless.refresh()
+pts = view.points()
+check("an envelope turns once per stage, after its start", len(pts) == 5, str(pts))
+widths = [pts[i + 1][0] - pts[i][0] for i in range(4)]
+check("a faster rate draws a shorter segment",
+      widths[0] < widths[3] - view._hold_w < widths[1] < widths[2], str(widths))
+check("a higher level draws higher up", pts[1][1] < pts[2][1] < pts[3][1] < pts[4][1], str(pts))
+check("the curve starts at the last stage's level", pts[0][1] == pts[4][1], str(pts))
+check("the held level runs from the end of the sustain stage to the start of the next",
+      view._hold_w > 10 and abs(view._starts[3][0] - pts[3][0] - view._hold_w) < 0.01, str(view._starts))
+mid = ((pts[1][0] + pts[2][0]) / 2, (pts[1][1] + pts[2][1]) / 2)
+check("the curve is drawn where points() says", pixel(20 + mid[0], 30 + mid[1])[0] > 180,
+      str(pixel(20 + mid[0], 30 + mid[1])))
+
+view.set_values((0, 0, 0, 0), (99, 0, 99, 0))
+slow = view.points()
+check("the slowest envelope still fits its window", slow[4][0] <= 240 - 4 and slow[0][0] >= 4, str(slow))
+check("the highest and lowest levels fit its window",
+      4 <= min(p[1] for p in slow) and max(p[1] for p in slow) <= 160 - 4, str(slow))
+view.set_values((150, -3, 50, 50), (200, -1, 50, 0))
+check("values past the range are held to it", view.rates[:2] == [99, 0] and view.levels[:2] == [99, 0],
+      "%s %s" % (view.rates, view.levels))
+view.set_values((99, 50, 20, 60), (99, 70, 40, 0))
+view.set_level(1, 20)
+check("set_level moves one stage", view.levels == [99, 20, 40, 0] and view.points()[2][1] > pts[2][1])
+view.set_rate(1, 99)
+check("set_rate moves one stage", view.rates == [99, 99, 20, 60] and view.points()[2][0] < pts[2][0])
+view.set_values((99, 50, 20, 60), (99, 70, 40, 0))
+
+_headless.refresh()
+view.set_selected(1)
+check("selecting a stage redraws it", view.selected == 1 and _headless.refresh() > 0)
+lit = pixel(20 + mid[0], 30 + mid[1])
+check("the selected stage is drawn in the pointer colour", lit[1] > 180 and lit[2] > 150, str(lit))
+view.set_selected(1)
+check("selecting it again redraws nothing", _headless.refresh() == 0)
+view.set_selected(None)
+_headless.refresh()
+check("selecting None lights no stage", view.selected is None and pixel(20 + mid[0], 30 + mid[1])[2] < 100)
+
+check("the playhead starts hidden", view.playhead() is None and view._head.has_flag(lv.obj.FLAG.HIDDEN))
+view.set_position(1, 0.5)
+check("the playhead sits part of the way through its stage",
+      near(view.playhead(), mid) and not view._head.has_flag(lv.obj.FLAG.HIDDEN), str(view.playhead()))
+view.set_position(2, 1.5)
+spot = view.playhead()
+check("past the end of the sustain stage it runs along the held level",
+      spot[1] == pts[3][1] and pts[3][0] < spot[0] < pts[3][0] + view._hold_w, str(spot))
+view.set_position(0, 7)
+check("a stage that doesn't hold stops the playhead at its end", near(view.playhead(), pts[1]), str(view.playhead()))
+view.set_position(None)
+check("set_position(None) hides the playhead", view.playhead() is None and view._cursor.has_flag(lv.obj.FLAG.HIDDEN))
+
+for name, call, error in (
+    ("too few rates are refused", lambda: view.set_values((1, 2, 3), (1, 2, 3, 4)), ValueError),
+    ("a stage past the last is refused", lambda: view.set_selected(4), IndexError),
+    ("a playhead in a stage past the last is refused", lambda: view.set_position(9, 0.5), IndexError),
+    ("an envelope with no stages is refused", lambda: EnvelopeView(scr, 0, 0, 100, 60, BLACK, stages=0), ValueError),
+    ("a sustain stage past the last is refused",
+     lambda: EnvelopeView(scr, 0, 0, 100, 60, BLACK, stages=2, sustain=2), ValueError),
+):
+    try:
+        call()
+        check(name, False, "no error")
+    except error:
+        check(name, True)
+
+plain_view = EnvelopeView(scr, 300, 30, 120, 80, BLACK, stages=2, legend="Amp")
+check("an envelope with no values opens flat at zero",
+      plain_view.levels == [0, 0] and len({p[1] for p in plain_view.points()}) == 1)
+check("an envelope with no sustain draws no held level", plain_view._hold.has_flag(lv.obj.FLAG.HIDDEN))
+for name, rates, levels in ENVELOPES:
+    plain_view = EnvelopeView(scr, 300, 130, 64, 40, BLACK, stages=4, sustain=2, rates=rates, levels=levels)
+    inside = all(0 <= p[0] <= 64 and 0 <= p[1] <= 40 for p in plain_view.points())
+    check("the mock's %s envelope fits a 64 x 40 view" % name, inside and _headless.refresh() > 0)
+    plain_view.obj.delete()
+
+clock = MockEnvelope(stages=4, sustain=2, stage_ms=100, hold_ms=200)
+seen = [clock.tick(50) for _ in range(12)]
+check("the mock envelope walks the stages and waits on the held one",
+      [s for s, _ in seen] == [0, 1, 1, 2, 2, 2, 2, 2, 2, 3, 3, 0] and seen[6] == (2, 1.25), str(seen))
+scr.delete()
+
+# A view nobody holds must still draw: LVGL only points at a line's points.
+scr = screen()
+EnvelopeView(scr, 20, 30, 240, 160, BLACK, stages=4, sustain=2, maximum=99,
+             rates=(99, 50, 20, 60), levels=(99, 70, 40, 0))
+gc.collect()
+bytearray(4096)
+_headless.refresh()
+check("a view the host doesn't keep still draws its curve", pixel(20 + mid[0], 30 + mid[1])[0] > 180,
+      str(pixel(20 + mid[0], 30 + mid[1])))
+scr.delete()
+
+# ---- RoutingDiagram ----------------------------------------------------------
+
+
+def coords(obj):
+    area = lv.area_t()
+    obj.get_coords(area)
+    return area.x1, area.y1, area.x2, area.y2
+
+
+def apart(a, b):
+    return a[2] < b[0] or b[2] < a[0] or a[3] < b[1] or b[3] < a[1]
+
+
+check("the fixture lists 32 algorithms, each one different", len(ALGORITHMS) == 32 and len(set(ALGORITHMS)) == 32)
+check("the algorithms have the carriers they are known for",
+      [len(a[1]) for a in ALGORITHMS] == [2, 2, 2, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 3, 3, 4, 4, 4, 5, 5,
+                                           3, 3, 3, 4, 4, 5, 6], str([len(a[1]) for a in ALGORITHMS]))
+wired = True
+for edges, carriers, feedback in ALGORITHMS:
+    modulators = {source for source, _ in edges}
+    wired = wired and modulators | set(carriers) == {1, 2, 3, 4, 5, 6} and not modulators & set(carriers)
+    wired = wired and feedback[0] in (1, 2, 3, 4, 5, 6) and feedback[1] in modulators | {feedback[0]}
+check("every operator is a carrier or modulates something, never both", wired)
+
+rows_ok = True
+spaced = True
+for number in range(1, 33):
+    nodes, edges, carriers, feedback = graph(number)
+    places = routing_module.arrange(nodes, edges, carriers)
+    rows_ok = rows_ok and all(places[c][1] == 0 for c in carriers)
+    rows_ok = rows_ok and all(places[s][1] == places[t][1] + 1 for s, t in edges)
+    for a in nodes:
+        for b in nodes:
+            if a < b and places[a][1] == places[b][1]:
+                spaced = spaced and abs(places[a][0] - places[b][0]) >= 0.999
+check("carriers take the bottom row and each modulator the row above its target", rows_ok)
+check("no two nodes of a row share a column", spaced)
+
+fan = routing_module.arrange(*ROUTINGS[2][1:4])
+check("a node that modulates several sits over the middle of them", fan["D"] == (fan["B"][0], 1), str(fan))
+under = routing_module.arrange((1, 2, 3), ((2, 1), (3, 1)), (1,))
+check("a node with several modulators sits under the middle of them",
+      under[1][0] == (under[2][0] + under[3][0]) / 2, str(under))
+scr = screen()
+for name, call in (
+    ("edges that loop are refused", lambda: routing_module.arrange((1, 2), ((1, 2), (2, 1)), ())),
+    ("an edge to a node that isn't there is refused", lambda: routing_module.arrange((1, 2), ((3, 1),), (1,))),
+    ("a carrier that isn't there is refused", lambda: routing_module.arrange((1, 2), ((2, 1),), (5,))),
+    ("feedback to a node that isn't there is refused",
+     lambda: RoutingDiagram(scr, 0, 0, 100, 80, BLACK, (1, 2), ((2, 1),), (1,), (2, 9))),
+):
+    try:
+        call()
+        check(name, False, "no error")
+    except ValueError:
+        check(name, True)
+scr.delete()
+
+for width, height in ((240, 160), (480, 320)):
+    fits = True
+    clear = True
+    named = True
+    why = ""
+    for number in range(1, 33):
+        scr = screen()
+        diagram = RoutingDiagram(scr, 30, 40, width, height, BLACK, *graph(number))
+        _headless.refresh()
+        boxes = [coords(diagram.node(name)) for name in diagram.nodes]
+        for i, a in enumerate(boxes):
+            if not (a[0] >= 30 and a[1] >= 40 and a[2] < 30 + width and a[3] < 40 + height):
+                fits = False
+                why = "algorithm %d: %s" % (number, a)
+            if a[2] - a[0] < 15 or a[3] - a[1] < 15 or diagram._boxes[diagram.nodes[i]][1] is None:
+                named = False
+                why = "algorithm %d: %s" % (number, a)
+            for b in boxes[i + 1:]:
+                if not apart(a, b):
+                    clear = False
+                    why = "algorithm %d: %s %s" % (number, a, b)
+        scr.delete()
+    check("all 32 algorithms fit %d x %d" % (width, height), fits, why)
+    check("no two boxes touch at %d x %d" % (width, height), clear, why)
+    check("every box shows its number at %d x %d" % (width, height), named, why)
+
+scr = screen()
+taps = []
+diagram = RoutingDiagram(scr, 30, 40, 240, 160, BLACK, *graph(4), on_press=lambda d, name: taps.append(name))
+_headless.refresh()
+x, y = point_at(diagram.node(5))
+_headless.touch(x, y, False, 40)
+_headless.touch(x, y, True, 40)
+_headless.touch(x, y, False, 40)
+check("a tap on a node reports its name", taps == [5], str(taps))
+top6 = coords(diagram.node(6))
+top5 = coords(diagram.node(5))
+between = pixel((top6[0] + top6[2]) // 2, (top6[3] + top5[1]) // 2)
+face = pixel(31, 41)
+check("a line joins a modulator to its target", between != face, "%s %s" % (between, face))
+_headless.refresh()
+diagram.set_selected(6)
+check("selecting a node redraws it", diagram.selected == 6 and _headless.refresh() > 0)
+check("the selected node is lit", pixel(top6[0] + 4, top6[1] + 4)[0] > 180, str(pixel(top6[0] + 4, top6[1] + 4)))
+diagram.set_selected(6)
+check("selecting it again redraws nothing", _headless.refresh() == 0)
+diagram.set_color(2, 0x0000FF)
+_headless.refresh()
+box2 = coords(diagram.node(2))
+check("a node takes a colour", diagram.colors[2] == 0x0000FF and pixel(box2[0] + 4, box2[1] + 4)[2] > 200)
+diagram.set_color(2, None)
+check("a node goes dark with None", diagram.colors[2] is None)
+try:
+    diagram.set_selected(9)
+    check("a node that isn't there is refused", False, "no error")
+except KeyError:
+    check("a node that isn't there is refused", True)
+
+before = diagram.obj.get_child_count()
+diagram.set_graph(*graph(32))
+_headless.refresh()
+check("set_graph draws another graph and starts the selection again",
+      diagram.selected is None and diagram.places[6] == (5.0, 0) and diagram.obj.get_child_count() != before,
+      str(diagram.places))
+for name, nodes, edges, carriers, feedback in ROUTINGS:
+    diagram.set_graph(nodes, edges, carriers, feedback)
+    boxes = [coords(diagram.node(n)) for n in nodes]
+    check("the mock's %s graph draws inside the diagram" % name,
+          _headless.refresh() > 0 and all(b[0] >= 30 and b[2] < 270 and b[1] >= 40 and b[3] < 200 for b in boxes))
+diagram.set_graph((), (), ())
+check("an empty graph draws nothing", diagram.obj.get_child_count() == 0 and diagram.nodes == [])
+scr.delete()
+
+# A diagram nobody holds must still draw its lines.
+scr = screen()
+RoutingDiagram(scr, 30, 40, 240, 160, BLACK, *graph(4))
+gc.collect()
+bytearray(4096)
+_headless.refresh()
+check("a diagram the host doesn't keep still draws its lines",
+      pixel((top6[0] + top6[2]) // 2, (top6[3] + top5[1]) // 2) == between)
 scr.delete()
 
 print("FAILED: %d" % len(failures) if failures else "ALL PASSED")

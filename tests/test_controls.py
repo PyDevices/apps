@@ -3,10 +3,11 @@
 # SPDX-License-Identifier: MIT
 """Run controls_contract.py on CPython and on unix MicroPython.
 
-The slider, the LED meter, the lamp button, the pad grid and the encoder's
-three ring modes, built on a
+The slider, the LED meter, the lamp button, the pad grid, the encoder's
+three ring modes, the envelope view and the routing diagram, built on a
 display with no window and driven by hand and by a host. The planted run
-stops a slider from reporting its changes and must fail the callback checks.
+stops a slider from reporting its changes, makes an envelope ignore its
+rates and flattens a routing diagram, and must fail the checks for each.
 
 MicroPython comes from ``OMNIPYTHON_MICROPYTHON``, ``micropython`` on PATH, or
 a ``bin/micropython`` in a folder above this one, and needs LVGL. With none,
@@ -24,6 +25,8 @@ import unittest
 TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parent / "lib"
 CONTRACT = TESTS / "controls_contract.py"
+# The 32 six-operator algorithms the routing diagram is checked against.
+EXAMPLES = LIB / "controlkit" / "examples"
 
 
 def _has_lvgl(interpreter):
@@ -54,8 +57,8 @@ def _micropython():
 
 def _run(interpreter, *args):
     env = dict(os.environ)
-    env["PYTHONPATH"] = os.pathsep.join([str(LIB), str(TESTS), env.get("PYTHONPATH", "")])
-    env["MICROPYPATH"] = ":".join([str(LIB), str(TESTS), ".frozen"])
+    env["PYTHONPATH"] = os.pathsep.join([str(LIB), str(TESTS), str(EXAMPLES), env.get("PYTHONPATH", "")])
+    env["MICROPYPATH"] = ":".join([str(LIB), str(TESTS), str(EXAMPLES), ".frozen"])
     return subprocess.run(
         [interpreter, str(CONTRACT)] + list(args),
         cwd=str(TESTS),
@@ -92,6 +95,17 @@ class _Contract:
         self.assertIn("FAIL a drag reports its change once", out)
         failed = [line for line in out.splitlines() if line.startswith("FAIL ")]
         self.assertTrue(failed, out)
+
+    def test_an_envelope_that_ignores_its_rates_fails(self):
+        result, out = self.contract("--plant")
+        self.assertEqual(result.returncode, 1, out)
+        self.assertIn("FAIL a faster rate draws a shorter segment", out)
+
+    def test_a_flat_routing_diagram_fails_the_row_checks(self):
+        result, out = self.contract("--plant")
+        self.assertEqual(result.returncode, 1, out)
+        self.assertIn("FAIL carriers take the bottom row and each modulator the row above its target", out)
+        self.assertIn("FAIL a node that modulates several sits over the middle of them", out)
 
 
 class CPythonControls(_Contract, unittest.TestCase):
