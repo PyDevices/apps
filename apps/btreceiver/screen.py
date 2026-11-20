@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The receiver's screen: the cover, what's playing, and the transport.
+"""The receiver's screen: the cover, what's playing, the transport, and calls.
 
 `Screen` builds every widget once and then only changes them: a new track
 sets some labels, a new cover sets one image, and the spectrum moves a few
-bars. Nothing here talks to Bluetooth; the app hands it what the sink says.
+bars. A call shows a card over the player until it ends. Nothing here talks
+to Bluetooth; the app hands it what the sink and the hands-free unit say.
 """
 
 import lvgl as lv
@@ -22,14 +23,20 @@ MUTED = 0x7D8799  # the album, the details and the times
 LINE = 0x3A4458  # the thin outlines
 TEAL = 0x4DB6AC  # the accent until a cover gives one
 AMBER = 0xFFB74D  # a warning about the sender: its battery, its signal
+GREEN = 0x66BB6A  # answer
+RED = 0xEF5350  # decline and hang up
 
 BANDS = 24
 WEAK_DB = -10  # a link this far below the radio's ideal range is weak
-# The sender's battery as AVRCP reports it, a state rather than a percentage,
-# and the icon and colour for each. A sender that reports none shows none.
-BATTERY = {"full": ("battery_full", MUTED), "normal": ("battery_5_bar", MUTED),
-           "warning": ("battery_2_bar", AMBER), "critical": ("battery_0_bar", AMBER),
-           "external": ("battery_charging_full", MUTED)}
+# The phone's battery as its hands-free link reports it, 0 to 5, and the icon
+# for each. At LOW_BATTERY or under it turns amber. A sender with no
+# hands-free link, such as a computer, reports none and shows none.
+BATTERY = ("battery_0_bar", "battery_1_bar", "battery_2_bar", "battery_4_bar", "battery_5_bar", "battery_full")
+LOW_BATTERY = 1
+SIGNAL_BARS = 4  # the phone's signal, 0 to 5, as this many bars
+# What the card says over the caller for each of HandsFree's call states.
+CALL_WORDS = {"incoming": "INCOMING CALL", "dialing": "CALLING", "alerting": "RINGING", "active": "ON A CALL",
+              "held": "ON HOLD"}
 
 
 def _font(*sizes):
@@ -144,6 +151,7 @@ TEXT_Y = 60
 SPECTRUM = (416, 246, 360, 30)
 PROGRESS = (416, 292, 360)
 TRANSPORT = (416, 326, 56, 72, 14)  # x, y, small ring, play ring, gap
+CALL_BUTTONS = (416, 300, 64, 80, 40)  # x, y, small ring, main ring, gap
 VOLUME = (650, 362, 126)  # x, middle y, width
 # Shuffle and repeat sit over the volume, which moves down to make room; the
 # two rows stay centred on the play button.
@@ -157,7 +165,9 @@ class Screen:
     """Everything on the receiver's screen, in *root* (*size* pixels).
 
     *on* maps ``"play"``, ``"next"``, ``"previous"``, ``"seek"``, ``"repeat"``,
-    ``"shuffle"`` and ``"volume"`` to what the buttons and the slider do.
+    ``"shuffle"`` and ``"volume"`` to what the buttons and the slider do, and
+    ``"answer"``, ``"hangup"``, ``"mute"`` and ``"route"`` to the call card's
+    buttons.
     """
 
     def __init__(self, root, size, on):
@@ -168,6 +178,9 @@ class Screen:
         self._dragging = False
         self._title_text = None
         self._pos_text = None
+        self._link_notes = []
+        self._phone_notes = []
+        self.call_state = None
         root.remove_flag(lv.obj.FLAG.SCROLLABLE)
         root.set_style_bg_opa(lv.OPA.COVER, 0)
         root.set_style_bg_grad_dir(lv.GRAD_DIR.VER, 0)
@@ -183,6 +196,10 @@ class Screen:
         self._build_modes()
         x, y, w, h = SPECTRUM
         self.bars = SpectrumBars(root, x, y, w, h, BLACK, bands=BANDS, gap=w // BANDS * 3 // 5, color=TEAL)
+        self._build_call(size)
+        # The sender's line stays over the call card: the battery always shows.
+        for o in (self.src_mark, self.src_name, self.signal, self.battery, self.warn):
+            o.move_foreground()
         self.set_accent(TEAL)
 
     # -- building -------------------------------------------------------
@@ -258,8 +275,21 @@ class Screen:
         self.battery.set_pos(cx + cw - 22, SOURCE_Y - 3)
         self.battery_state = None
         _show(self.battery, False)
+        # The phone's signal beside it: thin bars, filled up to the level.
+        sig = self.signal = _box(root, cx + cw - 56, SOURCE_Y + 3, 4 * SIGNAL_BARS + 3 * (SIGNAL_BARS - 1), 14)
+        self.signal_bars = []
+        for i in range(SIGNAL_BARS):
+            h = 5 + i * 3
+            bar = _box(sig, i * 7, 14 - h, 4, h)
+            bar.set_style_radius(1, 0)
+            bar.set_style_border_width(1, 0)
+            bar.set_style_border_color(lv.color_hex(MUTED), 0)
+            bar.set_style_bg_color(lv.color_hex(MUTED), 0)
+            self.signal_bars.append(bar)
+        self.signal_state = None
+        _show(sig, False)
         self.warn = _label(root, F_SMALL, AMBER)
-        self.warn.set_width(cw - 150 - 34)
+        self.warn.set_width(cw - 150 - 68)
         self.warn.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
         self.warn.set_pos(cx + 150, SOURCE_Y + 1)
         # What's playing, top down, each line only when it has something.
@@ -473,21 +503,34 @@ class Screen:
             if rssi is not None and rssi <= WEAK_DB:
                 notes.append("Weak signal")
         self.codec.set_text("  /  ".join(parts))
-        self.warn.set_text("  /  ".join(notes))
-        self.show_battery(link.get("battery") if link else None)
+        self._link_notes = notes
+        self._notes()
 
-    def show_battery(self, state):
-        """The sender's battery icon for *state*, AVRCP's report, or none."""
-        if state == self.battery_state:
-            return
-        self.battery_state = state
-        kind = BATTERY.get(state)
-        if kind is None:
-            _show(self.battery, False)
-            return
-        self.battery.set_src(lvicons.dsc(kind[0], 24))
-        self.battery.set_style_image_recolor(lv.color_hex(kind[1]), 0)
-        _show(self.battery, True)
+    def show_phone(self, battery, signal, service):
+        """The phone's battery and signal, each 0 to 5 or None for none, and
+        whether it has network service (None when it hasn't said)."""
+        if battery != self.battery_state:
+            self.battery_state = battery
+            if battery is None:
+                _show(self.battery, False)
+            else:
+                level = max(0, min(5, battery))
+                self.battery.set_src(lvicons.dsc(BATTERY[level], 24))
+                self.battery.set_style_image_recolor(lv.color_hex(AMBER if level <= LOW_BATTERY else MUTED), 0)
+                _show(self.battery, True)
+        state = (signal, service)
+        if state != self.signal_state:
+            self.signal_state = state
+            _show(self.signal, signal is not None)
+            if signal is not None:
+                lit = 0 if service is False else (max(0, min(5, signal)) * SIGNAL_BARS + 2) // 5
+                for i, bar in enumerate(self.signal_bars):
+                    bar.set_style_bg_opa(lv.OPA.COVER if i < lit else lv.OPA.TRANSP, 0)
+            self._phone_notes = ["No service"] if service is False else []
+            self._notes()
+
+    def _notes(self):
+        self.warn.set_text("  /  ".join(self._phone_notes + self._link_notes))
 
     def show_modes(self, repeat, shuffle):
         """The sender's *repeat* ("off", "single", "all" or "group") and
@@ -548,6 +591,59 @@ class Screen:
     def show_levels(self, levels):
         self.bars.set_levels(levels)
 
+    def show_call(self, state, caller, phone, here, muted, mic):
+        """The call card for HandsFree's call *state*, or none for ``None``
+        and ``"idle"``.
+
+        *caller* is the other side's number, *phone* the phone's name, *here*
+        whether the call's audio is on the board, *muted* whether the
+        microphone is off, and *mic* whether the board has one to send.
+        """
+        on = state in CALL_WORDS
+        self.call_state = state if on else None
+        _show(self.card, on)
+        if not on:
+            return
+        ringing = state == "incoming"
+        self.call_word.set_text(CALL_WORDS[state])
+        self.caller.set_text(caller or "Unknown number")
+        self.call_phone.set_text("on %s" % phone if phone else "")
+        _show(self.call_phone, bool(phone))
+        if ringing:
+            note = "Answer here to talk through this speaker"
+        elif not here:
+            note = "Talking on the phone"
+        elif not mic:
+            note = "This board can't send its microphones: the caller can't hear you"
+        elif muted:
+            note = "Microphones off"
+        else:
+            note = "Talking through this speaker and its microphones"
+        self.call_note.set_text(note)
+        _show(self.call_time, state == "active")
+        colour = GREEN if ringing else self.accent
+        for ring in self.call_rings:
+            ring.set_style_border_color(lv.color_hex(colour), 0)
+        glyphs.tint(self.call_mark, lv.color_hex(colour))
+        self.call_word.set_style_text_color(lv.color_hex(colour), 0)
+        for b in (self.answer, self.decline):
+            _show(b.obj, ringing)
+        for b in (self.mute, self.route, self.hang):
+            _show(b.obj, not ringing)
+        for lbl in self.ring_labels:
+            _show(lbl, ringing)
+        for lbl in self.call_labels:
+            _show(lbl, not ringing)
+        self.mute.set_icon(glyphs.image("mic_off" if muted else "mic", self._icon_small))
+        self.mute.set_enabled(here and mic)
+        self.call_labels[0].set_text("Unmute" if muted else "Mute")
+        self.route.set_icon(glyphs.image("phone" if here else "volume", self._icon_small))
+        self.call_labels[1].set_text("Use phone" if here else "Use speaker")
+
+    def show_call_time(self, ms):
+        """How long the call has been answered."""
+        self.call_time.set_text(clock(ms))
+
     # -- inside ---------------------------------------------------------
 
     def _place_modes(self):
@@ -567,6 +663,66 @@ class Screen:
             icon.set_style_image_recolor(lv.color_hex(self.accent if lit else MUTED), 0)
         _show(self.repeat_one, repeat == "single")
         self.repeat_one.set_style_text_color(lv.color_hex(self.accent), 0)
+    def _build_call(self, size):
+        """The call card: over everything but the sender's line, hidden
+        until a call."""
+        on = self.on
+        card = self.card = _box(self.root, 0, 0, size[0], size[1])
+        card.add_flag(lv.obj.FLAG.CLICKABLE)  # nothing under it takes a touch
+        card.set_style_bg_opa(lv.OPA.COVER, 0)
+        card.set_style_bg_color(lv.color_hex(BG), 0)
+        x, y, s = COVER
+        rings = _box(card, x, y, s, s)
+        self.call_rings = []
+        ring = PAIR_RING
+        for d, opa in ((ring, 50), (ring * 7 // 10, 90), (ring * 2 // 5, 255)):
+            c = _box(rings, (s - d) // 2, (s - d) // 2, d, d)
+            c.set_style_radius(lv.RADIUS_CIRCLE, 0)
+            c.set_style_border_width(1, 0)
+            c.set_style_border_opa(opa, 0)
+            self.call_rings.append(c)
+        self.call_mark = glyphs.tinted(rings, "handset", ring // 4, lv.color_hex(GREEN))
+        self.call_mark.center()
+        col = _box(card, COL_X, TEXT_Y, COL_W, 230)
+        col.set_flex_flow(lv.FLEX_FLOW.COLUMN)
+        col.set_style_pad_row(8, 0)
+        self.call_word = _label(col, F_SMALL, GREEN, 2)
+        self.caller = _label(col, F_HUGE, TEXT)
+        self.caller.set_width(COL_W)
+        self.caller.set_long_mode(lv.label.LONG_MODE.DOTS)
+        self.call_phone = _label(col, F_BODY, SUB)
+        self.call_time = _label(col, F_BIG, MUTED, 1)
+        self.call_note = _label(col, F_SMALL, MUTED)
+        self.call_note.set_width(COL_W)
+        bx, by, small, big, gap = CALL_BUTTONS
+        self._icon_small = small * 3 // 8
+        dy = (big - small) // 2
+
+        def button(x, y, d, icon, colour, fn):
+            return RingButton(card, x, y, d, BLACK, icon=glyphs.image(icon, d * 3 // 8), on_press=lambda b: fn(),
+                              color=colour, ring=1 if d == small else 2, hit=max(d, 84))
+
+        def caption(x, d, text):
+            lbl = _label(card, F_SMALL, MUTED)
+            lbl.set_width(d + gap)
+            lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+            lbl.set_pos(x - gap // 2, by + big + 10)
+            lbl.set_text(text)
+            return lbl
+
+        # Ringing: decline, then answer.
+        self.decline = button(bx, by, big, "hangup", RED, lambda: on["hangup"]())
+        self.answer = button(bx + big + gap * 2, by, big, "handset", GREEN, lambda: on["answer"]())
+        self.ring_labels = [caption(bx, big, "Decline"), caption(bx + big + gap * 2, big, "Answer")]
+        # Answered: mute, where the audio goes, and hang up.
+        self.mute = button(bx, by + dy, small, "mic", 0xDCE3EC, lambda: on["mute"]())
+        self.route = button(bx + small + gap, by + dy, small, "phone", 0xDCE3EC, lambda: on["route"]())
+        hx = bx + 2 * (small + gap)
+        self.hang = button(hx, by, big, "hangup", RED, lambda: on["hangup"]())
+        self.call_labels = [caption(bx, small, "Mute"), caption(bx + small + gap, small, "Use phone"),
+                            caption(hx, big, "Hang up")]
+        _show(card, False)
+
 
     def _pairing(self, on):
         _show(self.pair, on)

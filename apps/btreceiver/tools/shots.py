@@ -7,7 +7,7 @@
 
 Run it from the repository's root with CPython, lvgl, svgio, jpegio and
 Pillow. The states are the demo's: pairing, idle, playing, paused,
-nocover and long. Each one opens the app under Home's shell, the way a board shows
+nocover, long, incoming and call. Each one opens the app under Home's shell, the way a board shows
 it, waits for the demo to settle and saves ``OUT_DIR/<state>.png``. No
 window opens. With no OUT_DIR the pictures replace the README's, in the
 app's ``docs/images``.
@@ -17,7 +17,7 @@ import os
 import subprocess
 import sys
 
-STATES = ("pairing", "idle", "playing", "paused", "nocover", "long")
+STATES = ("pairing", "idle", "playing", "paused", "nocover", "long", "incoming", "call")
 WAIT_MS = 1500
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "images")
 

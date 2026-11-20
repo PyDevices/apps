@@ -8,12 +8,15 @@ same ``changes()`` bits and the same transport. It pairs a few seconds after
 the app opens, plays a short list of made-up tracks, moves their position
 along and follows play, pause, next, previous, volume, repeat and shuffle. Its covers are
 drawn by svgio and made into JPEGs by jpegio, so the app decodes them the
-way it decodes a phone's.
+way it decodes a phone's. `DemoHandsFree` answers like
+``btclassic.HandsFree``: the phone's battery and signal, and its calls.
 
 ``BTRECEIVER_DEMO`` holds it in one state, for screenshots: ``pairing``,
-``idle``, ``playing``, ``paused``, ``nocover`` (a podcast with no cover)
-or ``long`` (a long title, with every line filled in). Without it the demo runs
-through pairing, connecting and playing on its own.
+``idle``, ``playing``, ``paused``, ``nocover`` (a podcast with no cover, from
+a sender with no hands-free link), ``long`` (a long title, with every line
+filled in, and a low battery), ``incoming`` (a call ringing) or ``call`` (a
+call answered on the board). Without it the demo runs through pairing,
+connecting and playing on its own.
 """
 
 import os
@@ -29,6 +32,9 @@ POSITION = 64
 PEER = 128
 COVER = 256
 SETTINGS = 1 << 26
+PHONE = 512
+CALL = 1024
+AUDIO = 2048
 
 PAIR_MS = 4000  # how long the demo waits to be paired, from the app opening
 PLAY_MS = 2500  # and then before it plays
@@ -140,7 +146,7 @@ class DemoSink:
                                      "long": (None, None)}.get(self.state, ("off", "off"))
         self._clear_track()
         st = self.state
-        if st in ("idle", "playing", "paused", "nocover", "long"):
+        if st in ("idle", "playing", "paused", "nocover", "long", "incoming", "call"):
             self._connect()
             if st != "idle":
                 self._load({"nocover": 3, "long": 2}.get(st, 0))
@@ -321,3 +327,113 @@ class DemoSink:
         if c is None:
             c = self._covers[self._index] = cover_jpeg(spec)
         return c
+
+
+# The phone's battery and signal, 0 to 5, in each held state. A sender with no
+# hands-free link, such as a computer, reports neither.
+_PHONE = {"idle": (3, 4), "playing": (4, 3), "paused": (5, 4), "long": (1, 1), "incoming": (4, 3), "call": (4, 3)}
+CALLER = "+1 206 555 0143"
+
+
+class DemoHandsFree:
+    """A pretend ``btclassic.HandsFree`` that follows *sink*'s phone.
+
+    It links when the sink connects, reports a battery and a signal, and in
+    the ``incoming`` and ``call`` states has a call. The phone pauses its
+    music for a call and plays it again after, as a real one does.
+    """
+
+    def __init__(self, sink, state=None):
+        self.sink = sink
+        self.state = state if state is not None else sink.state
+        self._bits = 0
+        self.connected = False
+        self.peer = None
+        self.battery = None
+        self.signal = None
+        self.service = None
+        self.operator = ""
+        self.call = None
+        self.caller = ""
+        self.audio = False
+        self.sample_rate = 0
+        self.mic = None  # what uplink() was last given
+        self._resume = False
+        self._followed = False  # the sink's connection, as last seen
+        if self.state == "incoming":
+            self._follow()
+            self._ring()
+        elif self.state == "call":
+            self._follow()
+            self._ring()
+            self.answer()
+
+    def changes(self):
+        self._follow()
+        bits, self._bits = self._bits, 0
+        return bits
+
+    def answer(self):
+        if self.call == "incoming":
+            self.call = "active"
+            self._audio(True)
+            self._bits |= CALL
+
+    def hangup(self):
+        if self.call in ("incoming", "dialing", "alerting", "active", "held"):
+            self.call = "idle"
+            self._audio(False)
+            self._bits |= CALL
+            if self._resume:
+                self._resume = False
+                self.sink.play()
+
+    def connect_audio(self):
+        if self.call in ("active", "dialing", "alerting"):
+            self._audio(True)
+
+    def disconnect_audio(self):
+        self._audio(False)
+
+    def uplink(self, mic):
+        self.mic = mic
+
+    def stats(self):
+        return {"sent": 0, "unsent": 0}
+
+    def deinit(self):
+        self._audio(False)
+        self.connected = False
+        self.call = None
+
+    # -- the pretend phone ----------------------------------------------
+
+    def _follow(self):
+        # The hands-free link comes up and goes down with the music's.
+        if self.sink.connected == self._followed:
+            return
+        self._followed = self.sink.connected
+        # A computer has no hands-free side: the nocover state's sender.
+        self.connected = self._followed and self.state != "nocover"
+        level = _PHONE.get(self.state, (4, 3)) if self.connected else (None, None)
+        self.battery, self.signal = level
+        self.service = None if level[1] is None else True
+        self.operator = "Northwind" if self.connected else ""
+        self.peer = self.sink.peer if self.connected else None
+        self.call = "idle" if self.connected else None
+        self._bits |= CONNECTION | PHONE | CALL
+
+    def _ring(self):
+        self.call = "incoming"
+        self.caller = CALLER
+        self._bits |= CALL
+        if self.sink.playing:
+            self._resume = True
+            self.sink.pause()
+
+    def _audio(self, on):
+        if on == self.audio:
+            return
+        self.audio = on
+        self.sample_rate = 16000 if on else 0
+        self._bits |= AUDIO

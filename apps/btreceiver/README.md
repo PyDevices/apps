@@ -7,6 +7,8 @@ speaker. Pair a phone or a computer with it and play anything. The screen
 shows the cover large, and beside it everything the sender says: title,
 artist, album, track number and count, genre, where the track is up to, and
 the codec and rate of the stream. A line the sender leaves empty isn't shown.
+The board is also the phone's hands-free unit: its battery and signal show
+at the top, and its calls come to the board's speaker and microphones.
 
 ## On a board
 
@@ -44,13 +46,17 @@ report them shows neither.
 
 The phone's battery shows at the top right whenever the phone reports it,
 amber when it runs low, and a weak signal is shown beside it.
+The phone's battery and signal show at the top right while it's connected,
+the battery amber when it runs low. A phone gives them over its hands-free
+link, so turn on Calls for the board in the phone's Bluetooth settings. A
+computer has no hands-free side, and shows neither.
 
 Closing the app lets the phone go.
 
 ## Its other screens
 
 Connected with nothing playing, the cover is a thin note and the play
-button starts the phone's player. The battery here shows it charging.
+button starts the phone's player.
 
 ![Connected and idle: an empty frame with a thin music note, the phone's name as the title and a hint to play something](docs/images/idle.png)
 
@@ -61,7 +67,8 @@ back to play. Repeat here is on for one track.
 
 A track with no cover gets the note in its place, and lines the phone
 doesn't send, here the album and track number, are left out rather than
-shown empty. This phone reports no battery, so none shows.
+shown empty. This phone has Calls turned off for the board, so no battery or
+signal shows.
 
 ![A podcast episode with no cover: the thin note fills the frame, with the title on two lines and the show's name beneath](docs/images/nocover.png)
 
@@ -70,6 +77,24 @@ battery turns amber. This phone doesn't report shuffle or repeat, so the
 volume sits beside the play button.
 
 ![A long title on two lines, with the battery icon in amber at the top right and no shuffle or repeat](docs/images/long.png)
+
+## Calls
+
+![An incoming call: a card over the player with a thin handset in rings, the caller's number large, and red decline and green answer rings](docs/images/incoming.png)
+
+A call shows a card over the player with the caller's number, and the phone
+pauses its music. Answer it on the card and the call plays through the
+board's speaker while the board's microphones go to the phone; decline it
+and the card goes.
+
+![An answered call: the number, the call's time, and thin mute, use phone and red hang up rings](docs/images/call.png)
+
+While you talk, the card counts the call's time. Mute turns the board's
+microphones off, Use phone takes the call back to the phone (and Use speaker
+brings it back), and Hang up ends it. When the call ends the music plays
+again where it was. The call's audio needs a board whose `pcm_in` records
+while `audio_out` plays; on one that can't, you hear the caller but they
+can't hear you, and the card says so.
 
 ## On a computer
 
@@ -82,7 +107,7 @@ PYTHONPATH=lib python -c "import appkit; appkit.run('btreceiver')"
 ```
 
 `BTRECEIVER_DEMO` holds the demo in one state (`pairing`, `idle`,
-`playing`, `paused`, `nocover` or `long`), and
+`playing`, `paused`, `nocover`, `long`, `incoming` or `call`), and
 [`tools/shots.py`](tools/shots.py) saves a picture of each in
 [`docs/images`](docs/images), where this page's pictures live:
 
