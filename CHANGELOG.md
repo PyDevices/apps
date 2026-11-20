@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3.dev3
+
+- controlkit: EnvelopeView draws a multi-stage envelope and RoutingDiagram draws an operator routing diagram.
+
 ## 0.1.3.dev2
 
 - Stompbox: recordings keep every block the audio pump sends. A block that landed while the recorder was reading used to be lost and another doubled, about 29 splices a second on an ESP32-P4.
