@@ -101,6 +101,10 @@ GAME_MELODY = (
 # Act 3 (Cyber-Deck): 8-step Dorian synth arpeggiator scale (MIDI notes).
 DECK_SCALE = (62, 64, 65, 69, 72, 74, 76, 81)
 
+# Notes made once and reused in turn, so playing one allocates nothing. At most about
+# fourteen start a second, so a note is reused well after its release has ended.
+NOTE_POOL = 24
+
 
 class SoundEngine:
     """Manage synthio playback, 3-act procedural music, SFX, and visualizers."""
@@ -111,12 +115,19 @@ class SoundEngine:
         self._warned = False
         self.audio_out = None
         self.synth = None
-        self._active_notes = []
+        # Gate time left in ms for each note in the pool, and how many are held.
+        self._notes = None
+        self._gate_ms = array("i", [0] * NOTE_POOL)
+        self._next_note = 0
+        self._held = 0
         self._sfx_queue = []
-        self._step_accum = 0.0
+        self._step_tenths = 0
         self._step_index = 0
         self._phase = 0
         self.last_freq = 220.0
+        self._freq_ratio = 1
+        self._center_bin = 1
+        self._set_last_freq(220.0)
         self.voice_energy = 0
         self.scope_samples = [0] * 32
         self.spectrum_bins = [8] * 16
@@ -151,6 +162,10 @@ class SoundEngine:
                 waveform=WAVE_WARM,
                 envelope=self.env_warm,
             )
+            self._notes = [
+                synthio.Note(frequency=220.0, waveform=WAVE_WARM, envelope=self.env_warm)
+                for _ in range(NOTE_POOL)
+            ]
             self.try_unlock()
         except Exception as exc:
             if not self._warned:
@@ -186,24 +201,37 @@ class SoundEngine:
                 self.synth.release_all()
             except Exception:
                 pass
-        self._active_notes.clear()
+        for k in range(NOTE_POOL):
+            self._gate_ms[k] = 0
+        self._held = 0
         self._sfx_queue.clear()
 
-    # Spawn a timed synthio.Note with the specified frequency, waveform, and amplitude.
-    def _spawn_note(self, freq, duration, waveform, envelope, amp=0.22):
+    # Remember the latest note's frequency and what the visualizers derive from it.
+    def _set_last_freq(self, freq):
         self.last_freq = freq
+        self._freq_ratio = max(1, min(6, int(freq / 160.0)))
+        self._center_bin = max(1, min(14, int((freq - 90.0) / 70.0)))
+
+    # Play the next pooled synthio.Note for duration seconds with this frequency, waveform and amplitude.
+    def _spawn_note(self, freq, duration, waveform, envelope, amp=0.22):
+        self._set_last_freq(freq)
         self.voice_energy = min(100, self.voice_energy + int(amp * 180))
-        if self.muted or not self.ready or self.synth is None:
+        if self.muted or not self.ready or self.synth is None or self._notes is None:
             return
+        k = self._next_note
+        self._next_note = (k + 1) % NOTE_POOL
         try:
-            note = synthio.Note(
-                frequency=freq,
-                waveform=waveform,
-                envelope=envelope,
-                amplitude=amp,
-            )
+            note = self._notes[k]
+            if self._gate_ms[k] > 0:
+                self.synth.release(note)
+                self._held -= 1
+            note.frequency = freq
+            note.waveform = waveform
+            note.envelope = envelope
+            note.amplitude = amp
             self.synth.press(note)
-            self._active_notes.append([note, duration])
+            self._gate_ms[k] = max(1, int(duration * 1000.0 + 0.5))
+            self._held += 1
         except Exception:
             pass
 
@@ -275,19 +303,23 @@ class SoundEngine:
         elif dt > 0.12:
             dt = 0.12
 
+        # Gates count whole ms and the step tenths of a ms, so a frame boxes no floats for them.
+        dt_tenths = int(dt * 10000.0 + 0.5)
+        dt_ms = (dt_tenths + 5) // 10
+
         # Release any notes whose gate duration has expired.
-        i = len(self._active_notes) - 1
-        while i >= 0:
-            entry = self._active_notes[i]
-            entry[1] -= dt
-            if entry[1] <= 0.0:
-                if self.synth is not None:
-                    try:
-                        self.synth.release(entry[0])
-                    except Exception:
-                        pass
-                self._active_notes.pop(i)
-            i -= 1
+        if self._held:
+            gates = self._gate_ms
+            for k in range(NOTE_POOL):
+                if gates[k] > 0:
+                    gates[k] -= dt_ms
+                    if gates[k] <= 0:
+                        gates[k] = 0
+                        self._held -= 1
+                        try:
+                            self.synth.release(self._notes[k])
+                        except Exception:
+                            pass
 
         # Fire any delayed SFX syllables whose countdown has reached zero.
         j = len(self._sfx_queue) - 1
@@ -301,16 +333,16 @@ class SoundEngine:
 
         # Determine step tempo based on the active act and Cyber-Deck throttle.
         if act_idx == 0:
-            step_period = 0.22
+            step = 2200
         elif act_idx == 1:
-            step_period = 0.14
+            step = 1400
         else:
             throttle = 0.55 if deck_state is None else deck_state.get("throttle", 0.55)
-            step_period = max(0.09, 0.22 - throttle * 0.11)
+            step = max(900, int(2200.5 - throttle * 1100.0))
 
-        self._step_accum += dt
-        if self._step_accum >= step_period:
-            self._step_accum -= step_period
+        self._step_tenths += dt_tenths
+        if self._step_tenths >= step:
+            self._step_tenths -= step
             self._trigger_music_step(act_idx, deck_state)
             self._step_index = (self._step_index + 1) & 0xFF
 
@@ -354,9 +386,8 @@ class SoundEngine:
     def _update_visualizers(self):
         self._phase = (self._phase + 7) & 0xFF
         self.voice_energy = max(0, self.voice_energy - 6)
-        active_count = len(self._active_notes)
-        base_amp = 24 + min(68, active_count * 22 + (self.voice_energy >> 1))
-        freq_ratio = max(1, min(6, int(self.last_freq / 160.0)))
+        base_amp = 24 + min(68, self._held * 22 + (self.voice_energy >> 1))
+        freq_ratio = self._freq_ratio
 
         for i in range(32):
             p1 = (self._phase + i * freq_ratio * 4) & 0xFF
@@ -364,7 +395,7 @@ class SoundEngine:
             val = ((isin(p1) * 7 + icos(p2) * 3) * base_amp) >> 13
             self.scope_samples[i] = max(-95, min(95, val))
 
-        center_bin = max(1, min(14, int((self.last_freq - 90.0) / 70.0)))
+        center_bin = self._center_bin
         for b in range(16):
             dist = abs(b - center_bin)
             harmonic = 28 if (b == (center_bin + 4) & 15) else 0

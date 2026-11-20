@@ -332,17 +332,13 @@ else:
         Each pygraphics drawing call returns a new ``Area``, and a frame makes a few
         hundred of them: enough garbage for a collection every few seconds, which
         stops the picture for a fifth of a second on a board with a large heap. The
-        calls framebuf lacks, and text and lines, which it draws differently, go to a pygraphics
+        calls framebuf lacks, and text, whose 8x8 font differs, go to a pygraphics
         ``FrameBuffer`` on the same memory, in ``gfx``.
         """
 
         def __init__(self, buf, w, h):
             super().__init__(buf, w, h, framebuf.RGB565)
             self.gfx = FrameBuffer(buf, w, h, RGB565)
-
-        # Draw a line stepped as pygraphics steps it, which framebuf doesn't always match.
-        def line(self, x0, y0, x1, y1, c):
-            self.gfx.line(x0, y0, x1, y1, c)
 
         # Draw text in pygraphics' 8x8 font, which isn't framebuf's.
         def text(self, s, x, y, c):

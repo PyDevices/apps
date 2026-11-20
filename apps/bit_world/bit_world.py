@@ -290,6 +290,18 @@ class BitWorldDirector:
         bar = state.bar
         progress = self._bar_progress()
         if (
+            bar is not None
+            and bar[0] == self.act_idx
+            and bar[1] == self.auto_mode
+            and bar[2] == self.sound.muted
+            and bar[3] < progress
+            and self.wipe_progress == 0.0
+        ):
+            # Only the progress line grew: draw the new stretch of it.
+            tx, ty, _, th = self.tab_rects[self.act_idx]
+            fb.hline(tx + 3 + bar[3], ty + th - 3, progress - bar[3], ACT_ACCENTS[self.act_idx])
+            state.bar = (bar[0], bar[1], bar[2], progress)
+        elif (
             bar is None
             or bar[0] != self.act_idx
             or bar[1] != self.auto_mode
