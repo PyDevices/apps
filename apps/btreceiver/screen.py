@@ -591,13 +591,16 @@ class Screen:
     def show_levels(self, levels):
         self.bars.set_levels(levels)
 
-    def show_call(self, state, caller, phone, here, muted, mic):
+    def show_call(self, state, caller, phone, here, muted, mic, takes=True):
         """The call card for HandsFree's call *state*, or none for ``None``
         and ``"idle"``.
 
         *caller* is the other side's number, *phone* the phone's name, *here*
         whether the call's audio is on the board, *muted* whether the
         microphone is off, and *mic* whether the board has one to send.
+        *takes* is False on a board that can't take a call's audio at all:
+        the card then answers and hangs up only, and the call stays on the
+        phone.
         """
         on = state in CALL_WORDS
         self.call_state = state if on else None
@@ -609,7 +612,9 @@ class Screen:
         self.caller.set_text(caller or "Unknown number")
         self.call_phone.set_text("on %s" % phone if phone else "")
         _show(self.call_phone, bool(phone))
-        if ringing:
+        if not takes:
+            note = "The call's audio stays on the phone"
+        elif ringing:
             note = "Answer here to talk through this speaker"
         elif not here:
             note = "Talking on the phone"
@@ -628,12 +633,13 @@ class Screen:
         self.call_word.set_style_text_color(lv.color_hex(colour), 0)
         for b in (self.answer, self.decline):
             _show(b.obj, ringing)
-        for b in (self.mute, self.route, self.hang):
-            _show(b.obj, not ringing)
+        for b in (self.mute, self.route):
+            _show(b.obj, not ringing and takes)
+        _show(self.hang.obj, not ringing)
         for lbl in self.ring_labels:
             _show(lbl, ringing)
-        for lbl in self.call_labels:
-            _show(lbl, not ringing)
+        for i, lbl in enumerate(self.call_labels):
+            _show(lbl, not ringing and (takes or i == 2))
         self.mute.set_icon(glyphs.image("mic_off" if muted else "mic", self._icon_small))
         self.mute.set_enabled(here and mic)
         self.call_labels[0].set_text("Unmute" if muted else "Mute")

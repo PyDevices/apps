@@ -96,6 +96,12 @@ again where it was. The call's audio needs a board whose `pcm_in` records
 while `audio_out` plays; on one that can't, you hear the caller but they
 can't hear you, and the card says so.
 
+On an ESP32-S31 board the call's audio stays on the phone for now, because
+that chip's Bluetooth can't yet carry it reliably. The card still shows the
+caller, and answers, declines and hangs up; you talk on the phone, and the
+card says so. The same goes for any board whose `HandsFree.call_audio` is
+False, such as the Pico W.
+
 ## On a computer
 
 On a computer, with no `btclassic`, the app plays a demo: a pretend phone

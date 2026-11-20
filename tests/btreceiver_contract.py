@@ -88,11 +88,12 @@ class Scope:
         self.scr.delete()
 
 
-def opened(state):
+def opened(state, call_audio=True):
     """The app open on a demo phone held in *state*: ``(scope, sink, screen)``.
-    The phone's hands-free unit is ``app.state["hf"]``."""
+    The phone's hands-free unit is ``app.state["hf"]``; *call_audio* False is
+    a board that can't take a call's audio."""
     sink = demo.DemoSink(state)
-    hf = demo.DemoHandsFree(sink)
+    hf = demo.DemoHandsFree(sink, call_audio=call_audio)
     app._open_sink = lambda: (demo.DemoRadio("kitchen-speaker"), sink, hf, demo, True)
     scope = Scope()
     app.main(scope)
@@ -330,6 +331,29 @@ check("a call answered on the board shows the card with its time", shown(scr.car
       and text(scr.call_time) is not None)
 scope.close()
 check("closing the app during a call lets the hands-free link go", not hf.connected and not hf.audio)
+
+# ---- A call on a board that can't take its audio ------------------------------
+
+scope, sink, scr = opened("incoming", call_audio=False)
+hf = app.state["hf"]
+check("without call audio, the card still rings with answer and decline",
+      shown(scr.card) and shown(scr.answer.obj) and shown(scr.decline.obj))
+check("without call audio, the card says the audio stays on the phone",
+      text(scr.call_note) == "The call's audio stays on the phone", str(text(scr.call_note)))
+tap(scr.answer.obj)
+scope.run()
+check("without call audio, answer answers and the audio stays on the phone",
+      hf.call == "active" and not hf.audio and not app.state["talking"] and app.state["call_out"] is None)
+check("without call audio, an answered call offers hang up only",
+      shown(scr.hang.obj) and not shown(scr.mute.obj) and not shown(scr.route.obj)
+      and not shown(scr.call_labels[0]) and not shown(scr.call_labels[1]) and shown(scr.call_labels[2]))
+check("without call audio, the call still shows its time", (text(scr.call_time) or "").startswith("0:"),
+      str(text(scr.call_time)))
+tap(scr.hang.obj)
+scope.run()
+check("without call audio, hang up ends the call and the music plays again",
+      hf.call == "idle" and not shown(scr.card) and sink.playing)
+scope.close()
 
 print("FAILED: %d" % len(failures) if failures else "ALL PASSED")
 sys.exit(1 if failures else 0)

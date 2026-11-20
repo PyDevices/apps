@@ -343,8 +343,11 @@ class DemoHandsFree:
     music for a call and plays it again after, as a real one does.
     """
 
-    def __init__(self, sink, state=None):
+    def __init__(self, sink, state=None, call_audio=True):
         self.sink = sink
+        # False is a board whose Bluetooth can't carry a call's audio: the
+        # call stays on the phone.
+        self.call_audio = call_audio
         self.state = state if state is not None else sink.state
         self._bits = 0
         self.connected = False
@@ -389,6 +392,8 @@ class DemoHandsFree:
                 self.sink.play()
 
     def connect_audio(self):
+        if not self.call_audio:
+            raise OSError("this board doesn't take calls' audio")
         if self.call in ("active", "dialing", "alerting"):
             self._audio(True)
 
@@ -432,7 +437,7 @@ class DemoHandsFree:
             self.sink.pause()
 
     def _audio(self, on):
-        if on == self.audio:
+        if on == self.audio or (on and not self.call_audio):
             return
         self.audio = on
         self.sample_rate = 16000 if on else 0

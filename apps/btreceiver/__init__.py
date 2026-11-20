@@ -16,7 +16,9 @@ The board is also the phone's hands-free unit, as a car kit is: the phone's
 battery and signal show at the top right, and a call shows a card over the
 player with the caller's number, to answer or decline. An answered call plays
 through the board's speaker and sends its microphones to the phone, and the
-music comes back when the call ends.
+music comes back when the call ends. On a board whose Bluetooth can't carry a
+call's audio (``HandsFree.call_audio`` is False), the card answers and hangs
+up, and you talk on the phone.
 
 It needs a firmware with ``btclassic``. The audio goes out through the
 board's ``audio_out`` on the audio pump, so a redraw never holds it up. On a
@@ -185,7 +187,9 @@ def main(scope):
           "route": route_audio}
     scr = Screen(scope.root, scope.size, on)
     st = state = {"sink": sink, "hf": hf, "out": None, "rate": 0, "levels": None, "screen": scr, "t0": ticks_ms(),
-                  "call_out": None, "mic": None, "muted": False, "talking": False, "answered": None}
+                  "call_out": None, "mic": None, "muted": False, "talking": False, "answered": None,
+                  # A firmware older than HandsFree.call_audio always takes the call's audio.
+                  "takes_audio": getattr(hf, "call_audio", True)}
     jpeg = bytearray(COVER_JPEG)
     # Covers decode into two buffers made once, taking turns, so LVGL never
     # shows the one being written and a new cover makes no garbage.
@@ -295,7 +299,8 @@ def main(scope):
             st["answered"] = None
         if call not in ("active", "held"):
             st["muted"] = False
-        scr.show_call(call, hf.caller, sink.peer_name, hf.audio, st["muted"], demo_mode or st["mic"] is not None)
+        scr.show_call(call, hf.caller, sink.peer_name, hf.audio, st["muted"], demo_mode or st["mic"] is not None,
+                      st["takes_audio"])
         show_time()
 
     def show_time():
