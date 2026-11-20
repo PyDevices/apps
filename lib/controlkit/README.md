@@ -4,10 +4,11 @@
 
 The shared controls for every PyDevices app that draws a front panel: the
 encoder with its LED ring, the dot-matrix display, the sixteen patch pads,
-the slider with an optional lamp, the LED segment meter, the lamp button and
-the illuminated pad grid. They are drawn in LVGL on MicroPython-compatible
-boards, CircuitPython-compatible boards and CPython, and they import nothing
-from any app.
+the slider with an optional lamp, the LED segment meter, the lamp button,
+the illuminated pad grid, and a thin-line ring button and spectrum bars.
+They are drawn in LVGL on MicroPython-compatible boards,
+CircuitPython-compatible boards and CPython, and they import nothing from
+any app.
 
 A panel is a layout of these controls. The layouts live with the code that
 edits through them:
@@ -30,6 +31,8 @@ control surface never needs this package.
 | `LedMeter` | `meter` | A column or row of lit segments, green, amber and red |
 | `LampButton` | `lamp_button` | A labelled push button with a coloured lamp, momentary or toggle |
 | `PadGrid` | `pad_grid` | A grid of illuminated pads, each lit in any colour, with an optional legend; reports a tap, or each finger landing and lifting |
+| `RingButton` | `ring_button` | A round button drawn as a thin ring with an icon or text, unfilled; reports a tap, and a hold when asked |
+| `SpectrumBars` | `bars` | A row of thin bars, one per band, that jump to a louder level and fall back; a small spectrum or a set of levels |
 | `Lamp` | `_draw` | An indicator LED, the lamp the encoder and the buttons use |
 
 Every control takes a theme, a parent and coordinates in its parent. The
@@ -57,6 +60,23 @@ meter.set_level(0.6)
 grid = PadGrid(screen, 20, 260, 320, 120, BLACK, cols=8, rows=2,
                on_press=lambda g, index: print("pad", index))
 grid.set_color(3, 0x00FF00)
+```
+
+The ring button and the spectrum bars are for a flatter screen: one colour,
+thin lines, nothing filled until it's pressed. The ring button's icon is any
+LVGL image source drawn in white, and the ring tints it.
+
+```python
+from controlkit import RingButton, SpectrumBars
+from controlkit.theme import BLACK
+
+play = RingButton(screen, 20, 20, 72, BLACK, icon=lv.SYMBOL.PLAY, color=0x4DB6AC, ring=2, hit=92,
+                  on_press=lambda b: print("play"))
+skip = RingButton(screen, 110, 28, 56, BLACK, icon=lv.SYMBOL.NEXT, hit=84,
+                  on_press=lambda b: print("next"), on_hold=lambda b, held: print("fast forward", held))
+
+bars = SpectrumBars(screen, 20, 120, 360, 30, BLACK, bands=24, color=0x4DB6AC)
+bars.set_levels(levels)  # one 0.0 to 1.0 per band, each frame
 ```
 
 ## Themes

@@ -22,7 +22,7 @@ PLANT = "--plant" in sys.argv[1:]
 _headless.display(800, 480)
 _headless.pointer()
 
-from controlkit import LampButton, LedMeter, PadGrid, Slider  # noqa: E402
+from controlkit import LampButton, LedMeter, PadGrid, RingButton, Slider, SpectrumBars  # noqa: E402
 from controlkit import slider as slider_module  # noqa: E402
 from controlkit import encoder as encoder_module  # noqa: E402
 from controlkit.theme import BLACK  # noqa: E402
@@ -296,6 +296,60 @@ check("lifting it reports it up", edges == [("down", 5), ("up", 5)], str(edges))
 check("a pad shows its legend", grid._labels[5].get_text() == "C1")
 grid.set_label(5, "D1")
 check("a legend can change", grid._labels[5].get_text() == "D1")
+scr.delete()
+
+# ---- RingButton --------------------------------------------------------------
+
+scr = screen()
+taps = []
+holds = []
+ring = RingButton(scr, 100, 100, 56, BLACK, text="R", on_press=lambda b: taps.append(1),
+                  on_hold=lambda b, held: holds.append(held), hit=88)
+_headless.refresh()
+x, y = point_at(ring.obj)
+_headless.touch(x, y, True, 40)
+_headless.touch(x, y, False, 40)
+check("a tap on a ring button calls on_press once", taps == [1] and holds == [], "%s %s" % (taps, holds))
+_headless.touch(x + 40, y, True, 40)
+_headless.touch(x + 40, y, False, 40)
+check("hit= widens where a finger lands", taps == [1, 1], str(taps))
+_headless.touch(x, y, True, 40)
+_headless.touch(x, y, True, 900)
+_headless.touch(x, y, False, 40)
+check("a hold reports its start and end, and is not a tap", holds == [True, False] and taps == [1, 1],
+      "%s %s" % (holds, taps))
+_headless.touch(x, y, True, 40)
+_headless.touch(x, y, False, 40)
+check("the tap after a hold counts", taps == [1, 1, 1], str(taps))
+ring.set_enabled(False)
+_headless.touch(x, y, True, 40)
+_headless.touch(x, y, False, 40)
+check("a disabled ring button ignores taps", taps == [1, 1, 1], str(taps))
+ring.set_color(0x00FF00)
+check("set_color recolours the ring", ring.obj.get_style_border_color(0).to_int() & 0xFFFFFF == 0x00FF00)
+scr.delete()
+
+# ---- SpectrumBars ------------------------------------------------------------
+
+scr = screen()
+bars = SpectrumBars(scr, 10, 10, 200, 50, BLACK, bands=10, fall=0.25, floor=2)
+
+
+def heights():
+    bars.obj.update_layout()
+    return [b.get_height() for b in bars._bars]
+
+
+check("silent bars stand at the floor", heights() == [2] * 10, str(heights()))
+bars.set_levels([1.0] * 10)
+check("a full level fills a bar", heights()[0] == 50, str(heights()))
+bars.set_levels([0.0] * 10)
+check("a bar falls back by fall per call, not at once", heights()[0] == 2 + int(0.75 * 48 + 0.5), str(heights()))
+bars.set_levels([2.0, -1.0])
+check("levels are clamped, and missing bands read as silence",
+      bars.levels[0] == 1.0 and bars.levels[1] == 0.5 and bars.levels[9] == 0.5, str(bars.levels))
+bars.clear()
+check("clear drops every bar to the floor", heights() == [2] * 10, str(heights()))
 scr.delete()
 
 print("FAILED: %d" % len(failures) if failures else "ALL PASSED")
