@@ -42,7 +42,6 @@ try:
     from uctypes import addressof
 except ImportError:
     addressof = None
-from pygraphics import Draw, FrameBuffer, RGB565
 from bit_palette import (
     ABYSS,
     AMBER,
@@ -68,6 +67,8 @@ from bit_palette import (
     draw_pixel_panel,
     draw_pixel_wipe,
     init_rng,
+    make_canvas,
+    make_draw,
     make_fb,
 )
 from bit_sprites import SpriteBank
@@ -79,7 +80,7 @@ from act_deck import CyberDeckAct
 # Change these to match your setup.
 FRAME_MS = 33  # Target frame interval in milliseconds (~30 FPS)
 PANEL_FRAME_MS = 10  # Frame interval on a board that shares its panel memory with the program
-ACT_DURATION = 16.0  # Seconds per scene in hands-free Attract Mode
+ACT_MS = 16000  # Milliseconds per scene in hands-free Attract Mode
 WIPE_SPEED = 1.85  # Transition curtain speed (full wipe in ~0.54 seconds)
 
 # A browser page has nowhere to go back to, so it shows no exit.
@@ -118,7 +119,7 @@ class BitWorldDirector:
         gc.collect()
         if not self.direct:
             self.screen_buf, self.screen_fb = make_fb(WIDTH, HEIGHT, VOID)
-            self.screen_draw = Draw(self.screen_fb)
+            self.screen_draw = make_draw(self.screen_fb)
             self.screen_state = PanelState()
         backgrounds = [make_fb(WIDTH, HEIGHT, VOID) for _ in range(3)]
 
@@ -134,7 +135,8 @@ class BitWorldDirector:
         self.act_idx = int(start_act) % 3 if start_act is not None else 0
         self.next_act_idx = self.act_idx
         self.auto_mode = True
-        self.act_timer = 0.0
+        self.act_ms = 0
+        self.fps100 = 0  # smoothed frames per second, in hundredths
         self.wipe_progress = 0.0
         self.pointer_down = False
         self.last_ms = ticks_ms()
@@ -169,8 +171,8 @@ class BitWorldDirector:
         key = addressof(buf)
         panel = self.panels.get(key)
         if panel is None:
-            fb = FrameBuffer(buf, WIDTH, HEIGHT, RGB565)
-            panel = (fb, Draw(fb), PanelState())
+            fb = make_canvas(buf, WIDTH, HEIGHT)
+            panel = (fb, make_draw(fb), PanelState())
             self.panels[key] = panel
         return panel
 
@@ -211,7 +213,7 @@ class BitWorldDirector:
     def start_transition(self, target_idx):
         target_idx = target_idx % len(self.acts)
         if target_idx == self.act_idx and self.wipe_progress == 0.0:
-            self.act_timer = 0.0
+            self.act_ms = 0
             return
         self.next_act_idx = target_idx
         if self.wipe_progress == 0.0:
@@ -223,22 +225,26 @@ class BitWorldDirector:
         if app.quit_requested:
             return
         now = ticks_ms()
-        dt = ticks_diff(now, self.last_ms) / 1000.0
+        dt_ms = ticks_diff(now, self.last_ms)
         self.last_ms = now
 
-        # Smooth the frame rate for the deck's frames-per-second dial.
-        if dt > 0.0:
-            self.act_deck.fps += (1.0 / dt - self.act_deck.fps) * 0.1
-        if dt <= 0.0:
-            dt = 0.016
-        elif dt > 0.10:
-            dt = 0.10
+        # Smooth the frame rate for the deck's frames-per-second dial, in whole numbers so
+        # only the deck's own frames make a float of it.
+        if dt_ms > 0:
+            self.fps100 += (100000 // dt_ms - self.fps100) // 10
+            if self.act_idx == 2:
+                self.act_deck.fps = self.fps100 / 100.0
+        if dt_ms <= 0:
+            dt_ms = 16
+        elif dt_ms > 100:
+            dt_ms = 100
+        dt = dt_ms / 1000.0
 
         # Advance attract-mode scene cycle timer when no wipe is active.
         if self.auto_mode and self.wipe_progress == 0.0:
-            self.act_timer += dt
-            if self.act_timer >= ACT_DURATION:
-                self.act_timer = 0.0
+            self.act_ms += dt_ms
+            if self.act_ms >= ACT_MS:
+                self.act_ms = 0
                 self.start_transition((self.act_idx + 1) % len(self.acts))
 
         # Advance the pixel curtain wipe and swap acts at midpoint (0.5).
@@ -247,7 +253,7 @@ class BitWorldDirector:
             self.wipe_progress += dt * WIPE_SPEED
             if prev < 0.5 <= self.wipe_progress:
                 self.act_idx = self.next_act_idx
-                self.act_timer = 0.0
+                self.act_ms = 0
             if self.wipe_progress >= 1.0:
                 self.wipe_progress = 0.0
 
@@ -285,10 +291,34 @@ class BitWorldDirector:
             )
 
         # The stage bar only changes when a tab, a toggle or the progress line does.
-        bar = (self.act_idx, self.auto_mode, self.sound.muted, self._bar_progress())
-        if state.bar != bar or self.wipe_progress > 0.0:
+        # Its fields are compared in place, so a frame that leaves it alone allocates nothing.
+        bar = state.bar
+        progress = self._bar_progress()
+        if (
+            bar is not None
+            and bar[0] == self.act_idx
+            and bar[1] == self.auto_mode
+            and bar[2] == self.sound.muted
+            and bar[3] < progress
+            and self.wipe_progress == 0.0
+        ):
+            # Only the progress line grew: draw the new stretch of it.
+            tx, ty, _, th = self.tab_rects[self.act_idx]
+            fb.hline(tx + 3 + bar[3], ty + th - 3, progress - bar[3], ACT_ACCENTS[self.act_idx])
+            state.bar = (bar[0], bar[1], bar[2], progress)
+        elif (
+            bar is None
+            or bar[0] != self.act_idx
+            or bar[1] != self.auto_mode
+            or bar[2] != self.sound.muted
+            or bar[3] != progress
+            or self.wipe_progress > 0.0
+        ):
             self._draw_stage_bar(fb)
-            state.bar = bar if self.wipe_progress == 0.0 else None
+            if self.wipe_progress == 0.0:
+                state.bar = (self.act_idx, self.auto_mode, self.sound.muted, progress)
+            else:
+                state.bar = None
         if self.direct:
             # Promote the finished frame; the next frame waits for the flip.
             if hasattr(display_drv, "show_nowait"):
@@ -305,7 +335,7 @@ class BitWorldDirector:
         if not self.auto_mode:
             return 0
         tab_w = self.tab_rects[self.act_idx][2]
-        return int((tab_w - 6) * min(1.0, self.act_timer / ACT_DURATION))
+        return (tab_w - 6) * min(self.act_ms, ACT_MS) // ACT_MS
 
     # Draw the top navigation bar with act tabs, attract-mode progress, and toggles.
     def _draw_stage_bar(self, fb):
@@ -332,7 +362,7 @@ class BitWorldDirector:
 
             # Draw a live progress bar along the bottom of the active tab in AUTO mode.
             if active and self.auto_mode:
-                prog_w = int((tw - 6) * min(1.0, self.act_timer / ACT_DURATION))
+                prog_w = self._bar_progress()
                 if prog_w > 0:
                     fb.hline(tx + 3, ty + th - 3, prog_w, accent)
 
@@ -374,7 +404,7 @@ class BitWorldDirector:
             mx, my, mw, mh = self.rect_mode
             if mx <= x < mx + mw and my <= y < my + mh:
                 self.auto_mode = not self.auto_mode
-                self.act_timer = 0.0
+                self.act_ms = 0
                 self.sound.sfx_switch(self.auto_mode)
                 return
             sx, sy, sw, sh = self.rect_sound
@@ -388,7 +418,7 @@ class BitWorldDirector:
 
         # Clicking inside the scene engages manual control for the current act.
         self.auto_mode = False
-        self.act_timer = 0.0
+        self.act_ms = 0
         self.acts[self.act_idx].on_pointer_down(x, y)
 
     # Route pointer motion events (for Bit eye tracking and Cyber-Deck fader drag).
@@ -416,7 +446,7 @@ class BitWorldDirector:
             self.start_transition(2)
         elif key in (keys.K_a, keys.K_TAB):
             self.auto_mode = not self.auto_mode
-            self.act_timer = 0.0
+            self.act_ms = 0
             self.sound.sfx_switch(self.auto_mode)
         elif key == keys.K_m:
             self.sound.toggle_mute()

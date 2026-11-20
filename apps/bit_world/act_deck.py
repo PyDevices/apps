@@ -14,7 +14,6 @@ Needs: pygraphics, bit_palette, bit_sprites.
 """
 
 from array import array
-from pygraphics import Draw
 from bit_palette import (
     ABYSS,
     AMBER,
@@ -28,6 +27,7 @@ from bit_palette import (
     DEEP_SLATE,
     DEEP_TEAL,
     EMERALD,
+    KEY,
     FOREST,
     GOLD,
     ICE_CYAN,
@@ -39,17 +39,21 @@ from bit_palette import (
     ORANGE,
     SILVER,
     SLATE,
+    SIN256,
     STEEL,
     SUN_YELLOW,
     TEAL,
     VOID,
     WHITE,
+    copy_frame,
     draw_pixel_panel,
     icos,
     isin,
+    make_canvas,
+    make_draw,
     make_fb,
     rect_sources,
-    restore_rects,
+    restore_rect,
     restore_sources,
 )
 
@@ -72,7 +76,7 @@ class CyberDeckAct:
         self.sound = sound
         self.phase = 0
         self.fps = 0.0
-        self.auto_timer = 1.8
+        self.auto_ms = 1800
         self.auto_step = 0
 
         # Live interactive HMI state shared with SoundEngine.
@@ -147,12 +151,27 @@ class CyberDeckAct:
                 by = py_p + (18 if layout.compact else 22) + r * (cell_h + pgap)
                 self.pad_rects.append((bx, by, cell_w, cell_h))
 
-        # Coolant tank bubble heights.
-        self.bubbles = [0.15, 0.42, 0.68, 0.85]
+        # Coolant tank bubble heights, in millionths of the liquid's height, and how fast
+        # each rises, in thousandths of the liquid per second at throttle zero.
+        self.bubbles = array("i", (150000, 420000, 680000, 850000))
+        self._bubble_speed = (350, 430, 510, 590)
+
+        # Made once, so a frame's repaint allocates none of them: the keys under which a
+        # PanelState remembers each switch and pad, the needle polygon, and the readouts,
+        # formatted again only when what they show changes.
+        self._switch_keys = tuple(("switch", i) for i in range(len(self.switch_rects)))
+        self._pad_keys = tuple(("pad", i) for i in range(len(self.pad_rects)))
+        self._needle = array("h", [0] * 6)
+        self._mw_shown = -1
+        self._mw_text = ""
+        self._fps_shown = -1
+        self._fps_text = ""
+        self._attract_tables()
 
         # Pre-render the brushed metal chassis and static dial bezels into bg_fb.
         self.bg_buf, self.bg_fb = background or make_fb(w, layout.h, VOID)
-        self.bg_draw = Draw(self.bg_fb)
+        self.bg_view = memoryview(self.bg_buf)
+        self.bg_draw = make_draw(self.bg_fb)
         self._build_static_console()
 
         # The gauge needles turn in place, so the background under them is prepared once.
@@ -162,6 +181,56 @@ class CyberDeckAct:
             w,
             layout.h,
         )
+
+        # The needles' hub, drawn once and then blitted with framebuf, which allocates
+        # nothing; pygraphics' circles return an Area each.
+        self._hub = make_canvas(bytearray(11 * 11 * 2), 11, 11)
+        self._hub.fill(KEY)
+        hub_draw = make_draw(self._hub)
+        hub_draw.circle(5, 5, 4, BRONZE, True)
+        hub_draw.circle(5, 5, 2, WHITE, True)
+
+    # In attract mode the throttle follows the phase, so everything it moves is worked
+    # out here once per phase, with the same float arithmetic the live path uses. A
+    # frame then reads integers, where the live path would box a dozen floats.
+    def _attract_tables(self):
+        lay = self.lay
+        # Index p is phase >> 1, the throttle the operator holds at that phase.
+        self._thr_table = tuple(
+            max(0.15, min(0.92, 0.62 + ((SIN256[p] * 24) / 102400.0))) for p in range(128)
+        )
+        # Where the throttle came from: its phase >> 1, or -1 when a pointer set it.
+        self._thr_index = -1
+        th_tank = self.bay_holo[3] - (26 if lay.compact else 30)
+        th_fader = self.throttle_rect[3]
+        self._level_table = array("h", (int(th_tank * (0.58 + t * 0.28)) for t in self._thr_table))
+        self._fill_table = array(
+            "h", (max(0, min(th_fader - 4, int(th_fader * t))) for t in self._thr_table)
+        )
+        self._permille_table = array("h", (self._permille(t) for t in self._thr_table))
+        # Per phase and boost switch: the flux needle's angle and its MW readout. Per
+        # phase and both switches: how many TEMP segments light.
+        ang = array("B", bytes(512))
+        mw = array("h", bytes(1024))
+        segs = array("B", bytes(1024))
+        for phase in range(256):
+            t = self._thr_table[phase >> 1]
+            jitter = (SIN256[(phase * 3) & 0xFF] * 3) / 10240.0
+            for boost in (0, 1):
+                val1 = min(1.0, max(0.05, t * 0.78 + (0.16 if boost else 0.0) + jitter))
+                ang[phase * 2 + boost] = (96 + int(val1 * 170)) & 0xFF
+                mw[phase * 2 + boost] = int(val1 * 990)
+                for ovr in (0, 1):
+                    val2 = min(1.0, max(0.05, t * 0.72 + (0.14 if ovr else 0.0) - jitter))
+                    segs[phase * 4 + boost * 2 + ovr] = max(1, min(10, int(((val1 + val2) * 0.5) * 10)))
+        self._ang_table = ang
+        self._mw_table = mw
+        self._segs_table = segs
+
+    # The throttle in thousandths, for the bubbles' integer arithmetic.
+    @staticmethod
+    def _permille(t):
+        return int(t * 1000.0 + 0.5)
 
     # Pre-render the industrial console chassis, rivets, and static gauge arcs.
     def _build_static_console(self):
@@ -242,6 +311,7 @@ class CyberDeckAct:
         if tx - 6 <= x <= tx + tw + 6 and ty - 4 <= y <= ty + th + 4:
             rel = 1.0 - ((y - ty) / max(1, th))
             self.throttle = max(0.08, min(1.0, rel))
+            self._thr_index = -1
             self._sync_state()
             if not is_drag:
                 self.sound.sfx_switch(True)
@@ -273,20 +343,28 @@ class CyberDeckAct:
     # Advance coolant bubbles, gauge oscillation, and attract-mode operator.
     def update(self, dt, auto_mode=True):
         self.phase = (self.phase + 5) & 0xFF
-        for i in range(len(self.bubbles)):
-            self.bubbles[i] += dt * (0.35 + i * 0.08) * (0.6 + self.throttle)
-            if self.bubbles[i] >= 1.0:
-                self.bubbles[i] -= 1.0
+        # Counted in whole ms and integer fractions, so a frame boxes no floats for them.
+        dt_ms = round(dt * 1000.0)
+        if self._thr_index >= 0:
+            speed = 600 + self._permille_table[self._thr_index]
+        else:
+            speed = 600 + self._permille(self.throttle)
+        bubbles = self.bubbles
+        for i in range(len(bubbles)):
+            # Millionths per frame: speed per mille times rate per mille times dt in ms.
+            b = bubbles[i] + (self._bubble_speed[i] * speed // 1000) * dt_ms
+            if b >= 1000000:
+                b -= 1000000
+            bubbles[i] = b
 
         # Attract-mode virtual operator: toggle switches, sweep throttle, tap pads.
         if auto_mode:
-            self.throttle = max(
-                0.15, min(0.92, 0.62 + ((isin(self.phase >> 1) * 24) / 102400.0))
-            )
+            self._thr_index = self.phase >> 1
+            self.throttle = self._thr_table[self._thr_index]
             self._sync_state()
-            self.auto_timer -= dt
-            if self.auto_timer <= 0.0:
-                self.auto_timer = 2.1
+            self.auto_ms -= dt_ms
+            if self.auto_ms <= 0:
+                self.auto_ms = 2100
                 self.auto_step = (self.auto_step + 1) & 7
                 if (self.auto_step & 1) == 0:
                     sw_idx = (self.auto_step >> 1) & 3
@@ -303,10 +381,10 @@ class CyberDeckAct:
     # Render the Cyber-Deck console into the target FrameBuffer and Draw wrapper.
     def draw(self, fb, draw_obj=None, st=None):
         if draw_obj is None:
-            draw_obj = Draw(fb)
-        fb.blit(self.bg_fb, 0, 0)
+            draw_obj = make_draw(fb)
+        copy_frame(fb, self.bg_fb)
 
-        self._draw_gauges(fb, draw_obj)
+        self._draw_gauges(fb, draw_obj, True)
         self._draw_oscilloscope(fb)
         self._draw_holo_and_coolant(fb)
         self._draw_switches_and_throttle(fb)
@@ -314,83 +392,93 @@ class CyberDeckAct:
         self._draw_synth_pads(fb)
         if st is not None:
             st.sig = {}
-            for i in range(len(self.switch_rects)):
-                st.sig[("switch", i)] = self.switches[i]
             play_slot = self.sound._step_index & 7
+            for i in range(len(self.switch_rects)):
+                st.sig[self._switch_keys[i]] = self.switches[i]
             for i in range(len(self.pad_rects)):
-                st.sig[("pad", i)] = (self.pads[i], i == play_slot and self.pads[i])
+                st.sig[self._pad_keys[i]] = self._pad_look(i, play_slot)
+
+    # How pad i looks: 0 off, 1 on, 2 on and playing.
+    def _pad_look(self, i, play_slot):
+        if not self.pads[i]:
+            return 0
+        return 2 if i == play_slot else 1
 
     # Repaint only what changed since this display buffer was last drawn: the gauge dials
     # get their background back, the wells paint over themselves, and the switches and pads
-    # are redrawn when they flip.
+    # are redrawn when they flip. Which ones flipped is kept as bits, so nothing is allocated.
     def draw_changes(self, fb, draw_obj, st):
         lay = self.lay
-        rects = []
-        flips = []
-        for i, rect in enumerate(self.switch_rects):
-            if st.changed(("switch", i), self.switches[i]):
-                flips.append(("switch", i))
-                rects.append(rect)
         play_slot = self.sound._step_index & 7
-        for i, rect in enumerate(self.pad_rects):
-            if st.changed(("pad", i), (self.pads[i], i == play_slot and self.pads[i])):
-                flips.append(("pad", i))
-                rects.append(rect)
+        n_switches = len(self.switch_rects)
+        n_pads = len(self.pad_rects)
+        switch_flips = 0
+        for i in range(n_switches):
+            if st.changed(self._switch_keys[i], self.switches[i]):
+                switch_flips |= 1 << i
+        pad_flips = 0
+        for i in range(n_pads):
+            if st.changed(self._pad_keys[i], self._pad_look(i, play_slot)):
+                pad_flips |= 1 << i
         restore_sources(fb, self.gauge_sources)
-        restore_rects(fb, self.bg_buf, rects, lay.w, lay.h)
+        for i in range(n_switches):
+            if switch_flips >> i & 1:
+                restore_rect(fb, self.bg_view, self.switch_rects[i], lay.w, lay.h)
+        for i in range(n_pads):
+            if pad_flips >> i & 1:
+                restore_rect(fb, self.bg_view, self.pad_rects[i], lay.w, lay.h)
 
-        self._draw_gauges(fb, draw_obj)
+        self._draw_gauges(fb, draw_obj, False)
         self._draw_oscilloscope(fb)
         self._draw_holo_and_coolant(fb)
-        for kind, i in flips:
-            if kind == "switch":
+        for i in range(n_switches):
+            if switch_flips >> i & 1:
                 self._draw_switch(fb, i)
         self._draw_throttle(fb)
         self._draw_spectrum_analyzer(fb)
-        for kind, i in flips:
-            if kind == "pad":
+        for i in range(n_pads):
+            if pad_flips >> i & 1:
                 self._draw_synth_pad(fb, i, play_slot)
 
     # Render rotating polygon needles and digital readouts for the twin gauges.
-    def _draw_gauges(self, fb, d):
-        boost_bonus = 0.16 if self.switches[0] else 0.0
-        ovr_bonus = 0.14 if self.switches[3] else 0.0
-        jitter = (isin(self.phase * 3) * 3) / 10240.0
-
-        val1 = min(1.0, max(0.05, self.throttle * 0.78 + boost_bonus + jitter))
-        val2 = min(1.0, max(0.05, self.throttle * 0.72 + ovr_bonus - jitter))
+    # The TEMP label is drawn only when full, as nothing paints over it.
+    def _draw_gauges(self, fb, d, full):
+        boost = 1 if self.switches[0] else 0
+        ovr = 1 if self.switches[3] else 0
+        if self._thr_index == self.phase >> 1:
+            ang1 = self._ang_table[self.phase * 2 + boost]
+            mw = self._mw_table[self.phase * 2 + boost]
+            active_segs = self._segs_table[self.phase * 4 + boost * 2 + ovr]
+        else:
+            jitter = (isin(self.phase * 3) * 3) / 10240.0
+            val1 = min(1.0, max(0.05, self.throttle * 0.78 + (0.16 if boost else 0.0) + jitter))
+            val2 = min(1.0, max(0.05, self.throttle * 0.72 + (0.14 if ovr else 0.0) - jitter))
+            ang1 = (96 + int(val1 * 170)) & 0xFF
+            mw = int(val1 * 990)
+            active_segs = max(1, min(10, int(((val1 + val2) * 0.5) * 10)))
         # The second dial shows the frame rate, full scale at FPS_FULL_SCALE.
         fps_val = min(1.0, max(0.0, self.fps / FPS_FULL_SCALE))
-        vals = (val1, fps_val)
-        readouts = (f"{int(val1 * 990):03d}MW", f"{self.fps:.1f}")
+        if mw != self._mw_shown:
+            self._mw_shown = mw
+            self._mw_text = "%03dMW" % mw
+        tenths = int(self.fps * 10.0 + 0.5)
+        if tenths != self._fps_shown:
+            self._fps_shown = tenths
+            self._fps_text = "%.1f" % self.fps
 
-        for idx, (cx, cy, rad, _) in enumerate(self.gauge_centers):
-            v = vals[idx]
-            # Map 0.0..1.0 to phase index covering ~210 degrees across the dial.
-            ang_idx = (96 + int(v * 170)) & 0xFF
-            tip_len = rad - 4
-            tx = cx + ((icos(ang_idx) * tip_len) >> 10)
-            ty = cy + ((isin(ang_idx) * tip_len) >> 10)
-            px = (icos((ang_idx + 64) & 0xFF) * 3) >> 10
-            py = (isin((ang_idx + 64) & 0xFF) * 3) >> 10
-            poly = array("h", [tx, ty, cx + px, cy + py, cx - px, cy - py])
-            fb.poly(0, 0, poly, GOLD if idx == 0 else AQUA_GLOW, True)
-            d.circle(cx, cy, 4, BRONZE, True)
-            d.circle(cx, cy, 2, WHITE, True)
-
-            txt = readouts[idx]
-            fb.text(txt, cx - (len(txt) * 4), cy + (rad >> 1) - 2, WHITE)
+        self._draw_needle(fb, d, 0, ang1, GOLD, self._mw_text)
+        self._draw_needle(fb, d, 1, (96 + int(fps_val * 170)) & 0xFF, AQUA_GLOW, self._fps_text)
 
         # Draw a segmented Core Temp status bar along the bottom of the telemetry bay.
         gx, gy, gw, gh = self.bay_gauges
         bar_y = gy + gh - (16 if self.lay.compact else 20)
         if bar_y > self.gauge_centers[0][1] + self.gauge_centers[0][2] + 14:
-            fb.text("TEMP", gx + 8, bar_y, SILVER)
+            if full:
+                fb.text("TEMP", gx + 8, bar_y, SILVER)
             bx0 = gx + 48
             bw_tot = gw - 58
             segs = 10
             seg_w = max(4, (bw_tot - (segs - 1) * 2) // segs)
-            active_segs = max(1, min(segs, int(((val1 + val2) * 0.5) * segs)))
             for s in range(segs):
                 sx = bx0 + s * (seg_w + 2)
                 if s < active_segs:
@@ -398,6 +486,28 @@ class CyberDeckAct:
                 else:
                     scol = DEEP_SLATE
                 fb.fill_rect(sx, bar_y, seg_w, 8, scol)
+
+    # Draw gauge idx's needle at phase index ang_idx, its hub and its readout txt. A value
+    # from 0.0 to 1.0 maps to (96 + int(v * 170)) & 0xFF, about 210 degrees of the dial.
+    def _draw_needle(self, fb, d, idx, ang_idx, col, txt):
+        cx, cy, rad, _ = self.gauge_centers[idx]
+        tip_len = rad - 4
+        px = (icos((ang_idx + 64) & 0xFF) * 3) >> 10
+        py = (isin((ang_idx + 64) & 0xFF) * 3) >> 10
+        poly = self._needle
+        poly[0] = cx + ((icos(ang_idx) * tip_len) >> 10)
+        poly[1] = cy + ((isin(ang_idx) * tip_len) >> 10)
+        poly[2] = cx + px
+        poly[3] = cy + py
+        poly[4] = cx - px
+        poly[5] = cy - py
+        fb.poly(0, 0, poly, col, True)
+        if fb.__class__ is self._hub.__class__:
+            fb.blit(self._hub, cx - 5, cy - 5, KEY)
+        else:
+            d.circle(cx, cy, 4, BRONZE, True)
+            d.circle(cx, cy, 2, WHITE, True)
+        fb.text(txt, cx - (len(txt) * 4), cy + (rad >> 1) - 2, WHITE)
 
     # Render the dual-trace oscilloscope with fundamental and phase-shifted traces.
     def _draw_oscilloscope(self, fb):
@@ -456,13 +566,17 @@ class CyberDeckAct:
         # Draw the vertical Bioluminescent Coolant Tank with rising bubbles.
         fb.fill_rect(tx, ty, tank_w, th, VOID)
         fb.rect(tx, ty, tank_w, th, TEAL)
-        level_h = int(th * (0.58 + self.throttle * 0.28))
+        if self._thr_index >= 0:
+            level_h = self._level_table[self._thr_index]
+        else:
+            level_h = int(th * (0.58 + self.throttle * 0.28))
         liq_y = ty + th - level_h
         fb.fill_rect(tx + 2, liq_y, tank_w - 4, level_h - 2, FOREST)
         fb.hline(tx + 2, liq_y, tank_w - 4, LIME_GLOW)
         fb.hline(tx + 2, liq_y + 1, tank_w - 4, EMERALD)
-        for idx, bfrac in enumerate(self.bubbles):
-            by_bub = ty + th - 4 - int(bfrac * max(4, level_h - 6))
+        rise = max(4, level_h - 6)
+        for idx in range(len(self.bubbles)):
+            by_bub = ty + th - 4 - self.bubbles[idx] * rise // 1000000
             bx_bub = tx + 5 + ((idx * 7) % max(4, tank_w - 10))
             fb.fill_rect(bx_bub, by_bub, 3, 3, AQUA_GLOW)
 
@@ -496,7 +610,10 @@ class CyberDeckAct:
         tx, ty, tw, th = self.throttle_rect
         fb.fill_rect(tx, ty, tw, th, VOID)
         fb.rect(tx, ty, tw, th, AMBER)
-        fill_h = max(0, min(th - 4, int(th * self.throttle)))
+        if self._thr_index >= 0:
+            fill_h = self._fill_table[self._thr_index]
+        else:
+            fill_h = max(0, min(th - 4, int(th * self.throttle)))
         if fill_h > 2:
             fb.fill_rect(tx + 3, ty + th - fill_h - 2, tw - 6, fill_h, COPPER)
         knob_y = ty + th - fill_h - 5

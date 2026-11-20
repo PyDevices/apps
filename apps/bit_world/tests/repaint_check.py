@@ -26,10 +26,9 @@ if _app not in sys.path:
 from act_deck import CyberDeckAct
 from act_game import SkyRuinsAct
 from act_pet import WorkshopAct
-from bit_palette import VOID, Layout, PanelState, init_rng, make_fb
+from bit_palette import VOID, Layout, PanelState, init_rng, make_draw, make_fb
 from bit_sound import SoundEngine
 from bit_sprites import SpriteBank
-from pygraphics import Draw
 
 
 class NoAudio:
@@ -46,7 +45,7 @@ def check(w=800, h=480, frames=300, report=print):
     panels = []
     for _ in range(2):
         b, f = make_fb(w, h, 0x1234)  # start dirty on purpose
-        panels.append((b, f, Draw(f), PanelState()))
+        panels.append((b, f, make_draw(f), PanelState()))
     row = w * 2
     bad = 0
     full = 0
@@ -71,7 +70,7 @@ def check(w=800, h=480, frames=300, report=print):
             act.update(0.033, auto)
             snd.update(0.033, ai, acts[2].state)
             init_rng(frame)
-            act.draw(ref_fb, Draw(ref_fb))
+            act.draw(ref_fb, make_draw(ref_fb))
             b, f, d, st = panels[frame & 1]
             init_rng(frame)
             if frame % 90 == 60:
