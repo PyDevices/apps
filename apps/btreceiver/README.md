@@ -35,6 +35,29 @@ amber when it runs low, and a weak signal is shown beside it.
 
 Closing the app lets the phone go.
 
+## Its other screens
+
+Connected with nothing playing, the cover is a thin note and the play
+button starts the phone's player. The battery here shows it charging.
+
+![Connected and idle: an empty frame with a thin music note, the phone's name as the title and a hint to play something](docs/images/idle.png)
+
+Paused, the spectrum rests as a dashed line and the middle button turns
+back to play.
+
+![Paused: the track's details beside its cover, a dashed line where the spectrum was and a play button in the middle](docs/images/paused.png)
+
+A track with no cover gets the note in its place, and lines the phone
+doesn't send, here the album and track number, are left out rather than
+shown empty. This phone reports no battery, so none shows.
+
+![A podcast episode with no cover: the thin note fills the frame, with the title on two lines and the show's name beneath](docs/images/nocover.png)
+
+A long title wraps to a second line and pushes the details down, and a low
+battery turns amber.
+
+![A long title on two lines, with the battery icon in amber at the top right](docs/images/long.png)
+
 ## On a computer
 
 On a computer, with no `btclassic`, the app plays a demo: a pretend phone
@@ -47,10 +70,13 @@ PYTHONPATH=lib python -c "import appkit; appkit.run('btreceiver')"
 
 `BTRECEIVER_DEMO` holds the demo in one state (`pairing`, `idle`,
 `playing`, `paused`, `nocover` or `long`), and
-[`tools/shots.py`](tools/shots.py) saves a picture of each in a folder:
+[`tools/shots.py`](tools/shots.py) saves a picture of each in
+[`docs/images`](docs/images), where this page's pictures live:
 
 ```bash
-python apps/btreceiver/tools/shots.py shots
+python apps/btreceiver/tools/shots.py
 ```
+
+Give it a folder first to save them somewhere else.
 
 Made by [PyDevices](https://pydevices.com).

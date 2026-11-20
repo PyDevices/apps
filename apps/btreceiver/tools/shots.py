@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: MIT
 """Save the receiver's screen in each of its states, from the demo, as PNGs.
 
-    python apps/btreceiver/tools/shots.py OUT_DIR [STATE ...] [--size WxH]
+    python apps/btreceiver/tools/shots.py [OUT_DIR] [STATE ...] [--size WxH]
 
 Run it from the repository's root with CPython, lvgl, svgio, jpegio and
 Pillow. The states are the demo's: pairing, idle, playing, paused,
 nocover and long. Each one opens the app under Home's shell, the way a board shows
 it, waits for the demo to settle and saves ``OUT_DIR/<state>.png``. No
-window opens.
+window opens. With no OUT_DIR the pictures replace the README's, in the
+app's ``docs/images``.
 """
 
 import os
@@ -18,6 +19,7 @@ import sys
 
 STATES = ("pairing", "idle", "playing", "paused", "nocover", "long")
 WAIT_MS = 1500
+DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "images")
 
 
 def one(out, state, size):
@@ -90,9 +92,11 @@ def main():
         args.remove("--one")
         one(args[0], args[1], size)
         return
-    out = args[0]
+    out = DOCS
+    if args and args[0] not in STATES:
+        out = args.pop(0)
     os.makedirs(out, exist_ok=True)
-    for state in args[1:] or STATES:
+    for state in args or STATES:
         # One process per state: the display opens once per process.
         subprocess.run([sys.executable, __file__, "--one", out, state, "--size", size], timeout=120, check=True)
 
