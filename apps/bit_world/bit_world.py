@@ -42,7 +42,6 @@ try:
     from uctypes import addressof
 except ImportError:
     addressof = None
-from pygraphics import Draw, FrameBuffer, RGB565
 from bit_palette import (
     ABYSS,
     AMBER,
@@ -68,6 +67,8 @@ from bit_palette import (
     draw_pixel_panel,
     draw_pixel_wipe,
     init_rng,
+    make_canvas,
+    make_draw,
     make_fb,
 )
 from bit_sprites import SpriteBank
@@ -118,7 +119,7 @@ class BitWorldDirector:
         gc.collect()
         if not self.direct:
             self.screen_buf, self.screen_fb = make_fb(WIDTH, HEIGHT, VOID)
-            self.screen_draw = Draw(self.screen_fb)
+            self.screen_draw = make_draw(self.screen_fb)
             self.screen_state = PanelState()
         backgrounds = [make_fb(WIDTH, HEIGHT, VOID) for _ in range(3)]
 
@@ -169,8 +170,8 @@ class BitWorldDirector:
         key = addressof(buf)
         panel = self.panels.get(key)
         if panel is None:
-            fb = FrameBuffer(buf, WIDTH, HEIGHT, RGB565)
-            panel = (fb, Draw(fb), PanelState())
+            fb = make_canvas(buf, WIDTH, HEIGHT)
+            panel = (fb, make_draw(fb), PanelState())
             self.panels[key] = panel
         return panel
 

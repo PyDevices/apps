@@ -14,7 +14,12 @@ Needs: palettes, pygraphics.
 from array import array
 from random import getrandbits, seed
 from palettes import Palette
-from pygraphics import RGB565, FrameBuffer
+from pygraphics import RGB565, Draw, FrameBuffer
+
+try:
+    import framebuf
+except ImportError:  # CPython and CircuitPython: pygraphics draws everything
+    framebuf = None
 
 # Change these to match your setup.
 REF_WIDTH = 800  # Reference landscape design width in pixels
@@ -317,10 +322,57 @@ def draw_pixel_wipe(fb, x, y, w, h, progress, col_main=VOID, col_edge=CYAN):
                 fb.fill_rect(bx, top_y - 3, bw, 3, col_edge)
 
 
-# Build a reusable RGB565 FrameBuffer tuple (bytearray, FrameBuffer).
+if framebuf is None:
+    Canvas = None
+else:
+
+    class Canvas(framebuf.FrameBuffer):
+        """An RGB565 frame drawn with MicroPython's framebuf, which allocates nothing per call.
+
+        Each pygraphics drawing call returns a new ``Area``, and a frame makes a few
+        hundred of them: enough garbage for a collection every few seconds, which
+        stops the picture for a fifth of a second on a board with a large heap. The
+        calls framebuf lacks, and text and lines, which it draws differently, go to a pygraphics
+        ``FrameBuffer`` on the same memory, in ``gfx``.
+        """
+
+        def __init__(self, buf, w, h):
+            super().__init__(buf, w, h, framebuf.RGB565)
+            self.gfx = FrameBuffer(buf, w, h, RGB565)
+
+        # Draw a line stepped as pygraphics steps it, which framebuf doesn't always match.
+        def line(self, x0, y0, x1, y1, c):
+            self.gfx.line(x0, y0, x1, y1, c)
+
+        # Draw text in pygraphics' 8x8 font, which isn't framebuf's.
+        def text(self, s, x, y, c):
+            self.gfx.text(s, x, y, c)
+
+        # Draw text in the 8x16 font.
+        def text16(self, s, x, y, c):
+            self.gfx.text16(s, x, y, c)
+
+        # Blend color through an 8-bit alpha mask.
+        def blit_alpha(self, mask, x, y, w, h, c):
+            self.gfx.blit_alpha(mask, x, y, w, h, c)
+
+
+# Wrap w x h RGB565 pixels in buf for drawing: a Canvas where framebuf exists.
+def make_canvas(buf, w, h):
+    if Canvas is None:
+        return FrameBuffer(buf, w, h, RGB565)
+    return Canvas(buf, w, h)
+
+
+# A pygraphics Draw for a frame from make_canvas.
+def make_draw(fb):
+    return Draw(getattr(fb, "gfx", fb))
+
+
+# Build a reusable RGB565 frame tuple (bytearray, frame from make_canvas).
 def make_fb(w, h, fill_color=None):
     buf = bytearray(w * h * 2)
-    fb = FrameBuffer(buf, w, h, RGB565)
+    fb = make_canvas(buf, w, h)
     if fill_color is not None:
         fb.fill(fill_color)
     return buf, fb
@@ -343,9 +395,20 @@ class PanelState:
         return True
 
 
+# Copy all of src, a frame from make_canvas, over fb. pygraphics copies whole rows at a
+# time, where framebuf copies pixel by pixel, fifty times slower at full screen.
+def copy_frame(fb, src):
+    getattr(fb, "gfx", fb).blit(getattr(src, "gfx", src), 0, 0)
+
+
+# Rectangles up to this many pixels are copied by framebuf, which allocates nothing.
+# Larger ones go to pygraphics, whose row copies are much faster but which returns
+# a new Area for each.
+SMALL_COPY = 2048
+
+
 # Blit sources for rectangles of the background that never move: (source, x, y) for each,
-# clipped like restore_rects. Build them once, and restoring them each frame with
-# restore_sources allocates nothing.
+# clipped like restore_rects. Build them once, and restore_sources copies them each frame.
 def rect_sources(src, rects, w, h):
     view = memoryview(src)
     sources = []
@@ -361,31 +424,48 @@ def rect_sources(src, rects, w, h):
 
 # Copy the rectangles rect_sources prepared back over a frame.
 def restore_sources(fb, sources):
+    gfx = getattr(fb, "gfx", fb)
     for source, x, y in sources:
-        fb.blit(source, x, y)
-
-
-# Copy rectangles of the pre-rendered background back over a frame. Each one is a
-# FrameBuffer.blit from a (buffer, width, height, format, stride) view into the background,
-# or a blit_rect when it spans whole rows; both copy in C, while slicing the rows in Python
-# is far slower on a board.
-# Rectangles are (x, y, w, h) and are clipped to the w x h frame.
-def restore_rects(fb, src, rects, w, h):
-    view = memoryview(src)
-    seen = set()
-    for rect in rects:
-        if rect in seen:
-            continue
-        seen.add(rect)
-        x, y, rw, rh = rect
-        x0 = max(0, x)
-        y0 = max(0, y)
-        x1 = min(w, x + rw)
-        y1 = min(h, y + rh)
-        if x1 <= x0 or y1 <= y0:
-            continue
-        if x0 == 0 and x1 == w:
-            # Whole rows are one contiguous run of the background.
-            fb.blit_rect(view[y0 * w * 2 : y1 * w * 2], 0, y0, w, y1 - y0)
+        if source[1] * source[2] <= SMALL_COPY:
+            fb.blit(source, x, y)
         else:
-            fb.blit((view[(y0 * w + x0) * 2 :], x1 - x0, y1 - y0, RGB565, w), x0, y0)
+            gfx.blit(source, x, y)
+
+
+# framebuf takes a list as a blit source, so restore_rect fills in this one each time.
+_source = [None, 0, 0, RGB565, 0]
+
+
+# Copy one (x, y, w, h) rectangle of the pre-rendered background back over a frame, from
+# view, a memoryview of the background made once, clipped to the w x h frame. It's a blit
+# from a (buffer, width, height, format, stride) view into the background; slicing the
+# rows in Python is far slower on a board.
+def restore_rect(fb, view, rect, w, h):
+    x, y, rw, rh = rect
+    x0 = max(0, x)
+    y0 = max(0, y)
+    x1 = min(w, x + rw)
+    y1 = min(h, y + rh)
+    if x1 <= x0 or y1 <= y0:
+        return
+    gfx = getattr(fb, "gfx", fb)
+    src = _source
+    src[0] = view[(y0 * w + x0) * 2 :]
+    src[1] = x1 - x0
+    src[2] = y1 - y0
+    src[4] = w
+    if gfx is not fb and src[1] * src[2] <= SMALL_COPY:
+        fb.blit(src, x0, y0)
+    else:
+        gfx.blit((src[0], src[1], src[2], RGB565, w), x0, y0)
+    src[0] = None  # don't keep the background's view alive
+
+
+# Copy each rectangle in rects back with restore_rect. One listed twice, or listed in
+# skip because it was copied already, is copied once.
+def restore_rects(fb, view, rects, w, h, skip=None):
+    for i in range(len(rects)):
+        rect = rects[i]
+        if rects.index(rect) < i or (skip is not None and rect in skip):
+            continue
+        restore_rect(fb, view, rect, w, h)

@@ -45,12 +45,14 @@ from bit_palette import (
     VOID,
     VOID_RGB,
     WHITE,
+    copy_frame,
     draw_pixel_panel,
     icos,
     isin,
     make_fb,
     paint_gradient,
     rect_sources,
+    restore_rect,
     restore_rects,
     restore_sources,
     rng_int,
@@ -108,6 +110,7 @@ class WorkshopAct:
         self.phase = 0
         self.time_sec = 0.0
         self.mood = "happy"
+        self._mood_label = (None, "")  # (mood, its label), so the label is made once
         self.mood_timer = 3.5
         self.active_btn = 0
         self.bounce_vy = 0.0
@@ -177,6 +180,7 @@ class WorkshopAct:
 
         # Pre-render the static workshop interior into a background FrameBuffer.
         self.bg_buf, self.bg_fb = background or make_fb(w, layout.h, VOID)
+        self.bg_view = memoryview(self.bg_buf)
         self._build_static_background()
 
         # The stars, the clock readout and the telemetry bars change in place, so the
@@ -464,37 +468,42 @@ class WorkshopAct:
     # Render the complete Workshop scene into the target FrameBuffer.
     def draw(self, fb, draw_obj=None, st=None):
         # Copy the pre-rendered workshop interior in one fast C-level blit.
-        fb.blit(self.bg_fb, 0, 0)
+        copy_frame(fb, self.bg_fb)
         self._draw_scene(fb, True, True)
         if st is not None:
             st.rects = self.moving_rects()
-            st.sig = {
-                "speech": (self.speech_full, self.speech_chars),
-                "buttons": self.active_btn,
-                "mood": self.mood,
-            }
+            st.sig = {}
+            self._remember(st.sig)
+
+    # Record in sig what the speech card, buttons and mood card show now.
+    def _remember(self, sig):
+        sig["speech_text"] = self.speech_full
+        sig["speech_chars"] = self.speech_chars
+        sig["buttons"] = self.active_btn
+        sig["mood"] = self.mood
 
     # Repaint only what moved since this display buffer was last drawn.
     def draw_changes(self, fb, draw_obj, st):
         rects = self.moving_rects()
         lay = self.lay
-        extra = []
-        speech_sig = (self.speech_full, self.speech_chars)
-        speech = st.sig.get("speech") != speech_sig
+        view = self.bg_view
+        sig = st.sig
+        speech = sig.get("speech_text") != self.speech_full or sig.get("speech_chars") != self.speech_chars
+        buttons = sig.get("buttons") != self.active_btn
+        restore_sources(fb, self.fixed_sources)
+        restore_rects(fb, view, rects, lay.w, lay.h)
+        restore_rects(fb, view, st.rects, lay.w, lay.h, rects)
         if speech:
             cx, cy, cw, ch = self.card_speech
-            extra.append((cx + 6, cy + 18, cw - 12, ch - 18))
-        buttons = st.sig.get("buttons") != self.active_btn
+            restore_rect(fb, view, (cx + 6, cy + 18, cw - 12, ch - 18), lay.w, lay.h)
         if buttons:
-            extra.extend(self.btn_rects)
-        if st.sig.get("mood") != self.mood:
+            restore_rects(fb, view, self.btn_rects, lay.w, lay.h)
+        if sig.get("mood") != self.mood:
             cx, cy, cw, ch = self.card_voice
-            extra.append((cx + 4, cy + 4, cw - 8, 12))
-        restore_sources(fb, self.fixed_sources)
-        restore_rects(fb, self.bg_buf, rects + st.rects + extra, lay.w, lay.h)
+            restore_rect(fb, view, (cx + 4, cy + 4, cw - 8, 12), lay.w, lay.h)
         self._draw_scene(fb, speech, buttons)
         st.rects = rects
-        st.sig = {"speech": speech_sig, "buttons": self.active_btn, "mood": self.mood}
+        self._remember(sig)
 
     # Bounding boxes of what the scene paints over the background now, apart from the fixed ones.
     def moving_rects(self):
@@ -662,7 +671,10 @@ class WorkshopAct:
         cx, cy, cw, ch = self.card_voice
         hdr = "VOICE SYNTH" if self.lay.compact else "VOICE SYNTH & MOOD"
         fb.text(hdr, cx + 8, cy + 6, LIME_GLOW)
-        mood_label = self.mood.upper() if self.lay.compact else f"MOOD:{self.mood.upper()}"
+        if self._mood_label[0] != self.mood:
+            label = self.mood.upper() if self.lay.compact else f"MOOD:{self.mood.upper()}"
+            self._mood_label = (self.mood, label)
+        mood_label = self._mood_label[1]
         fb.text(mood_label, cx + cw - len(mood_label) * 8 - 8, cy + 6, GOLD)
 
         # Draw real-time voice waveform inside a dark scope well.

@@ -13,8 +13,7 @@ slices via FrameBuffer.blit_alpha.
 Needs: pygraphics, bit_palette.
 """
 
-from pygraphics import RGB565, FrameBuffer
-from bit_palette import KEY, PALETTE_LUT
+from bit_palette import KEY, PALETTE_LUT, make_canvas
 
 # Flat tuple of (offset, width, height) descriptors into DATA for each sprite.
 SPRITE_META = (
@@ -487,7 +486,7 @@ def _unpack_into(meta_idx, scale, flip_x, view_slice):
     s = max(1, int(scale))
     w = src_w * s
     h = src_h * s
-    fb = FrameBuffer(view_slice, w, h, RGB565)
+    fb = make_canvas(view_slice, w, h)
     fb.fill(KEY)
     lut = PALETTE_LUT
     src = DATA

@@ -14,7 +14,6 @@ Needs: pygraphics, bit_palette, bit_sprites.
 """
 
 from array import array
-from pygraphics import Draw
 from bit_palette import (
     ABYSS,
     AMBER,
@@ -44,12 +43,14 @@ from bit_palette import (
     TEAL,
     VOID,
     WHITE,
+    copy_frame,
     draw_pixel_panel,
     icos,
     isin,
+    make_draw,
     make_fb,
     rect_sources,
-    restore_rects,
+    restore_rect,
     restore_sources,
 )
 
@@ -150,9 +151,21 @@ class CyberDeckAct:
         # Coolant tank bubble heights.
         self.bubbles = [0.15, 0.42, 0.68, 0.85]
 
+        # Made once, so a frame's repaint allocates none of them: the keys under which a
+        # PanelState remembers each switch and pad, the needle polygon, and the readouts,
+        # formatted again only when what they show changes.
+        self._switch_keys = tuple(("switch", i) for i in range(len(self.switch_rects)))
+        self._pad_keys = tuple(("pad", i) for i in range(len(self.pad_rects)))
+        self._needle = array("h", [0] * 6)
+        self._mw_shown = -1
+        self._mw_text = ""
+        self._fps_shown = -1
+        self._fps_text = ""
+
         # Pre-render the brushed metal chassis and static dial bezels into bg_fb.
         self.bg_buf, self.bg_fb = background or make_fb(w, layout.h, VOID)
-        self.bg_draw = Draw(self.bg_fb)
+        self.bg_view = memoryview(self.bg_buf)
+        self.bg_draw = make_draw(self.bg_fb)
         self._build_static_console()
 
         # The gauge needles turn in place, so the background under them is prepared once.
@@ -303,8 +316,8 @@ class CyberDeckAct:
     # Render the Cyber-Deck console into the target FrameBuffer and Draw wrapper.
     def draw(self, fb, draw_obj=None, st=None):
         if draw_obj is None:
-            draw_obj = Draw(fb)
-        fb.blit(self.bg_fb, 0, 0)
+            draw_obj = make_draw(fb)
+        copy_frame(fb, self.bg_fb)
 
         self._draw_gauges(fb, draw_obj)
         self._draw_oscilloscope(fb)
@@ -314,41 +327,52 @@ class CyberDeckAct:
         self._draw_synth_pads(fb)
         if st is not None:
             st.sig = {}
-            for i in range(len(self.switch_rects)):
-                st.sig[("switch", i)] = self.switches[i]
             play_slot = self.sound._step_index & 7
+            for i in range(len(self.switch_rects)):
+                st.sig[self._switch_keys[i]] = self.switches[i]
             for i in range(len(self.pad_rects)):
-                st.sig[("pad", i)] = (self.pads[i], i == play_slot and self.pads[i])
+                st.sig[self._pad_keys[i]] = self._pad_look(i, play_slot)
+
+    # How pad i looks: 0 off, 1 on, 2 on and playing.
+    def _pad_look(self, i, play_slot):
+        if not self.pads[i]:
+            return 0
+        return 2 if i == play_slot else 1
 
     # Repaint only what changed since this display buffer was last drawn: the gauge dials
     # get their background back, the wells paint over themselves, and the switches and pads
-    # are redrawn when they flip.
+    # are redrawn when they flip. Which ones flipped is kept as bits, so nothing is allocated.
     def draw_changes(self, fb, draw_obj, st):
         lay = self.lay
-        rects = []
-        flips = []
-        for i, rect in enumerate(self.switch_rects):
-            if st.changed(("switch", i), self.switches[i]):
-                flips.append(("switch", i))
-                rects.append(rect)
         play_slot = self.sound._step_index & 7
-        for i, rect in enumerate(self.pad_rects):
-            if st.changed(("pad", i), (self.pads[i], i == play_slot and self.pads[i])):
-                flips.append(("pad", i))
-                rects.append(rect)
+        n_switches = len(self.switch_rects)
+        n_pads = len(self.pad_rects)
+        switch_flips = 0
+        for i in range(n_switches):
+            if st.changed(self._switch_keys[i], self.switches[i]):
+                switch_flips |= 1 << i
+        pad_flips = 0
+        for i in range(n_pads):
+            if st.changed(self._pad_keys[i], self._pad_look(i, play_slot)):
+                pad_flips |= 1 << i
         restore_sources(fb, self.gauge_sources)
-        restore_rects(fb, self.bg_buf, rects, lay.w, lay.h)
+        for i in range(n_switches):
+            if switch_flips >> i & 1:
+                restore_rect(fb, self.bg_view, self.switch_rects[i], lay.w, lay.h)
+        for i in range(n_pads):
+            if pad_flips >> i & 1:
+                restore_rect(fb, self.bg_view, self.pad_rects[i], lay.w, lay.h)
 
         self._draw_gauges(fb, draw_obj)
         self._draw_oscilloscope(fb)
         self._draw_holo_and_coolant(fb)
-        for kind, i in flips:
-            if kind == "switch":
+        for i in range(n_switches):
+            if switch_flips >> i & 1:
                 self._draw_switch(fb, i)
         self._draw_throttle(fb)
         self._draw_spectrum_analyzer(fb)
-        for kind, i in flips:
-            if kind == "pad":
+        for i in range(n_pads):
+            if pad_flips >> i & 1:
                 self._draw_synth_pad(fb, i, play_slot)
 
     # Render rotating polygon needles and digital readouts for the twin gauges.
@@ -361,25 +385,17 @@ class CyberDeckAct:
         val2 = min(1.0, max(0.05, self.throttle * 0.72 + ovr_bonus - jitter))
         # The second dial shows the frame rate, full scale at FPS_FULL_SCALE.
         fps_val = min(1.0, max(0.0, self.fps / FPS_FULL_SCALE))
-        vals = (val1, fps_val)
-        readouts = (f"{int(val1 * 990):03d}MW", f"{self.fps:.1f}")
+        mw = int(val1 * 990)
+        if mw != self._mw_shown:
+            self._mw_shown = mw
+            self._mw_text = "%03dMW" % mw
+        tenths = int(self.fps * 10.0 + 0.5)
+        if tenths != self._fps_shown:
+            self._fps_shown = tenths
+            self._fps_text = "%.1f" % self.fps
 
-        for idx, (cx, cy, rad, _) in enumerate(self.gauge_centers):
-            v = vals[idx]
-            # Map 0.0..1.0 to phase index covering ~210 degrees across the dial.
-            ang_idx = (96 + int(v * 170)) & 0xFF
-            tip_len = rad - 4
-            tx = cx + ((icos(ang_idx) * tip_len) >> 10)
-            ty = cy + ((isin(ang_idx) * tip_len) >> 10)
-            px = (icos((ang_idx + 64) & 0xFF) * 3) >> 10
-            py = (isin((ang_idx + 64) & 0xFF) * 3) >> 10
-            poly = array("h", [tx, ty, cx + px, cy + py, cx - px, cy - py])
-            fb.poly(0, 0, poly, GOLD if idx == 0 else AQUA_GLOW, True)
-            d.circle(cx, cy, 4, BRONZE, True)
-            d.circle(cx, cy, 2, WHITE, True)
-
-            txt = readouts[idx]
-            fb.text(txt, cx - (len(txt) * 4), cy + (rad >> 1) - 2, WHITE)
+        self._draw_needle(fb, d, 0, val1, GOLD, self._mw_text)
+        self._draw_needle(fb, d, 1, fps_val, AQUA_GLOW, self._fps_text)
 
         # Draw a segmented Core Temp status bar along the bottom of the telemetry bay.
         gx, gy, gw, gh = self.bay_gauges
@@ -398,6 +414,26 @@ class CyberDeckAct:
                 else:
                     scol = DEEP_SLATE
                 fb.fill_rect(sx, bar_y, seg_w, 8, scol)
+
+    # Draw gauge idx's needle at v (0.0 to 1.0), its hub and its readout txt.
+    def _draw_needle(self, fb, d, idx, v, col, txt):
+        cx, cy, rad, _ = self.gauge_centers[idx]
+        # Map 0.0..1.0 to phase index covering ~210 degrees across the dial.
+        ang_idx = (96 + int(v * 170)) & 0xFF
+        tip_len = rad - 4
+        px = (icos((ang_idx + 64) & 0xFF) * 3) >> 10
+        py = (isin((ang_idx + 64) & 0xFF) * 3) >> 10
+        poly = self._needle
+        poly[0] = cx + ((icos(ang_idx) * tip_len) >> 10)
+        poly[1] = cy + ((isin(ang_idx) * tip_len) >> 10)
+        poly[2] = cx + px
+        poly[3] = cy + py
+        poly[4] = cx - px
+        poly[5] = cy - py
+        fb.poly(0, 0, poly, col, True)
+        d.circle(cx, cy, 4, BRONZE, True)
+        d.circle(cx, cy, 2, WHITE, True)
+        fb.text(txt, cx - (len(txt) * 4), cy + (rad >> 1) - 2, WHITE)
 
     # Render the dual-trace oscilloscope with fundamental and phase-shifted traces.
     def _draw_oscilloscope(self, fb):
@@ -461,7 +497,8 @@ class CyberDeckAct:
         fb.fill_rect(tx + 2, liq_y, tank_w - 4, level_h - 2, FOREST)
         fb.hline(tx + 2, liq_y, tank_w - 4, LIME_GLOW)
         fb.hline(tx + 2, liq_y + 1, tank_w - 4, EMERALD)
-        for idx, bfrac in enumerate(self.bubbles):
+        for idx in range(len(self.bubbles)):
+            bfrac = self.bubbles[idx]
             by_bub = ty + th - 4 - int(bfrac * max(4, level_h - 6))
             bx_bub = tx + 5 + ((idx * 7) % max(4, tank_w - 10))
             fb.fill_rect(bx_bub, by_bub, 3, 3, AQUA_GLOW)

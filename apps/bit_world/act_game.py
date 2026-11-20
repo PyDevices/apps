@@ -44,6 +44,7 @@ from bit_palette import (
     VOID,
     VOID_RGB,
     WHITE,
+    copy_frame,
     draw_pixel_panel,
     isin,
     make_fb,
@@ -85,6 +86,8 @@ class SkyRuinsAct:
         self.score = 1250
         self.crystals_collected = 12
         self.combo = 1
+        # The HUD's numbers and texts, formatted again only when the numbers change.
+        self._hud_texts = None
         self.combo_timer = 0.0
         self.shake_timer = 0.0
 
@@ -106,6 +109,7 @@ class SkyRuinsAct:
 
         # Pre-render the sky gradient, ringed planet, and distant stars into sky_fb.
         self.sky_buf, self.sky_fb = background or make_fb(w, layout.h, VOID)
+        self.sky_view = memoryview(self.sky_buf)
         self._build_sky_backdrop()
 
     # Populate initial platforms, crystals, and patrol drones across the screen.
@@ -417,7 +421,7 @@ class SkyRuinsAct:
 
     # Render all 4 parallax layers, sprites, particles, and arcade HUD.
     def draw(self, fb, draw_obj=None, st=None):
-        fb.blit(self.sky_fb, 0, 0)
+        copy_frame(fb, self.sky_fb)
         self._draw_scene(fb)
         if st is not None:
             st.sig = {}
@@ -428,7 +432,7 @@ class SkyRuinsAct:
         top = lay.scene_y
         restore_rects(
             fb,
-            self.sky_buf,
+            self.sky_view,
             [(0, top, lay.w, self.ground_y + 3 - top)],
             lay.w,
             lay.h,
@@ -603,10 +607,27 @@ class SkyRuinsAct:
             fb, pad, self.hud_y, w - pad * 2, self.hud_h, ABYSS, CYAN, ICE_CYAN
         )
         ty = self.hud_y + ((self.hud_h - 8) >> 1)
-        fb.text(f"SCORE {self.score:06d}", pad + 10, ty, WHITE)
-        fb.text(f"CRYSTALS:{self.crystals_collected:02d}", int(w * 0.36), ty, AQUA_GLOW)
+        texts = self._hud_texts
+        if (
+            texts is None
+            or texts[0] != self.score
+            or texts[1] != self.crystals_collected
+            or texts[2] != self.combo
+        ):
+            texts = self._hud_texts = (
+                self.score,
+                self.crystals_collected,
+                self.combo,
+                f"SCORE {self.score:06d}",
+                f"CRYSTALS:{self.crystals_collected:02d}",
+                f"COMBO x{self.combo}",
+                int(w * 0.36),
+                int(w * 0.62),
+            )
+        fb.text(texts[3], pad + 10, ty, WHITE)
+        fb.text(texts[4], texts[6], ty, AQUA_GLOW)
         combo_col = GOLD if self.combo > 1 else SILVER
-        fb.text(f"COMBO x{self.combo}", int(w * 0.62), ty, combo_col)
+        fb.text(texts[5], texts[7], ty, combo_col)
         if not self.lay.compact:
             fb.text("JET:RDY", w - pad - 68, ty, LIME_GLOW)
 
