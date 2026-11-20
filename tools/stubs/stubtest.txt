@@ -12,6 +12,7 @@ appkit.scope
 appkit.shell
 appkit.worker
 controlkit
+controlkit.bars
 controlkit.dotmatrix
 controlkit.encoder
 controlkit.font5x7
@@ -19,6 +20,7 @@ controlkit.lamp_button
 controlkit.meter
 controlkit.mock
 controlkit.pad_grid
+controlkit.ring_button
 controlkit.slider
 controlkit.sprites
 controlkit.theme
