@@ -7,13 +7,13 @@
 Stores all multi-shade pixel-art grids and 8-bit radial alpha glow masks inside
 one contiguous bytes literal wrapped in a memoryview (following the iconkit
 frozen-flash pattern). At startup, unpacks scaled RGB565 sprites into a single
-shared bytearray atlas and renders antialiased glows directly from memoryview
+shared atlas and renders antialiased glows directly from memoryview
 slices via FrameBuffer.blit_alpha.
 
 Needs: pygraphics, bit_palette.
 """
 
-from bit_palette import KEY, PALETTE_LUT, make_canvas
+from bit_palette import KEY, PALETTE_LUT, make_canvas, pixel_bytes
 
 # Flat tuple of (offset, width, height) descriptors into DATA for each sprite.
 SPRITE_META = (
@@ -509,7 +509,7 @@ def _unpack_into(meta_idx, scale, flip_x, view_slice):
 
 
 class SpriteBank:
-    """Unpack all scaled sprites into one shared bytearray atlas and expose glows."""
+    """Unpack all scaled sprites into one shared atlas and expose glows."""
 
     def __init__(self, layout):
         self.layout = layout
@@ -548,13 +548,13 @@ class SpriteBank:
         specs.append((27, self.game_px, False))
         specs.append((28, self.prop_px, False))
 
-        # Compute total atlas bytes so we make only a single bytearray allocation.
+        # Compute total atlas bytes so we make only a single allocation.
         total_bytes = 0
         for meta_idx, sc, _ in specs:
             _, sw, sh = SPRITE_META[meta_idx]
             total_bytes += (sw * sc) * (sh * sc) * 2
 
-        self.atlas_buf = bytearray(total_bytes)
+        self.atlas_buf = pixel_bytes(total_bytes)
         self.atlas_mv = memoryview(self.atlas_buf)
 
         unpacked = []

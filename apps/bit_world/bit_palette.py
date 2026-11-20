@@ -21,6 +21,11 @@ try:
 except ImportError:  # CPython and CircuitPython: pygraphics draws everything
     framebuf = None
 
+try:
+    from offheap import Buffer as OffHeapBuffer
+except ImportError:  # CPython, CircuitPython and firmware without offheap
+    OffHeapBuffer = None
+
 # Change these to match your setup.
 REF_WIDTH = 800  # Reference landscape design width in pixels
 REF_HEIGHT = 480  # Reference landscape design height in pixels
@@ -376,9 +381,20 @@ def make_draw(fb):
     return Draw(getattr(fb, "gfx", fb))
 
 
-# Build a reusable RGB565 frame tuple (bytearray, frame from make_canvas).
+# n zeroed bytes for pixels. With offheap they live outside the garbage-collected
+# heap, which reads every word of a bytearray at each collection: on an ESP32 the
+# three 800x480 backgrounds made every collection stop the picture for 200 ms or
+# more. Keep the returned object for as long as anything draws into it, because a
+# memoryview of it doesn't keep it alive.
+def pixel_bytes(n):
+    if OffHeapBuffer is None:
+        return bytearray(n)
+    return OffHeapBuffer(n)
+
+
+# Build a reusable RGB565 frame tuple (pixel_bytes, frame from make_canvas).
 def make_fb(w, h, fill_color=None):
-    buf = bytearray(w * h * 2)
+    buf = pixel_bytes(w * h * 2)
     fb = make_canvas(buf, w, h)
     if fill_color is not None:
         fb.fill(fill_color)

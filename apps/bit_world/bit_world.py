@@ -63,6 +63,7 @@ from bit_palette import (
     VOID,
     WHITE,
     Layout,
+    OffHeapBuffer,
     PanelState,
     draw_pixel_panel,
     draw_pixel_wipe,
@@ -117,6 +118,8 @@ class BitWorldDirector:
         # the sound and the acts' smaller objects, the last of them can find no
         # piece big enough on a heap with plenty free in total.
         gc.collect()
+        if OffHeapBuffer is None and sys.implementation.name == "micropython":
+            print("Bit World: this firmware has no offheap, so the frames are in the heap and each collection pauses the picture")
         if not self.direct:
             self.screen_buf, self.screen_fb = make_fb(WIDTH, HEIGHT, VOID)
             self.screen_draw = make_draw(self.screen_fb)
