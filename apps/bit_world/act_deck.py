@@ -183,7 +183,7 @@ class CyberDeckAct:
         )
 
         # The needles' hub, drawn once and then blitted with framebuf, which allocates
-        # nothing; pygraphics' circles return an Area each.
+        # nothing; a pygraphics without areas=False makes an Area for each circle.
         self._hub = make_canvas(bytearray(11 * 11 * 2), 11, 11)
         self._hub.fill(KEY)
         hub_draw = make_draw(self._hub)

@@ -322,6 +322,17 @@ def draw_pixel_wipe(fb, x, y, w, h, progress, col_main=VOID, col_edge=CYAN):
                 fb.fill_rect(bx, top_y - 3, bw, 3, col_edge)
 
 
+# A pygraphics FrameBuffer over buf. Bit World never reads the Area a drawing call
+# returns, so it asks for none: on MicroPython each one is a new object, and a frame
+# of them is enough garbage to stop the picture for a collection. A pygraphics
+# without areas= returns them anyway.
+def gfx_frame(buf, w, h):
+    try:
+        return FrameBuffer(buf, w, h, RGB565, areas=False)
+    except TypeError:
+        return FrameBuffer(buf, w, h, RGB565)
+
+
 if framebuf is None:
     Canvas = None
 else:
@@ -329,8 +340,8 @@ else:
     class Canvas(framebuf.FrameBuffer):
         """An RGB565 frame drawn with MicroPython's framebuf, which allocates nothing per call.
 
-        Each pygraphics drawing call returns a new ``Area``, and a frame makes a few
-        hundred of them: enough garbage for a collection every few seconds, which
+        A pygraphics without ``areas=False`` returns a new ``Area`` from each drawing
+        call, and a frame makes a few hundred of them: enough garbage for a collection every few seconds, which
         stops the picture for a fifth of a second on a board with a large heap. The
         calls framebuf lacks, and text, whose 8x8 font differs, go to a pygraphics
         ``FrameBuffer`` on the same memory, in ``gfx``.
@@ -338,7 +349,7 @@ else:
 
         def __init__(self, buf, w, h):
             super().__init__(buf, w, h, framebuf.RGB565)
-            self.gfx = FrameBuffer(buf, w, h, RGB565)
+            self.gfx = gfx_frame(buf, w, h)
 
         # Draw text in pygraphics' 8x8 font, which isn't framebuf's.
         def text(self, s, x, y, c):
@@ -356,7 +367,7 @@ else:
 # Wrap w x h RGB565 pixels in buf for drawing: a Canvas where framebuf exists.
 def make_canvas(buf, w, h):
     if Canvas is None:
-        return FrameBuffer(buf, w, h, RGB565)
+        return gfx_frame(buf, w, h)
     return Canvas(buf, w, h)
 
 
@@ -402,8 +413,8 @@ def copy_frame(fb, src):
 
 
 # Rectangles up to this many pixels are copied by framebuf, which allocates nothing.
-# Larger ones go to pygraphics, whose row copies are much faster but which returns
-# a new Area for each.
+# Larger ones go to pygraphics, whose row copies are much faster; a pygraphics without
+# areas=False also makes a new Area for each.
 SMALL_COPY = 2048
 
 
