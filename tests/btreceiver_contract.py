@@ -134,6 +134,11 @@ check("idle doesn't repeat the phone's name above it", scr.src_name.get_text() =
 check("idle offers play, and no progress", shown(scr.play.obj) and not shown(scr.track))
 check("idle shows the battery too, here charging", shown(scr.battery) and scr.battery_state == "external",
       str(scr.battery_state))
+sink.title = "Not Provided"  # what Android sends with nothing playing
+sink._bits |= demo.TRACK
+scope.run()
+check("Android's \"Not Provided\" title still shows idle", text(scr.title) == "Galaxy S21", text(scr.title))
+sink.title = ""
 tap(scr.play.obj)
 scope.run()
 check("play on the idle screen starts the phone", sink.playing and text(scr.title) == "Neon Tides", text(scr.title))

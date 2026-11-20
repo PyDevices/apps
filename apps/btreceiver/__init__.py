@@ -33,6 +33,14 @@ COVER_JPEG = 96 * 1024  # room for the cover's JPEG
 BUFFER_MS = 1000
 
 state = None  # the open app's state, for the console
+# What Android sends for a field it doesn't know, the title included when
+# nothing is playing.
+UNSAID = "Not Provided"
+
+
+def _said(text):
+    """*text*, or "" when the sender says it doesn't know."""
+    return "" if text == UNSAID else text
 
 
 def _open_sink():
@@ -179,7 +187,7 @@ def main(scope):
     def show_link():
         # The sender's name heads the idle screen already. Its battery shows
         # whenever it's connected; the stream's details once the rate is known.
-        playing = sink.connected and sink.title
+        playing = sink.connected and _said(sink.title)
         link = sink.link() if sink.connected else None
         if link is not None and not sink.sample_rate:
             link["sample_rate"] = 0
@@ -189,8 +197,10 @@ def main(scope):
         if not sink.connected:
             scr.show_pairing(name, pin)
             return
-        if sink.title:
-            scr.show_track(sink.title, sink.artist, sink.album, sink.track_number, sink.track_count, sink.genre)
+        title = _said(sink.title)
+        if title:
+            scr.show_track(title, _said(sink.artist), _said(sink.album), sink.track_number, sink.track_count,
+                           _said(sink.genre))
             scr.show_status(sink.status)
         else:
             scr.show_status(None)
@@ -209,7 +219,7 @@ def main(scope):
             show_cover()
         if changed & bits.VOLUME:
             scr.show_volume(sink.volume)
-        if sink.connected and sink.title:
+        if sink.connected and _said(sink.title):
             scr.show_position(sink.position, sink.duration)
 
     def bars(t):
