@@ -8,7 +8,9 @@ video's sound. The screen shows the cover large, then everything the sender
 says about the track (title, artist, album, track number, genre, length and
 where it's up to) and about the link (the sender's name, the codec and the
 rate). The buttons drive the sender's player (hold a skip button to fast
-forward or rewind), and the volume slider is the one on the phone. A spectrum of what plays runs under the title.
+forward or rewind), and the volume slider is the one on the phone. Shuffle
+and repeat show the player's modes and change them, when the sender reports
+them. A spectrum of what plays runs under the title.
 
 It needs a firmware with ``btclassic``. The audio goes out through the
 board's ``audio_out`` on the audio pump, so a redraw never holds it up. On a
@@ -36,6 +38,9 @@ state = None  # the open app's state, for the console
 # What Android sends for a field it doesn't know, the title included when
 # nothing is playing.
 UNSAID = "Not Provided"
+# A tap moves repeat on the way a phone's player does, and turns shuffle on
+# or off. "group" (a sender's own mode) goes back to off.
+NEXT_REPEAT = {"off": "all", "all": "single"}
 
 
 def _said(text):
@@ -113,7 +118,21 @@ def main(scope):
     def volume(v):
         sink.volume = v
 
-    on = {"play": toggle, "next": sink.next, "previous": sink.previous, "seek": sink.seek, "volume": volume}
+    def setting(name, value):
+        # The sender answers with its new state, which the button then shows.
+        try:
+            sink.setting(name, value)
+        except (OSError, ValueError) as e:
+            print("btreceiver: %s:" % name, e)
+
+    def repeat():
+        setting("repeat", NEXT_REPEAT.get(getattr(sink, "repeat", None), "off"))
+
+    def shuffle():
+        setting("shuffle", "all" if getattr(sink, "shuffle", None) == "off" else "off")
+
+    on = {"play": toggle, "next": sink.next, "previous": sink.previous, "seek": sink.seek, "volume": volume,
+          "repeat": repeat, "shuffle": shuffle}
     scr = Screen(scope.root, scope.size, on)
     st = state = {"sink": sink, "out": None, "rate": 0, "levels": None, "screen": scr, "t0": ticks_ms()}
     jpeg = bytearray(COVER_JPEG)
@@ -193,6 +212,10 @@ def main(scope):
             link["sample_rate"] = 0
         scr.show_source(sink.peer_name if playing else "", link)
 
+    def show_modes():
+        # A firmware whose btclassic can't read them back has neither.
+        scr.show_modes(getattr(sink, "repeat", None), getattr(sink, "shuffle", None))
+
     def show_all():
         if not sink.connected:
             scr.show_pairing(name, pin)
@@ -207,6 +230,8 @@ def main(scope):
             scr.show_idle(sink.peer_name)
         show_link()
 
+    settings_bit = getattr(bits, "SETTINGS", 0)
+
     def follow(t):
         changed = sink.changes()
         if changed:
@@ -219,6 +244,8 @@ def main(scope):
             show_cover()
         if changed & bits.VOLUME:
             scr.show_volume(sink.volume)
+        if changed & (bits.CONNECTION | settings_bit):
+            show_modes()
         if sink.connected and _said(sink.title):
             scr.show_position(sink.position, sink.duration)
 
@@ -241,6 +268,7 @@ def main(scope):
     scope.on_close(close)
     show_all()
     show_cover()
+    show_modes()
     scr.show_volume(sink.volume)
     route()
     scope.every(UI_MS, follow)

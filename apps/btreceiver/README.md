@@ -1,4 +1,4 @@
-![Bluetooth Receiver playing: a large cover on the left; beside it the phone's name, the title, artist, album, track number and genre, a small spectrum, a progress line with the codec between the times, and thin round transport buttons with a volume slider](docs/images/playing.png)
+![Bluetooth Receiver playing: a large cover on the left; beside it the phone's name, the title, artist, album, track number and genre, a small spectrum, a progress line with the codec between the times, and thin round transport buttons beside shuffle, lit, and repeat over a volume slider](docs/images/playing.png)
 
 # Bluetooth Receiver
 
@@ -21,6 +21,12 @@ needs audiodsp's `audiometer`; without it the app plays with no spectrum.
 Made for an 800 x 480 screen. The cover and its buffers take about 350 KB,
 so it wants a board with PSRAM.
 
+![Bluetooth Receiver on an ESP32-S31 board with a 4.3-inch screen: the track beside its cover (blurred here), the phone's battery at the top right, and shuffle and repeat both lit](docs/images/board.png)
+
+Here it runs on an ESP32-S31 board with a 4.3-inch screen. Shuffle and
+repeat were turned on from the phone, and the buttons on the board follow
+them.
+
 ## Use it
 
 ![The pairing screen: the Bluetooth mark in thin rings, the board's name as the title, three numbered steps and the PIN for older devices](docs/images/pairing.png)
@@ -30,6 +36,12 @@ Bluetooth list. Once paired, the phone is called back each time the app
 opens. The buttons drive the phone's player: tap the middle one to play or
 pause, the outer ones to skip, and hold an outer one to rewind or fast
 forward. The slider is the phone's own volume, so either one moves both.
+Above it, shuffle and repeat show the modes of the phone's player: tap
+shuffle to turn it on or off, and repeat to go from off to all tracks to one
+track, marked with a small 1. Each lights in the screen's colour while it's
+on, and follows the phone when you change it there. A phone that doesn't
+report them shows neither.
+
 The phone's battery shows at the top right whenever the phone reports it,
 amber when it runs low, and a weak signal is shown beside it.
 
@@ -43,9 +55,9 @@ button starts the phone's player. The battery here shows it charging.
 ![Connected and idle: an empty frame with a thin music note, the phone's name as the title and a hint to play something](docs/images/idle.png)
 
 Paused, the spectrum rests as a dashed line and the middle button turns
-back to play.
+back to play. Repeat here is on for one track.
 
-![Paused: the track's details beside its cover, a dashed line where the spectrum was and a play button in the middle](docs/images/paused.png)
+![Paused: the track's details beside its cover, a dashed line where the spectrum was, a play button in the middle and repeat lit with a small 1](docs/images/paused.png)
 
 A track with no cover gets the note in its place, and lines the phone
 doesn't send, here the album and track number, are left out rather than
@@ -54,9 +66,10 @@ shown empty. This phone reports no battery, so none shows.
 ![A podcast episode with no cover: the thin note fills the frame, with the title on two lines and the show's name beneath](docs/images/nocover.png)
 
 A long title wraps to a second line and pushes the details down, and a low
-battery turns amber.
+battery turns amber. This phone doesn't report shuffle or repeat, so the
+volume sits beside the play button.
 
-![A long title on two lines, with the battery icon in amber at the top right](docs/images/long.png)
+![A long title on two lines, with the battery icon in amber at the top right and no shuffle or repeat](docs/images/long.png)
 
 ## On a computer
 

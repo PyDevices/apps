@@ -45,6 +45,7 @@ F_TITLE = _font(32, 28, 24)
 F_BIG = _font(24, 20, 16)
 F_BODY = _font(16, 14)
 F_SMALL = _font(14, 12)
+F_TINY = _font(12, 14)
 
 
 def clock(ms):
@@ -144,14 +145,19 @@ SPECTRUM = (416, 246, 360, 30)
 PROGRESS = (416, 292, 360)
 TRANSPORT = (416, 326, 56, 72, 14)  # x, y, small ring, play ring, gap
 VOLUME = (650, 362, 126)  # x, middle y, width
+# Shuffle and repeat sit over the volume, which moves down to make room; the
+# two rows stay centred on the play button.
+MODES = (650, 340, 384)  # x, the buttons' middle y, and the volume's under them
+MODE_ICON = 24
+MODE_HIT = 40  # each button's square, a finger's size around the icon
 PAIR_RING = 300
 
 
 class Screen:
     """Everything on the receiver's screen, in *root* (*size* pixels).
 
-    *on* maps ``"play"``, ``"next"``, ``"previous"`` and ``"volume"`` to what
-    the buttons and the slider do.
+    *on* maps ``"play"``, ``"next"``, ``"previous"``, ``"seek"``, ``"repeat"``,
+    ``"shuffle"`` and ``"volume"`` to what the buttons and the slider do.
     """
 
     def __init__(self, root, size, on):
@@ -174,6 +180,7 @@ class Screen:
         self._build_progress()
         self._build_transport()
         self._build_volume()
+        self._build_modes()
         x, y, w, h = SPECTRUM
         self.bars = SpectrumBars(root, x, y, w, h, BLACK, bands=BANDS, gap=w // BANDS * 3 // 5, color=TEAL)
         self.set_accent(TEAL)
@@ -340,6 +347,33 @@ class Screen:
         s.set_style_outline_width(0, lv.PART.MAIN | lv.STATE.FOCUSED)
         s.add_event_cb(self._vol_event, lv.EVENT.ALL, None)
 
+    def _build_modes(self):
+        # Repeat and shuffle, lit in the accent while on; "single" marks the
+        # repeat with a small 1, as iconkit has no repeat-one icon. Shuffle
+        # lines up with the volume's mark, repeat with the slider's end.
+        x, y, _ = MODES
+        margin = (MODE_HIT - MODE_ICON) // 2
+        self._modes = (None, None)
+        self._modes_on = False
+        self.shuffle, self.shuffle_icon = self._mode_button(x - margin, y, "shuffle")
+        end = VOLUME[0] + VOLUME[2] - 8
+        self.repeat, self.repeat_icon = self._mode_button(end - MODE_ICON - margin, y, "repeat")
+        one = self.repeat_one = _label(self.repeat, F_TINY, TEXT)
+        one.set_text("1")
+        one.align_to(self.repeat_icon, lv.ALIGN.TOP_RIGHT, 6, -8)
+        _show(one, False)
+
+    def _mode_button(self, x, y, name):
+        """A button for mode *name* with iconkit's icon of that name: ``(button, icon)``."""
+        b = _box(self.root, x, y - MODE_HIT // 2, MODE_HIT, MODE_HIT)
+        b.add_flag(lv.obj.FLAG.CLICKABLE)
+        b.add_event_cb(lambda e: self.on[name](), lv.EVENT.CLICKED, None)
+        img = lvicons.image(b, name, MODE_ICON, lv.color_hex(MUTED))
+        img.center()
+        img.remove_flag(lv.obj.FLAG.CLICKABLE)
+        _show(b, False)
+        return b, img
+
     def _vol_event(self, e):
         code = e.get_code()
         if code == lv.EVENT.PRESSED:
@@ -366,6 +400,7 @@ class Screen:
         for ring in self.step_rings:
             ring.set_style_border_color(c, 0)
         glyphs.tint(self.pair_mark, c)
+        self._paint_modes()
 
     def show_pairing(self, name, pin=None):
         """Nothing connected: the name to pick on the phone, and the steps."""
@@ -454,6 +489,18 @@ class Screen:
         self.battery.set_style_image_recolor(lv.color_hex(kind[1]), 0)
         _show(self.battery, True)
 
+    def show_modes(self, repeat, shuffle):
+        """The sender's *repeat* ("off", "single", "all" or "group") and
+        *shuffle* ("off", "all" or "group"). A button for a mode the sender
+        doesn't report (None) is hidden; with neither, the volume moves back
+        beside the play button."""
+        modes = (repeat, shuffle)
+        if modes == self._modes:
+            return
+        self._modes = modes
+        self._place_modes()
+        self._paint_modes()
+
     def show_position(self, pos, length):
         if pos is None or not length:
             _show(self.head, False)
@@ -503,6 +550,24 @@ class Screen:
 
     # -- inside ---------------------------------------------------------
 
+    def _place_modes(self):
+        repeat, shuffle = self._modes
+        on = self._modes_on
+        _show(self.repeat, on and repeat is not None)
+        _show(self.shuffle, on and shuffle is not None)
+        x, y, w = VOLUME
+        y = MODES[2] if repeat is not None or shuffle is not None else y
+        self.vol_mark.set_y(y - 9)
+        self.vol.set_y(y)
+
+    def _paint_modes(self):
+        repeat, shuffle = self._modes
+        for icon, mode in ((self.repeat_icon, repeat), (self.shuffle_icon, shuffle)):
+            lit = mode not in (None, "off")
+            icon.set_style_image_recolor(lv.color_hex(self.accent if lit else MUTED), 0)
+        _show(self.repeat_one, repeat == "single")
+        self.repeat_one.set_style_text_color(lv.color_hex(self.accent), 0)
+
     def _pairing(self, on):
         _show(self.pair, on)
         _show(self.steps, on)
@@ -547,3 +612,5 @@ class Screen:
             _show(b.obj, t)
         for o in (self.vol, self.vol_mark):
             _show(o, t)
+        self._modes_on = t
+        self._place_modes()
