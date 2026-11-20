@@ -286,10 +286,22 @@ class BitWorldDirector:
             )
 
         # The stage bar only changes when a tab, a toggle or the progress line does.
-        bar = (self.act_idx, self.auto_mode, self.sound.muted, self._bar_progress())
-        if state.bar != bar or self.wipe_progress > 0.0:
+        # Its fields are compared in place, so a frame that leaves it alone allocates nothing.
+        bar = state.bar
+        progress = self._bar_progress()
+        if (
+            bar is None
+            or bar[0] != self.act_idx
+            or bar[1] != self.auto_mode
+            or bar[2] != self.sound.muted
+            or bar[3] != progress
+            or self.wipe_progress > 0.0
+        ):
             self._draw_stage_bar(fb)
-            state.bar = bar if self.wipe_progress == 0.0 else None
+            if self.wipe_progress == 0.0:
+                state.bar = (self.act_idx, self.auto_mode, self.sound.muted, progress)
+            else:
+                state.bar = None
         if self.direct:
             # Promote the finished frame; the next frame waits for the flip.
             if hasattr(display_drv, "show_nowait"):
