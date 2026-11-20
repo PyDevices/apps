@@ -380,6 +380,10 @@ class PanelState:
     def __init__(self):
         self.act = -1
         self.rects = []
+        # An act may keep its moving rectangles here instead, as x, y, w, h in an array,
+        # with how many there are, so remembering them allocates nothing.
+        self.moved = None
+        self.moved_n = 0
         self.sig = {}
         self.bar = None
 
@@ -438,6 +442,11 @@ _source = [None, 0, 0, RGB565, 0]
 # rows in Python is far slower on a board.
 def restore_rect(fb, view, rect, w, h):
     x, y, rw, rh = rect
+    restore_area(fb, view, x, y, rw, rh, w, h)
+
+
+# restore_rect for a rectangle given as numbers, which saves making a tuple for it.
+def restore_area(fb, view, x, y, rw, rh, w, h):
     x0 = max(0, x)
     y0 = max(0, y)
     x1 = min(w, x + rw)
