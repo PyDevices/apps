@@ -177,10 +177,13 @@ def main(scope):
         scr.show_cover(px, w, h)
 
     def show_link():
-        # The sender's name heads the idle screen already; the stream's
-        # details stay while it's paused, once its rate is known.
+        # The sender's name heads the idle screen already. Its battery shows
+        # whenever it's connected; the stream's details once the rate is known.
         playing = sink.connected and sink.title
-        scr.show_source(sink.peer_name if playing else "", sink.link() if playing and sink.sample_rate else None)
+        link = sink.link() if sink.connected else None
+        if link is not None and not sink.sample_rate:
+            link["sample_rate"] = 0
+        scr.show_source(sink.peer_name if playing else "", link)
 
     def show_all():
         if not sink.connected:

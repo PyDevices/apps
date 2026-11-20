@@ -132,6 +132,8 @@ check("idle names the phone as the title", text(scr.title) == "Galaxy S21", text
 check("idle says it's connected", text(scr.eyebrow) == "CONNECTED", text(scr.eyebrow))
 check("idle doesn't repeat the phone's name above it", scr.src_name.get_text() == "", scr.src_name.get_text())
 check("idle offers play, and no progress", shown(scr.play.obj) and not shown(scr.track))
+check("idle shows the battery too, here charging", shown(scr.battery) and scr.battery_state == "external",
+      str(scr.battery_state))
 tap(scr.play.obj)
 scope.run()
 check("play on the idle screen starts the phone", sink.playing and text(scr.title) == "Neon Tides", text(scr.title))
@@ -145,6 +147,14 @@ check("the title, artist and album show", (text(scr.title), text(scr.artist), te
 check("the track number, count and genre show", text(scr.meta) == "TRACK 3 OF 11  /  SYNTHWAVE", text(scr.meta))
 check("the status shows", text(scr.eyebrow) == "NOW PLAYING", text(scr.eyebrow))
 check("the sender's name heads the column", scr.src_name.get_text() == "Galaxy S21", scr.src_name.get_text())
+check("the phone's battery shows when it reports one", shown(scr.battery) and scr.battery_state == "normal",
+      str(scr.battery_state))
+sink.battery = "warning"
+sink._bits |= demo.PEER
+scope.run()
+check("a low battery shows in amber",
+      scr.battery.get_style_image_recolor(0).to_int() & 0xFFFFFF == screenmod.AMBER,
+      "%06x" % (scr.battery.get_style_image_recolor(0).to_int() & 0xFFFFFF))
 check("the codec, rate and channels show", text(scr.codec) == "SBC  /  44.1 kHz  /  Joint stereo", text(scr.codec))
 check("the position and length show", text(scr.t_pos) == "1:42" and text(scr.t_len) == "4:12",
       "%s %s" % (text(scr.t_pos), text(scr.t_len)))
@@ -180,6 +190,7 @@ check("closing the app lets the phone go", not sink.connected)
 
 scope, sink, scr = opened("nocover")
 check("with no cover, the placeholder shows", not shown(scr.art) and shown(scr.note))
+check("a phone that reports no battery shows none", not shown(scr.battery))
 check("with no cover, the colour goes back to the default", scr.accent == screenmod.TEAL, "%06x" % scr.accent)
 check("a podcast's length shows", text(scr.t_len) == "45:12", text(scr.t_len))
 check("a length over an hour reads h:mm:ss", screenmod.clock(3725000) == "1:02:05", screenmod.clock(3725000))

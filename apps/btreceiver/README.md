@@ -30,8 +30,8 @@ Bluetooth list. Once paired, the phone is called back each time the app
 opens. The buttons drive the phone's player: tap the middle one to play or
 pause, the outer ones to skip, and hold an outer one to rewind or fast
 forward. The slider is the phone's own volume, so either one moves both.
-The phone's battery and a weak signal are shown at the top when they need
-saying.
+The phone's battery shows at the top right whenever the phone reports it,
+amber when it runs low, and a weak signal is shown beside it.
 
 Closing the app lets the phone go.
 

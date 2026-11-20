@@ -132,6 +132,8 @@ class DemoSink:
         self._pos = 0
         self._pos_at = self._t0
         self._rate = 1  # how fast the position moves: 8 or -8 while seeking
+        # The phone's battery, as AVRCP reports it; the states show each one.
+        self.battery = {"idle": "external", "paused": "full", "long": "warning", "nocover": None}.get(self.state, "normal")
         self._clear_track()
         st = self.state
         if st in ("idle", "playing", "paused", "nocover", "long"):
@@ -193,7 +195,7 @@ class DemoSink:
             return {"address": None, "name": ""}
         return {"address": self.peer, "name": self.peer_name, "rssi_delta": 0, "codec": "SBC",
                 "sample_rate": self.sample_rate, "channels": 2, "channel_mode": "joint stereo",
-                "battery": None, "cover_art": True}
+                "battery": self.battery, "cover_art": True}
 
     def stats(self):
         return {}

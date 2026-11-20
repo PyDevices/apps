@@ -10,6 +10,7 @@ bars. Nothing here talks to Bluetooth; the app hands it what the sink says.
 
 import lvgl as lv
 from controlkit import RingButton, SpectrumBars
+from iconkit import lvicons
 from controlkit.theme import BLACK
 
 from . import glyphs
@@ -24,9 +25,11 @@ AMBER = 0xFFB74D  # a warning about the sender: its battery, its signal
 
 BANDS = 24
 WEAK_DB = -10  # a link this far below the radio's ideal range is weak
-# What the sender's AVRCP battery report is worth saying; "normal" isn't.
-BATTERY = {"warning": "Phone battery low", "critical": "Phone battery critical", "external": "Phone charging",
-           "full": "Phone charged"}
+# The sender's battery as AVRCP reports it, a state rather than a percentage,
+# and the icon and colour for each. A sender that reports none shows none.
+BATTERY = {"full": ("battery_full", MUTED), "normal": ("battery_5_bar", MUTED),
+           "warning": ("battery_2_bar", AMBER), "critical": ("battery_0_bar", AMBER),
+           "external": ("battery_charging_full", MUTED)}
 
 
 def _font(*sizes):
@@ -242,8 +245,14 @@ class Screen:
         self.src_mark.set_pos(cx - 3, SOURCE_Y)
         self.src_name = _label(root, F_SMALL, MUTED)
         self.src_name.set_pos(cx + 18, SOURCE_Y + 1)
+        # The sender's battery at the right end, on its side like a phone's.
+        self.battery = lvicons.image(root, "battery_full", 24, lv.color_hex(MUTED))
+        self.battery.set_rotation(900)
+        self.battery.set_pos(cx + cw - 22, SOURCE_Y - 3)
+        self.battery_state = None
+        _show(self.battery, False)
         self.warn = _label(root, F_SMALL, AMBER)
-        self.warn.set_width(cw - 150)
+        self.warn.set_width(cw - 150 - 34)
         self.warn.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
         self.warn.set_pos(cx + 150, SOURCE_Y + 1)
         # What's playing, top down, each line only when it has something.
@@ -408,8 +417,8 @@ class Screen:
 
     def show_source(self, name, link):
         """The sender's name and what its link says: the codec, rate and
-        channels under the progress bar, and its battery and signal at the
-        top when they need saying."""
+        channels under the progress bar once the rate is known, its battery
+        whenever it reports one, and a weak signal."""
         self.src_name.set_text(name)
         _show(self.src_mark, bool(name))
         parts = []
@@ -420,17 +429,30 @@ class Screen:
             rate = link.get("sample_rate")
             if rate:
                 parts.append("%g kHz" % (rate / 1000))
-            mode = link.get("channel_mode")
-            if mode:
-                parts.append(mode[0].upper() + mode[1:])
-            battery = BATTERY.get(link.get("battery"))
-            if battery:
-                notes.append(battery)
+                mode = link.get("channel_mode")
+                if mode:
+                    parts.append(mode[0].upper() + mode[1:])
+            else:
+                parts = []  # no stream yet: no codec to speak of
             rssi = link.get("rssi_delta")
             if rssi is not None and rssi <= WEAK_DB:
                 notes.append("Weak signal")
         self.codec.set_text("  /  ".join(parts))
         self.warn.set_text("  /  ".join(notes))
+        self.show_battery(link.get("battery") if link else None)
+
+    def show_battery(self, state):
+        """The sender's battery icon for *state*, AVRCP's report, or none."""
+        if state == self.battery_state:
+            return
+        self.battery_state = state
+        kind = BATTERY.get(state)
+        if kind is None:
+            _show(self.battery, False)
+            return
+        self.battery.set_src(lvicons.dsc(kind[0], 24))
+        self.battery.set_style_image_recolor(lv.color_hex(kind[1]), 0)
+        _show(self.battery, True)
 
     def show_position(self, pos, length):
         if pos is None or not length:
