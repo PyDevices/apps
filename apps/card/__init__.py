@@ -15,6 +15,7 @@ It needs micropython-lib's ``usb-device`` and omnipython's ``usb-device-audio`` 
 """
 
 import lvgl as lv
+import machine
 
 import spectrum
 from touchkit import ui
@@ -44,6 +45,9 @@ def main(scope):
         )
         return
 
+    if not hasattr(machine, "USBDevice"):
+        ui.missing(scope, "no USB device", "Sound card needs a USB device port, and this firmware has none.")
+        return
     fmt = AudioFormat(48000, 2, 16)
     # The speaker first: without one, the board must not become a USB sound
     # card the PC would play into.
