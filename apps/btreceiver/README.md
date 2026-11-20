@@ -21,6 +21,12 @@ needs audiodsp's `audiometer`; without it the app plays with no spectrum.
 Made for an 800 x 480 screen. The cover and its buffers take about 350 KB,
 so it wants a board with PSRAM.
 
+![Bluetooth Receiver on an ESP32-S31 board with a 4.3-inch screen: the track beside its cover (blurred here), the phone's battery and "No service" at the top, and shuffle and repeat both lit](docs/images/board.png)
+
+Here it runs on an ESP32-S31 board with a 4.3-inch screen. The phone has no
+SIM card, so its signal reads No service. Shuffle and repeat were turned on
+from the phone, and the buttons on the board follow them.
+
 ## Use it
 
 ![The pairing screen: the Bluetooth mark in thin rings, the board's name as the title, three numbered steps and the PIN for older devices](docs/images/pairing.png)
