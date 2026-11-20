@@ -5,10 +5,10 @@
 The shared controls for every PyDevices app that draws a front panel: the
 encoder with its LED ring, the dot-matrix display, the sixteen patch pads,
 the slider with an optional lamp, the LED segment meter, the lamp button,
-the illuminated pad grid, and a thin-line ring button and spectrum bars.
-They are drawn in LVGL on MicroPython-compatible boards,
-CircuitPython-compatible boards and CPython, and they import nothing from
-any app.
+the illuminated pad grid, a thin-line ring button and spectrum bars, the
+envelope view and the routing diagram. They are drawn in LVGL on
+MicroPython-compatible boards, CircuitPython-compatible boards and
+CPython, and they import nothing from any app.
 
 A panel is a layout of these controls. The layouts live with the code that
 edits through them:
@@ -33,11 +33,13 @@ control surface never needs this package.
 | `PadGrid` | `pad_grid` | A grid of illuminated pads, each lit in any colour, with an optional legend; reports a tap, or each finger landing and lifting |
 | `RingButton` | `ring_button` | A round button drawn as a thin ring with an icon or text, unfilled; reports a tap, and a hold when asked |
 | `SpectrumBars` | `bars` | A row of thin bars, one per band, that jump to a louder level and fall back; a small spectrum or a set of levels |
+| `EnvelopeView` | `envelope_view` | A rate and level envelope of any number of stages, drawn as a curve, with the edited stage lit and a moving playhead |
+| `RoutingDiagram` | `routing_diagram` | Boxes and arrows for a small modulation graph given as data: modulators stacked over their targets, carriers along the bottom, and a feedback loop |
 | `Lamp` | `_draw` | An indicator LED, the lamp the encoder and the buttons use |
 
 Every control takes a theme, a parent and coordinates in its parent. The
-slider, the meter, the lamp button and the pad grid each have a short
-docstring that says what the host calls.
+slider, the meter, the lamp button, the pad grid, the envelope view and the
+routing diagram each have a short docstring that says what the host calls.
 
 An encoder's ring shows its value in one of three ways. Pass `mode=` when you
 build it: `"fill"` (the default) lights the ring up to the value, `"bipolar"`
@@ -79,6 +81,41 @@ bars = SpectrumBars(screen, 20, 120, 360, 30, BLACK, bands=24, color=0x4DB6AC)
 bars.set_levels(levels)  # one 0.0 to 1.0 per band, each frame
 ```
 
+## Envelopes and routings
+
+An `EnvelopeView` shows an envelope and edits nothing: put encoders or
+sliders beside it and pass their values on. Each stage moves to its level at
+its rate, so a higher rate draws a shorter segment. `sustain=` names the
+stage whose level holds, drawn dashed.
+
+![Six envelopes of four stages, each with one stage drawn in white and an amber playhead](docs/images/envelope-view.png)
+
+```python
+from controlkit import EnvelopeView, RoutingDiagram
+from controlkit.theme import BLACK
+
+view = EnvelopeView(screen, 20, 20, 240, 160, BLACK, stages=4, sustain=2,
+                    rates=(127, 80, 50, 70), levels=(127, 70, 40, 0))
+view.set_selected(1)        # the stage an encoder is editing
+view.set_position(2, 0.5)   # the playhead, halfway through the third stage
+
+diagram = RoutingDiagram(screen, 280, 20, 240, 160, BLACK,
+                         nodes=(1, 2, 3, 4), edges=((2, 1), (4, 3)),
+                         carriers=(1, 3), feedback=(4, 4),
+                         on_press=lambda d, name: d.set_selected(name))
+```
+
+A `RoutingDiagram` draws whatever graph you give it. An edge `(2, 1)` means
+node 2 modulates node 1, the carriers are the nodes that are heard, and the
+feedback pair is drawn as a loop in its own colour. Here it draws the 32
+six-operator FM algorithms listed in `examples/routing_algorithms.py`, each
+240 x 160:
+
+![Thirty-two small diagrams of six numbered boxes: carriers along the bottom joined by an output line, modulators stacked above them, and one feedback loop in each](docs/images/routing-diagram.png)
+
+`examples/controls_envelope.py` and `examples/controls_routing.py` run the
+two on a screen.
+
 ## Themes
 
 `theme.py` holds every colour the controls draw, in a plain dict. `BLACK` and
@@ -109,6 +146,8 @@ patch change it reads `macro_values` again, so every encoder follows even if
 your adapter reports only the patch.
 
 `mock.py` here is a complete adapter with no sound, and the source to copy from.
+It also has a few envelopes and graphs to show, and `MockEnvelope`, which
+moves a playhead the way an engine would.
 
 ## Play it
 
@@ -137,7 +176,8 @@ python -m unittest discover -s tests -p 'test_panel_contract.py' -v
 
 `test_controls.py` builds each control on a display with no window and
 drives it by hand and by a host, on CPython and on unix MicroPython. Its
-`--plant` run stops a slider reporting its changes, and that must fail.
+`--plant` run stops a slider reporting its changes, makes an envelope ignore
+its rates and flattens a routing diagram, and each of those must fail.
 `test_panel_contract.py` runs the instrument panel the same way. It needs
 `AUDIOINSTRUMENTS_DIR`, a checkout of audioinstruments.
 

@@ -6,6 +6,10 @@
 It keeps the same contract a real one does, so the panel can be built,
 driven and tested anywhere. ``host_program`` and ``host_parameter`` play
 the part of a host or a sequencer changing things from outside.
+
+``ENVELOPES`` and ``ROUTINGS`` are shapes and graphs to show in an
+`EnvelopeView` and a `RoutingDiagram`, and ``MockEnvelope`` plays the part
+of an engine reporting where its envelope has got to.
 """
 
 MACRO_LABELS = (
@@ -24,6 +28,55 @@ _NAMES = (
     "Ring Mod", "Dust Keys", "Space Lead", "Pulse 25", "Rave Stab", "Mellow",
     "Metal Bell", "Big Room", "Lo-Fi Pad", "Last Light",
 )
+
+#: Envelopes of four stages, as (name, rates, levels), each 0 to 127. The
+#: third stage's level is the one that holds.
+ENVELOPES = (
+    ("Pluck", (127, 80, 50, 70), (127, 70, 0, 0)),
+    ("Organ", (127, 127, 127, 110), (127, 127, 127, 0)),
+    ("Pad", (40, 50, 40, 45), (100, 127, 105, 0)),
+    ("Brass", (90, 60, 75, 80), (127, 100, 95, 0)),
+    ("Swell", (25, 127, 127, 50), (127, 127, 127, 0)),
+    ("Dip", (100, 90, 65, 75), (127, 25, 115, 0)),
+)
+
+#: Small modulation graphs, as (name, nodes, edges, carriers, feedback).
+ROUTINGS = (
+    ("Stack", ("A", "B", "C"), (("C", "B"), ("B", "A")), ("A",), ("C", "C")),
+    ("Pairs", ("A", "B", "C", "D"), (("B", "A"), ("D", "C")), ("A", "C"), ("D", "D")),
+    ("Fan", ("A", "B", "C", "D"), (("D", "A"), ("D", "B"), ("D", "C")), ("A", "B", "C"), None),
+    ("Loop", ("A", "B", "C", "D"), (("C", "B"), ("B", "A")), ("A", "D"), ("A", "C")),
+    ("Organ", ("A", "B", "C", "D"), (), ("A", "B", "C", "D"), None),
+)
+
+
+class MockEnvelope:
+    """An engine's envelope, as far as a playhead goes: where it is as time passes.
+
+    Each of *stages* takes *stage_ms*, and the level of stage *sustain*
+    holds for *hold_ms* before the rest run. Then it starts again.
+    """
+
+    def __init__(self, stages=4, sustain=None, stage_ms=600, hold_ms=900):
+        self.stages = stages
+        self.sustain = sustain
+        self.stage_ms = stage_ms
+        self.hold_ms = hold_ms if sustain is not None else 0
+        self.elapsed = 0
+
+    def tick(self, ms):
+        """Let *ms* pass; returns ``(stage, fraction)`` for ``EnvelopeView.set_position()``."""
+        self.elapsed = (self.elapsed + ms) % (self.stages * self.stage_ms + self.hold_ms)
+        left = self.elapsed
+        for stage in range(self.stages):
+            if left < self.stage_ms:
+                return stage, left / self.stage_ms
+            left -= self.stage_ms
+            if stage == self.sustain:
+                if left < self.hold_ms:
+                    return stage, 1.0 + left / self.hold_ms
+                left -= self.hold_ms
+        return self.stages - 1, 1.0
 
 
 def _patch_values(index):

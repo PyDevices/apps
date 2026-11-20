@@ -5,6 +5,20 @@
 from collections.abc import Callable
 
 MACRO_LABELS: tuple[str, ...]
+ENVELOPES: tuple[tuple[str, tuple[int, ...], tuple[int, ...]], ...]
+ROUTINGS: tuple[tuple[str, tuple[str, ...], tuple[tuple[str, str], ...], tuple[str, ...], tuple[str, str] | None], ...]
+
+class MockEnvelope:
+    """An engine's envelope, as far as a playhead goes: where it is as time passes."""
+
+    stages: int
+    sustain: int | None
+    stage_ms: int
+    hold_ms: int
+    elapsed: int
+    def __init__(self, stages: int = 4, sustain: int | None = None, stage_ms: int = 600, hold_ms: int = 900) -> None: ...
+    def tick(self, ms: int) -> tuple[int, float]:
+        """Let `ms` pass; returns `(stage, fraction)` for `EnvelopeView.set_position()`."""
 
 class MockAdapter:
     """An adapter with `patch_count` patches and `macro_count` labelled macros."""

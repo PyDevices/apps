@@ -3,9 +3,16 @@
 # SPDX-License-Identifier: MIT
 """The few drawing helpers every control shares: plain boxes, labels, grain."""
 
+import struct
+
 import lvgl as lv
 
 from . import sprites
+
+# A line's points are whole numbers or floats, as LVGL was built.
+_probe = lv.point_precise_t()
+_probe.x = 1.5
+_POINT = "<ff" if _probe.x == 1.5 else "<ii"
 
 
 def plain(obj, clickable=False):
@@ -30,6 +37,28 @@ def label(parent, text, rgb, font=None, spacing=1):
     text_obj.set_style_text_font(font or lv.font_montserrat_14, 0)
     text_obj.set_style_text_letter_space(spacing, 0)
     return text_obj
+
+
+def polyline(parent, path, rgb, width):
+    """A line through *path*, a list of (x, y) in *parent*; returns ``(line, points)``.
+
+    LVGL keeps a pointer to the points and never copies them, so whoever
+    holds the line holds *points* too, for as long as the line lives.
+    """
+    line = lv.line(parent)
+    line.remove_flag(lv.obj.FLAG.CLICKABLE)
+    line.set_style_line_width(width, 0)
+    line.set_style_line_color(lv.color_hex(rgb), 0)
+    return line, route(line, path)
+
+
+def route(line, path):
+    """Send *line* through *path*; returns the points to keep while it lives."""
+    points = bytearray()
+    for x, y in path:
+        points += struct.pack(_POINT, int(x + 0.5), int(y + 0.5))
+    line.set_points(points, len(path))
+    return points
 
 
 def text_width(text, font, spacing):

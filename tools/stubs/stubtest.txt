@@ -15,12 +15,14 @@ controlkit
 controlkit.bars
 controlkit.dotmatrix
 controlkit.encoder
+controlkit.envelope_view
 controlkit.font5x7
 controlkit.lamp_button
 controlkit.meter
 controlkit.mock
 controlkit.pad_grid
 controlkit.ring_button
+controlkit.routing_diagram
 controlkit.slider
 controlkit.sprites
 controlkit.theme
