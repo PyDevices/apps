@@ -123,6 +123,7 @@ check("pairing shows the steps and the PIN", shown(scr.steps) and "0000" in scr.
 check("pairing hides the transport and the progress",
       not shown(scr.play.obj) and not shown(scr.vol) and not shown(scr.track) and not shown(scr.bars.obj))
 check("pairing shows the rings, not the cover", shown(scr.pair) and not shown(scr.cover_box))
+check("pairing hides shuffle and repeat", not shown(scr.shuffle) and not shown(scr.repeat))
 scope.close()
 
 # ---- Connected, nothing playing -----------------------------------------------
@@ -165,6 +166,36 @@ check("the position and length show", text(scr.t_pos) == "1:42" and text(scr.t_l
       "%s %s" % (text(scr.t_pos), text(scr.t_len)))
 check("the cover shows, and gives the screen its colour", shown(scr.art) and scr.accent != screenmod.TEAL,
       "%06x" % scr.accent)
+
+
+def lit(icon):
+    return icon.get_style_image_recolor(0).to_int() & 0xFFFFFF == scr.accent
+
+
+def volume_y():
+    return scr.vol.get_y()
+
+
+check("shuffle and repeat show when the phone reports them", shown(scr.shuffle) and shown(scr.repeat))
+check("shuffle on is lit in the accent, repeat off is not", lit(scr.shuffle_icon) and not lit(scr.repeat_icon))
+check("the volume moves under them", volume_y() == screenmod.MODES[2], str(volume_y()))
+tap(scr.repeat)
+scope.run()
+check("repeat goes off to all on the phone, and lights", sink.repeat == "all" and lit(scr.repeat_icon), str(sink.repeat))
+tap(scr.repeat)
+scope.run()
+check("then all to single, marked with a 1", sink.repeat == "single" and shown(scr.repeat_one), str(sink.repeat))
+tap(scr.repeat)
+scope.run()
+check("then single back to off", sink.repeat == "off" and not lit(scr.repeat_icon) and not shown(scr.repeat_one),
+      str(sink.repeat))
+tap(scr.shuffle)
+scope.run()
+check("shuffle turns off on the phone, and dims", sink.shuffle == "off" and not lit(scr.shuffle_icon), str(sink.shuffle))
+sink.shuffle = "all"
+sink._bits |= demo.SETTINGS
+scope.run()
+check("shuffle turned on at the phone lights here", lit(scr.shuffle_icon))
 tap(scr.play.obj)
 scope.run()
 check("pause pauses the phone and says so", not sink.playing and text(scr.eyebrow) == "PAUSED", text(scr.eyebrow))
@@ -190,6 +221,14 @@ check("a field the sender leaves empty isn't shown",
       "%s %s %s %s" % (text(scr.title), text(scr.artist), text(scr.album), text(scr.meta)))
 scope.close()
 check("closing the app lets the phone go", not sink.connected)
+
+# ---- A phone that doesn't report its modes -----------------------------------
+
+scope, sink, scr = opened("long")
+check("a phone that reports no modes shows no shuffle or repeat", not shown(scr.shuffle) and not shown(scr.repeat))
+check("and the volume stays beside the play button",
+      scr.vol.get_y() == screenmod.VOLUME[1], str(scr.vol.get_y()))
+scope.close()
 
 # ---- A track with no cover ----------------------------------------------------
 

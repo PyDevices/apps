@@ -6,7 +6,7 @@
 `DemoSink` answers like ``btclassic.AudioSink``: the same properties, the
 same ``changes()`` bits and the same transport. It pairs a few seconds after
 the app opens, plays a short list of made-up tracks, moves their position
-along and follows play, pause, next, previous and volume. Its covers are
+along and follows play, pause, next, previous, volume, repeat and shuffle. Its covers are
 drawn by svgio and made into JPEGs by jpegio, so the app decodes them the
 way it decodes a phone's.
 
@@ -28,6 +28,7 @@ VOLUME = 32
 POSITION = 64
 PEER = 128
 COVER = 256
+SETTINGS = 1 << 26
 
 PAIR_MS = 4000  # how long the demo waits to be paired, from the app opening
 PLAY_MS = 2500  # and then before it plays
@@ -134,6 +135,9 @@ class DemoSink:
         self._rate = 1  # how fast the position moves: 8 or -8 while seeking
         # The phone's battery, as AVRCP reports it; the states show each one.
         self.battery = {"idle": "external", "paused": "full", "long": "warning", "nocover": None}.get(self.state, "normal")
+        # The player's modes; the long title's phone doesn't report them.
+        self.repeat, self.shuffle = {"playing": ("off", "all"), "paused": ("single", "off"),
+                                     "long": (None, None)}.get(self.state, ("off", "off"))
         self._clear_track()
         st = self.state
         if st in ("idle", "playing", "paused", "nocover", "long"):
@@ -240,6 +244,13 @@ class DemoSink:
 
     def refresh(self):
         self._bits |= POSITION
+
+    def setting(self, name, value):
+        if name not in ("equalizer", "repeat", "shuffle", "scan"):
+            raise ValueError("setting is equalizer, repeat, shuffle or scan")
+        if self.connected and name in ("repeat", "shuffle") and getattr(self, name) is not None:
+            setattr(self, name, value)
+            self._bits |= SETTINGS
 
     def disconnect(self):
         self.connected = False
