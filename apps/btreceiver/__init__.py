@@ -12,11 +12,13 @@ forward or rewind), and the volume slider is the one on the phone. Shuffle
 and repeat show the player's modes and change them, when the sender reports
 them. A spectrum of what plays runs under the title.
 
-The board is also the phone's hands-free unit, as a car kit is: the phone's
-battery and signal show at the top right, and a call shows a card over the
-player with the caller's number, to answer or decline. An answered call plays
-through the board's speaker and sends its microphones to the phone, and the
-music comes back when the call ends. On a board whose Bluetooth can't carry a
+With the "Phone calls and battery" switch in the header on (it's off until
+you turn it on, and kept in ``config.json``), the board is also the phone's
+hands-free unit, as a car kit is: the phone's battery and signal show at the
+top right, and a call shows a card over the player with the caller's number,
+to answer or decline. An answered call plays through the board's speaker and
+sends its microphones to the phone, and the music comes back when the call
+ends. On a board whose Bluetooth can't carry a
 call's audio (``HandsFree.call_audio`` is False), the card answers and hangs
 up, and you talk on the phone.
 
@@ -26,13 +28,15 @@ computer with no Bluetooth module the app plays a demo: a pretend phone that
 pairs, plays a few tracks and follows the buttons.
 """
 
+import json
+
 from multimer import ticks_diff, ticks_ms
 
 from appkit import data as appdata
-from touchkit import ui
+from touchkit import settings, ui
 
 from . import glyphs
-from .screen import BANDS, Screen
+from .screen import BANDS, Screen, calls_switch
 
 UI_MS = 250  # how often the app reads the sink
 BARS_MS = 66  # how often the spectrum moves
@@ -49,6 +53,11 @@ UNSAID = "Not Provided"
 # A tap moves repeat on the way a phone's player does, and turns shuffle on
 # or off. "group" (a sender's own mode) goes back to off.
 NEXT_REPEAT = {"off": "all", "all": "single"}
+#: The app's settings, kept in ``config.json`` in its data folder. ``calls``
+#: makes the board the phone's hands-free unit: the phone's battery and
+#: signal from that link, and a card for its calls. Off, the board is a
+#: speaker only, and the battery is the one the player reports.
+DEFAULTS = {"calls": False}
 
 
 def _said(text):
@@ -57,9 +66,8 @@ def _said(text):
 
 
 def _open_sink():
-    """``(radio, sink, handsfree, bits, radio_was_on)``: btclassic's, or the
-    demo's on a computer. None on a board without btclassic. *handsfree* is
-    None on a firmware whose btclassic has no hands-free unit."""
+    """``(radio, sink, bits, radio_was_on)``: btclassic's, or the demo's on a
+    computer. None on a board without btclassic."""
     try:
         import btclassic
     except ImportError:
@@ -67,17 +75,45 @@ def _open_sink():
             return None
         from . import demo
 
-        sink = demo.DemoSink()
-        return demo.DemoRadio(), sink, demo.DemoHandsFree(sink), demo, True
+        return demo.DemoRadio(), demo.DemoSink(), demo, True
     bt = btclassic.Bluetooth()
     was_on = bt.active()
-    sink = btclassic.AudioSink(bt, buffer_ms=BUFFER_MS)
-    make = getattr(btclassic, "HandsFree", None)
+    return bt, btclassic.AudioSink(bt, buffer_ms=BUFFER_MS), btclassic, was_on
+
+
+def _open_handsfree(bt, sink, bits):
+    """The phone's hands-free link, for the calls setting: btclassic's
+    ``HandsFree``, or the demo's on a computer. None on a firmware whose
+    btclassic has no hands-free unit."""
+    demo_unit = getattr(bits, "DemoHandsFree", None)
+    if demo_unit is not None:
+        return demo_unit(sink)
+    make = getattr(bits, "HandsFree", None)
     if make is None:
         print("btreceiver: this btclassic has no HandsFree: no battery, signal or calls")
-        return bt, sink, None, btclassic, was_on
+        return None
     # Stereo frames, the shape the speaker plays. It follows the sink's phone.
-    return bt, sink, make(bt, channels=2), btclassic, was_on
+    return make(bt, channels=2)
+
+
+def _load_config(scope):
+    """The app's settings: DEFAULTS, overridden by its ``config.json``."""
+    try:
+        return settings.config(scope, DEFAULTS)
+    except (ValueError, AttributeError):  # a scope with no data folder
+        return dict(DEFAULTS)
+
+
+def _save_config(scope, config):
+    """Keep *config* in the app's ``config.json``: only what differs from
+    DEFAULTS."""
+    changed = {k: v for k, v in config.items() if DEFAULTS.get(k) != v}
+    try:
+        path = appdata.join(scope.data_dir, "config.json")
+        with open(path, "w") as f:
+            f.write(json.dumps(changed))
+    except (OSError, ValueError, AttributeError) as e:
+        print("btreceiver: couldn't save the settings:", e)
 
 
 def _speaker(rate):
@@ -131,7 +167,8 @@ def main(scope):
         ui.missing(scope, "missing: btclassic",
                    "Bluetooth Receiver needs a firmware with btclassic, the Bluetooth Classic module.")
         return
-    bt, sink, hf, bits, was_on = opened
+    bt, sink, bits, was_on = opened
+    config = _load_config(scope)
     demo_mode = not hasattr(sink, "readinto")
     name = bt.config("name")
     try:
@@ -164,32 +201,31 @@ def main(scope):
         setting("shuffle", "all" if getattr(sink, "shuffle", None) == "off" else "off")
 
     def answer():
-        hf.answer()
+        st["hf"].answer()
 
     def hangup():
-        hf.hangup()
+        st["hf"].hangup()
 
     def mute():
         st["muted"] = not st["muted"]
         if st["mic"] is not None:
-            hf.uplink(None if st["muted"] else st["mic"])
+            st["hf"].uplink(None if st["muted"] else st["mic"])
         show_call()
 
     def route_audio():
         # The phone says when the audio has moved; the AUDIO bit follows.
-        if hf.audio:
-            hf.disconnect_audio()
+        if st["hf"].audio:
+            st["hf"].disconnect_audio()
         else:
-            hf.connect_audio()
+            st["hf"].connect_audio()
 
     on = {"play": toggle, "next": sink.next, "previous": sink.previous, "seek": sink.seek, "volume": volume,
           "repeat": repeat, "shuffle": shuffle, "answer": answer, "hangup": hangup, "mute": mute,
           "route": route_audio}
     scr = Screen(scope.root, scope.size, on)
-    st = state = {"sink": sink, "hf": hf, "out": None, "rate": 0, "levels": None, "screen": scr, "t0": ticks_ms(),
+    st = state = {"sink": sink, "hf": None, "out": None, "rate": 0, "levels": None, "screen": scr, "t0": ticks_ms(),
                   "call_out": None, "mic": None, "muted": False, "talking": False, "answered": None,
-                  # A firmware older than HandsFree.call_audio always takes the call's audio.
-                  "takes_audio": getattr(hf, "call_audio", True)}
+                  "takes_audio": True, "config": config}
     jpeg = bytearray(COVER_JPEG)
     # Covers decode into two buffers made once, taking turns, so LVGL never
     # shows the one being written and a new cover makes no garbage.
@@ -236,20 +272,20 @@ def main(scope):
         # The phone moves a call's audio to the board and back; the speaker
         # follows it, and the microphones go with it. The music's output is
         # closed first: the speaker plays one stream at one rate.
-        here = hf.audio
+        here = st["hf"].audio
         if here and not st["talking"]:
             close_out()
             st["rate"] = 0
             st["talking"] = True
             if demo_mode:
                 return
-            rate = hf.sample_rate
+            rate = st["hf"].sample_rate
             try:
                 out = _speaker(rate)
                 if out is None:
                     status.set_text("no audio out")
                     return
-                out.play(hf)
+                out.play(st["hf"])
                 st["call_out"] = out
             except Exception as e:
                 print("btreceiver: no call audio out:", e)
@@ -262,7 +298,7 @@ def main(scope):
                 mic = None
             st["mic"] = mic
             if mic is not None and not st["muted"]:
-                hf.uplink(mic)
+                st["hf"].uplink(mic)
             print("btreceiver: call audio on the board at %d Hz, microphone %s" % (rate, "on" if mic else "none"))
         elif not here and st["talking"]:
             drop_call()
@@ -275,23 +311,23 @@ def main(scope):
         mic = st["mic"]
         st["mic"] = None
         if mic is not None:
-            hf.uplink(None)
+            st["hf"].uplink(None)
             mic.close()
         out = st["call_out"]
         st["call_out"] = None
         if out is not None:
             out.stop()
             out.close()
-            print("btreceiver: call audio off the board; sent", hf.stats().get("sent"), "frames")
+            print("btreceiver: call audio off the board; sent", st["hf"].stats().get("sent"), "frames")
 
     def show_phone():
-        if hf.connected:
-            scr.show_phone(hf.battery, hf.signal, hf.service)
+        if st["hf"].connected:
+            scr.show_phone(st["hf"].battery, st["hf"].signal, st["hf"].service)
         else:
             scr.show_phone(None, None, None)
 
     def show_call():
-        call = hf.call
+        call = st["hf"].call
         if call == "active":
             if st["answered"] is None:
                 st["answered"] = ticks_ms()
@@ -299,7 +335,7 @@ def main(scope):
             st["answered"] = None
         if call not in ("active", "held"):
             st["muted"] = False
-        scr.show_call(call, hf.caller, sink.peer_name, hf.audio, st["muted"], demo_mode or st["mic"] is not None,
+        scr.show_call(call, st["hf"].caller, sink.peer_name, st["hf"].audio, st["muted"], demo_mode or st["mic"] is not None,
                       st["takes_audio"])
         show_time()
 
@@ -308,7 +344,7 @@ def main(scope):
             scr.show_call_time(ticks_diff(ticks_ms(), st["answered"]))
 
     def follow_phone():
-        changed = hf.changes()
+        changed = st["hf"].changes()
         if changed & (bits.CONNECTION | bits.AUDIO | bits.CALL):
             route_call()
         if changed & (bits.CONNECTION | bits.PHONE):
@@ -376,8 +412,44 @@ def main(scope):
 
     settings_bit = getattr(bits, "SETTINGS", 0)
 
+    def open_phone():
+        # The calls setting on: the phone's hands-free link, which brings its
+        # battery, its signal and its calls.
+        hf = _open_handsfree(bt, sink, bits)
+        if hf is None:
+            return
+        st["hf"] = hf
+        # A firmware older than HandsFree.call_audio always takes the call's audio.
+        st["takes_audio"] = getattr(hf, "call_audio", True)
+        follow_phone()
+        show_phone()
+        show_call()
+
+    def close_phone():
+        # The calls setting off: the link goes, and with it the card and
+        # the phone's own battery and signal. The player's battery stays.
+        hf = st["hf"]
+        if hf is None:
+            return
+        drop_call()
+        st["hf"] = None
+        hf.deinit()
+        st["answered"] = None
+        st["muted"] = False
+        scr.show_phone(None, None, None)
+        scr.show_call(None, "", "", False, False, False)
+        route()
+
+    def set_calls(on):
+        config["calls"] = on
+        _save_config(scope, config)
+        if on:
+            open_phone()
+        else:
+            close_phone()
+
     def follow(t):
-        if hf is not None:
+        if st["hf"] is not None:
             follow_phone()
         changed = sink.changes()
         if changed:
@@ -405,6 +477,7 @@ def main(scope):
         scr.show_levels(src.levels(ticks_diff(ticks_ms(), st["t0"]) / 1000))
 
     def close():
+        hf = st["hf"]
         if hf is not None:
             drop_call()
         close_out()
@@ -423,10 +496,9 @@ def main(scope):
     show_modes()
     scr.show_volume(sink.volume)
     route()
-    if hf is not None:
-        follow_phone()
-        show_phone()
-        show_call()
+    st["switch"] = calls_switch(scope, config["calls"], set_calls)
+    if config["calls"]:
+        open_phone()
     scope.every(UI_MS, follow)
     scope.every(BARS_MS, bars)
     if not sink.connected:

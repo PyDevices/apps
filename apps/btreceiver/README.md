@@ -7,8 +7,9 @@ speaker. Pair a phone or a computer with it and play anything. The screen
 shows the cover large, and beside it everything the sender says: title,
 artist, album, track number and count, genre, where the track is up to, and
 the codec and rate of the stream. A line the sender leaves empty isn't shown.
-The board is also the phone's hands-free unit: its battery and signal show
-at the top, and its calls come to the board's speaker and microphones.
+With **Phone calls and battery** turned on, the board is also the phone's
+hands-free unit: its battery and signal show at the top, and its calls show
+on the screen.
 
 ## On a board
 
@@ -44,11 +45,20 @@ track, marked with a small 1. Each lights in the screen's colour while it's
 on, and follows the phone when you change it there. A phone that doesn't
 report them shows neither.
 
-The phone's battery shows at the top right whenever the phone reports it,
-amber when it runs low, and a weak signal is shown beside it.
-The phone's battery and signal show at the top right while it's connected,
-the battery amber when it runs low. A phone gives them over its hands-free
-link, so turn on Calls for the board in the phone's Bluetooth settings. A
+The phone's battery shows at the top right whenever its player reports it,
+amber when it runs low, and a weak Bluetooth link is noted beside it.
+
+## Phone calls and battery
+
+The switch at the top right, **Phone calls and battery**, is off until you
+turn it on, on every board, and the board remembers it the next time the app
+opens. Off, the board is a speaker and nothing more.
+
+On, the board also connects as the phone's hands-free unit, the way a car
+kit does. The phone's battery and its signal show at the top right while it's
+connected, the battery amber when it runs low, and its calls show on the
+screen ([Calls](#calls) below). The phone gives these over its hands-free
+link, so allow Calls for the board in the phone's Bluetooth settings. A
 computer has no hands-free side, and shows neither.
 
 Closing the app lets the phone go.
@@ -56,7 +66,7 @@ Closing the app lets the phone go.
 ## Its other screens
 
 Connected with nothing playing, the cover is a thin note and the play
-button starts the phone's player.
+button starts the phone's player. The battery here shows it charging.
 
 ![Connected and idle: an empty frame with a thin music note, the phone's name as the title and a hint to play something](docs/images/idle.png)
 
@@ -67,8 +77,7 @@ back to play. Repeat here is on for one track.
 
 A track with no cover gets the note in its place, and lines the phone
 doesn't send, here the album and track number, are left out rather than
-shown empty. This phone has Calls turned off for the board, so no battery or
-signal shows.
+shown empty. This phone reports no battery, so none shows.
 
 ![A podcast episode with no cover: the thin note fills the frame, with the title on two lines and the show's name beneath](docs/images/nocover.png)
 
@@ -79,6 +88,8 @@ volume sits beside the play button.
 ![A long title on two lines, with the battery icon in amber at the top right and no shuffle or repeat](docs/images/long.png)
 
 ## Calls
+
+Calls come to the board with Phone calls and battery turned on.
 
 ![An incoming call: a card over the player with a thin handset in rings, the caller's number large, and red decline and green answer rings](docs/images/incoming.png)
 
@@ -100,7 +111,8 @@ On an ESP32-S31 board the call's audio stays on the phone for now, because
 that chip's Bluetooth can't yet carry it reliably. The card still shows the
 caller, and answers, declines and hangs up; you talk on the phone, and the
 card says so. The same goes for any board whose `HandsFree.call_audio` is
-False, such as the Pico W.
+False, such as the Pico W. On an ESP32-S31 board with the setting on, a
+call made through an internet calling app on the phone can reset the board.
 
 ## On a computer
 

@@ -30,11 +30,20 @@ BANDS = 24
 WEAK_DB = -10  # a link this far below the radio's ideal range is weak
 # The phone's battery as its hands-free link reports it, 0 to 5, and the icon
 # for each. At LOW_BATTERY or under it turns amber. A sender with no
-# hands-free link, such as a computer, reports none and shows none.
+# hands-free link, such as a computer, reports none.
 BATTERY = ("battery_0_bar", "battery_1_bar", "battery_2_bar", "battery_4_bar", "battery_5_bar", "battery_full")
 LOW_BATTERY = 1
+# The sender's battery as AVRCP reports it, a state rather than a level, and
+# the icon and colour for each: what shows without the hands-free link's. A
+# sender that reports neither shows none.
+PLAYER_BATTERY = {"full": ("battery_full", MUTED), "normal": ("battery_5_bar", MUTED),
+                  "warning": ("battery_2_bar", AMBER), "critical": ("battery_0_bar", AMBER),
+                  "external": ("battery_charging_full", MUTED)}
 SIGNAL_BARS = 4  # the phone's signal, 0 to 5, as this many bars
 # What the card says over the caller for each of HandsFree's call states.
+# The calls setting's label, beside its switch in the header.
+CALLS_LABEL = "Phone calls and battery"
+STATUS_W = 120  # the shell's status line, moved to the label's left
 CALL_WORDS = {"incoming": "INCOMING CALL", "dialing": "CALLING", "alerting": "RINGING", "active": "ON A CALL",
               "held": "ON HOLD"}
 
@@ -180,6 +189,8 @@ class Screen:
         self._pos_text = None
         self._link_notes = []
         self._phone_notes = []
+        self._phone_battery = None
+        self._player_battery = None
         self.call_state = None
         root.remove_flag(lv.obj.FLAG.SCROLLABLE)
         root.set_style_bg_opa(lv.OPA.COVER, 0)
@@ -505,19 +516,15 @@ class Screen:
         self.codec.set_text("  /  ".join(parts))
         self._link_notes = notes
         self._notes()
+        self._player_battery = link.get("battery") if link else None
+        self._show_battery()
 
     def show_phone(self, battery, signal, service):
-        """The phone's battery and signal, each 0 to 5 or None for none, and
-        whether it has network service (None when it hasn't said)."""
-        if battery != self.battery_state:
-            self.battery_state = battery
-            if battery is None:
-                _show(self.battery, False)
-            else:
-                level = max(0, min(5, battery))
-                self.battery.set_src(lvicons.dsc(BATTERY[level], 24))
-                self.battery.set_style_image_recolor(lv.color_hex(AMBER if level <= LOW_BATTERY else MUTED), 0)
-                _show(self.battery, True)
+        """The phone's battery and signal from its hands-free link, each 0 to
+        5 or None for none, and whether it has network service (None when it
+        hasn't said). Its battery shows in place of the player's."""
+        self._phone_battery = battery
+        self._show_battery()
         state = (signal, service)
         if state != self.signal_state:
             self.signal_state = state
@@ -531,6 +538,24 @@ class Screen:
 
     def _notes(self):
         self.warn.set_text("  /  ".join(self._phone_notes + self._link_notes))
+
+    def _show_battery(self):
+        # The hands-free link's level, 0 to 5, else the player's state.
+        state = self._phone_battery if self._phone_battery is not None else self._player_battery
+        if state == self.battery_state:
+            return
+        self.battery_state = state
+        if state is None or (isinstance(state, str) and state not in PLAYER_BATTERY):
+            _show(self.battery, False)
+            return
+        if isinstance(state, str):
+            icon, colour = PLAYER_BATTERY[state]
+        else:
+            level = max(0, min(5, state))
+            icon, colour = BATTERY[level], AMBER if level <= LOW_BATTERY else MUTED
+        self.battery.set_src(lvicons.dsc(icon, 24))
+        self.battery.set_style_image_recolor(lv.color_hex(colour), 0)
+        _show(self.battery, True)
 
     def show_modes(self, repeat, shuffle):
         """The sender's *repeat* ("off", "single", "all" or "group") and
@@ -669,6 +694,7 @@ class Screen:
             icon.set_style_image_recolor(lv.color_hex(self.accent if lit else MUTED), 0)
         _show(self.repeat_one, repeat == "single")
         self.repeat_one.set_style_text_color(lv.color_hex(self.accent), 0)
+
     def _build_call(self, size):
         """The call card: over everything but the sender's line, hidden
         until a call."""
@@ -729,7 +755,6 @@ class Screen:
                             caption(hx, big, "Hang up")]
         _show(card, False)
 
-
     def _pairing(self, on):
         _show(self.pair, on)
         _show(self.steps, on)
@@ -776,3 +801,40 @@ class Screen:
             _show(o, t)
         self._modes_on = t
         self._place_modes()
+
+
+def calls_switch(scope, on, changed):
+    """The calls setting, a labelled switch at the right of the shell's
+    header (or the top right of the app's area without one), *on* or off.
+    *changed* gets the new setting each time it's flipped. The status line
+    moves to its left."""
+    header = getattr(scope, "header", None)
+    parent = header or scope.root
+    sw = lv.switch(parent)
+    sw.set_size(48, 26)
+    if header is not None:
+        sw.align(lv.ALIGN.RIGHT_MID, -16, 0)
+    else:
+        sw.align(lv.ALIGN.TOP_RIGHT, -16, 8)
+    sw.set_style_bg_color(lv.color_hex(LINE), lv.PART.MAIN)
+    sw.set_style_bg_color(lv.color_hex(TEAL), lv.PART.INDICATOR | lv.STATE.CHECKED)
+    sw.set_style_bg_color(lv.color_hex(TEXT), lv.PART.KNOB)
+    sw.set_ext_click_area(12)
+    if on:
+        sw.add_state(lv.STATE.CHECKED)
+    lbl = _label(parent, F_SMALL, SUB)
+    lbl.set_text(CALLS_LABEL)
+    lbl.align_to(sw, lv.ALIGN.OUT_LEFT_MID, -10, 0)
+    status = getattr(scope, "status", None)
+    if status is not None:
+        # Its text changes after this: right-aligned in a fixed width, it
+        # stays clear of the label.
+        status.set_width(STATUS_W)
+        status.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
+        status.align_to(lbl, lv.ALIGN.OUT_LEFT_MID, -24, 0)
+
+    def flipped(e):
+        changed(sw.has_state(lv.STATE.CHECKED))
+
+    sw.add_event_cb(flipped, lv.EVENT.VALUE_CHANGED, None)
+    return sw

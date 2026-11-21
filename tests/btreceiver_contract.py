@@ -11,6 +11,7 @@ the screen's own widgets: what shows, what's hidden, and what the buttons and
 the slider send back. Prints PASS or FAIL per check, then ALL PASSED.
 """
 
+import os
 import sys
 
 sys.path.insert(0, "..")
@@ -53,10 +54,28 @@ def check(name, ok, why=""):
         failures.append(name)
 
 
+DATA = "_btreceiver_data"  # the app's data folder, in tests/, removed at the end
+
+
+def forget_settings():
+    try:
+        os.remove(DATA + "/config.json")
+    except OSError:
+        pass
+
+
+try:
+    os.mkdir(DATA)
+except OSError:
+    pass
+forget_settings()
+
+
 class Scope:
     """What the launcher's shell hands an app: a root under the header, timers."""
 
     name = "btreceiver"
+    data_dir = DATA
 
     def __init__(self):
         self.scr = ui.plain(lv.obj(lv.screen_active()))
@@ -88,14 +107,27 @@ class Scope:
         self.scr.delete()
 
 
-def opened(state, call_audio=True):
+opens = []  # each hands-free unit the app opened
+
+
+def opened(state, call_audio=True, calls=True):
     """The app open on a demo phone held in *state*: ``(scope, sink, screen)``.
-    The phone's hands-free unit is ``app.state["hf"]``; *call_audio* False is
-    a board that can't take a call's audio."""
+    *calls* is the calls setting, saved before it opens (None: left as it
+    is). The phone's hands-free unit is ``app.state["hf"]``, None with the
+    setting off; *call_audio* False is a board that can't take a call's
+    audio."""
     sink = demo.DemoSink(state)
-    hf = demo.DemoHandsFree(sink, call_audio=call_audio)
-    app._open_sink = lambda: (demo.DemoRadio("kitchen-speaker"), sink, hf, demo, True)
+
+    def handsfree(bt, s, bits):
+        hf = demo.DemoHandsFree(sink, call_audio=call_audio)
+        opens.append(hf)
+        return hf
+
+    app._open_sink = lambda: (demo.DemoRadio("kitchen-speaker"), sink, demo, True)
+    app._open_handsfree = handsfree
     scope = Scope()
+    if calls is not None:
+        app._save_config(scope, {"calls": calls})
     app.main(scope)
     scope.run()
     return scope, sink, app.state["screen"]
@@ -354,6 +386,55 @@ scope.run()
 check("without call audio, hang up ends the call and the music plays again",
       hf.call == "idle" and not shown(scr.card) and sink.playing)
 scope.close()
+
+# ---- The calls setting -------------------------------------------------------
+
+forget_settings()
+del opens[:]
+scope, sink, scr = opened("playing", calls=None)
+sw = app.state["switch"]
+check("the calls setting starts off", not sw.has_state(lv.STATE.CHECKED) and not app.state["config"]["calls"])
+check("its label says what it does", screenmod.CALLS_LABEL in [
+    sw.get_parent().get_child(i).get_text() for i in range(sw.get_parent().get_child_count())
+    if sw.get_parent().get_child(i).has_class(lv.label_class)])
+check("it sits in the header", sw.get_parent() is scope.header)
+check("off, no hands-free link is opened", app.state["hf"] is None and not opens, str(len(opens)))
+check("off, the player's battery shows", shown(scr.battery) and scr.battery_state == "normal", str(scr.battery_state))
+sink.battery = "warning"
+sink._bits |= demo.PEER
+scope.run()
+check("off, a low player battery shows in amber", colour(scr.battery) == screenmod.AMBER,
+      "%06x" % colour(scr.battery))
+check("off, no signal shows", not shown(scr.signal))
+sink.battery = "normal"
+sink._bits |= demo.PEER
+tap(sw)
+scope.run()
+hf = app.state["hf"]
+check("on, the hands-free link opens", hf is not None and hf.connected and len(opens) == 1, str(len(opens)))
+check("on, the phone's battery and signal show", scr.battery_state == 4 and shown(scr.signal),
+      str(scr.battery_state))
+check("on, the setting is saved", app._load_config(scope)["calls"] is True)
+tap(sw)
+scope.run()
+check("off again, the link goes", app.state["hf"] is None and not hf.connected)
+check("off again, the player's battery is back and the signal goes",
+      scr.battery_state == "normal" and not shown(scr.signal), str(scr.battery_state))
+check("off again, the setting is saved", app._load_config(scope)["calls"] is False)
+tap(sw)
+scope.run()
+scope.close()
+scope, sink, scr = opened("playing", calls=None)
+check("the setting is kept when the app opens again",
+      app.state["switch"].has_state(lv.STATE.CHECKED) and app.state["hf"] is not None)
+scope.close()
+forget_settings()
+scope, sink, scr = opened("nocover", calls=False)
+check("a sender that reports no battery shows none", not shown(scr.battery))
+scope.close()
+
+forget_settings()
+os.rmdir(DATA)
 
 print("FAILED: %d" % len(failures) if failures else "ALL PASSED")
 sys.exit(1 if failures else 0)
