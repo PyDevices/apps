@@ -45,6 +45,11 @@ COVER_JPEG = 96 * 1024  # room for the cover's JPEG
 # A phone starting a stream sends about twice as fast for a second or two:
 # this rides that out. Half of it is the delay to the speaker.
 BUFFER_MS = 1000
+# Calling the phone's hands-free side when the setting is turned on: the
+# first try waits this long after the unit starts, which a call made at once
+# misses, and there are this many tries in all.
+HF_RETRY_MS = 3000
+HF_TRIES = 3
 
 state = None  # the open app's state, for the console
 # What Android sends for a field it doesn't know, the title included when
@@ -343,7 +348,26 @@ def main(scope):
         if st["answered"] is not None:
             scr.show_call_time(ticks_diff(ticks_ms(), st["answered"]))
 
+    def call_phone():
+        # The link follows the sink when the sink connects, but not to a
+        # phone that was connected before the unit started: call that one
+        # a few times, a while apart. A computer never answers.
+        hf = st["hf"]
+        if hf.connected or not sink.connected or not hasattr(hf, "connect"):
+            st["hf_tries"] = 0
+            st["hf_asked"] = ticks_ms()
+            return
+        if st["hf_tries"] >= HF_TRIES or ticks_diff(ticks_ms(), st["hf_asked"]) < HF_RETRY_MS:
+            return
+        st["hf_tries"] += 1
+        st["hf_asked"] = ticks_ms()
+        try:
+            hf.connect()
+        except OSError as e:
+            print("btreceiver: the phone's hands-free link:", e)
+
     def follow_phone():
+        call_phone()
         changed = st["hf"].changes()
         if changed & (bits.CONNECTION | bits.AUDIO | bits.CALL):
             route_call()
@@ -421,6 +445,8 @@ def main(scope):
         st["hf"] = hf
         # A firmware older than HandsFree.call_audio always takes the call's audio.
         st["takes_audio"] = getattr(hf, "call_audio", True)
+        st["hf_tries"] = 0
+        st["hf_asked"] = ticks_ms()
         follow_phone()
         show_phone()
         show_call()
