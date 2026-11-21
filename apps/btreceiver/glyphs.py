@@ -14,6 +14,10 @@ import svgio
 
 _HEAD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">'
 _LINE = 'fill="none" stroke="#fff" stroke-width="%s" stroke-linecap="round" stroke-linejoin="round"'
+_HANDSET = ("M6.2 3.5h2.6l1.4 3.8-1.9 1.4a11.5 11.5 0 0 0 7 7l1.4-1.9 3.8 1.4v2.6c0 1.1-.9 2-2 2"
+            "A16.3 16.3 0 0 1 4.2 5.5c0-1.1.9-2 2-2z")
+_MIC = ("M12 3.2c1.5 0 2.7 1.2 2.7 2.7v5.6c0 1.5-1.2 2.7-2.7 2.7s-2.7-1.2-2.7-2.7V5.9c0-1.5 1.2-2.7 2.7-2.7z"
+        "M6 11a6 6 0 0 0 12 0M12 17v3.6")
 
 SVG = {
     "play": '<path fill="#fff" d="M8 5.6v12.8c0 .8.9 1.3 1.6.9l10-6.4c.6-.4.6-1.3 0-1.7l-10-6.4C8.9 4.3 8 4.8 8 5.6z"/>',
@@ -27,6 +31,14 @@ SVG = {
     "bluetooth": '<path ' + _LINE % "1.6" + ' d="M7 7.5l10 9-5 4.5v-18l5 4.5-10 9"/>',
     "volume": '<path fill="#fff" d="M4 9.5v5c0 .6.4 1 1 1h2.6l3.8 3.3c.6.5 1.6.1 1.6-.8V6c0-.9-1-1.3-1.6-.8L7.6 8.5H5c-.6 0-1 .4-1 1z"/>'
     '<path ' + _LINE % "1.6" + ' d="M16 9a4.2 4.2 0 0 1 0 6M18.6 6.5a7.8 7.8 0 0 1 0 11"/>',
+    # A call's buttons: answer, hang up, the microphone, and the phone that
+    # takes the call's audio back.
+    "handset": '<path ' + _LINE % "1.6" + ' d="' + _HANDSET + '"/>',
+    "hangup": '<path ' + _LINE % "1.6" + ' transform="rotate(135 12 12)" d="' + _HANDSET + '"/>',
+    "mic": '<path ' + _LINE % "1.6" + ' d="' + _MIC + '"/>',
+    "mic_off": '<path ' + _LINE % "1.6" + ' d="' + _MIC + 'M4.5 4.5l15 15"/>',
+    "phone": '<path ' + _LINE % "1.6" + ' d="M8.4 2.8h7.2c.9 0 1.6.7 1.6 1.6v15.2c0 .9-.7 1.6-1.6 1.6H8.4'
+    'c-.9 0-1.6-.7-1.6-1.6V4.4c0-.9.7-1.6 1.6-1.6zM10.8 18h2.4"/>',
     # Drawn large, where a cover goes: a fine line at that size.
     "note": '<path ' + _LINE % ".45" + ' d="M9 18V6.5l10-2V16"/>'
     '<circle ' + _LINE % ".45" + ' cx="6.6" cy="18" r="2.4"/><circle ' + _LINE % ".45" + ' cx="16.6" cy="16" r="2.4"/>',

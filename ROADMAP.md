@@ -38,6 +38,11 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 - A tuner, and several effect slots with saved presets, so Stompbox is more
   than one airwindows effect at a time.
 
+## Bluetooth Receiver
+
+- Calls' audio through the speaker and microphones on ESP32-S31 boards, once
+  that chip's Bluetooth controller carries a call's audio link reliably.
+
 ## Clock
 
 - More faces on the clock, and a way to pick a face that's saved.

@@ -7,17 +7,21 @@
 
 Run it from the repository's root with CPython, lvgl, svgio, jpegio and
 Pillow. The states are the demo's: pairing, idle, playing, paused,
-nocover and long. Each one opens the app under Home's shell, the way a board shows
+nocover, long, incoming and call. Each one opens the app under Home's shell, the way a board shows
 it, waits for the demo to settle and saves ``OUT_DIR/<state>.png``. No
 window opens. With no OUT_DIR the pictures replace the README's, in the
 app's ``docs/images``.
 """
 
+import json
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
 
-STATES = ("pairing", "idle", "playing", "paused", "nocover", "long")
+STATES = ("pairing", "idle", "playing", "paused", "nocover", "long", "incoming", "call")
+CALL_STATES = ("incoming", "call")  # shown with the calls setting on
 WAIT_MS = 1500
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "images")
 
@@ -28,8 +32,14 @@ def one(out, state, size):
     sys.path.insert(0, os.path.join(root, "lib"))
     sys.path.insert(0, root)
     w, h = size.split("x")
+    # The calls setting from a data folder of its own: on for the call
+    # states, off (the default) for the rest.
+    data = tempfile.mkdtemp()
+    os.makedirs(os.path.join(data, "btreceiver"))
+    with open(os.path.join(data, "btreceiver", "config.json"), "w") as f:
+        json.dump({"calls": state in CALL_STATES}, f)
     os.environ.update({"OMNIPYTHON_WIDTH": w, "OMNIPYTHON_HEIGHT": h, "OMNIPYTHON_SCALE": "1",
-                       "SDL_VIDEODRIVER": "dummy", "BTRECEIVER_DEMO": state})
+                       "SDL_VIDEODRIVER": "dummy", "BTRECEIVER_DEMO": state, "APPKIT_DATA": data})
     import lvgl as lv
     from PIL import Image
 
@@ -74,6 +84,7 @@ def one(out, state, size):
         path = os.path.join(out, state + ".png")
         img.save(path)
         print("saved", path, flush=True)
+        shutil.rmtree(data, ignore_errors=True)
         os._exit(0)
 
     timer = lv.timer_create(poll, 50, None)  # kept: a dropped timer is deleted
