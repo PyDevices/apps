@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3.dev4
+
+- Bluetooth Receiver: shows the phone's battery and signal, has a call card, and shuffle and repeat buttons that follow the phone's player.
+- Bit World: frames make a tenth of the garbage they did, draw without returning an Area, and put frames and sprites outside the heap where the firmware has offheap.
+
 ## 0.1.3.dev3
 
 - controlkit: EnvelopeView draws a multi-stage envelope and RoutingDiagram draws an operator routing diagram.
