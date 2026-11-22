@@ -6,6 +6,7 @@ appkit.home
 appkit.hover
 appkit.index
 appkit.bar
+appkit.connections
 appkit.keys
 appkit.launcher
 appkit.net
