@@ -84,7 +84,19 @@ def _plant_encoder_cant_type():
     keys._take_focus = lambda: None
 
 
+def _plant_keyboard_holds_dead_field():
+    # A field deleted under the open keyboard is never let go.
+    real = keys._field_event
+
+    def field_event(e):
+        if e.get_code() != lv.EVENT.DELETE:
+            real(e)
+
+    keys._field_event = field_event
+
+
 PLANTS = {
+    "keyboard_holds_dead_field": _plant_keyboard_holds_dead_field,
     "no_shift": _plant_no_shift,
     "keyboard_stays": _plant_keyboard_stays,
     "focus_ignored": _plant_focus_ignored,
@@ -221,6 +233,22 @@ keys.release(second)
 keys.push("h")
 settle()
 check(field.get_text().endswith("h") and first_field.get_text() == "", "and they go home when it closes too")
+
+# A field deleted while the keyboard is open on it, as when its app closes:
+# the keyboard closes and lets go, and opens on the next field safely.
+doomed = keys.attach(lv.textarea(scr))
+keys.show(doomed)
+settle()
+doomed.delete()
+settle()
+closed = not keys.is_shown() and keys._kb["field"] is None
+check(closed, "a field deleted under the keyboard closes it")
+if closed:  # otherwise the keyboard points at the freed field: LVGL would crash on it
+    check(not keys.keyboard().get_textarea(), "and the keyboard lets go of it")
+    keys.show(field)
+    settle()
+    check(keys.is_shown() and keys.keyboard().get_textarea() == field, "the next field opens it again")
+    keys.hide()
 
 print("%d checks, %d failed" % (checks[0], len(failures)))
 sys.exit(1 if failures else 0)

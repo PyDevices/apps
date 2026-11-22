@@ -15,7 +15,7 @@ import unittest
 from _harness import TESTS, need_micropython, run
 
 CONTRACT = TESTS / "keys_contract.py"
-PLANTS = ("no_shift", "keyboard_stays", "focus_ignored", "encoder_cant_type")
+PLANTS = ("no_shift", "keyboard_stays", "focus_ignored", "encoder_cant_type", "keyboard_holds_dead_field")
 
 
 def _run(case, interpreter, plant=None):
