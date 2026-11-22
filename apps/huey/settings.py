@@ -34,7 +34,13 @@ DEFAULTS = {
     "listen_seconds": 12,
     # where Huey is when the app opens: coast, bench or desk
     "place": "desk",
+    # more servers to choose between in the device's picker, under
+    # Assistant: each an object with a "name" and any of SERVER_KEYS
+    "servers": [],
 }
+
+#: The settings a server in ``servers`` may give, over the ones above.
+SERVER_KEYS = ("base_url", "key_file", "stt_model", "chat_model", "tts_model", "voice", "speech_rate")
 
 
 def load(path):
@@ -62,7 +68,22 @@ def load(path):
         if type(given[name]) is not type(DEFAULTS[name]):
             raise ValueError("%s: %r should be %s" % (path, name, "a number" if isinstance(DEFAULTS[name], int) else "text"))
         settings[name] = given[name]
+    for server in settings["servers"]:
+        _check_server(path, server)
     return settings
+
+
+def _check_server(path, server):
+    if not isinstance(server, dict) or not isinstance(server.get("name"), str) or not server["name"]:
+        raise ValueError("%s: each of servers should be an object with a name" % path)
+    for name in server:
+        if name == "name":
+            continue
+        if name not in SERVER_KEYS:
+            raise ValueError("%s: server %r has no setting %r" % (path, server["name"], name))
+        if type(server[name]) is not type(DEFAULTS[name]):
+            raise ValueError("%s: server %r: %r should be %s" % (
+                path, server["name"], name, "a number" if isinstance(DEFAULTS[name], int) else "text"))
 
 
 def read_key(settings):

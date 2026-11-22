@@ -78,6 +78,7 @@ Settings are one JSON file, `settings.json` in the app's data folder
 | `volume` | `80` | How loud Huey speaks, 0 to 100 |
 | `listen_seconds` | `12` | The longest question |
 | `place` | `desk` | Where Huey is when the app opens: `coast`, `bench` or `desk` |
+| `servers` | `[]` | More servers to choose between in the device's picker (below) |
 
 To ask [DeepInfra](https://deepinfra.com) instead, copy
 [`settings.example.json`](settings.example.json) to
@@ -93,6 +94,25 @@ to Huey's first word, and one through lite-assistant about 5 to 7 s, most of
 it the chat model on the computer. Huey keeps his connections to the server
 open between questions and starts speaking as soon as the words of his
 answer are in, before the rest of it.
+
+### Choose a server in the picker
+
+With endpointkit installed, Huey's server is a choice in the device's
+picker, under Assistant, beside any other app's. List more servers in
+`servers`, each with a `name` and the settings that differ for it
+(`base_url`, `key_file`, the three models, `voice`, `speech_rate`):
+
+```json
+{"base_url": "http://192.168.0.10:5000/v1",
+ "servers": [{"name": "DeepInfra", "base_url": "https://api.deepinfra.com/v1/openai",
+              "key_file": "/deepinfra.key", "stt_model": "openai/whisper-large-v3-turbo",
+              "chat_model": "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+              "tts_model": "inworld-ai/realtime-tts-1.5-mini", "voice": "Dennis"}]}
+```
+
+The picker then lists your own server by its address and DeepInfra by name,
+and Huey talks to the one chosen from his next question. Nothing chosen means
+the server at the top of the file.
 
 Over `https` the connection is encrypted, but MicroPython doesn't check the
 server's certificate.
