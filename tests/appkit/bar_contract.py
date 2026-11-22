@@ -261,7 +261,14 @@ check(restarts == [], "and nothing on the bar holds the closed app: %r" % (resta
 la.switch("framed")
 settle()
 tap(bar.home)
-settle(300)
+# The launcher switches from a timer on the real clock: wait for it, up to 3 s.
+import time  # noqa: E402
+
+for _ in range(60):
+    if la.current == "whole":
+        break
+    time.sleep(0.05)
+    settle(40)
 check(la.current == "whole", "Home on the bar goes home: %r" % (la.current,))
 
 # The picker and the keyboard, first made while an app ran, outlive it.
