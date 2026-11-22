@@ -217,6 +217,26 @@ one hover style to the display's theme. A finger never hovers: the display
 driver lifts the pointer off the screen when a touch ends, so a tap doesn't
 leave its button lit.
 
+## Choosing connections
+
+`shell.open_picker()` opens one screen over the running app where you choose
+where its sound goes, which MIDI ports and gamepads it hears, the network and
+the rest. The app keeps running underneath. `shell.open_picker("audio.out")`
+opens straight at one kind.
+
+```python
+shell.open_picker("audio.out")
+```
+
+The choices are endpointkit's, for the whole device, so every app and script
+sees them at once. A kind that takes one endpoint (the network) moves its
+choice to what you tap; one that takes many (audio out, MIDI) adds or drops
+it. A choice that would stop something sharing its radio or bus asks first,
+and a kind an app has pinned says which app, keeping your choice for after.
+An encoder or a gamepad works it through `Picker.group`. The picker needs
+endpointkit installed (`mip.install("endpointkit")`); the rest of appkit
+doesn't.
+
 ## Plain scripts
 
 A script that builds its own `App` when it's imported, like a game, can sit

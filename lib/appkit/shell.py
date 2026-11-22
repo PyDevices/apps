@@ -61,6 +61,7 @@ class Shell:
     def __init__(self, launcher, *, data_root=None):
         self.launcher = launcher
         self.home_button = None
+        self.picker = None
         if data_root is not None:
             data.set_root(data_root)
         hover.apply()
@@ -92,6 +93,16 @@ class Shell:
             lv.label(b).set_text("Home")
         b.add_event_cb(lambda e: launcher.request(launcher.home), lv.EVENT.CLICKED, None)
         return b
+
+    def open_picker(self, kind=None):
+        """Open the picker over the running app: the list of kinds, or
+        *kind*'s page (``"audio.out"``). It's made the first time; returns it."""
+        if self.picker is None:
+            from .picker import Picker
+
+            self.picker = Picker()
+        self.picker.open(kind)
+        return self.picker
 
     def prepare(self, scope):
         """Fill *scope* before the app's ``main`` runs: its ``root``, ``size``
