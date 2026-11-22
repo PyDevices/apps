@@ -44,6 +44,7 @@ INDEX = {
     "bledev": "bledev",
     "controlkit": "controlkit",
     "deskkit": "deskkit",
+    "endpointkit": "endpointkit",
     "hmilink": "hmilink",
     "iconkit": "iconkit",
     "medialink": "medialink",

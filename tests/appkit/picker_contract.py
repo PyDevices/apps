@@ -190,6 +190,12 @@ _headless.pointer()
 app = lv.obj(None)
 lv.label(app).set_text("The running app")
 lv.screen_load(app)
+# The app has a wheel on its own group: the picker must take it while open.
+app_group = lv.group_create()
+app_buttons = [lv.button(app), lv.button(app)]
+for b in app_buttons:
+    app_group.add_obj(b)
+wheel = _headless.wheel(app_group)
 
 reg = endpointkit.Registry()
 fakes = fake.bench(reg, delay=2)
@@ -198,9 +204,13 @@ fakes = fake.bench(reg, delay=2)
 order = P.kinds(reg)
 check(order == ["audio.out", "audio.in", "midi.in", "midi.out", "net", "camera",
                 "espnow.peer", "thread.net"], "the kinds in order: %r" % (order,))
-check(P.title("audio.out") == "Audio out" and P.title("espnow.peer") == "espnow.peer",
-      "a kind's title, or its name when the picker doesn't know it")
-check(P.icon("thread.net") == P.OTHER_ICON, "an unknown kind gets the other icon")
+check(P.title("audio.out") == "Audio out" and P.title("espnow.peer") == "ESP-NOW peers",
+      "a kind's title is endpointkit's, an added kind's too")
+endpointkit.add_kind("test.bare", endpointkit.MANY)
+check(P.title("test.bare") == "test.bare" and P.icon("test.bare") == P.OTHER_ICON,
+      "a kind added with no title is its name, with the other icon")
+check(P.icon("audio.out") == "volume_up" and P.icon("thread.net") == P.OTHER_ICON,
+      "endpointkit's icon, or the other one when iconkit hasn't it")
 check(P.summary(reg, "audio.out") == "Nothing chosen", "nothing chosen yet")
 
 p = P.Picker(reg)
@@ -298,7 +308,6 @@ shot("pinned")
 reg.unpin("net", "Synth Station")
 
 # An encoder works it: turn to a row, press to choose.
-wheel = _headless.wheel(p.group)
 p.show("audio.out")
 target = row(p, "Headphone jack")[0]
 for _ in range(p.group.get_obj_count()):
@@ -316,6 +325,9 @@ check(reg.chosen("audio.out") == ["i2s:0"], "a wheel turns to a row and chooses 
 # Closing hides it and stops listening; the choices stay.
 p.close()
 check(not p.is_open(), "close hides it")
+was = app_group.get_focused()
+_headless.turn(1)
+check(app_group.get_focused() != was, "the app has its wheel back")
 p._dirty = False
 fakes["i2s"].add("1", "Line out")
 reg.poll()

@@ -94,6 +94,31 @@ class HueyOnCPythonTest(_Both, unittest.TestCase):
     cpython = True
 
 
+class ServersTest(unittest.TestCase):
+    """Huey's servers in the device's picker: `huey_servers_check.py` on each interpreter."""
+
+    def _check(self, command):
+        with tempfile.TemporaryDirectory() as scratch:
+            done = subprocess.run(
+                command + [os.path.join(TESTS, "huey_servers_check.py")],
+                env=dict(os.environ, HUEY_SCRATCH=scratch),
+                capture_output=True, text=True, timeout=120,
+            )
+        if done.returncode == 2 and os.getenv("HUEY_REQUIRE") != "1":
+            self.skipTest(done.stdout.strip())
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+
+    def test_on_this_python(self):
+        if _cpython_has() and os.getenv("HUEY_REQUIRE") != "1":
+            self.skipTest(_cpython_has())
+        self._check([sys.executable])
+
+    def test_on_micropython(self):
+        if not INTERPRETER:
+            self.skipTest("HUEY_INTERPRETER names no interpreter with LVGL and svgio")
+        self._check([INTERPRETER, "-X", "heapsize=32M"])
+
+
 class _Server(http.server.HTTPServer):
     def handle_error(self, request, client_address):
         pass  # a client hanging up mid-reply is what some tests do

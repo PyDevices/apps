@@ -19,31 +19,23 @@ plug in, pair or discover shows up as it's found. A choice that would stop
 something sharing its hardware asks first. A kind an app has pinned says so:
 the device's choice is kept for when the app lets go.
 
-Everything is in an LVGL focus group too, so an encoder or a gamepad can work
-it (``Picker.group``). The functions above the class (`kinds`, `summary`,
+Everything is in an LVGL focus group too, and while the picker is open every
+keypad and encoder works it (`appkit.keys.focus`), so an encoder or a gamepad
+can. The functions above the class (`kinds`, `summary`,
 `rows`, `toggle`) are the picker without the screen, for a script.
 """
 
 import endpointkit
 import lvgl as lv
+import iconkit
 from iconkit import lvicons
 
-#: What each kind is called, and its icon, in the order the first page lists them.
-TITLES = (
-    ("audio.out", "Audio out", "volume_up"),
-    ("audio.in", "Audio in", "mic"),
-    ("midi.in", "MIDI in", "piano"),
-    ("midi.out", "MIDI out", "music_note"),
-    ("net", "Network", "wifi"),
-    ("cast.target", "Cast to", "cast"),
-    ("camera", "Camera", "photo_camera"),
-    ("gamepad", "Gamepads", "sports_esports"),
-    ("keys", "Keyboards", "keyboard"),
-    ("pointer", "Pointers", "cable"),
-    ("storage", "Storage", "sd_card"),
-    ("serial", "Serial", "usb"),
-)
-#: The icon of a kind `TITLES` doesn't name.
+from . import keys
+
+# The icons iconkit draws at the picker's size.
+_ICONS = set(iconkit.names(24))
+
+#: The icon a kind gets when iconkit hasn't the one endpointkit names.
 OTHER_ICON = "cable"
 
 #: How often, in milliseconds, the open picker asks endpointkit for news.
@@ -58,29 +50,21 @@ _STATES = {
 
 
 def title(kind):
-    """What the picker calls *kind*: "Audio out" for ``audio.out``."""
-    for k, name, _ in TITLES:
-        if k == kind:
-            return name
-    return kind
+    """What the picker calls *kind*: endpointkit's title, "Audio out" for ``audio.out``."""
+    return endpointkit.title(kind)
 
 
 def icon(kind):
-    """The iconkit name of *kind*'s icon."""
-    for k, _, name in TITLES:
-        if k == kind:
-            return name
-    return OTHER_ICON
+    """The iconkit name of *kind*'s icon: endpointkit's, or `OTHER_ICON`
+    when iconkit hasn't that one."""
+    name = endpointkit.icon(kind)
+    return name if name in _ICONS else OTHER_ICON
 
 
 def kinds(registry):
-    """The kinds *registry* has providers for, in `TITLES` order, then the rest by name."""
-    have = []
-    for p in registry.providers():
-        if p.kind not in have:
-            have.append(p.kind)
-    known = [k for k, _, _ in TITLES if k in have]
-    return known + sorted(k for k in have if k not in known)
+    """The kinds *registry* has providers for, in the order endpointkit knows them."""
+    have = [p.kind for p in registry.providers()]
+    return [k for k in endpointkit.kinds() if k in have]
 
 
 def summary(registry, kind):
@@ -215,6 +199,9 @@ class Picker:
             self._listening = self.registry.subscribe(None, self._changed)
         if self._poll_ms and self._timer is None:
             self._timer = lv.timer_create(lambda t: self.tick(), self._poll_ms, None)
+        if self.root.has_flag(lv.obj.FLAG.HIDDEN):
+            # Every keypad and encoder works the picker while it's open.
+            keys.focus(self.group)
         self.root.remove_flag(lv.obj.FLAG.HIDDEN)
         self.root.move_foreground()
         self.show(kind)
@@ -228,6 +215,8 @@ class Picker:
         if self._timer is not None:
             self._timer.delete()
             self._timer = None
+        if not self.root.has_flag(lv.obj.FLAG.HIDDEN):
+            keys.release(self.group)
         self.root.add_flag(lv.obj.FLAG.HIDDEN)
 
     def tick(self):

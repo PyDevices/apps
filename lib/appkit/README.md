@@ -233,9 +233,29 @@ sees them at once. A kind that takes one endpoint (the network) moves its
 choice to what you tap; one that takes many (audio out, MIDI) adds or drops
 it. A choice that would stop something sharing its radio or bus asks first,
 and a kind an app has pinned says which app, keeping your choice for after.
-An encoder or a gamepad works it through `Picker.group`. The picker needs
-endpointkit installed (`mip.install("endpointkit")`); the rest of appkit
-doesn't.
+Every keypad and encoder works it while it's open, and goes back to the
+app's own group when it closes. The picker needs endpointkit installed
+(`mip.install("endpointkit")`); the rest of appkit doesn't.
+
+## Typing
+
+Hand a text field to `keys.attach` and it takes typing from any keyboard: the
+computer's, a USB or Bluetooth one on a board, or the one on the screen. The
+on-screen keyboard opens when you tap the field or reach it with an encoder,
+and closes on its Enter or as soon as a real keyboard types.
+
+```python
+from appkit import keys
+
+field = lv.textarea(parent)
+keys.attach(field)
+```
+
+A keyboard LVGL doesn't read itself feeds the same input with
+`keys.push("a")`, or `keys.hid_key(usage, modifiers)` for a HID keycode. An
+overlay of your own calls `keys.focus(group)` when it opens and
+`keys.release(group)` when it closes, so an encoder or a gamepad reaches its
+buttons and then comes back.
 
 ## Plain scripts
 
