@@ -5,7 +5,6 @@
 
 from typing import Any
 
-import endpointkit
 
 TITLES: tuple[tuple[str, str, str], ...]
 OTHER_ICON: str
@@ -15,25 +14,25 @@ def title(kind: str) -> str:
     """What the picker calls `kind`: "Audio out" for `audio.out`."""
 def icon(kind: str) -> str:
     """The iconkit name of `kind`'s icon."""
-def kinds(registry: endpointkit.Registry) -> list[str]:
+def kinds(registry: Any) -> list[str]:
     """The kinds `registry` has providers for, in `TITLES` order, then the rest by name."""
-def summary(registry: endpointkit.Registry, kind: str) -> str:
+def summary(registry: Any, kind: str) -> str:
     """One line on what `kind` uses now, and whose pin it is."""
-def rows(registry: endpointkit.Registry, kind: str) -> list[tuple[endpointkit.Endpoint, bool, str]]:
+def rows(registry: Any, kind: str) -> list[tuple[Any, bool, str]]:
     """The endpoints of `kind`, as `(endpoint, chosen, detail)`."""
-def toggle(registry: endpointkit.Registry, kind: str, endpoint_id: str, confirm: bool = False) -> list[str]:
+def toggle(registry: Any, kind: str, endpoint_id: str, confirm: bool = False) -> list[str]:
     """What tapping `endpoint_id` does: the new choice for `kind`, made; returns the ids now chosen."""
 
 class Picker:
     """The picker overlay: made hidden, shown by `open`."""
 
-    registry: endpointkit.Registry
+    registry: Any
     kind: str | None
     group: Any
     asking: Any
     root: Any
     list: Any
-    def __init__(self, registry: endpointkit.Registry | None = None, parent: Any = None, poll_ms: int = ...) -> None: ...
+    def __init__(self, registry: Any = None, parent: Any = None, poll_ms: int = ...) -> None: ...
     def is_open(self) -> bool: ...
     def open(self, kind: str | None = None) -> None:
         """Show the picker over everything, at `kind`'s page or the list of kinds."""
