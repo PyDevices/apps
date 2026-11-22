@@ -55,6 +55,37 @@ LABELS = {"intro": "Intro", "main": "Main", "fill": "Fill", "transition": "Trans
           "outro": "Outro", "end": "Stop"}
 
 
+#: The mixer's voice groups: which GM drum notes each one turns up or down.
+GROUPS = (
+    ("kick", (35, 36)),
+    ("snare", (37, 38, 39, 40)),
+    ("hats", (42, 44, 46)),
+    ("toms", (41, 43, 45, 47, 48, 50)),
+    ("cymbals", (49, 51, 52, 53, 55, 57, 59)),
+)
+OTHER = "perc"                # every note no group names
+GROUP_OF = {}
+for _name, _notes in GROUPS:
+    for _n in _notes:
+        GROUP_OF[_n] = _name
+MIX = dict((g, 100) for g in [n for n, _ in GROUPS] + [OTHER])
+
+
+def meter(project):
+    """``(steps, group)``: the segments a bar's ring shows, and how many of
+    them make one beat. 12/8 is twelve eighths in four beats of three; 4/4 is
+    four beats of one."""
+    try:
+        n, d = [int(x) for x in str(project.get("meter") or "4/4").split("/")]
+    except ValueError:
+        return 4, 1
+    if n < 1:
+        return 4, 1
+    if d == 8 and n % 3 == 0 and n > 3:
+        return n, 3
+    return n, 1
+
+
 def bar_after(tick):
     """The first bar line at or after ``tick``."""
     return int((tick + BAR - 1) // BAR) * BAR
@@ -232,6 +263,11 @@ class Engine:
         self.project = project
         self.track = project["tracks"][0]
         self.form = Form(project)
+        mix = self.track.get("mix")
+        if not isinstance(mix, dict):
+            mix = self.track["mix"] = {}
+        for k, v in MIX.items():
+            mix.setdefault(k, v)
         self.transport = {"playing": False, "anchor_frame": 0, "anchor_tick": 0.0}
         self.sequenced_to = None
         self._tempo = project.get("tempo", 120.0)
@@ -239,6 +275,17 @@ class Engine:
 
     def set_kit(self, kit):
         self.kit = kit
+
+    def reform(self):
+        """The song's parts or a pattern's length changed: plan with the new
+        ones from here on, keeping what plays and what is queued."""
+        old = self.form
+        new = Form(self.project)
+        new.plan = old.plan
+        new.before = old.before
+        self.form = new
+        self._place()
+        self.changes += 1
 
     # -- time -------------------------------------------------------------------
 
@@ -360,8 +407,11 @@ class Engine:
                 self.sequenced_to = until
         if ons and self.kit is not None:
             kit = self.kit
+            mix = self.track["mix"]
             for frame, pitch, vel in ons:
-                kit.note_on(pitch, vel, max(0, frame - now))
+                vel = vel * mix.get(GROUP_OF.get(pitch, OTHER), 100) // 100
+                if vel > 0:
+                    kit.note_on(pitch, min(127, vel), max(0, frame - now))
             if self.record:
                 self.played.extend(ons)
 
@@ -424,13 +474,16 @@ class Engine:
         if now is not None and now[0] == "end":
             playing = False           # stopped; the next pass says so to the transport too
             now = nxt = None
-        bar = beat = 0
+        bar = beat = step = 0
         bars = 1
+        into = 0.0
+        steps, group = meter(self.project)
         if now is not None and now[2] >= 0:
             bars = self.form.bars[now[2]]
-            into = max(0.0, tick - now[3])
-            bar = int(into // BAR) % bars + 1
-            beat = int((into % BAR) // BEAT) + 1
+            into = max(0.0, tick - now[3]) % (bars * BAR)
+            bar = int(into // BAR) + 1
+            step = min(steps, int((into % BAR) * steps // BAR) + 1)
+            beat = (step - 1) // group + 1
         return {
             "playing": playing,
             "song": self.project.get("name", ""),
@@ -444,6 +497,13 @@ class Engine:
             "bar": bar,
             "bars": bars,
             "beat": beat,
+            "beats": steps // group,
+            "step": step,
+            "steps": steps,
+            "number": now[1] if now else None,
+            "next_number": nxt[1] if nxt else None,
+            "pattern": now[2] if now else -1,
+            "at": int(into),
             "pedals": [p.state for p in self.pedals],
             "gesture": self.last or "",
             "changes": self.changes,
