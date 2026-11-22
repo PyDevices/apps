@@ -216,7 +216,8 @@ def webrepl_on():
 def boot():
     """Join a known network quietly (``secrets.py``'s or one wifi_manager
     remembered), then start WebREPL. With none in range, carry on offline
-    and keep trying in the background; System's Wi-Fi setup asks for one.
+    and keep trying in the background; System's Wi-Fi button joins one
+    from the picker.
     Call it on the main thread once the launcher has booted.
 
     A station that ``boot.py`` already joined is left alone: no rejoin, no

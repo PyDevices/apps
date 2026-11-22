@@ -81,8 +81,10 @@ class Shell:
     def make_bar(self):
         """The status bar, made once when the shell is, with Home on it when
         there's a home screen. Override it for items or a look of your own."""
+        from . import connections
         from .bar import Bar
 
+        connections.register()
         launcher = self.launcher
         on_home = None
         if launcher.home is not None:
@@ -127,8 +129,10 @@ class Shell:
         """Open the picker over the running app: the list of kinds, or
         *kind*'s page (``"audio.out"``). It's made the first time; returns it."""
         if self.picker is None:
+            from . import connections
             from .picker import Picker
 
+            connections.register()
             self.picker = Picker()
         self.picker.open(kind)
         return self.picker

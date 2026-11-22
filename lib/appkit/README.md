@@ -265,6 +265,11 @@ Every keypad and encoder works it while it's open, and goes back to the
 app's own group when it closes. The picker needs endpointkit installed
 (`mip.install("endpointkit")`); the rest of appkit doesn't.
 
+The first time the Shell opens the picker or makes the bar, it registers
+what the device has to show (`appkit.connections.register()`): on a board
+with Wi-Fi, the networks in range, which the picker joins; on a computer,
+the operating system's link, reported only.
+
 ## Typing
 
 Hand a text field to `keys.attach` and it takes typing from any keyboard: the
