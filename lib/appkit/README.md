@@ -201,6 +201,13 @@ add an empty one.
 When `apps/` holds an app named `home`, `appkit.run()` starts that as the
 home screen instead of its own list of buttons.
 
+An app that can't run on this board says so with `touchkit.ui.missing()`.
+When there's a home screen, that message has a Hide from Home button:
+`launcher.hide(name, reason)` takes the app off Home's pages and keeps the
+list in the data folder, for every app set on the board. Home's Hidden apps
+page lists them with their reasons and puts each back
+(`launcher.unhide(name)`). A hidden app still runs when something asks for it.
+
 `appkit.run("hello")` runs one app on its own, with the whole screen and no
 home screen. An app set that wants its own home screen, chrome or launcher
 setup builds a `Launcher` itself. Its `Shell` subclass gives apps a smaller
