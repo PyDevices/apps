@@ -7,6 +7,7 @@ from typing import Any
 
 from . import data as data
 from .launcher import Launcher
+from .picker import Picker
 from .scope import AppScope
 
 ROUND_MARGIN: int
@@ -21,9 +22,12 @@ class Shell:
 
     launcher: Launcher
     home_button: Any
+    picker: Picker | None
     def __init__(self, launcher: Launcher, *, data_root: str | None = None) -> None: ...
     def make_home_button(self) -> Any:
         """The Home button, made once: an LVGL object, or None for no button."""
+    def open_picker(self, kind: str | None = None) -> Picker:
+        """Open the picker over the running app, at `kind`'s page or the list of kinds."""
     def prepare(self, scope: AppScope) -> None:
         """Fill `scope` before the app's `main` runs: its `root`, `size` and `rect`."""
     def make_root(self, scope: AppScope) -> Any:
