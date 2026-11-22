@@ -103,6 +103,9 @@ def use(settings, registry=None):
         if p.name == NAME:
             mine = p
     if mine is None:
+        if "assistant" not in endpointkit.KINDS:
+            # An endpointkit from before the kind was built in.
+            endpointkit.add_kind("assistant", endpointkit.ONE)
         mine = Servers(settings)
         reg.register(mine)
     else:
