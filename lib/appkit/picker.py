@@ -33,7 +33,7 @@ import icons
 import lvgl as lv
 from icons import lvgl as lvicons
 
-from . import keys
+from . import keys, scope
 
 #: The icon a kind gets when icons hasn't the one endpointkit names.
 OTHER_ICON = "cable"
@@ -151,6 +151,8 @@ class Picker:
         root.set_style_border_width(0, 0)
         root.set_flex_flow(lv.FLEX_FLOW.COLUMN)
         root.add_flag(lv.obj.FLAG.HIDDEN)
+        # It outlives the app running when it was first opened.
+        scope.keep(root)
         self.root = root
 
         bar = lv.obj(root)

@@ -16,7 +16,7 @@ from .scope import AppScope
 from .shell import Shell
 
 
-def run(name=None, folder="apps", *, data_root=None):
+def run(name=None, folder="apps", *, data_root=None, bar=False):
     """Run the apps in *folder*: a home screen listing them, or app *name* alone.
 
     The home screen is the folder's own app named ``home`` when it has one,
@@ -26,7 +26,8 @@ def run(name=None, folder="apps", *, data_root=None):
     ``Launcher`` when the program quits. In a browser, where the page has
     the main thread, it returns the launcher at once. *data_root* moves
     every app's ``data_dir`` and the launcher's restart file (see
-    ``appkit.data``). A plain script the home screen started runs here
+    ``appkit.data``). *bar* shows the status bar (`appkit.bar`) over every
+    app that doesn't say otherwise in its ``app.json``. A plain script the home screen started runs here
     first, before the display opens, and doesn't return.
     """
     if run_pending_script(data_root):
@@ -37,7 +38,7 @@ def run(name=None, folder="apps", *, data_root=None):
     launcher.scan(folder)
     if name is None:
         _use_home(launcher)
-    launcher.shell = Shell(launcher)
+    launcher.shell = Shell(launcher, bar=bar)
     launcher.boot(name)
     if host() != "browser":
         serve(app)

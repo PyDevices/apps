@@ -564,6 +564,7 @@ jobs:
           python-version: "3.13"
 
       # The controlkit tests import lvgl on CPython.
+      # freetype-py: ttfio draws the status bar's icons with it on CPython.
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0

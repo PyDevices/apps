@@ -6,6 +6,7 @@
 from typing import Any
 
 from . import data as data
+from .bar import Bar
 from .launcher import Launcher
 from .picker import Picker
 from .scope import AppScope
@@ -23,7 +24,12 @@ class Shell:
     launcher: Launcher
     home_button: Any
     picker: Picker | None
-    def __init__(self, launcher: Launcher, *, data_root: str | None = None) -> None: ...
+    bar: Bar | None
+    def __init__(self, launcher: Launcher, *, data_root: str | None = None, bar: bool = False) -> None: ...
+    def make_bar(self) -> Bar:
+        """The status bar, made once, with Home on it when there's a home screen."""
+    def bar_mode(self, scope: AppScope) -> str:
+        """What the app's `app.json` asks for: "shell", "own" or "none"."""
     def make_home_button(self) -> Any:
         """The Home button, made once: an LVGL object, or None for no button."""
     def open_picker(self, kind: str | None = None) -> Picker:
@@ -31,6 +37,6 @@ class Shell:
     def prepare(self, scope: AppScope) -> None:
         """Fill `scope` before the app's `main` runs: its `root`, `size` and `rect`."""
     def make_root(self, scope: AppScope) -> Any:
-        """The LVGL object the app builds on: here, a screen of its own."""
+        """The LVGL object the app builds on: a screen, or with the bar showing, the area below it."""
     def measure(self, scope: AppScope) -> None:
         """Set `scope.size` and `scope.rect` from `scope.root`."""

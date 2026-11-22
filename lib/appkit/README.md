@@ -217,6 +217,32 @@ one hover style to the display's theme. A finger never hovers: the display
 driver lifts the pointer off the screen when a touch ends, so a tap doesn't
 leave its button lit.
 
+## The status bar
+
+`appkit.run(bar=True)` puts a bar along the top of the screen: Home, the
+clock, the network, Bluetooth, the audio output and the battery where the
+board reports one, with a button at the right that opens the picker. Each app
+gets the screen below it. An app that wants the whole screen says so in its
+`app.json` with `"bar": "none"`, and one that draws its own bar says
+`"bar": "own"` and reads what to show from `scope.bar.status()`.
+
+```python
+from appkit import bar
+
+def main(scope):
+    scope.bar.add(bar.Item("cast", lambda: ("cast", "Living room")), scope)
+```
+
+An item is a name and a function that returns an icon and a short text, or
+None to show nothing for now. Passing the scope takes the item off the bar
+when the app closes. `scope.bar.hide()` gives the app the whole screen for a
+while (a video, a game) and `show()` gives the strip back. On a round screen
+or one under 320x240 the bar is a small cap at the top with the clock, the
+network and the battery, and tapping it opens the picker. The bar checks its
+items once a second and redraws only those that changed. Its icons come from
+the `icons` package, which needs a firmware with `ttfio` on a board and
+freetype-py on a computer.
+
 ## Choosing connections
 
 `shell.open_picker()` opens one screen over the running app where you choose
