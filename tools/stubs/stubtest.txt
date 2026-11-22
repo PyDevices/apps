@@ -5,6 +5,7 @@ appkit.foreground
 appkit.home
 appkit.hover
 appkit.index
+appkit.bar
 appkit.keys
 appkit.launcher
 appkit.net

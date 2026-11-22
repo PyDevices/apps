@@ -25,6 +25,10 @@ class _App(Protocol):
     def register(self, dev: Any) -> Any: ...
     def unregister(self, dev: Any) -> Any: ...
 
+def keep(obj: Any) -> Any:
+    """Mark *obj* on a top layer as the program's: closing the running app leaves it."""
+def unkeep(obj: Any) -> None:
+    """Undo `keep`."""
 def open_scopes(app: _App | None = None) -> list[AppScope]:
     """Every scope not yet closed, oldest first; only `app`'s when given."""
 def mem_free() -> int | None:
@@ -37,6 +41,7 @@ class AppScope:
     name: str | None
     launcher: Any
     root: Any
+    bar: Any
     size: tuple[int, int] | None
     rect: tuple[int, int, int, int] | None
     problems: list[str]
