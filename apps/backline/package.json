@@ -85,6 +85,10 @@
       "latest"
     ],
     [
+      "endpointkit",
+      "latest"
+    ],
+    [
       "hmilink",
       "latest"
     ],
