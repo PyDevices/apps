@@ -205,10 +205,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # freetype-py: ttfio draws the status bar's icons with it on CPython.
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1"
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" freetype-py
 
       - name: appkit's tests
         working-directory: studio
@@ -381,10 +382,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # freetype-py: ttfio draws the status bar's icons with it on CPython.
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1"
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" freetype-py
 
       - name: The Gamepad app's tests
         working-directory: studio
@@ -421,10 +423,11 @@ jobs:
         with:
           python-version: "3.12"
 
+      # freetype-py: ttfio draws the status bar's icons with it on CPython.
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1"
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" freetype-py
 
       - name: The MIDI Controller app's tests
         working-directory: studio
@@ -549,6 +552,7 @@ jobs:
           python-version: "3.13"
 
       # The controlkit tests import lvgl on CPython.
+      # freetype-py: ttfio draws the status bar's icons with it on CPython.
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0

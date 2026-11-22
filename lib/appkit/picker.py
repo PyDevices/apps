@@ -33,7 +33,7 @@ import lvgl as lv
 import iconkit
 from iconkit import lvicons
 
-from . import keys
+from . import keys, scope
 
 # The icons iconkit draws at the picker's size.
 _ICONS = set(iconkit.names(24))
@@ -154,6 +154,8 @@ class Picker:
         root.set_style_border_width(0, 0)
         root.set_flex_flow(lv.FLEX_FLOW.COLUMN)
         root.add_flag(lv.obj.FLAG.HIDDEN)
+        # It outlives the app running when it was first opened.
+        scope.keep(root)
         self.root = root
 
         bar = lv.obj(root)

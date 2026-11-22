@@ -174,6 +174,10 @@ def keyboard():
         kb.add_flag(lv.obj.FLAG.HIDDEN)
         kb.add_event_cb(lambda e: hide(), lv.EVENT.READY, None)
         kb.add_event_cb(lambda e: hide(), lv.EVENT.CANCEL, None)
+        # It outlives the app running when it was first needed.
+        from . import scope
+
+        scope.keep(kb)
         _kb["board"] = kb
     return _kb["board"]
 

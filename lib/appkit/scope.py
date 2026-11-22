@@ -43,6 +43,32 @@ except ImportError:  # MicroPython: no weak references
 _open = []
 
 
+#: LVGL objects on the top and system layers that outlive any one app (the
+#: picker, the on-screen keyboard): an app's close() leaves them.
+_kept = []
+
+
+def keep(obj):
+    """Mark *obj*, a child of ``lv.layer_top()`` or ``lv.layer_sys()``, as
+    the program's rather than the running app's: closing that app leaves it.
+    Something made the first time it's needed (an overlay opened while an
+    app runs) calls this; returns *obj*."""
+    _kept.append(obj)
+    return obj
+
+
+def unkeep(obj):
+    """Undo `keep`, before deleting *obj* yourself."""
+    _kept[:] = [k for k in _kept if not _same(k, obj)]
+
+
+def _is_kept(obj):
+    for k in _kept:
+        if _same(k, obj):
+            return True
+    return False
+
+
 def open_scopes(app=None):
     """The scopes not yet closed, oldest first; only *app*'s when given."""
     return [s for s in _open if app is None or s.app is app]
@@ -154,6 +180,8 @@ class AppScope:
         #: ``(x, y, width, height)`` on the panel: set by the launcher's shell
         #: before ``main`` runs, None without one.
         self.root = None
+        #: The status bar (``appkit.bar.Bar``) when the shell has one, else None.
+        self.bar = None
         self.size = None
         self.rect = None
         self._worker = None
@@ -454,7 +482,9 @@ class AppScope:
                 try:
                     n = parent.get_child_count()
                     for i in range(n - 1, count - 1, -1):
-                        parent.get_child(i).delete()
+                        child = parent.get_child(i)
+                        if not _is_kept(child):
+                            child.delete()
                 except Exception as exc:
                     problems.append(_error("lvgl children", exc))
         for scr in reversed(self._screens):
