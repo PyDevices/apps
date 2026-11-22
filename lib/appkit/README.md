@@ -231,7 +231,9 @@ shell.open_picker("audio.out")
 The choices are endpointkit's, for the whole device, so every app and script
 sees them at once. A kind that takes one endpoint (the network) moves its
 choice to what you tap; one that takes many (audio out, MIDI) adds or drops
-it. A choice that would stop something sharing its radio or bus asks first,
+it. Something that needs pairing pairs first: a Wi-Fi network asks for its
+password on the on-screen keyboard, a Bluetooth device for a yes or a PIN.
+A choice that would stop something sharing its radio or bus asks first,
 and a kind an app has pinned says which app, keeping your choice for after.
 Every keypad and encoder works it while it's open, and goes back to the
 app's own group when it closes. The picker needs endpointkit installed

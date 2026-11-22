@@ -16,8 +16,11 @@ adds or drops it. The Shell makes one::
 Choices are endpointkit's, for the whole device, so a script or another app
 sees them at once. While the picker is open it polls endpointkit, so what you
 plug in, pair or discover shows up as it's found. A choice that would stop
-something sharing its hardware asks first. A kind an app has pinned says so:
-the device's choice is kept for when the app lets go.
+something sharing its hardware asks first. Tapping something that needs
+pairing (a Bluetooth device, a Wi-Fi network not yet joined) pairs first,
+asking for its password or PIN on the on-screen keyboard when it needs one.
+A kind an app has pinned says so: the device's choice is kept for when the
+app lets go.
 
 Everything is in an LVGL focus group too, and while the picker is open every
 keypad and encoder works it (`appkit.keys.focus`), so an encoder or a gamepad
@@ -137,7 +140,8 @@ class Picker:
         self.registry = registry if registry is not None else endpointkit.registry
         self.kind = None   # the kind on show, or None for the list of kinds
         self.group = lv.group_create()
-        self.asking = None   # the conflict message box, while it's open
+        self.asking = None   # the question (a conflict, pairing), while it's open
+        self.typing = None   # the pairing question's password or PIN field
         self._dirty = False
         self._timer = None
         self._listening = None   # the callback subscribed, while open
@@ -304,8 +308,13 @@ class Picker:
     # -- choosing ---------------------------------------------------------------
 
     def choose(self, endpoint_id, confirm=False):
-        """Tap *endpoint_id* on the kind on show; a conflict opens a question first."""
+        """Tap *endpoint_id* on the kind on show; a conflict, or one that
+        needs pairing, opens a question first."""
         kind = self.kind
+        ep = self.registry.find(endpoint_id)
+        if ep is not None and ep.state == endpointkit.NEEDS_PAIRING:
+            self._ask_pair(ep)
+            return
         try:
             toggle(self.registry, kind, endpoint_id, confirm=confirm)
         except endpointkit.Conflict as c:
@@ -331,6 +340,60 @@ class Picker:
         self.group.add_obj(no)
         lv.group_focus_obj(no)
 
+    def _ask_pair(self, ep, error=None):
+        """The pairing question: a password or PIN field when *ep* asks for
+        one, and *error*, why the last try was refused, above it."""
+        self._dismiss()
+        box = lv.msgbox(self.root)
+        box.add_flag(lv.obj.FLAG.IGNORE_LAYOUT)
+        box.align(lv.ALIGN.TOP_MID, 0, 8)   # clear of the keyboard
+        wifi = ep.kind == "net"
+        box.add_title(("Join %s" if wifi else "Pair with %s") % ep.label)
+        if error:
+            box.add_text(error)
+        field = None
+        if ep.asks:
+            field = lv.textarea(box.get_content())
+            field.set_one_line(True)
+            field.set_width(lv.pct(100))
+            field.set_placeholder_text("Password" if ep.asks == endpointkit.PASSWORD else "PIN")
+            if ep.asks == endpointkit.PASSWORD:
+                field.set_password_mode(True)
+            else:
+                field.set_accepted_chars("0123456789")
+            keys.attach(field)
+            # Enter on any keyboard pairs.
+            field.add_event_cb(lambda e: self._pair(ep.id, field), lv.EVENT.READY, None)
+        go = box.add_footer_button("Join" if wifi else "Pair")
+        no = box.add_footer_button("Cancel")
+        go.add_event_cb(lambda e: self._pair(ep.id, field), lv.EVENT.CLICKED, None)
+        no.add_event_cb(lambda e: self._answer(ep.id, False), lv.EVENT.CLICKED, None)
+        self.asking = box
+        self.typing = field
+        if field is not None:
+            self.group.add_obj(field)
+        self.group.add_obj(go)
+        self.group.add_obj(no)
+        lv.group_focus_obj(field if field is not None else go)
+        if field is not None:
+            keys.show(field)
+
+    def _pair(self, endpoint_id, field):
+        secret = field.get_text() if field is not None else None
+        self._dismiss()
+        try:
+            ep = self.registry.pair(endpoint_id, secret)
+        except ValueError as e:
+            again = self.registry.find(endpoint_id)
+            if again is not None:
+                self._ask_pair(again, str(e))
+                return
+            ep = None
+        if ep is not None and ep.state != endpointkit.NEEDS_PAIRING:
+            self.choose(endpoint_id)
+        else:
+            self.show(self.kind)
+
     def _answer(self, endpoint_id, go):
         self._dismiss()
         if go:
@@ -340,6 +403,8 @@ class Picker:
 
     def _dismiss(self):
         if self.asking is not None:
+            keys.hide()   # it may be typing into the question
+            self.typing = None
             self.asking.delete()
             self.asking = None
 

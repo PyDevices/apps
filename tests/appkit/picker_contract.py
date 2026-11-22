@@ -85,8 +85,6 @@ def _plant_many_moves():
 
 def _plant_never_asks():
     # A conflict is confirmed without asking.
-    real = P.Picker.choose
-
     def choose(self, endpoint_id, confirm=False):
         real(self, endpoint_id, True)
 
@@ -108,7 +106,28 @@ def _plant_no_pin_note():
     P.summary = lambda registry, kind: real(registry, kind).split(" (pinned")[0]
 
 
+def _plant_pairs_blind():
+    # Tapping something that needs pairing chooses it unpaired.
+    def choose(self, endpoint_id, confirm=False):
+        try:
+            P.toggle(self.registry, self.kind, endpoint_id, confirm=confirm)
+        except endpointkit.Conflict as c:
+            self._ask(c, endpoint_id)
+            return
+        self.show(self.kind)
+
+    P.Picker.choose = choose
+
+
+def _plant_secret_dropped():
+    # The password typed never reaches the provider.
+    real = P.Picker._pair
+    P.Picker._pair = lambda self, endpoint_id, field: real(self, endpoint_id, None)
+
+
 PLANTS = {
+    "pairs_blind": _plant_pairs_blind,
+    "secret_dropped": _plant_secret_dropped,
     "many_moves": _plant_many_moves,
     "never_asks": _plant_never_asks,
     "deaf": _plant_deaf,
@@ -265,8 +284,48 @@ check(reg.chosen("net") == ["eth:0"], "a kind that takes one moves to the tap: %
 check(row(p, "Ethernet")[3] and not row(p, "Wi-Fi: home")[3], "the tick is on the one chosen")
 check(row(p, "Wi-Fi: home")[2] == "Connected", "a connected endpoint says so")
 
-# A choice that would stop something sharing its radio asks first.
+# A network behind a password asks for it, on the keyboard, before it's chosen.
+from appkit import keys
+
+
+def type_in(text):
+    for ch in text:
+        keys.push(ch)
+    settle(200)
+
+
+tap(row(p, "Wi-Fi: cafe")[0])
+check(p.asking is not None and p.typing is not None, "a network that needs its password asks for it")
+check(reg.chosen("net") == ["eth:0"], "nothing is chosen while it asks")
+if p.typing is not None:
+    check(p.typing.get_password_mode(), "the password is hidden as it's typed")
+    check(keys.is_shown() and keys.keyboard().get_textarea() == p.typing, "the on-screen keyboard opens on it")
+    shot("join")
+    type_in("latte")
+    keys.push(lv.KEY.ENTER)
+    settle(200)
+check(p.asking is not None and reg.chosen("net") == ["eth:0"], "a wrong password is refused and asked again")
+said = p.asking.get_content().get_child(0).get_text() if p.asking is not None else ""
+check("Wrong password" in said, "saying why: %r" % (said,))
+if p.typing is not None:
+    type_in("espresso")
+    tap(p.asking.get_footer().get_child(0))   # Join
+check(p.asking is None and reg.chosen("net") == ["wlan:cafe"],
+      "the right one joins and is chosen: %r" % (reg.chosen("net"),))
+check(not keys.is_shown() and keys.keyboard().get_textarea() is None, "the keyboard closes with the question")
+check(row(p, "Wi-Fi: cafe")[2] == "", "and it no longer needs joining: %r" % (row(p, "Wi-Fi: cafe")[2],))
+if p.asking is not None:   # a broken join leaves it asking; the checks below need the page
+    p._answer("wlan:cafe", False)
+tap(row(p, "Ethernet")[0])
+
+# A device that needs pairing and asks nothing typed: a yes pairs it, then a
+# choice that would stop something sharing its radio asks first.
 tap(row(p, "Phone over Bluetooth")[0])
+check(p.asking is not None and p.typing is None, "pairing with nothing to type asks only a yes")
+check(reg.chosen("net") == ["eth:0"], "and chooses nothing yet")
+if p.asking is not None:
+    tap(p.asking.get_footer().get_child(0))   # Pair
+check(reg.find("btpan:phone").state == endpointkit.AVAILABLE, "Pair pairs it")
 check(p.asking is not None, "a conflict asks before stopping anything")
 check(reg.chosen("audio.out") == ["a2dp:spk"] and reg.chosen("net") == ["eth:0"],
       "nothing changes while it asks")

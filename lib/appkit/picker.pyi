@@ -29,6 +29,7 @@ class Picker:
     kind: str | None
     group: Any
     asking: Any
+    typing: Any | None
     root: Any
     list: Any
     def __init__(self, registry: Any = None, parent: Any = None, poll_ms: int = ...) -> None: ...
