@@ -6,15 +6,21 @@
 The box listens for desks on one port (`listen_port`): another computer or
 board joins it there as a desk panel over TCP, and a browser opens the
 desk page at ``http://<box>:<port>/``. A desk finds its box from the
-command line or the ``BACKLINE_BOX`` setting (`target`).
+command line or the ``BACKLINE_BOX`` setting (`target`). The box can also
+cast its desk view to a screen across the room (`cast_target`).
 
-These two functions are the one place that knows how; a device picker
-that lists the boxes it can see takes their place when there is one.
+These functions are the one place that knows how; a device picker that
+lists the boxes and receivers it can see takes their place when there is
+one.
 """
 
 import os
 
 PORT = 9300
+# What a cast can go to: Miracast to a Windows PC's Wireless Display app or
+# a Roku's Screen mirroring, or frames to the PyDevices Companion channel
+# on a Roku.
+CAST_KINDS = ("windows", "roku", "companion")
 
 
 def _getenv(name):
@@ -50,3 +56,30 @@ def target(argv=(), env=None):
         host, port = spec.rsplit(":", 1)
         return host, int(port)
     return spec, PORT
+
+
+def cast_target(prefs=None, spec=None):
+    """The receiver the box casts its desk view to, or None for no cast.
+
+    ``spec``, else ``prefs["cast"]``, else ``$BACKLINE_CAST``, as
+    ``KIND:HOST``: ``windows:192.0.2.30`` (a PC with its Wireless Display
+    app open), ``roku:192.0.2.40`` (a Roku with Screen mirroring on) or
+    ``companion:192.0.2.40`` (a Roku running the Companion channel). An
+    empty one is no cast.
+
+    Returns:
+        ``{"kind", "host", "name"}``, the shape a receiver list gives.
+
+    Raises:
+        ValueError: The kind isn't one of `CAST_KINDS`, or there's no host.
+    """
+    if spec is None and prefs is not None:
+        spec = prefs.get("cast")
+    if spec is None:
+        spec = _getenv("BACKLINE_CAST")
+    if not spec:
+        return None
+    kind, _, host = spec.partition(":")
+    if kind not in CAST_KINDS or not host:
+        raise ValueError("cast to KIND:HOST, KIND one of %s, not %r" % (", ".join(CAST_KINDS), spec))
+    return {"kind": kind, "host": host, "name": "%s at %s" % (kind, host)}

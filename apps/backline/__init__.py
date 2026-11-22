@@ -20,6 +20,12 @@ while it plays. Other screens join as desks on port 9300: a browser at
 ``http://<box>:9300/``, or another computer with ``python -m
 backline.desk_main HOST``. ``remote.py`` says how to change the port or turn it off.
 
+The desk view can also go to a TV or a PC across the room, drawn at
+1280x720 and cast with castdisplay: set ``cast`` in the app's settings, or
+``$BACKLINE_CAST``, to ``windows:HOST`` (a PC's Wireless Display app),
+``roku:HOST`` (a Roku's Screen mirroring) or ``companion:HOST`` (the
+Companion channel on a Roku). The sound stays on the box (``cast.py``).
+
 Songs are songmodel projects in the app's ``songs`` folder, eight styles
 to start with. Kits are audioinstruments' drum machines, the drum kit of a
 SoundFont (``kits.py`` says where it looks) and folders of WAV files.
