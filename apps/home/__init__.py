@@ -141,7 +141,8 @@ def main(scope):
 
     if round_:
         # The square inside the circle holds the pages and their tabs; the
-        # gear goes in the cap of the circle above it, centred.
+        # gear goes in the cap of the circle above it, centred, or below it
+        # when the status bar's cap is at the top.
         inner = W // 2 - ROUND_MARGIN
         side = int(inner * 1.4142) & ~1
         x0 = (W - side) // 2
@@ -150,6 +151,9 @@ def main(scope):
         # As high as the circle is gear_w wide there, and down to the square.
         gear_y = W // 2 - int((inner * inner - (gear_w // 2) ** 2) ** 0.5) + 1
         gear_h = max(24, min(TOP - 12, x0 - gear_y - 2))
+        cap = getattr(scope, "bar", None)
+        if cap is not None and cap.compact and cap.is_shown():
+            gear_y = W - gear_y - gear_h  # the status bar's cap has the top: the bottom one
     else:
         title = ui.label(scr, "Home", ui.big, ui.ACCENT)
         title.set_pos(GAP + 4, 14)

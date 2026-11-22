@@ -3,11 +3,15 @@
 # SPDX-License-Identifier: MIT
 """touchkit.shell -- the board's chrome and launcher.
 
-* `TouchShell` gives every app but Home a header: its title, and a
-  status line at the right (``scope.status``, see ``touchkit.ui.status``).
-  ``scope.root`` is the area below it. Its Home button sits at the header's
-  left, on LVGL's system layer, so it never presses an app's own widgets;
-  the board's BOOT button goes home too, through a pin interrupt.
+* `TouchShell` shows appkit's status bar along the top, with Home on it,
+  and gives every app but Home a header below it: its title, and a status
+  line at the right (``scope.status``, see ``touchkit.ui.status``).
+  ``scope.root`` is the area below that. The bar and the header together
+  are ``ui.HEADER`` tall. An app whose ``app.json`` says ``"bar": "none"``
+  gets the whole screen, with a Home button on LVGL's system layer, where it
+  never presses the app's own widgets. Without the bar (``bar=False``) every
+  app gets the header with that Home button at its left. The board's BOOT
+  button goes home too, through a pin interrupt.
 * `TouchLauncher` keeps a short history of switches for System,
   and takes the USB sound card off when the next app isn't one that plays
   through it, so the PC goes back to its own speakers.
@@ -61,26 +65,34 @@ def _set_launcher(running):
     launcher = running
 
 
-class TouchShell(Shell):
-    """The board's look: a header with the app's title and a status line,
-    a Home button on the system layer, and BOOT going home."""
+def _under_cap(shell):
+    """Whether the status bar is the compact cap: then the Home button is
+    just its icon, clear of the cap."""
+    bar = getattr(shell, "bar", None)
+    return bar is not None and bar.compact
 
-    def __init__(self, launcher, *, data_root=None):
+
+class TouchShell(Shell):
+    """The board's look: the status bar, a header with the app's title and
+    a status line, and BOOT going home. *bar* False leaves the bar off and
+    puts a Home button in the header."""
+
+    def __init__(self, launcher, *, data_root=None, bar=True):
         _set_launcher(launcher)
         ui.apply_theme()  # first: the Home button is made in Shell.__init__
-        Shell.__init__(self, launcher, data_root=data_root)
+        Shell.__init__(self, launcher, data_root=data_root, bar=bar)
         self.boot_pin = None
         if launcher.home is not None:
             self._boot_button()
 
     def make_home_button(self):
         b = lv.button(lv.layer_sys())
-        b.set_size(ui.HOME_W, ui.HEADER - 12)
+        b.set_size(ui.HEADER - 12 if _under_cap(self) else ui.HOME_W, ui.HEADER - 12)
         b.set_pos(6, 6)
         b.set_style_bg_color(lv.color_hex(0x2A3550), 0)
         b.set_style_radius(12, 0)
         lbl = lv.label(b)
-        lbl.set_text(lv.SYMBOL.HOME + "  Home")
+        lbl.set_text(lv.SYMBOL.HOME if _under_cap(self) else lv.SYMBOL.HOME + "  Home")
         lbl.set_style_text_font(ui.font, 0)
         lbl.center()
         launcher = self.launcher
@@ -110,11 +122,31 @@ class TouchShell(Shell):
         scr.set_style_text_font(ui.font, 0)
         scr.set_style_text_color(ui.WHITE, 0)
         scr.remove_flag(lv.obj.FLAG.SCROLLABLE)
+        bar = getattr(self, "bar", None) is not None
+        if bar and self.bar_mode(scope) != "shell":
+            return scr  # the whole screen, as the app asked
         if scope.name == self.launcher.home:
-            return scr  # Home draws its own top bar
+            # Home draws its own top bar, below the status bar when there is one.
+            return self.bar_area(scr) if bar else scr
         w, h = scr.get_width(), scr.get_height()
-        hdr = ui.plain(lv.obj(scr))
-        hdr.set_size(w, ui.HEADER)
+        if bar:
+            # Header and body share the area below the bar, which grows to
+            # the whole screen while the app hides the bar.
+            from appkit.bar import HEIGHT
+
+            parent = self.bar_area(scr)
+            parent.set_flex_flow(lv.FLEX_FLOW.COLUMN)
+            parent.set_style_pad_row(0, 0)
+            if self.bar.compact:  # the cap floats over the header; Home is at its left
+                hdr_h, left = ui.HEADER, ui.HEADER - 12 + 24
+            else:
+                hdr_h, left = ui.HEADER - HEIGHT, 16
+        else:
+            parent = scr
+            hdr_h = ui.HEADER
+            left = ui.HOME_W + 24
+        hdr = ui.plain(lv.obj(parent))
+        hdr.set_size(w, hdr_h)
         hdr.set_style_bg_color(ui.PANEL, 0)
         hdr.set_style_bg_opa(lv.OPA.COVER, 0)
         title = self.launcher.info.get(scope.name, {}).get("title", scope.name)
@@ -123,15 +155,19 @@ class TouchShell(Shell):
         f = ui.big if w >= 480 else ui.font
         t = ui.label(hdr, title, f, ui.ACCENT)
         t.set_long_mode(lv.label.LONG_MODE.DOTS)
-        t.set_size(w - ui.HOME_W - 40, f.line_height)
-        t.align(lv.ALIGN.LEFT_MID, ui.HOME_W + 24, 0)
+        t.set_size(w - left - 16, f.line_height)
+        t.align(lv.ALIGN.LEFT_MID, left, 0)
         status = ui.label(hdr, "", ui.small, ui.MUTED)
         status.align(lv.ALIGN.RIGHT_MID, -16, 0)
         scope.header = hdr
         scope.status = status
-        body = ui.plain(lv.obj(scr))
-        body.set_pos(0, ui.HEADER)
-        body.set_size(w, h - ui.HEADER)
+        body = ui.plain(lv.obj(parent))
+        if bar:
+            body.set_width(w)
+            body.set_flex_grow(1)
+        else:
+            body.set_pos(0, ui.HEADER)
+            body.set_size(w, h - ui.HEADER)
         return body
 
 

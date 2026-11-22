@@ -45,7 +45,7 @@ class HomeButtonTest(unittest.TestCase):
             )
             launcher = _Launcher()
             with mock.patch.object(shell.TouchShell, "_boot_button"):
-                shell.TouchShell(launcher)
+                shell.TouchShell(launcher, bar=False)
             self.assertEqual(len(calls), 1)
             calls[0](types.SimpleNamespace())
             self.assertEqual(launcher.asked, ["home"])

@@ -201,12 +201,13 @@ add an empty one.
 When `apps/` holds an app named `home`, `appkit.run()` starts that as the
 home screen instead of its own list of buttons.
 
-`appkit.run("hello")` runs one app on its own, with the whole screen and no
-home screen. An app set that wants its own home screen, chrome or launcher
-setup builds a `Launcher` itself. Its `Shell` subclass gives apps a smaller
+`appkit.run("hello")` runs one app on its own, with no home screen. An app
+set that wants its own home screen, chrome or launcher setup builds a
+`Launcher` itself. Its `Shell` subclass gives apps a smaller
 area by overriding `make_root()`, and its own Home button by overriding
-`make_home_button()`. The default Home button sits at the top right; on a
-round screen it's a small round button on the diagonal, inside the circle.
+`make_home_button()`. With the status bar off (`appkit.run(bar=False)`),
+every app gets the whole screen and the Home button sits at the top right; on
+a round screen it's a small round button on the diagonal, inside the circle.
 
 [`examples/appkit_simpletest`](examples/appkit_simpletest) is an app set of
 two apps, a counter and a greeter, laid out this way.
@@ -219,12 +220,15 @@ leave its button lit.
 
 ## The status bar
 
-`appkit.run(bar=True)` puts a bar along the top of the screen: Home, the
-clock, the network, Bluetooth, the audio output and the battery where the
-board reports one, with a button at the right that opens the picker. Each app
-gets the screen below it. An app that wants the whole screen says so in its
+`appkit.run()` puts a bar along the top of the screen: Home, the clock, the
+network, Bluetooth, the audio output and the battery where the board reports
+one, with a button at the right that opens the picker. Each app gets the
+screen below it, `scope.root`, and should size itself from `scope.size`
+rather than the display. An app that wants the whole screen says so in its
 `app.json` with `"bar": "none"`, and one that draws its own bar says
-`"bar": "own"` and reads what to show from `scope.bar.status()`.
+`"bar": "own"` and reads what to show from `scope.bar.status()`. Those apps
+get the Home button in the corner instead. `appkit.run(bar=False)` leaves the
+bar off.
 
 ```python
 from appkit import bar
@@ -238,10 +242,10 @@ None to show nothing for now. Passing the scope takes the item off the bar
 when the app closes. `scope.bar.hide()` gives the app the whole screen for a
 while (a video, a game) and `show()` gives the strip back. On a round screen
 or one under 320x240 the bar is a small cap at the top with the clock, the
-network and the battery, and tapping it opens the picker. The bar checks its
-items once a second and redraws only those that changed. Its icons come from
-the `icons` package, which needs a firmware with `ttfio` on a board and
-freetype-py on a computer.
+network and the battery, and tapping it opens the picker; Home is the corner
+button there. The bar checks its items once a second and redraws only those
+that changed. Its icons come from the `icons` package, which needs a firmware
+with `ttfio` on a board and freetype-py on a computer.
 
 ## Choosing connections
 
