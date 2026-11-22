@@ -190,6 +190,12 @@ _headless.pointer()
 app = lv.obj(None)
 lv.label(app).set_text("The running app")
 lv.screen_load(app)
+# The app has a wheel on its own group: the picker must take it while open.
+app_group = lv.group_create()
+app_buttons = [lv.button(app), lv.button(app)]
+for b in app_buttons:
+    app_group.add_obj(b)
+wheel = _headless.wheel(app_group)
 
 reg = endpointkit.Registry()
 fakes = fake.bench(reg, delay=2)
@@ -302,7 +308,6 @@ shot("pinned")
 reg.unpin("net", "Synth Station")
 
 # An encoder works it: turn to a row, press to choose.
-wheel = _headless.wheel(p.group)
 p.show("audio.out")
 target = row(p, "Headphone jack")[0]
 for _ in range(p.group.get_obj_count()):
@@ -320,6 +325,9 @@ check(reg.chosen("audio.out") == ["i2s:0"], "a wheel turns to a row and chooses 
 # Closing hides it and stops listening; the choices stay.
 p.close()
 check(not p.is_open(), "close hides it")
+was = app_group.get_focused()
+_headless.turn(1)
+check(app_group.get_focused() != was, "the app has its wheel back")
 p._dirty = False
 fakes["i2s"].add("1", "Line out")
 reg.poll()

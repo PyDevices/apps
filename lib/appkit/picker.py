@@ -19,8 +19,9 @@ plug in, pair or discover shows up as it's found. A choice that would stop
 something sharing its hardware asks first. A kind an app has pinned says so:
 the device's choice is kept for when the app lets go.
 
-Everything is in an LVGL focus group too, so an encoder or a gamepad can work
-it (``Picker.group``). The functions above the class (`kinds`, `summary`,
+Everything is in an LVGL focus group too, and while the picker is open every
+keypad and encoder works it (`appkit.keys.focus`), so an encoder or a gamepad
+can. The functions above the class (`kinds`, `summary`,
 `rows`, `toggle`) are the picker without the screen, for a script.
 """
 
@@ -28,6 +29,8 @@ import endpointkit
 import lvgl as lv
 import iconkit
 from iconkit import lvicons
+
+from . import keys
 
 # The icons iconkit draws at the picker's size.
 _ICONS = set(iconkit.names(24))
@@ -196,6 +199,9 @@ class Picker:
             self._listening = self.registry.subscribe(None, self._changed)
         if self._poll_ms and self._timer is None:
             self._timer = lv.timer_create(lambda t: self.tick(), self._poll_ms, None)
+        if self.root.has_flag(lv.obj.FLAG.HIDDEN):
+            # Every keypad and encoder works the picker while it's open.
+            keys.focus(self.group)
         self.root.remove_flag(lv.obj.FLAG.HIDDEN)
         self.root.move_foreground()
         self.show(kind)
@@ -209,6 +215,8 @@ class Picker:
         if self._timer is not None:
             self._timer.delete()
             self._timer = None
+        if not self.root.has_flag(lv.obj.FLAG.HIDDEN):
+            keys.release(self.group)
         self.root.add_flag(lv.obj.FLAG.HIDDEN)
 
     def tick(self):
