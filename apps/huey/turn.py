@@ -12,7 +12,7 @@ worker, so the picture keeps moving, and each one's time is kept in `last`.
 import time
 from multimer import ticks_diff, ticks_ms
 
-from . import acting, settings as settingsmod, web
+from . import acting, servers, settings as settingsmod, web
 from .client import Client
 from .voice import Player, Recorder
 
@@ -136,6 +136,8 @@ class Turn:
             self.settings = settingsmod.load(self.path)
         except ValueError as e:
             return "My settings need a fix: %s." % (e,)
+        # The server chosen in the device's picker, when there is one.
+        self.settings = servers.use(self.settings)
         if not self.settings["base_url"]:
             return "Tell me where my server is: its address goes in %s as base_url." % self.path
         try:

@@ -217,6 +217,46 @@ one hover style to the display's theme. A finger never hovers: the display
 driver lifts the pointer off the screen when a touch ends, so a tap doesn't
 leave its button lit.
 
+## Choosing connections
+
+`shell.open_picker()` opens one screen over the running app where you choose
+where its sound goes, which MIDI ports and gamepads it hears, the network and
+the rest. The app keeps running underneath. `shell.open_picker("audio.out")`
+opens straight at one kind.
+
+```python
+shell.open_picker("audio.out")
+```
+
+The choices are endpointkit's, for the whole device, so every app and script
+sees them at once. A kind that takes one endpoint (the network) moves its
+choice to what you tap; one that takes many (audio out, MIDI) adds or drops
+it. A choice that would stop something sharing its radio or bus asks first,
+and a kind an app has pinned says which app, keeping your choice for after.
+Every keypad and encoder works it while it's open, and goes back to the
+app's own group when it closes. The picker needs endpointkit installed
+(`mip.install("endpointkit")`); the rest of appkit doesn't.
+
+## Typing
+
+Hand a text field to `keys.attach` and it takes typing from any keyboard: the
+computer's, a USB or Bluetooth one on a board, or the one on the screen. The
+on-screen keyboard opens when you tap the field or reach it with an encoder,
+and closes on its Enter or as soon as a real keyboard types.
+
+```python
+from appkit import keys
+
+field = lv.textarea(parent)
+keys.attach(field)
+```
+
+A keyboard LVGL doesn't read itself feeds the same input with
+`keys.push("a")`, or `keys.hid_key(usage, modifiers)` for a HID keycode. An
+overlay of your own calls `keys.focus(group)` when it opens and
+`keys.release(group)` when it closes, so an encoder or a gamepad reaches its
+buttons and then comes back.
+
 ## Plain scripts
 
 A script that builds its own `App` when it's imported, like a game, can sit

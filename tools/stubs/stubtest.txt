@@ -5,8 +5,10 @@ appkit.foreground
 appkit.home
 appkit.hover
 appkit.index
+appkit.keys
 appkit.launcher
 appkit.net
+appkit.picker
 appkit.places
 appkit.scope
 appkit.shell

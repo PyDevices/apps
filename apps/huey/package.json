@@ -23,6 +23,10 @@
       "client.py"
     ],
     [
+      "servers.py",
+      "servers.py"
+    ],
+    [
       "settings.example.json",
       "settings.example.json"
     ],
@@ -44,6 +48,10 @@
     ]
   ],
   "deps": [
+    [
+      "endpointkit",
+      "latest"
+    ],
     [
       "github:PyDevices/apps/apps/perch",
       "main"
