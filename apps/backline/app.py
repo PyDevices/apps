@@ -47,6 +47,21 @@ def _clock(out):
     return lambda: ticks_diff(ticks_ms(), start) * rate // 1000
 
 
+def _cast(box, prefs):
+    """The desk view cast where the settings say (`remote.cast_target`), or
+    None. A cast that can't start says why on the box and the box plays on."""
+    try:
+        target = remote.cast_target(prefs)
+        if target is None:
+            return None
+        from . import cast
+
+        return cast.start(box.device, target)
+    except Exception as e:  # noqa: BLE001 - said on the screen
+        box.error = "no cast: %s" % (e,)
+        return None
+
+
 def start(scope):
     global state
     W, H = scope.size
@@ -82,6 +97,7 @@ def start(scope):
     panel = hmilink.Panel(local.connect(listener))
     box.poll()
     panel.poll()
+    caster = _cast(box, prefs)
     views = {"floor": None, "desk": None, "desk_panel": None, "shown": "floor"}
     can_desk = W >= DESK_SIZE[0] and H >= DESK_SIZE[1]
 
@@ -109,7 +125,7 @@ def start(scope):
     own_status = getattr(scope, "status", None) is None
     if own_status:
         status.move_foreground()
-    state = {"box": box, "floor": floor, "out": out, "views": views, "show": show}
+    state = {"box": box, "floor": floor, "out": out, "views": views, "show": show, "cast": caster}
     held = set()
 
     def service(_t):
@@ -120,6 +136,8 @@ def start(scope):
         floor.poll()
         if views["desk"] is not None:
             views["desk"].poll()
+        if caster is not None:
+            caster.step()
         t = box.telemetry()
         prefs["song"] = box.songs[box.song_index][0]
         prefs["kit"] = box.engine.kit.spec if box.engine.kit is not None else None
@@ -170,6 +188,8 @@ def start(scope):
         out.detach()
         out.close()
         panel.close()
+        if caster is not None:
+            caster.close()
         if views["desk_panel"] is not None:
             views["desk_panel"].close()
         box.close()  # after the output, so it never pulls a closed kit

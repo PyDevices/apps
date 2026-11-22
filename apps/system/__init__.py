@@ -23,7 +23,8 @@ leaves them two fifths of its width. A driver says its panel is round with a
 ``round`` attribute; a GC9A01's is taken to be.
 
 On a screen 400 pixels or more on its short side, More has the last app
-switches, the restarts, the largest free block and Wi-Fi setup. The heap line
+switches, the restarts, the largest free block and a Wi-Fi button, which
+opens the connections picker at the networks in range. The heap line
 there is the one to watch: switching back and forth all day should leave
 "in use" where it started, give or take a few KB.
 
@@ -701,7 +702,7 @@ def main(scope):
 
     page.add_event_cb(pressed, lv.EVENT.PRESSED, None)
 
-    # -- More: the switches, the restarts, the largest block and Wi-Fi setup --
+    # -- More: the switches, the restarts, the largest block and Wi-Fi --
     more_page = more_text = None
     block = [None]
 
@@ -737,21 +738,14 @@ def main(scope):
             block[0] = scope.launcher.heap()[1]
             more_text.set_text(_more_lines(scope.launcher, block[0]))
 
-        def wifi_setup():
-            # The setup page blocks until a network is joined: never from a timer.
-            if scope.foreground(job, steps=False):
-                ui.status(scope).set_text("Wi-Fi setup: join the board's network from a phone")
-            else:
-                ui.status(scope).set_text("Wi-Fi setup waits for the foreground loop (appkit.serve())")
-
-        def job():
-            net.setup_job()
-            scope.foreground(None)
+        def wifi():
+            # The picker joins networks, asking for a new one's password.
+            scope.launcher.shell.open_picker("net")
 
         back, _ = _button(bar, lv.SYMBOL.LEFT + "  Back", pad, lambda: show_more(False))
         back.set_style_bg_color(ui.KEY, 0)
         _button(bar, "Largest block", pad, measure)
-        _button(bar, "Wi-Fi setup", pad, wifi_setup)
+        _button(bar, "Wi-Fi", pad, wifi)
 
     # -- the timers --
     # The arc steps at the display's refresh period, so it changes every frame
@@ -786,14 +780,6 @@ def main(scope):
         _st["seconds"] = None
         if not measuring and hasattr(display_drv, "measure_fps"):
             display_drv.measure_fps(False)
-        # Only when Wi-Fi setup loaded it: importing it here would keep a
-        # module in memory that System never used.
-        wifi_manager = sys.modules.get("wifi_manager")
-        if wifi_manager is not None:
-            try:
-                wifi_manager.cancel()
-            except Exception:
-                pass
 
     scope.on_close(close)
 

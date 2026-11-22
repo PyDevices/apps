@@ -96,6 +96,10 @@ from appkit import bar as B  # noqa: E402
 from appkit import keys  # noqa: E402
 from appkit import launcher as L  # noqa: E402
 from appkit.shell import Shell  # noqa: E402
+from appkit import connections  # noqa: E402
+
+# The fakes are this device: the Shell registers no real provider beside them.
+connections.register = lambda registry=None: []
 from touchkit import shell as touch  # noqa: E402
 from touchkit import ui  # noqa: E402
 
