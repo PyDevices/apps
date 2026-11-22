@@ -605,7 +605,7 @@ jobs:
           AUDIOEFFECTS_DIR: ${{ github.workspace }}/audioeffects
           AUDIOINSTRUMENTS_CATALOG: ${{ github.workspace }}/catalogs/audioinstruments/lib/audioinstruments/catalog.json
           AUDIOEFFECTS_CATALOG: ${{ github.workspace }}/catalogs/audioeffects/lib/audioeffects/catalog.json
-          HMILINK_PATH: ${{ github.workspace }}/omnipython/hmilink
+          HMILINK_PATH: ${{ github.workspace }}/omnipython/packages/hmilink
           VAMP_REQUIRE: "1"
           VTTERM_PATH: ${{ github.workspace }}/iconkit-src/packages
           REPL_REQUIRE: "1"
