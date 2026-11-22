@@ -4,7 +4,7 @@
 """Home: the apps on pages, one page per category, and one app behind the gear.
 
 Each app says what it is in its ``app.json``: ``category`` (its page), ``icon``
-(a Material icon name from iconkit's 48 px set, required), ``color`` (a "#RRGGBB" tile colour), ``tile`` (false to
+(a Material Symbols name from the icons package, required), ``color`` (a "#RRGGBB" tile colour), ``tile`` (false to
 keep it off the pages) and ``gear`` (true for the app the gear button opens).
 Pages come in alphabetical order by category. An app with no category gets a
 page of its own, "More", last. Home knows no app by name.
@@ -19,8 +19,8 @@ centred above them, so nothing falls outside the circle.
 
 import lvgl as lv
 
-import iconkit
-from iconkit import lvicons
+import icons
+from icons import lvgl as lvicons
 from appkit.shell import ROUND_MARGIN, is_round
 from touchkit import ui
 
@@ -95,12 +95,12 @@ def _tile(name, entry):
     if icon is None:
         raise ValueError(
             'app %r has no "icon" in its app.json. Every app with a tile needs one: add "icon": '
-            '"<Material icon name>", taken from iconkit.names(48), or set "tile": false.' % (name,)
+            '"<Material icon name>", taken from icons.names(), or set "tile": false.' % (name,)
         )
-    if icon not in iconkit.names(48):
+    if not icons.has(icon):
         raise ValueError(
-            'app %r names icon %r in its app.json, which iconkit has no 48 px tile icon for. '
-            "Pick one of: %s." % (name, icon, ", ".join(iconkit.names(48)))
+            "app %r names icon %r in its app.json, which the icons package hasn't. "
+            "icons.names() lists the ones it has." % (name, icon)
         )
     return (name, icon, int(entry.get("color", DEFAULT_COLOR)[1:], 16))
 

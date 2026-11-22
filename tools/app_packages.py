@@ -46,7 +46,7 @@ INDEX = {
     "deskkit": "deskkit",
     "endpointkit": "endpointkit",
     "hmilink": "hmilink",
-    "iconkit": "iconkit",
+    "icons": "icons",
     "medialink": "medialink",
     "midiports": "midiports",
     "mp4mux": "mp4mux",

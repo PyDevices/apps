@@ -16,6 +16,7 @@ has them. Last, the index generator itself, and appkit's manifest through
 MicroPython's own manifest reader when a MicroPython checkout is found.
 """
 
+import importlib.util
 import json
 import os
 import shutil
@@ -24,13 +25,13 @@ import sys
 import tempfile
 import unittest
 
-from _harness import ICONKIT_LIB, LIB, OMNIPYTHON_LIB, TESTS, ContractCase, need_micropython, run
+from _harness import ICONS_LIB, LIB, OMNIPYTHON_LIB, TESTS, ContractCase, need_micropython, run
 
 sys.path.insert(0, str(LIB))
 if OMNIPYTHON_LIB is not None:
     sys.path.insert(1, str(OMNIPYTHON_LIB))
-if ICONKIT_LIB is not None:
-    sys.path.insert(1, str(ICONKIT_LIB))
+if ICONS_LIB is not None:
+    sys.path.insert(1, str(ICONS_LIB))
 from appkit import index  # noqa: E402  (runs without the rest of appkit)
 
 CONTRACT = "scripts_contract.py"
@@ -65,8 +66,8 @@ ROUND_TRIP = [
 
 
 def _libs():
-    """The omnipython and iconkit source folders, as strings, for a path."""
-    return [str(p) for p in (OMNIPYTHON_LIB, ICONKIT_LIB) if p is not None]
+    """The omnipython and icons source folders, as strings, for a path."""
+    return [str(p) for p in (OMNIPYTHON_LIB, ICONS_LIB) if p is not None]
 
 
 def _board_configs():
@@ -126,7 +127,9 @@ class RoundTrip(ContractCase):
         # board_config for the desktop, and the desktop helpers it imports
         # (usdl2 and the rest, in utils/), after omnipython's lib.
         configs = os.pathsep.join((str(OMNIPYTHON_LIB.parent / "utils"), str(_board_configs())))
-        mp_path = os.pathsep.join(p for p in (env.pop("FROZEN", None), str(LIB), *_libs(), configs) if p)
+        # MicroPython takes icons frozen, with its font in flash: not from source.
+        omni = str(OMNIPYTHON_LIB) if OMNIPYTHON_LIB is not None else None
+        mp_path = os.pathsep.join(p for p in (env.pop("FROZEN", None), str(LIB), omni, configs) if p)
         env["MICROPYPATH"] = mp_path.replace(os.pathsep, ":") + ":.frozen"
         env["PYTHONPATH"] = os.pathsep.join(
             p for p in (env.pop("FROZEN_PY", None), str(LIB), *_libs(), configs) if p
@@ -252,15 +255,17 @@ class Index(unittest.TestCase):
             self.assertEqual(result.returncode, 2)
             self.assertIn("usage", result.stdout)
 
-    def test_a_missing_iconkit_says_how_to_get_it(self):
+    def test_missing_icons_says_how_to_get_it(self):
         with tempfile.TemporaryDirectory() as tmp:
+            # -S as well: no site-packages, where omnipython-desktop may have put icons.
             result = subprocess.run(
-                [sys.executable, "-I", str(LIB / "appkit" / "index.py"), str(SET / "apps"), "-o", os.path.join(tmp, "x.py")],
+                [sys.executable, "-I", "-S", str(LIB / "appkit" / "index.py"), str(SET / "apps"), "-o", os.path.join(tmp, "x.py")],
                 capture_output=True,
                 text=True,
             )
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("omnipython-iconkit", result.stderr)
+            self.assertIn("pip install omnipython-desktop", result.stderr)
+            self.assertIn("packages/icons", result.stderr)
 
     def test_bad_app_json_is_named(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -285,7 +290,7 @@ class Index(unittest.TestCase):
             self.assertIn('no "icon"', str(cm.exception))
             self.assertIn('"tile": false', str(cm.exception))
 
-    def test_unknown_icon_is_refused_and_names_the_choices(self):
+    def test_unknown_icon_is_refused_and_says_where_the_names_are(self):
         with tempfile.TemporaryDirectory() as tmp:
             self._one_app(tmp, {"name": "thing", "title": "Thing", "icon": "no_such_icon"})
             with self.assertRaises(ValueError) as cm:
@@ -293,15 +298,13 @@ class Index(unittest.TestCase):
             msg = str(cm.exception)
             self.assertIn("'thing'", msg)
             self.assertIn("'no_such_icon'", msg)
-            self.assertIn("photo_camera", msg)
-            # An icon only in the 24 px set isn't a tile icon.
-            self._one_app_again(tmp, "home")
-            with self.assertRaises(ValueError):
-                index.collect(tmp)
+            self.assertIn("icons.names()", msg)
 
-    def _one_app_again(self, tmp, icon):
-        with open(os.path.join(tmp, "thing", "app.json"), "w") as f:
-            json.dump({"name": "thing", "icon": icon}, f)
+    def test_every_icon_name_is_a_tile_icon(self):
+        # icons draws every name at any size, so the 24 px "home" makes a tile too.
+        with tempfile.TemporaryDirectory() as tmp:
+            self._one_app(tmp, {"name": "thing", "icon": "home"})
+            self.assertEqual(index.collect(tmp), [("thing", {"name": "thing", "icon": "home"})])
 
     def test_app_without_a_tile_needs_no_icon(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -320,7 +323,14 @@ class Index(unittest.TestCase):
         if not found:
             self.skipTest("no MicroPython checkout with tools/manifestfile.py")
         with tempfile.TemporaryDirectory() as tmp:
-            result = self._freeze(found, tmp, iconkit=ICONKIT_LIB.parent if ICONKIT_LIB else None)
+            # An omnipython-lib tree with icons in it, from wherever this process imports icons.
+            spec = importlib.util.find_spec("icons")
+            if spec is None:
+                self.skipTest("no icons package: put omnipython's packages/icons in ICONS_LIB")
+            library = os.path.join(tmp, "library")
+            os.makedirs(library)
+            os.symlink(os.path.dirname(list(spec.submodule_search_locations)[0]), os.path.join(library, "icons"))
+            result = self._freeze(found, tmp, library=library)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             listed = result.stdout
             for frozen_as in (
@@ -329,29 +339,30 @@ class Index(unittest.TestCase):
                 "apps/__init__.py",
                 "apps/hello/__init__.py",
                 "appkit/launcher.py",
-                "iconkit/__init__.py",
             ):
                 self.assertIn(frozen_as, listed, listed)
+            # The firmware brings icons; appkit's manifest doesn't freeze it.
+            self.assertNotIn("icons/__init__.py", listed, listed)
             self.assertTrue(os.path.isfile(os.path.join(tmp, "index", "_appkit_apps.py")))
 
-    def _freeze(self, manifestfile, tmp, iconkit, library=None):
+    def _freeze(self, manifestfile, tmp, library=None):
         """appkit's manifest, with *apps* from the sample set, read by MicroPython's own reader in a
-        process that has iconkit on no import path; *iconkit* is the ``iconkit=`` option."""
+        process that has icons on no import path, not even site-packages; *library* is
+        ``$OMNIPYTHON_LIBRARY``, an omnipython-lib tree."""
         board = os.path.join(tmp, "manifest.py")
-        extra = ", iconkit=%r" % (str(iconkit),) if iconkit else ""
         with open(board, "w") as f:
             f.write(
-                "include(%r, apps=%r, index_dir=%r%s)\n"
-                % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"), extra)
+                "include(%r, apps=%r, index_dir=%r)\n"
+                % (str(TESTS.parents[1] / "lib" / "appkit"), str(SET / "apps"), os.path.join(tmp, "index"))
             )
         env = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "OMNIPYTHON_LIBRARY")}
         if library:
             env["OMNIPYTHON_LIBRARY"] = str(library)
         return subprocess.run(
-            [sys.executable, "-I", str(manifestfile), "--freeze", board], capture_output=True, text=True, cwd=tmp, env=env
+            [sys.executable, "-I", "-S", str(manifestfile), "--freeze", board], capture_output=True, text=True, cwd=tmp, env=env
         )
 
-    def test_manifest_without_iconkit_says_how_to_fix_it(self):
+    def test_manifest_without_icons_says_how_to_fix_it(self):
         found = os.environ.get("MICROPYTHON_MANIFESTFILE")
         for parent in TESTS.parents:
             candidate = parent / "micropython" / "tools" / "manifestfile.py"
@@ -360,14 +371,16 @@ class Index(unittest.TestCase):
         if not found:
             self.skipTest("no MicroPython checkout with tools/manifestfile.py")
         with tempfile.TemporaryDirectory() as tmp:
-            result = self._freeze(found, tmp, iconkit=None)
+            result = self._freeze(found, tmp)
             self.assertNotEqual(result.returncode, 0, result.stdout)
-            self.assertIn("iconkit is not found", result.stdout + result.stderr)
-            self.assertIn("OMNIPYTHON_LIBRARY", result.stdout + result.stderr)
-            # A folder that is not iconkit's.
-            result = self._freeze(found, tmp, iconkit=tmp)
+            self.assertIn("needs the icons package", result.stdout + result.stderr)
+            # A library tree whose icons isn't omnipython's.
+            fake = os.path.join(tmp, "library", "icons", "icons")
+            os.makedirs(fake)
+            open(os.path.join(fake, "__init__.py"), "w").close()
+            result = self._freeze(found, tmp, library=os.path.join(tmp, "library"))
             self.assertNotEqual(result.returncode, 0, result.stdout)
-            self.assertIn("is not iconkit's folder", result.stdout + result.stderr)
+            self.assertIn("isn't omnipython's", result.stdout + result.stderr)
 
 
 if __name__ == "__main__":
