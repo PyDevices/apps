@@ -102,7 +102,7 @@ BOARD = {
 FIRMWARE = {
     "_audioif", "_thread", "_usbhost", "array", "asyncio", "audioairwindows", "audiobiquad", "audiobusio", "audiocore",
     "audiofeatures", "audiomixer", "btclassic", "audiomp3", "audiopump", "audiosampler", "audiospeed", "cameraif", "castif", "earful",
-    "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "image", "jpegio", "json", "lvgl", "machine",
+    "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "icons", "image", "jpegio", "json", "lvgl", "machine",
     "math", "mdns", "micropython", "microcontroller", "network", "numpy", "offheap", "os", "platform", "ppa", "random",
     "scipy", "select", "socket", "ssl", "struct", "svgio", "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab",
     "usb",

@@ -17,8 +17,15 @@ Commands, from any panel:
 - ``song {"index": n}`` or ``song {"step": 1 or -1}``: another starter song,
   while stopped.
 - ``kit {"spec": "rhythm909"}`` or ``kit {"step": 1 or -1}``: another kit,
-  at once, even while playing.
+  at once, even while playing. Every panel hears ``kit`` back, with the
+  notes the new kit plays (``voices``).
 - ``stop {}``: stop now.
+
+Edits are songmodel ops on the document, and they reach the sound while it
+plays: a step added or removed plays from its next pass, a new tempo keeps
+the playhead where it is, ``/tracks/0/volume`` is the kit's level and
+``/tracks/0/mix/<group>`` (0 to 100) turns one group of drums up or down
+(`engine.GROUPS`).
 
 Telemetry is `engine.Engine.telemetry`: bar, beat, part, next part,
 pedals, tempo and kit.
@@ -36,6 +43,7 @@ from songmodel.link import SongModel
 from . import engine as eng
 from . import kits
 
+LEVEL = 0.9          # the kit's level at track volume 100
 here = __file__.replace("\\", "/")
 SONGS = here[: here.rfind("/")] + "/songs"
 
@@ -64,7 +72,12 @@ class BacklineModel(SongModel):
         box = self.host
         if box is not None:
             out["songs"] = [n for n, _p in box.songs]
+            out["titles"] = box.titles()
             out["kits"] = list(box.kits)
+            out["kit_list"] = kits.describe(box.kits)
+            out["kit"] = box.kit_spec()
+            out["voices"] = box.voices()
+            out["groups"] = [[n, list(p)] for n, p in eng.GROUPS] + [[eng.OTHER, []]]
         return out
 
 
@@ -76,6 +89,7 @@ class Box:
         self.songs = song_files() if songs is None else songs
         self.kits = kits.available()
         self.song_index = 0
+        self._titles = None
         if isinstance(song, str):
             for i, (n, _p) in enumerate(self.songs):
                 if n == song:
@@ -88,6 +102,7 @@ class Box:
         self.model = BacklineModel(project, forward=self.forward, host=self)
         self.device = hmilink.Device(self.model, telemetry_hz=30)
         self.use_kit(kit or project["tracks"][0].get("instrument") or kits.MACHINES[0])
+        self._level()
 
     # -- the sound --------------------------------------------------------------
 
@@ -106,16 +121,52 @@ class Box:
         self.error = None
         return True
 
+    def titles(self):
+        """Each starter song's own name, read once."""
+        if self._titles is None:
+            found = []
+            for name, path in self.songs:
+                try:
+                    found.append(load_song(path).get("name") or name)
+                except (OSError, ValueError):
+                    found.append(name)
+            self._titles = found
+        return self._titles
+
+    def kit_spec(self):
+        kit = self.engine.kit
+        return kit.spec if kit is not None else None
+
+    def voices(self):
+        """``[[pitch, name]]``: the drums the kit playing now has, by General
+        MIDI's short names where it has one, so a row reads the same on every kit."""
+        kit = self.engine.kit
+        if kit is None or not hasattr(kit, "voices"):
+            return []
+        short = dict(kits.GM_DRUMS)
+        return [[int(p), short.get(int(p), n)] for p, n in kit.voices()]
+
+    def _level(self):
+        vol = self.engine.track.get("volume", 100)
+        self.bus.level(LEVEL * vol / 100.0)
+
     def forward(self, op):
-        """An op the song took from a panel: the engine follows it."""
+        """An op the song took from a panel: the engine follows it.
+
+        A step's notes are read as they play, so a note edit needs nothing
+        here. A pattern's length or the song's parts make a new plan that
+        keeps what plays now and what is queued."""
         if op.get("op") == "replace":
             self.engine.load(self.model.doc)
+            self._level()
             return
-        if op.get("path") == ["tempo"]:
+        path = op.get("path", ())
+        if path == ["tempo"]:
             self.engine.retempo()
-        elif "patterns" in op.get("path", ()) or op.get("path", [None])[0] == "parts":
-            self.engine.form.__init__(self.model.doc)
-            self.engine.changes += 1
+        elif path[:1] == ["parts"] or (len(path) >= 3 and path[2] == "patterns" and "notes" not in path):
+            self.engine.reform()
+        elif path == ["tracks", 0, "volume"]:
+            self._level()
 
     def service(self):
         """One pass: the pedals' timing, the notes due, the kit's fill, the panels."""
@@ -136,14 +187,19 @@ class Box:
         t["songs"] = len(self.songs)
         return t
 
+    def pedal(self, which, down):
+        """Footswitch ``which`` (0 or 1) went down or up. Every source of a
+        pedal comes in here: a panel's lamp or key, and a switch on a pin or
+        a MIDI note or controller on a box that has one."""
+        if down:
+            self.engine.press(which)
+        else:
+            self.engine.release(which)
+
     def command(self, name, args):
         e = self.engine
         if name == "pedal":
-            which = int(args.get("pedal", 0))
-            if args.get("down"):
-                e.press(which)
-            else:
-                e.release(which)
+            self.pedal(int(args.get("pedal", 0)), bool(args.get("down")))
             return None
         if name == "gesture":
             did = e.gesture(int(args.get("pedal", 0)), args["gesture"])
@@ -160,7 +216,7 @@ class Box:
             project = load_song(self.songs[self.song_index][1])
             self.model.load(project)
             self.use_kit(project["tracks"][0].get("instrument") or kits.MACHINES[0])
-            return {"name": "song", "index": self.song_index}
+            return {"name": "song", "index": self.song_index, "kit": self.kit_spec(), "voices": self.voices()}
         if name == "kit":
             spec = args.get("spec")
             if spec is None:
@@ -168,7 +224,7 @@ class Box:
                 i = self.kits.index(cur) if cur in self.kits else -1
                 spec = self.kits[(i + int(args.get("step", 1))) % len(self.kits)]
             self.use_kit(spec)
-            return {"name": "kit", "spec": spec, "error": self.error}
+            return {"name": "kit", "spec": self.kit_spec(), "error": self.error, "voices": self.voices()}
         raise ValueError("unknown command %r" % name)
 
     def close(self):

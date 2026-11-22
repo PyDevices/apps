@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: MIT
 """Backline's floor view on real LVGL with no window, at 320x240, 480x320
 and 800x480: it fits the screen, lights one more segment of the ring each
-beat and redraws little else, shows the part and the next one, lights a
-pedal's lamp while it is down, and a touch on a lamp reaches the device.
+beat and redraws little else, gives a 12/8 song twelve segments, shows the
+song's name and the part coming next in full, shows the part and the next
+one, lights a pedal's lamp while it is down, a touch on a lamp reaches the
+device, and the corner button asks for the desk view.
 
     python tests/backline_floor_contract.py [--plant=NAME]
 
@@ -14,6 +16,7 @@ svgio and hmilink. ``--plant=NAME`` breaks the view one way (``PLANTS``)
 and a check must then fail.
 """
 
+import math
 import sys
 
 _here = __file__
@@ -28,7 +31,8 @@ from hmilink import local  # noqa: E402
 import _headless  # noqa: E402
 from backline import art, floor  # noqa: E402
 
-PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp")
+PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
+          "dead-switch")
 SIZES = ((320, 240), (480, 320), (800, 480))
 RESULTS = [0, 0]
 
@@ -82,6 +86,21 @@ def plant(name):
     elif name == "dark-lamp":
         floor.PEDAL_COLORS = (0x000000, 0x000000)
         art.glow_svg = (lambda g: lambda r, c: g(r, 0x000000))(art.glow_svg)
+    elif name == "four-beats":
+        old = floor.Floor._ring
+        floor.Floor._ring = lambda self, steps, group: old(self, 4, 1)
+    elif name == "truncate":
+        def fit(label, choices, width, space=1):
+            label.set_style_text_letter_space(space, 0)
+            label.set_text(choices[0])
+            return choices[0]
+        floor.fit = fit
+    elif name == "dead-switch":
+        old = floor.Floor.__init__
+
+        def init(self, root, size, panel, on_switch=None):
+            old(self, root, size, panel, (lambda: None) if on_switch is not None else None)
+        floor.Floor.__init__ = init
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -145,7 +164,8 @@ def run_size(w, h):
     panel = hmilink.Panel(local.connect(device.add(local.serve())))
     device.poll()
     panel.poll()
-    view = floor.Floor(scr, (w, h), panel)
+    switched = []
+    view = floor.Floor(scr, (w, h), panel, on_switch=lambda: switched.append(1))
 
     def show(**kw):
         model.values = tele(**kw)
@@ -169,8 +189,6 @@ def run_size(w, h):
     probes = []
     for b in range(4):
         a0, a1 = art.beat_span(b)
-        import math
-
         am = math.radians((a0 + a1) / 2)
         mid = (lay.beat_in + lay.beat_out) / 2
         probes.append((lay.cx + mid * math.cos(am), lay.cy + mid * math.sin(am)))
@@ -187,6 +205,28 @@ def run_size(w, h):
     worst = max(redrawn[1:])
     check(tag + ": a beat redraws under a third of the screen", worst < w * h // 3,
           "%d of %d pixels" % (worst, w * h))
+    probes12 = []
+    for b in range(12):
+        a0, a1 = art.beat_span(b, 12, 3)
+        am = math.radians((a0 + a1) / 2)
+        mid = (lay.beat_in + lay.beat_out) / 2
+        probes12.append((lay.cx + mid * math.cos(am), lay.cy + mid * math.sin(am)))
+    ok = True
+    for step in (1, 5, 12):
+        show(steps=12, beats=4, step=step, beat=(step - 1) // 3 + 1)
+        lit = [bright(pixel(frame, w, x, y)) > dark + 150 for x, y in probes12]
+        if lit != [i < step for i in range(12)]:
+            ok = False
+            print("     12/8 step %d lit %r" % (step, lit))
+    check(tag + ": a 12/8 song lights twelve segments, one a step", ok)
+    show(beat=1, song="Country Train", part="Main 1", next="Transition", next_role="transition")
+    words = []
+    for lbl in (view.song, view.chip_text):
+        font = lbl.get_style_text_font(0)
+        words.append((lbl.get_text(), floor.text_width(lbl.get_text(), font, lbl.get_style_text_letter_space(0)),
+                      lbl.get_width()))
+    check(tag + ": the song's name and the next part show in full", words[0][0] == "COUNTRY TRAIN" and
+          "TRANSITION" in words[1][0] and all(tw <= lw for _t, tw, lw in words), repr(words))
     show(beat=2, role="fill", part="Fill 1", next="Main 1", next_role="main")
     check(tag + ": the part and the next one are shown", view.part.get_text() == "FILL 1" and
           "MAIN 1" in view.chip_text.get_text(), repr((view.part.get_text(), view.chip_text.get_text())))
@@ -204,6 +244,11 @@ def run_size(w, h):
     device.poll()
     want = [("pedal", {"pedal": 1, "down": True}), ("pedal", {"pedal": 1, "down": False})]
     check(tag + ": a touch on lamp B presses pedal B", model.commands == want, repr(model.commands))
+    a = lv.area_t()
+    view.switch.get_coords(a)
+    _headless.touch((a.x1 + a.x2) // 2, (a.y1 + a.y2) // 2, True, 40)
+    _headless.touch((a.x1 + a.x2) // 2, (a.y1 + a.y2) // 2, False, 40)
+    check(tag + ": the corner button asks for the desk view", switched == [1], repr(switched))
     scr.delete()
     device.close()
 

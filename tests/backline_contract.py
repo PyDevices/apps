@@ -2,8 +2,11 @@
 #
 # SPDX-License-Identifier: MIT
 """Backline's contract, on any interpreter: the pedal's gestures, the song's
-plan, parts switching on the bar line, the starter songs, each kind of kit
-sounding, and a pedal pressed from an hmilink panel.
+plan, parts switching on the bar line, the ring following the meter, the
+mixer's groups, the desk's song form and step taps, the starter songs, each
+kind of kit sounding, a pedal pressed from an hmilink panel, and a step
+edited from one panel while the song plays, heard in the sound and seen by
+another panel.
 
     python tests/backline_contract.py [--plant=NAME] [--tmp FOLDER]
     micropython -X heapsize=64M tests/backline_contract.py
@@ -38,7 +41,8 @@ from backline import pedal as pedals  # noqa: E402
 from songmodel import model  # noqa: E402
 
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
-          "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro")
+          "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
+          "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard")
 
 RESULTS = [0, 0]
 SKIPS = []
@@ -186,6 +190,38 @@ def plant(name):
             old(self, project)
             self.outro = None
         eng.Form.__init__ = init
+    elif name == "four-steps":
+        eng.meter = lambda project: (4, 1)
+    elif name == "deaf-mix":
+        eng.GROUP_OF.clear()
+    elif name == "form-out-of-order":
+        from backline import parts
+
+        old = parts.blocks
+        parts.blocks = lambda doc: sorted(old(doc), key=lambda b: b["role"])
+    elif name == "tap-sticks":
+        from backline import parts
+
+        parts.LEVELS = (0, 96, 96, 96)
+    elif name == "edit-resets-form":
+        from backline import box
+
+        old = box.Box.forward
+
+        def forward(self, op):
+            if "patterns" in op.get("path", ()):
+                self.engine.form.__init__(self.model.doc)
+                return
+            old(self, op)
+        box.Box.forward = forward
+    elif name == "edit-not-heard":
+        from backline import box
+
+        old = eng.Engine.load
+
+        def load(self, project):
+            old(self, json.loads(json.dumps(project)))
+        eng.Engine.load = load
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -340,6 +376,77 @@ def check_engine():
     check("a timed kit gets every note ahead, its delay landing it on its frame",
           exact and len(e.played) == len(kit.notes) > 0 and max(n[3] for n in kit.notes) > 0,
           "%d notes" % len(kit.notes))
+
+
+# -- the meter, the mixer, the desk's reading of a song -------------------------------
+
+
+def check_meter():
+    ballad = load("ballad_68")
+    spb = RATE * 60.0 / ballad["tempo"]
+    intro = eng.Form(ballad).length(ballad["parts"]["intro"])
+    e, kit, parts = run_engine(ballad, [(0, 0, "tap")], 3)
+    seen = []
+    for k in range(12):
+        tick = intro + eng.BAR + k * eng.BAR / 12.0 + 4
+        e.transport["playing"] = True
+        e.clock = (lambda f: lambda: f)(int(e.frame_at(tick)))
+        t = e.telemetry()
+        seen.append((t["step"], t["beat"]))
+    want = [(k + 1, k // 3 + 1) for k in range(12)]
+    check("12/8 lights twelve steps a bar, three to a beat", seen == want and e.telemetry()["steps"] == 12 and
+          e.telemetry()["beats"] == 4, repr(seen))
+    rock = load("rock")
+    t = run_engine(rock, [(0, 0, "tap")], 1)[0].telemetry()
+    check("4/4 lights four steps a bar, one a beat", t["steps"] == 4 and t["beats"] == 4, repr(t))
+
+
+def check_mix():
+    rock = load("rock")
+    rock["tracks"][0]["mix"] = {"kick": 0, "snare": 50}
+    e, kit, parts = run_engine(rock, [(0, 0, "tap")], 6)
+    kicks = [n for n in kit.notes if n[1] in (35, 36)]
+    pat = {}
+    for p in rock["tracks"][0]["patterns"]:
+        for n in p["notes"]:
+            if n[2] == 38:
+                pat[n[3]] = True
+    snares = [n[2] for n in kit.notes if n[1] == 38]
+    want = set(v * 50 // 100 for v in pat)
+    check("the mixer's kick at 0 silences the kick, its snare at 50 halves it",
+          not kicks and snares and set(snares) <= want, "%d kicks, snares %r" % (len(kicks), sorted(set(snares))))
+    check("a song with no mix gets every group at 100", load_mixed("pop") == eng.MIX, repr(load_mixed("pop")))
+
+
+def load_mixed(name):
+    e = eng.Engine(load(name), None, lambda: 0, RATE)
+    return e.track["mix"]
+
+
+def check_desk_reading():
+    from backline import parts
+
+    rock = load("rock")
+    roles = [(b["role"], b["number"]) for b in parts.blocks(rock)]
+    want = [("intro", None), ("main", 0), ("fill", 0), ("transition", 1), ("main", 1), ("fill", 1), ("outro", None)]
+    check("the song form reads intro, main 1, fill 1, transition, main 2, fill 2, outro", roles == want, repr(roles))
+    check("a 4/4 grid has sixteen steps a bar, 12/8 twelve", parts.columns(rock) == (16, 24) and
+          parts.columns(load("ballad_68")) == (12, 32), repr((parts.columns(rock), parts.columns(load("ballad_68")))))
+    doc = json.loads(json.dumps(rock))
+    index = doc["parts"]["mains"][0]
+    seen = []
+    for _ in range(4):
+        op, path, value = parts.tap(doc, index, 39, 3, 24)
+        keys = [int(k) if k.isdigit() else (-1 if k == "-" else k) for k in path.split("/")[1:]]
+        if op == "add":
+            model.apply(doc, {"op": "insert", "path": keys, "value": value})
+        elif op == "remove":
+            model.apply(doc, {"op": "remove", "path": keys})
+        else:
+            model.apply(doc, {"op": "set", "path": keys, "value": value})
+        lv = parts.levels(doc["tracks"][0]["patterns"][index], [39], 24)
+        seen.append(lv.get((39, 3), 0))
+    check("taps walk a cell on, loud, soft and off", seen == [1, 2, 3, 0], repr(seen))
 
 
 # -- the songs ---------------------------------------------------------------------
@@ -507,15 +614,80 @@ def check_panel():
     b.close()
 
 
+def check_live_edit():
+    """Two panels on one box, the song playing: one adds a clap to the main
+    groove and the other turns a hat down. The song plays on, the clap is
+    heard on its step from the next pass, and both panels end with the box's
+    song."""
+    try:
+        import hmilink
+        from hmilink import local
+        from backline import box as boxmod
+        import audiocore
+    except ImportError as e:
+        skip("a live edit", "no hmilink or audio modules here (%s)" % e)
+        return
+    frames = [0]
+    b = boxmod.Box(lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: frames[0] * 1000 // RATE)
+    b.device._tele_ms = 0
+    listener = b.device.add(local.serve())
+    a = hmilink.Panel(local.connect(listener))
+    c = hmilink.Panel(local.connect(listener))
+    b.poll()
+    a.poll()
+    c.poll()
+    e = b.engine
+    e.record = True
+    spb = RATE * 60.0 / e.project["tempo"]
+
+    def run(beats):
+        end = frames[0] + int(beats * spb)
+        while frames[0] < end:
+            b.service()
+            audiocore.get_buffer(b.bus.output)
+            frames[0] += 256
+            b.poll()
+            a.poll()
+            c.poll()
+
+    e.gesture(0, "tap")
+    run(10.2)                        # into main 1's first bar
+    main = e.project["parts"]["mains"][0]
+    before = len(e.played)
+    a.send("add", "/tracks/0/patterns/%d/notes/-" % main, [48, 24, 39, 110])
+    hats = [i for i, n in enumerate(e.project["tracks"][0]["patterns"][main]["notes"]) if n[2] == 42]
+    c.send("replace", "/tracks/0/patterns/%d/notes/%d/3" % (main, hats[0]), 40)
+    run(20)
+    t = e.telemetry()
+    check("the song plays on through an edit", t["playing"] and t["part"] == "Main 1", repr(t.get("part")))
+    claps = [n for n in e.played[before:] if n[1] == 39]
+    now = e.form.sounding(e.tick_at(frames[0]))
+    start = now[3] if now is not None else 0
+    length = e.form.length(main)
+    on_step = [n for n in claps if now is not None and abs((e.tick_at(n[0]) - start) % length - 48) < 1]
+    check("the clap added while it plays is heard, on its step", len(on_step) >= 2 and len(on_step) == len(claps),
+          "%d claps, %d on the step" % (len(claps), len(on_step)))
+    box_notes = b.model.doc["tracks"][0]["patterns"][main]["notes"]
+    same = a.doc["tracks"][0]["patterns"][main]["notes"] == box_notes == c.doc["tracks"][0]["patterns"][main]["notes"]
+    check("both panels end with the box's groove, the clap and the quieter hat in it",
+          same and [48, 24, 39, 110] in box_notes and box_notes[hats[0]][3] == 40,
+          "resyncs %d / %d" % (a.stats["resyncs"], c.stats["resyncs"]))
+    b.close()
+
+
 def main():
     p, tmp = args()
     plant(p)
     check_pedal()
     check_form()
     check_engine()
+    check_meter()
+    check_mix()
+    check_desk_reading()
     check_songs()
     check_kits(tmp)
     check_panel()
+    check_live_edit()
     print("on %s" % sys.implementation.name)
     print("%d passed, %d failed, %d skipped" % (RESULTS[0], RESULTS[1], len(SKIPS)))
     if RESULTS[1]:

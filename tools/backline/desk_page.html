@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backline</title>
+<!--
+  The desk page a Backline box serves on its desk port. It is one hmilink
+  panel: it opens ws://<box>/ws, takes the song, and sends every edit as a
+  JSON Patch op and every pedal as a command. It applies an op only when the
+  box sends it back numbered, so it always has the box's order; a gap in the
+  numbers means a frame went missing, and it asks for the whole song again.
+-->
+<style>
+:root { --bg:#0a0d12; --panel:#121821; --raised:#1a2230; --line:#2a3444; --fg:#dde3ec; --dim:#8792a5; --amber:#ffb703;
+  --intro:#4cc9f0; --main:#ffb703; --fill:#ff6b1a; --transition:#b28dff; --outro:#ff4d6d; --stopped:#7a8698; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.4 system-ui, sans-serif; }
+header { display:flex; flex-wrap:wrap; gap:14px; align-items:center; padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+h1 { font-size:15px; letter-spacing:3px; color:var(--amber); margin:0 6px 0 0; }
+button, select, input { background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:6px 12px; font:inherit; }
+button { cursor:pointer; }
+button:active { border-color:var(--amber); }
+button.on { border-color:var(--amber); background:#3b3115; }
+input[type=number] { width:70px; }
+label { color:var(--dim); display:flex; gap:6px; align-items:center; }
+#part { font-weight:600; min-width:110px; }
+#where { font-size:26px; font-variant-numeric:tabular-nums; min-width:80px; text-align:center; }
+#next { color:var(--dim); min-width:120px; }
+#status { color:var(--dim); font-size:12px; margin-left:auto; }
+main { padding:12px 16px; display:grid; gap:14px; }
+.pedals { display:flex; gap:14px; }
+.pedal { width:96px; height:96px; border-radius:50%; font-size:28px; font-weight:600; border:3px solid #4b5565;
+  background:radial-gradient(circle at 40% 35%, #2b3443, #07090d); touch-action:none; user-select:none; }
+.pedal.down { box-shadow:0 0 24px 6px var(--glow); border-color:var(--glow); }
+#pa { --glow:#ffb703; } #pb { --glow:#4cc9f0; }
+.strip { display:flex; gap:4px; position:relative; }
+.block { flex:1 1 0; border:1px solid var(--line); border-radius:6px; padding:10px 4px; text-align:center; font-size:13px;
+  cursor:pointer; position:relative; overflow:hidden; color:var(--c); background:color-mix(in srgb, var(--c) 14%, var(--bg)); }
+.block.lit { background:color-mix(in srgb, var(--c) 60%, var(--bg)); color:#fff; border:2px solid var(--c); }
+.block.next { border:2px dashed var(--c); }
+.block.picked { box-shadow:inset 0 -4px 0 var(--amber); }
+.playhead { position:absolute; top:0; bottom:0; width:2px; background:#fff; }
+.bar { display:flex; gap:10px; align-items:center; }
+.grid { overflow-x:auto; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:10px; }
+.row { display:flex; gap:3px; margin-bottom:3px; align-items:center; }
+.row span { width:96px; flex:none; color:var(--dim); font-size:13px; }
+.cell { width:30px; height:30px; flex:none; border-radius:4px; background:var(--raised); border:1px solid transparent; cursor:pointer; padding:0; }
+.cell.beat { margin-left:6px; }
+.cell.l1 { background:#c89a1a; } .cell.l2 { background:var(--amber); } .cell.l3 { background:#6e5a2a; }
+.cell.head { border-color:#fff; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BACKLINE</h1>
+  <select id="song" title="Song"></select>
+  <span id="part">READY</span>
+  <span id="where">- . -</span>
+  <span id="next"></span>
+  <label>Tempo <button id="slower">-</button><input id="tempo" type="number" min="40" max="240" step="1"><button id="faster">+</button></label>
+  <select id="kit" title="Kit"></select>
+  <span id="status">connecting</span>
+</header>
+<main>
+  <div class="pedals"><button class="pedal" id="pa">A</button><button class="pedal" id="pb">B</button></div>
+  <div class="strip" id="strip"></div>
+  <div class="bar"><b id="editing"></b><button id="prev">&lt;</button><span id="page"></span><button id="nextbar">&gt;</button>
+    <button id="follow" class="on">Follow</button></div>
+  <div class="grid" id="grid"></div>
+</main>
+<script>
+"use strict";
+const BAR = 384, LEVELS = [0, 96, 124, 56], CORE = [36, 38, 42, 46, 49];
+const SHORT = { intro: "INTRO", main: "MAIN", fill: "FILL", transition: "TRANS", outro: "OUTRO" };
+const LABEL = { intro: "Intro", main: "Main", fill: "Fill", transition: "Transition", outro: "Outro" };
+let ws = null, doc = null, desc = {}, seq = 0, me = null, nextId = 1, syncing = false;
+let tele = {}, blocks = [], shown = -1, bar = 0, follow = true, voices = [];
+const stats = { ops: 0, resyncs: 0 };
+window.backline = { stats, get doc() { return doc; }, get tele() { return tele; }, get ready() { return doc !== null && !syncing; },
+  send, command, get shown() { return shown >= 0 ? blocks[shown] : null; } };
+
+function connect() {
+  ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
+  ws.onopen = () => { ws.send(JSON.stringify({ t: "hello", v: 1 })); status("connected"); };
+  ws.onmessage = (e) => { for (const line of String(e.data).split("\n")) if (line.trim()) handle(JSON.parse(line)); };
+  ws.onclose = () => { status("the box went away; trying again"); doc = null; setTimeout(connect, 1000); };
+}
+function status(s) { document.getElementById("status").textContent = s; }
+
+function handle(m) {
+  if (m.t === "doc") {
+    doc = m.doc; desc = m.desc || {}; seq = m.seq; me = m.you; syncing = false; voices = desc.voices || [];
+    renderAll();
+  } else if (m.t === "op") {
+    if (doc === null || syncing) return;
+    if (m.seq !== seq + 1) { stats.resyncs++; syncing = true; ws.send(JSON.stringify({ t: "sync" })); return; }
+    seq = m.seq; stats.ops++;
+    apply(doc, m);
+    if (m.path === "/tempo") showTempo();
+    else if (m.path.startsWith("/parts") || m.path.endsWith("/bars")) renderAll();
+    else renderCells();
+  } else if (m.t === "tele") {
+    tele = m.v || {}; showTele();
+  } else if (m.t === "ev") {
+    if ((m.name === "kit" || m.name === "song") && m.voices) { voices = m.voices; desc.kit = m.spec || m.kit; renderKits(); renderGrid(); }
+  } else if (m.t === "err") {
+    status("the box said: " + m.msg);
+  }
+}
+
+// -- JSON Patch, the three ops hmilink uses --
+function split(p) { return p.split("/").slice(1).map((k) => k.replace(/~1/g, "/").replace(/~0/g, "~")); }
+function apply(root, op) {
+  const keys = split(op.path), last = keys.pop();
+  let node = root;
+  for (const k of keys) node = node[Array.isArray(node) ? +k : k];
+  if (Array.isArray(node)) {
+    if (op.op === "add") { if (last === "-") node.push(op.value); else node.splice(+last, 0, op.value); }
+    else if (op.op === "remove") node.splice(+last, 1);
+    else node[+last] = op.value;
+  } else if (op.op === "remove") delete node[last];
+  else node[last] = op.value;
+}
+function send(op, path, value) {
+  const m = { t: "op", op, path, id: nextId++ };
+  if (op !== "remove") m.value = value;
+  ws.send(JSON.stringify(m));
+}
+function command(name, args) { ws.send(JSON.stringify({ t: "cmd", name, args: args || {} })); }
+
+// -- the song: its form, its meter and a part's grid, as the Python desk reads them --
+function meter() {
+  const [n, d] = String(doc.meter || "4/4").split("/").map(Number);
+  if (!(n >= 1)) return [4, 1];
+  return d === 8 && n % 3 === 0 && n > 3 ? [n, 3] : [n, 1];
+}
+function columns() { const [steps, group] = meter(); const cols = steps * (group === 1 ? 4 : 1); return [cols, BAR / cols, group === 1 ? 4 : group]; }
+function makeBlocks() {
+  const parts = doc.parts || {}, pats = doc.tracks[0].patterns, out = [];
+  const add = (role, number, p) => {
+    if (p == null || p < 0 || p >= pats.length) return;
+    const label = LABEL[role] + (number == null ? "" : " " + (number + 1));
+    out.push({ role, number, pattern: p, bars: Math.max(1, pats[p].bars || 1), label,
+      short: SHORT[role] + (number == null || role === "transition" ? "" : " " + (number + 1)) });
+  };
+  const mains = parts.mains || [0], fills = parts.fills || [];
+  let trans = parts.transitions != null ? parts.transitions : parts.transition;
+  trans = Array.isArray(trans) ? trans : trans == null ? [] : [trans];
+  const each = trans.length === mains.length;
+  add("intro", null, parts.intro);
+  mains.forEach((m, n) => {
+    if (n && trans.length) add("transition", n, each ? trans[n] : trans[0]);
+    add("main", n, m);
+    if (n < fills.length) add("fill", n, fills[n]);
+  });
+  if (each && mains.length > 1) add("transition", 0, trans[0]);
+  add("outro", null, parts.outro);
+  return out;
+}
+function find(role, number) { return blocks.findIndex((b) => b.role === role && (b.number === number || role === "intro" || role === "outro")); }
+function level(v) { return v <= 0 ? 0 : v < 80 ? 3 : v < 112 ? 1 : 2; }
+function rows() {
+  const names = new Map(voices.map(([p, n]) => [p, n])), used = new Set();
+  for (const pat of doc.tracks[0].patterns) for (const n of pat.notes) used.add(n[2]);
+  const want = new Set([...CORE.filter((p) => names.has(p)), ...used]);
+  return [...want].sort((a, b) => b - a).map((p) => [p, names.get(p) || "Note " + p]);
+}
+function tap(index, pitch, step, ticks) {
+  const notes = doc.tracks[0].patterns[index].notes, base = "/tracks/0/patterns/" + index + "/notes";
+  const i = notes.findIndex((n) => n[2] === pitch && n[0] >= step * ticks && n[0] < (step + 1) * ticks);
+  if (i < 0) return send("add", base + "/-", [step * ticks, ticks, pitch, LEVELS[1]]);
+  const now = level(notes[i][3]);
+  if (now === 3) return send("remove", base + "/" + i);
+  send("replace", base + "/" + i + "/3", LEVELS[now === 1 ? 2 : 3]);
+}
+
+// -- the page --
+function renderAll() {
+  blocks = makeBlocks();
+  if (shown < 0 || shown >= blocks.length) shown = Math.max(0, blocks.findIndex((b) => b.role === "main"));
+  const song = document.getElementById("song");
+  song.textContent = "";
+  (desc.titles || desc.songs || []).forEach((t, i) => { const o = document.createElement("option"); o.value = i; o.textContent = t; song.append(o); });
+  renderKits(); showTempo(); renderStrip(); renderGrid(); showTele();
+}
+function renderKits() {
+  const kit = document.getElementById("kit");
+  kit.textContent = "";
+  for (const k of desc.kit_list || []) { const o = document.createElement("option"); o.value = k.spec; o.textContent = k.name; kit.append(o); }
+  if (desc.kit) kit.value = desc.kit;
+}
+function showTempo() {
+  const el = document.getElementById("tempo");
+  if (document.activeElement !== el) el.value = Math.round(doc.tempo);
+}
+function renderStrip() {
+  const strip = document.getElementById("strip");
+  strip.textContent = "";
+  blocks.forEach((b, i) => {
+    const el = document.createElement("div");
+    el.className = "block" + (i === shown ? " picked" : "");
+    el.style.setProperty("--c", "var(--" + b.role + ")");
+    el.style.flexGrow = b.bars;
+    el.textContent = b.short;
+    el.dataset.block = i;
+    el.onclick = () => { follow = false; showFollow(); shown = i; bar = 0; renderStrip(); renderGrid(); };
+    strip.append(el);
+  });
+}
+function renderGrid() {
+  const grid = document.getElementById("grid");
+  grid.textContent = "";
+  const b = blocks[shown];
+  if (!b) return;
+  const [cols, ticks, beat] = columns();
+  bar = Math.min(bar, b.bars - 1);
+  document.getElementById("editing").textContent = b.label.toUpperCase();
+  document.getElementById("page").textContent = "Bar " + (bar + 1) + " / " + b.bars;
+  for (const [pitch, name] of rows()) {
+    const row = document.createElement("div");
+    row.className = "row";
+    const label = document.createElement("span"); label.textContent = name; row.append(label);
+    for (let c = 0; c < cols; c++) {
+      const cell = document.createElement("button");
+      cell.className = "cell" + (c && c % beat === 0 ? " beat" : "");
+      cell.dataset.pitch = pitch; cell.dataset.step = bar * cols + c; cell.dataset.col = c;
+      cell.onclick = () => { tap(b.pattern, pitch, bar * cols + c, ticks); };
+      row.append(cell);
+    }
+    grid.append(row);
+  }
+  renderCells();
+}
+function renderCells() {
+  const b = blocks[shown];
+  if (!b) return;
+  const [, ticks] = columns(), notes = doc.tracks[0].patterns[b.pattern].notes, lv = new Map();
+  for (const n of notes) { const k = n[2] + ":" + Math.floor(n[0] / ticks); lv.set(k, Math.max(lv.get(k) || 0, level(n[3]))); }
+  for (const c of document.querySelectorAll(".cell")) {
+    const l = lv.get(c.dataset.pitch + ":" + c.dataset.step) || 0;
+    c.classList.remove("l1", "l2", "l3");
+    if (l) c.classList.add("l" + l);
+    c.dataset.level = l;
+  }
+}
+function showFollow() { document.getElementById("follow").classList.toggle("on", follow); }
+function showTele() {
+  if (!doc) return;
+  const t = tele, playing = !!t.playing;
+  const part = document.getElementById("part");
+  part.textContent = (t.part || "Ready").toUpperCase();
+  part.style.color = "var(--" + (t.role || "stopped") + ")";
+  document.getElementById("where").textContent = playing ? t.bar + " . " + t.beat : "- . -";
+  document.getElementById("next").textContent = t.next ? "NEXT " + t.next.toUpperCase() : playing ? "LOOPING" : "TAP A TO START";
+  const song = document.getElementById("song");
+  if (t.song_index != null && document.activeElement !== song) song.value = t.song_index;
+  for (const [i, el] of [document.getElementById("pa"), document.getElementById("pb")].entries())
+    el.classList.toggle("down", (t.pedals || [])[i] && t.pedals[i] !== "up");
+  const lit = playing ? find(t.role, t.number) : -1, nxt = playing ? find(t.next_role, t.next_number) : -1;
+  if (follow && lit >= 0 && (lit !== shown || Math.floor((t.at || 0) / BAR) !== bar)) {
+    shown = lit; bar = Math.floor((t.at || 0) / BAR); renderStrip(); renderGrid();
+  }
+  const els = document.querySelectorAll(".block");
+  els.forEach((el, i) => { el.classList.toggle("lit", i === lit); el.classList.toggle("next", i === nxt && nxt !== lit); });
+  document.querySelectorAll(".playhead").forEach((h) => h.remove());
+  if (lit >= 0) {
+    const h = document.createElement("div");
+    h.className = "playhead";
+    h.style.left = Math.min(100, 100 * (t.at || 0) / (blocks[lit].bars * BAR)) + "%";
+    els[lit].append(h);
+  }
+  for (const c of document.querySelectorAll(".cell.head")) c.classList.remove("head");
+  const b = blocks[shown];
+  if (playing && b && t.pattern === b.pattern && Math.floor((t.at || 0) / BAR) === bar) {
+    const [, ticks] = columns(), col = Math.floor(((t.at || 0) % BAR) / ticks);
+    for (const c of document.querySelectorAll('.cell[data-col="' + col + '"]')) c.classList.add("head");
+  }
+}
+
+for (const [id, which] of [["pa", 0], ["pb", 1]]) {
+  const el = document.getElementById(id);
+  el.onpointerdown = (e) => { el.setPointerCapture(e.pointerId); command("pedal", { pedal: which, down: true }); };
+  el.onpointerup = el.onpointercancel = () => command("pedal", { pedal: which, down: false });
+}
+const keys = new Set();
+document.onkeydown = (e) => {
+  const which = e.key === " " ? 0 : e.key === "b" ? 1 : -1;
+  if (which < 0 || keys.has(e.key) || e.target.tagName === "INPUT") return;
+  keys.add(e.key); e.preventDefault(); command("pedal", { pedal: which, down: true });
+};
+document.onkeyup = (e) => {
+  const which = e.key === " " ? 0 : e.key === "b" ? 1 : -1;
+  if (which < 0 || !keys.has(e.key)) return;
+  keys.delete(e.key); command("pedal", { pedal: which, down: false });
+};
+document.getElementById("song").onchange = (e) => command("song", { index: +e.target.value });
+document.getElementById("kit").onchange = (e) => command("kit", { spec: e.target.value });
+document.getElementById("tempo").onchange = (e) => send("replace", "/tempo", +e.target.value);
+document.getElementById("slower").onclick = () => send("replace", "/tempo", Math.round(doc.tempo) - 1);
+document.getElementById("faster").onclick = () => send("replace", "/tempo", Math.round(doc.tempo) + 1);
+document.getElementById("prev").onclick = () => { follow = false; showFollow(); const b = blocks[shown]; bar = (bar + b.bars - 1) % b.bars; renderGrid(); };
+document.getElementById("nextbar").onclick = () => { follow = false; showFollow(); const b = blocks[shown]; bar = (bar + 1) % b.bars; renderGrid(); };
+document.getElementById("follow").onclick = () => { follow = !follow; showFollow(); };
+connect();
+</script>
+</body>
+</html>
