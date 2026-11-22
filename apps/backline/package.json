@@ -23,6 +23,10 @@
       "box.py"
     ],
     [
+      "cast.py",
+      "cast.py"
+    ],
+    [
       "desk/__init__.py",
       "desk/__init__.py"
     ],
@@ -143,6 +147,10 @@
     [
       "touchkit",
       "latest"
+    ],
+    [
+      "github:PyDevices/omnipython/packages/castdisplay",
+      "main"
     ]
   ],
   "upstream": [

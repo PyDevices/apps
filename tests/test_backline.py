@@ -34,6 +34,7 @@ TESTS = Path(__file__).resolve().parent
 CONTRACT = str(TESTS / "backline_contract.py")
 FLOOR = str(TESTS / "backline_floor_contract.py")
 DESK = str(TESTS / "backline_desk_contract.py")
+CAST = str(TESTS / "backline_cast_contract.py")
 PAGE = str(TESTS.parent / "tools" / "backline" / "desk_page.py")
 sys.path.insert(0, str(TESTS))
 
@@ -46,6 +47,7 @@ NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-n
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
                 "dead-switch")
 DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader")
+CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 
 
@@ -213,6 +215,22 @@ class DeskView(unittest.TestCase):
     def test_desk_plants(self):
         cmd, env = _cmd("cpython", DESK)
         for plant in DESK_PLANTS:
+            with self.subTest(plant=plant):
+                result = _run(cmd, env, "--plant=" + plant)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
+
+    def test_cast(self):
+        """The desk at 1280x720 on a display of its own, its frames handed
+        to a stand-in for a cast while the song plays."""
+        cmd, env = _cmd("cpython", CAST)
+        result = _run(cmd, env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_cast_plants(self):
+        cmd, env = _cmd("cpython", CAST)
+        for plant in CAST_PLANTS:
             with self.subTest(plant=plant):
                 result = _run(cmd, env, "--plant=" + plant)
                 self.assertNotEqual(result.returncode, 0, result.stdout)
