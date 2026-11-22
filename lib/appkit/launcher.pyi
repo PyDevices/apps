@@ -77,6 +77,12 @@ class Launcher:
     @property
     def names(self) -> tuple[str, ...]:
         """Every app's and script's name, in the order they were added."""
+    def hide(self, name: str, reason: str = "") -> None:
+        """Keep app `name` off Home's pages, remembering why; saved for the whole device."""
+    def unhide(self, name: str) -> None:
+        """Put app `name` back on Home's pages."""
+    def hidden(self) -> dict[str, str]:
+        """The hidden apps, name to reason; a copy."""
     def heap(self) -> tuple[int | None, int | None]:
         """`(free, largest_free_block)` now, or `(None, None)` on CPython."""
     def boot(self, default: str | None = None) -> str:
