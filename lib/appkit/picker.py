@@ -26,24 +26,13 @@ it (``Picker.group``). The functions above the class (`kinds`, `summary`,
 
 import endpointkit
 import lvgl as lv
+import iconkit
 from iconkit import lvicons
 
-#: What each kind is called, and its icon, in the order the first page lists them.
-TITLES = (
-    ("audio.out", "Audio out", "volume_up"),
-    ("audio.in", "Audio in", "mic"),
-    ("midi.in", "MIDI in", "piano"),
-    ("midi.out", "MIDI out", "music_note"),
-    ("net", "Network", "wifi"),
-    ("cast.target", "Cast to", "cast"),
-    ("camera", "Camera", "photo_camera"),
-    ("gamepad", "Gamepads", "sports_esports"),
-    ("keys", "Keyboards", "keyboard"),
-    ("pointer", "Pointers", "cable"),
-    ("storage", "Storage", "sd_card"),
-    ("serial", "Serial", "usb"),
-)
-#: The icon of a kind `TITLES` doesn't name.
+# The icons iconkit draws at the picker's size.
+_ICONS = set(iconkit.names(24))
+
+#: The icon a kind gets when iconkit hasn't the one endpointkit names.
 OTHER_ICON = "cable"
 
 #: How often, in milliseconds, the open picker asks endpointkit for news.
@@ -58,29 +47,21 @@ _STATES = {
 
 
 def title(kind):
-    """What the picker calls *kind*: "Audio out" for ``audio.out``."""
-    for k, name, _ in TITLES:
-        if k == kind:
-            return name
-    return kind
+    """What the picker calls *kind*: endpointkit's title, "Audio out" for ``audio.out``."""
+    return endpointkit.title(kind)
 
 
 def icon(kind):
-    """The iconkit name of *kind*'s icon."""
-    for k, _, name in TITLES:
-        if k == kind:
-            return name
-    return OTHER_ICON
+    """The iconkit name of *kind*'s icon: endpointkit's, or `OTHER_ICON`
+    when iconkit hasn't that one."""
+    name = endpointkit.icon(kind)
+    return name if name in _ICONS else OTHER_ICON
 
 
 def kinds(registry):
-    """The kinds *registry* has providers for, in `TITLES` order, then the rest by name."""
-    have = []
-    for p in registry.providers():
-        if p.kind not in have:
-            have.append(p.kind)
-    known = [k for k, _, _ in TITLES if k in have]
-    return known + sorted(k for k in have if k not in known)
+    """The kinds *registry* has providers for, in the order endpointkit knows them."""
+    have = [p.kind for p in registry.providers()]
+    return [k for k in endpointkit.kinds() if k in have]
 
 
 def summary(registry, kind):

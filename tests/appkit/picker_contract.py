@@ -198,9 +198,13 @@ fakes = fake.bench(reg, delay=2)
 order = P.kinds(reg)
 check(order == ["audio.out", "audio.in", "midi.in", "midi.out", "net", "camera",
                 "espnow.peer", "thread.net"], "the kinds in order: %r" % (order,))
-check(P.title("audio.out") == "Audio out" and P.title("espnow.peer") == "espnow.peer",
-      "a kind's title, or its name when the picker doesn't know it")
-check(P.icon("thread.net") == P.OTHER_ICON, "an unknown kind gets the other icon")
+check(P.title("audio.out") == "Audio out" and P.title("espnow.peer") == "ESP-NOW peers",
+      "a kind's title is endpointkit's, an added kind's too")
+endpointkit.add_kind("test.bare", endpointkit.MANY)
+check(P.title("test.bare") == "test.bare" and P.icon("test.bare") == P.OTHER_ICON,
+      "a kind added with no title is its name, with the other icon")
+check(P.icon("audio.out") == "volume_up" and P.icon("thread.net") == P.OTHER_ICON,
+      "endpointkit's icon, or the other one when iconkit hasn't it")
 check(P.summary(reg, "audio.out") == "Nothing chosen", "nothing chosen yet")
 
 p = P.Picker(reg)
