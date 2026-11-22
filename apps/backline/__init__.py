@@ -13,12 +13,19 @@ On a computer the space bar is pedal A and B is pedal B; Left and Right
 choose the song while stopped, and K changes the kit. The two lamps on the
 screen are pedals too.
 
+On a screen of 640x400 or more, D (or the button in the corner) swaps the
+floor view for the desk view (``desk/``): the same face larger with the
+song's form, and an editor whose step grid, kits and mixer change the song
+while it plays. Other screens join as desks on port 9300: a browser at
+``http://<box>:9300/``, or another computer with ``python -m
+backline.desk_main HOST``. ``remote.py`` says how to change the port or turn it off.
+
 Songs are songmodel projects in the app's ``songs`` folder, eight styles
 to start with. Kits are audioinstruments' drum machines, the drum kit of a
 SoundFont (``kits.py`` says where it looks) and folders of WAV files.
 
-The floor view (``floor.py``) draws from an hmilink panel on the box's own
-device, so any other screen can join it the same way.
+Each view draws from an hmilink panel on the box's own device, so any
+other screen can join it the same way.
 """
 
 

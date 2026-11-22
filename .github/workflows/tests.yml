@@ -108,7 +108,7 @@ jobs:
           echo "btreceiver=$(has '^(apps/btreceiver/|lib/(touchkit|appkit|controlkit|spectrum)/|tests/(test_btreceiver|btreceiver_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "huey=$(has '^(apps/(huey|perch)/|tests/(test_huey|huey_contract|huey_fakes|huey_servers_check|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "midicontroller=$(has '^(apps/midicontroller/|lib/(touchkit|appkit|controlkit)/|tests/(test_midicontroller|midicontroller_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "backline=$(has '^(apps/backline/|lib/songmodel/|tools/backline/|tests/(test_backline|backline_contract|backline_floor_contract|_headless|test_engine)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "backline=$(has '^(apps/backline/|lib/songmodel/|tools/backline/|tests/(test_backline|backline_contract|backline_floor_contract|backline_desk_contract|_headless|test_engine)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           cat "$GITHUB_OUTPUT"
 
   # Ostinato's own checks: the page, the service worker and what each
@@ -289,10 +289,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install LVGL, svgio and audiodsp for CPython
+      - name: Install LVGL, svgio, icons and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" omnipython-audiodsp numpy resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" omnipython-audiodsp numpy resvg_py pillow
 
       - name: Backline's tests
         env:
