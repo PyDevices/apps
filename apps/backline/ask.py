@@ -65,6 +65,8 @@ KIT_NOTES = {
     "soundfont": "acoustic drum kit: blues, jazz, rock, anything played live",
 }
 TRIES = 2            # the first answer, and one more with what was wrong with it
+#: How much of a bad answer goes back with what was wrong with it.
+ECHO_MOST = 1500
 MAX_TOKENS = 3000
 #: Seconds the server may take to answer: a small model on a computer with no GPU writes a song in minutes.
 TIMEOUT = 600
@@ -105,9 +107,17 @@ def load_settings(path):
 # -- the spec ----------------------------------------------------------------------
 
 
+def _bars(steps):
+    """A regular expression for one to four bars of *steps* steps, with "|" between them."""
+    bar = "[Xxog.]{%d}" % steps
+    return "%s(\\|%s){0,3}" % (bar, bar)
+
+
 def schema(kits):
     """The JSON Schema a song spec follows, with *kits* the kit names to choose from."""
-    grid = {"type": "string", "pattern": "^[Xxog.| ]+$"}
+    # whole bars of 12 or 16 steps, one to four of them: a small model held
+    # to a schema then can't miscount a bar, or write one grid forever
+    grid = {"type": "string", "pattern": "^(%s|%s)$" % (_bars(16), _bars(12))}
     voices = {"type": "object", "properties": dict((name, grid) for name, _n in VOICES), "additionalProperties": False}
     return {
         "type": "object",
@@ -172,8 +182,8 @@ def system_prompt(kits):
         "main2, fill1, fill2, transition, outro. main1 is required. A 12-bar blues has main1 of 12 bars. "
         "fill1 is the fill played in main1, fill2 in main2, transition goes into main2.\n"
         "- patterns: for each part in form, its drums, each a step grid string: one character a step, "
-        "X accent, x hit, o soft, g ghost note, . rest. \"|\" between bars is only for reading. A grid is "
-        "one bar (steps characters) or several whole bars, and repeats to fill the part. Drums: %s.\n"
+        "X accent, x hit, o soft, g ghost note, . rest. A grid is one bar of exactly steps characters, or two "
+        "to four such bars with \"|\" between them, and repeats to fill the part. Drums: %s.\n"
         "- play: {\"repeat\": n, \"outro_tempo\": bpm}. repeat is how many times the song goes through its "
         "main parts before the outro, and 0 loops until the player stops it: \"loop continuously\" is 0, "
         "\"4 times through\" is 4. outro_tempo is the tempo the outro slows to by its end, or 0 to keep the "
@@ -602,7 +612,7 @@ class Asker:
                 project, filled = build(spec, self.starters, prompt)
                 return project, preview(project, filled, attempt + 1)
             messages = messages + [
-                {"role": "assistant", "content": text},
+                {"role": "assistant", "content": text[:ECHO_MOST]},
                 {"role": "user", "content": "That answer can't be used: %s. Send the whole song again as one JSON "
                                             "object, with those fixed." % "; ".join(errors[:12])},
             ]
