@@ -22,7 +22,7 @@ from touchkit import ui
 
 from . import box as boxmod
 from . import floor as floormod
-from . import glyphs, kits, remote
+from . import glyphs, kits, midipedal, remote
 from . import page_data
 
 SERVICE_MS = 4       # the pedals and the notes due
@@ -64,6 +64,41 @@ def _cast(box, prefs):
         return None
 
 
+def _config(scope):
+    """The app's ``config.json`` (the MIDI input and the switches' map), or
+    an empty dict where there's no data folder."""
+    try:
+        from touchkit import settings
+
+        return settings.config(scope, {})
+    except Exception:  # noqa: BLE001 - no data folder: start from the defaults
+        return {}
+
+
+def _save_config(scope, config):
+    """Keep the map for the next start: learning a switch is rare, so it is
+    written when it changes."""
+    import json
+
+    try:
+        from appkit import data
+
+        with open(data.join(scope.data_dir, "config.json"), "w") as f:
+            json.dump(config, f)
+    except (OSError, AttributeError, ValueError, ImportError) as e:
+        print("backline: couldn't save the settings:", e)
+
+
+def _midi_in(box, prefs, config):
+    """The MIDI input the switches come in on (`midipedal.open_input`), or
+    None. One that won't open says why on the box, and the box plays on."""
+    try:
+        return midipedal.open_input(spec=prefs.get("midi_in") or config.get("midi_in"))
+    except Exception as e:  # noqa: BLE001 - said on the screen
+        box.error = "no MIDI in: %s" % (e,)
+        return None
+
+
 def start(scope):
     global state
     W, H = scope.size
@@ -81,8 +116,10 @@ def start(scope):
         ui.missing(scope, "no audio", "Backline needs an audio output: %s" % (e,))
         return
     prefs = scope.store()
+    config = _config(scope)
     try:
-        box = boxmod.Box(_clock(out), song=prefs.get("song"), kit=prefs.get("kit"))
+        box = boxmod.Box(_clock(out), song=prefs.get("song"), kit=prefs.get("kit"),
+                         pedal_map=prefs.get("pedals") or config.get("pedals"))
     except Exception as e:  # noqa: BLE001
         out.close()
         ui.missing(scope, "can't start", "Backline: %s" % (e,))
@@ -96,10 +133,20 @@ def start(scope):
             box.device.add(tcp.serve(port, page=page_data.page()))
         except OSError as e:
             box.error = "desks can't join on port %d: %s" % (port, e)
+    name = remote.ble_name(prefs, scope.data_dir)
+    if name:
+        try:
+            from hmilink import ble
+
+            box.device.add(ble.serve(name))
+        except Exception as e:  # noqa: BLE001 - said on the screen
+            box.error = "no desks over Bluetooth: %s" % (e,)
     panel = hmilink.Panel(local.connect(listener))
     box.poll()
     panel.poll()
     caster = _cast(box, prefs)
+    box.midi_in = _midi_in(box, prefs, config)
+    kept = [box.midi.saved()]
     views = {"floor": None, "desk": None, "desk_panel": None, "shown": "floor"}
     can_desk = W >= DESK_SIZE[0] and H >= DESK_SIZE[1]
 
@@ -150,6 +197,11 @@ def start(scope):
         t = box.telemetry()
         prefs["song"] = box.songs[box.song_index][0]
         prefs["kit"] = box.engine.kit.spec if box.engine.kit is not None else None
+        pedals = box.midi.saved()
+        if pedals != kept[0]:
+            kept[0] = config["pedals"] = pedals
+            _save_config(scope, config)
+        prefs["pedals"] = pedals
         # The shell's header has room for the song's place in the list; a
         # label of the app's own, over the view, says only what went wrong.
         status.set_text(t["error"] if own_status else

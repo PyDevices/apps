@@ -9,14 +9,23 @@ desk page at ``http://<box>:<port>/``. A desk finds its box from the
 command line or the ``BACKLINE_BOX`` setting (`target`). The box can also
 cast its desk view to a screen across the room (`cast_target`).
 
+Over Bluetooth, a box with a radio takes desks too when it's given a name
+to advertise (`ble_name`): a phone's or a computer's browser joins it with
+Web Bluetooth. And a desk can wait for its box instead of finding it
+(`desk_link`): a board advertises, or listens on its USB, and a browser
+playing Backline connects to it.
+
 These functions are the one place that knows how; a device picker that
 lists the boxes and receivers it can see takes their place when there is
 one.
 """
 
+import json
 import os
 
 PORT = 9300
+#: The name a board advertises when a desk spec says ``ble:`` and no more.
+BLE_NAME = "Backline"
 # What a cast can go to: Miracast to a Windows PC's Wireless Display app or
 # a Roku's Screen mirroring, or frames to the PyDevices Companion channel
 # on a Roku.
@@ -83,3 +92,45 @@ def cast_target(prefs=None, spec=None):
     if kind not in CAST_KINDS or not host:
         raise ValueError("cast to KIND:HOST, KIND one of %s, not %r" % (", ".join(CAST_KINDS), spec))
     return {"kind": kind, "host": host, "name": "%s at %s" % (kind, host)}
+
+
+def ble_name(prefs=None, folder=None):
+    """The name the box advertises desks over Bluetooth with, or None for none.
+
+    ``prefs["ble"]``, else ``$BACKLINE_BLE``, else ``"ble"`` in
+    ``settings.json`` in ``folder`` (the app's data folder, ``/data/backline``
+    on a board), so a board keeps it across a restart:
+    ``{"ble": "Backline"}``. An empty name is none.
+    """
+    if prefs is not None and "ble" in prefs:
+        return prefs["ble"] or None
+    name = _getenv("BACKLINE_BLE")
+    if name is None and folder:
+        try:
+            with open(folder + "/settings.json") as f:
+                name = json.load(f).get("ble")
+        except (OSError, ValueError):
+            name = None
+    return name or None
+
+
+def desk_link(spec):
+    """How a desk reaches its box, from ``spec``.
+
+    ``HOST`` or ``HOST:PORT`` joins a box on the network over TCP;
+    ``ble:NAME`` advertises over Bluetooth as NAME (`BLE_NAME` when it's
+    left out) and waits for the box to connect, as a browser playing
+    Backline does; ``usb`` listens on a second USB serial port of the board,
+    which a browser on the computer it's plugged into opens with WebSerial.
+
+    Returns:
+        ``("tcp", (host, port))``, ``("ble", name)`` or ``("usb", None)``.
+
+    Raises:
+        ValueError: A TCP port isn't a number.
+    """
+    if spec.startswith("ble:") or spec == "ble":
+        return "ble", spec[4:] or BLE_NAME
+    if spec == "usb":
+        return "usb", None
+    return "tcp", target([spec])

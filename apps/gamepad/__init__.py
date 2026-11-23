@@ -104,7 +104,8 @@ def _status_row(scope):
 
 
 def _missing(scope, short, text):
-    """What this board lacks: *short* on the status line, *text* in the middle."""
+    """What this board lacks: *short* on the status line, *text* in the
+    middle, and touchkit's Hide from Home button under it."""
     status, row = _status_row(scope)
     status.set_text(short)
     W, H = scope.size
@@ -112,6 +113,7 @@ def _missing(scope, short, text):
     msg.set_width(W - 48)
     msg.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
     msg.align(lv.ALIGN.CENTER, 0, row // 2)
+    ui.hide_button(scope, short, msg)
     return msg
 
 

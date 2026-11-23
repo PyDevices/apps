@@ -43,6 +43,10 @@
       "desk/look.py"
     ],
     [
+      "desk/pedals.py",
+      "desk/pedals.py"
+    ],
+    [
       "desk/perform.py",
       "desk/perform.py"
     ],
@@ -69,6 +73,10 @@
     [
       "kits.py",
       "kits.py"
+    ],
+    [
+      "midipedal.py",
+      "midipedal.py"
     ],
     [
       "page_data.py",
@@ -142,6 +150,10 @@
     ],
     [
       "icons",
+      "latest"
+    ],
+    [
+      "midiports",
       "latest"
     ],
     [

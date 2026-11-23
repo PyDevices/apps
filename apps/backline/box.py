@@ -20,6 +20,13 @@ Commands, from any panel:
   at once, even while playing. Every panel hears ``kit`` back, with the
   notes the new kit plays (``voices``).
 - ``stop {}``: stop now.
+- ``action {"name": "fill"}``: one of the actions a MIDI switch can be
+  bound to (`midipedal.BINDINGS`): start, fill, next, outro, stop or
+  tap_tempo.
+- ``pedals {"learn": n}`` (-1 stops), ``pedals {"slot": n, "bind": "fill"}``
+  or ``pedals {"slot": n, "clear": true}``: the MIDI switches' map. Every
+  panel hears ``pedals`` back with the whole map, and again when a slot
+  learns its switch.
 
 Edits are songmodel ops on the document, and they reach the sound while it
 plays: a step added or removed plays from its next pass, a new tempo keeps
@@ -43,6 +50,7 @@ from songmodel.link import SongModel
 
 from . import engine as eng
 from . import kits
+from . import midipedal
 
 LEVEL = 0.9          # the kit's level at track volume 100
 here = __file__.replace("\\", "/")
@@ -79,13 +87,14 @@ class BacklineModel(SongModel):
             out["kit"] = box.kit_spec()
             out["voices"] = box.voices()
             out["groups"] = [[n, list(p)] for n, p in eng.GROUPS] + [[eng.OTHER, []]]
+            out["pedals"] = box.midi.describe()
         return out
 
 
 class Box:
     """The engine, its kit and the device. ``clock()`` is the output's frame."""
 
-    def __init__(self, clock, song=None, kit=None, rate=kits.RATE, songs=None, now_ms=None):
+    def __init__(self, clock, song=None, kit=None, rate=kits.RATE, songs=None, now_ms=None, pedal_map=None):
         self.rate = rate
         self.songs = song_files() if songs is None else songs
         self.kits = kits.available()
@@ -101,6 +110,11 @@ class Box:
         self.engine = eng.Engine(project, None, clock, rate, **kw)
         self.error = None
         self.cast = ""            # where the desk view is cast, while it is
+        #: The MIDI switches' map, and the input it reads (`midipedal.open_input`).
+        self.midi = midipedal.MidiPedal(pedal_map, on_pedal=self.pedal, on_action=self.action,
+                                        on_change=self._pedals_changed)
+        self.midi_in = None
+        self.taps = midipedal.TapTempo()
         self.model = BacklineModel(project, forward=self.forward, host=self)
         self.device = hmilink.Device(self.model, telemetry_hz=30)
         self.use_kit(kit or project["tracks"][0].get("instrument") or kits.MACHINES[0])
@@ -173,6 +187,12 @@ class Box:
     def service(self):
         """One pass: the pedals' timing, the notes due, the kit's fill, the panels."""
         e = self.engine
+        if self.midi_in is not None:
+            try:
+                self.midi.read_port(self.midi_in)
+            except Exception as err:  # noqa: BLE001 - said on the screen, the song plays on
+                self.error = "MIDI in stopped: %s" % (err,)
+                self.midi_in = None
         e.poll()
         e.sequence()
         self.bus.fill()
@@ -201,6 +221,43 @@ class Box:
         else:
             self.engine.release(which)
 
+    def action(self, name, now=None):
+        """Do one of a MIDI switch's actions (`midipedal.BINDINGS`); returns
+        what the song did, as `engine.Engine.gesture` says it, or the new tempo.
+
+        Each is a gesture of pedal A where the song is: start only starts a
+        stopped song, and fill, next and outro only change one that plays."""
+        e = self.engine
+        playing = e.transport["playing"]
+        if name == "start":
+            return e.gesture(0, "tap") if not playing else None
+        if name in ("fill", "next", "outro"):
+            return e.gesture(0, {"fill": "tap", "next": "hold", "outro": "double"}[name]) if playing else None
+        if name == "stop":
+            e.stop()
+            e.last = "stop"
+            return "stop"
+        if name == "tap_tempo":
+            bpm = self.taps.tap(e.now_ms() if now is None else now)
+            if bpm is not None:
+                self.set("/tempo", bpm)
+            return bpm
+        if name == "none":
+            return None
+        raise ValueError("no action %r" % (name,))
+
+    def set(self, path, value):
+        """Change the song from the box itself, as a panel's op would, and
+        tell every panel."""
+        dev = self.device
+        op = self.model.apply({"op": "replace", "path": path, "value": value})
+        dev.seq += 1
+        msg = {"t": "op", "seq": dev.seq, "op": op["op"], "path": op["path"], "value": op.get("value")}
+        dev.broadcast(msg)
+
+    def _pedals_changed(self):
+        self.device.event("pedals", **self.midi.describe())
+
     def command(self, name, args):
         e = self.engine
         if name == "pedal":
@@ -212,6 +269,18 @@ class Box:
         if name == "stop":
             e.stop()
             return None
+        if name == "action":
+            did = self.action(args["name"])
+            return {"name": "action", "action": args["name"], "did": did}
+        if name == "pedals":
+            m = self.midi
+            if "learn" in args:
+                m.learn(int(args["learn"]))
+            elif args.get("clear"):
+                m.clear(int(args["slot"]))
+            elif "bind" in args:
+                m.bind(int(args["slot"]), args["bind"])
+            return None               # the map changed: `_pedals_changed` told every panel
         if name == "song":
             if e.transport["playing"]:
                 raise ValueError("stop the song first")
@@ -233,5 +302,9 @@ class Box:
         raise ValueError("unknown command %r" % name)
 
     def close(self):
+        port = self.midi_in
+        self.midi_in = None
+        if port is not None and hasattr(port, "close"):
+            port.close()
         self.device.close()
         self.bus.close()

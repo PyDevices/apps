@@ -279,6 +279,38 @@ def _state_path():
     return data.join(root, ".next_app")
 
 
+def _hidden_path():
+    """Where the hidden list is kept: ``.hidden_apps.json`` in the data root,
+    beside the restart file."""
+    root = data.root()
+    data.makedirs(root)
+    return data.join(root, ".hidden_apps.json")
+
+
+def _load_hidden():
+    import json
+
+    try:
+        with open(_hidden_path()) as f:
+            found = json.load(f)
+    except OSError:
+        return {}
+    except ValueError as exc:
+        print("appkit: the hidden apps list is unreadable, so none is hidden:", exc)
+        return {}
+    if not isinstance(found, dict):
+        print("appkit: the hidden apps list isn't a name-to-reason table, so none is hidden")
+        return {}
+    return found
+
+
+def _save_hidden(hidden):
+    import json
+
+    with open(_hidden_path(), "w") as f:
+        json.dump(hidden, f)
+
+
 _MAGIC = b"appkit:"
 
 
@@ -602,6 +634,7 @@ class Launcher:
         self.shell = shell
         #: Each scanned app's ``app.json``, by name.
         self.info = {}
+        self._hidden = None  # name -> reason, read from the data root when first asked
         self.min_free = min_free
         self.min_block = min_block
         self.max_restarts = max_restarts
@@ -723,6 +756,34 @@ class Launcher:
     def names(self):
         """Every app's and script's name, in the order they were added."""
         return tuple(self._order)
+
+    # -- hidden apps ------------------------------------------------------
+
+    def hide(self, name, reason=""):
+        """Keep app *name* off Home's pages, remembering *reason* (why it
+        can't run here) to show on Home's Hidden apps page. Only a person
+        hides an app; the list is saved in the data root for the whole
+        device. It changes only what Home shows: `request` and scripts still
+        run a hidden app."""
+        hidden = self.hidden()
+        hidden[name] = reason
+        _save_hidden(hidden)
+        self._hidden = hidden
+
+    def unhide(self, name):
+        """Put app *name* back on Home's pages."""
+        hidden = self.hidden()
+        if name not in hidden:
+            return
+        del hidden[name]
+        _save_hidden(hidden)
+        self._hidden = hidden
+
+    def hidden(self):
+        """The hidden apps, as a dict of name to the reason given; a copy."""
+        if self._hidden is None:
+            self._hidden = _load_hidden()
+        return dict(self._hidden)
 
     # -- heap -----------------------------------------------------------
 

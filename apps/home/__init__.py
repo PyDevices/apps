@@ -12,6 +12,11 @@ page of its own, "More", last. Home knows no app by name.
 A tap on a tab switches pages at once; a swipe across the page slides to
 the next one. Home comes back to the tab it was last on.
 
+An app hidden from an app's can't-run screen (``Launcher.hide``) stays off
+the pages. While any are hidden, a button beside the gear (a long press on
+the gear on a round screen) opens the Hidden apps page: each one with the
+reason it gave, and an Unhide button.
+
 On a round screen (see ``appkit.shell.is_round``) the pages and their tabs
 fill the square inside the circle, two apps by two, and the gear sits
 centred above them, so nothing falls outside the circle.
@@ -105,13 +110,14 @@ def _tile(name, entry):
     return (name, icon, int(entry.get("color", DEFAULT_COLOR)[1:], 16))
 
 
-def _pages(info):
-    """``[(category, [(app, icon, colour), ...]), ...]``, from each app's ``app.json``."""
+def _pages(info, hidden=()):
+    """``[(category, [(app, icon, colour), ...]), ...]``, from each app's
+    ``app.json``, leaving out the apps in *hidden*."""
     by_category = {}
     more = []
     for name in sorted(info):
         entry = info[name]
-        if not entry.get("tile", True):
+        if not entry.get("tile", True) or name in hidden:
             continue
         category = entry.get("category")
         if category is None:
@@ -174,6 +180,19 @@ def main(scope):
             lvicons.image(gear, "settings", 24, ui.WHITE).center()
         gear.add_event_cb(lambda e: scope.switch(gear_app), lv.EVENT.CLICKED, None)
 
+    hidden = scope.launcher.hidden()
+    if hidden:
+        if round_ and gear_app is not None:
+            gear.add_event_cb(lambda e: _hidden_page(scope, hidden), lv.EVENT.LONG_PRESSED, None)
+        elif not round_:
+            shown = lv.button(scr)
+            shown.set_style_bg_color(lv.color_hex(0x44505E), 0)
+            shown.set_size(64, TOP - 12)
+            shown.align(lv.ALIGN.TOP_RIGHT, -GAP - (64 + GAP if gear_app is not None else 0), 6)
+            shown.set_style_radius(12, 0)
+            lvicons.image(shown, "visibility_off", 24, ui.WHITE).center()
+            shown.add_event_cb(lambda e: _hidden_page(scope, hidden), lv.EVENT.CLICKED, None)
+
     tv = lv.tabview(scr)
     if round_:
         tv.set_pos(x0, x0)
@@ -186,7 +205,7 @@ def main(scope):
     tv.set_style_bg_color(ui.BG, 0)
     tv.get_content().set_style_bg_color(ui.BG, 0)
 
-    pages = _pages(info)
+    pages = _pages(info, hidden)
     for name, apps in pages:
         page = tv.add_tab(name)
         page.set_style_pad_all(0, 0)
@@ -232,3 +251,56 @@ def main(scope):
         kept["tab"] = tv.get_tab_active()
 
     tv.add_event_cb(changed, lv.EVENT.VALUE_CHANGED, None)
+
+
+def _hidden_page(scope, hidden):
+    """The Hidden apps page over Home: each hidden app, the reason it gave and
+    an Unhide button. Back closes it; Home is drawn again if anything came back."""
+    W, H = scope.size
+    info = scope.launcher.info
+    page = ui.plain(lv.obj(scope.root))
+    page.set_size(W, H)
+    page.set_style_bg_color(ui.BG, 0)
+    page.set_style_bg_opa(lv.OPA.COVER, 0)
+    title = ui.label(page, "Hidden apps", ui.big, ui.ACCENT)
+    title.set_pos(GAP + 4, 14)
+    changed = []
+
+    def back():
+        if changed:
+            scope.switch(scope.launcher.home)  # the pages again, with the apps back
+        else:
+            page.delete_async()  # from its own button's callback
+
+    b, _ = ui.button(page, lv.SYMBOL.LEFT + "  Back", back, h=TOP - 12, color=ui.PANEL)
+    b.align(lv.ALIGN.TOP_RIGHT, -GAP, 6)
+    rows = lv.obj(page)
+    rows.set_pos(0, TOP)
+    rows.set_size(W, H - TOP)
+    rows.set_style_bg_opa(lv.OPA.TRANSP, 0)
+    rows.set_style_border_width(0, 0)
+    rows.set_style_pad_all(GAP, 0)
+    rows.set_style_pad_gap(GAP, 0)
+    rows.set_flex_flow(lv.FLEX_FLOW.COLUMN)
+    for name in sorted(hidden):
+        row = ui.plain(lv.obj(rows))
+        row.set_size(lv.pct(100), lv.SIZE_CONTENT)
+        row.set_style_bg_color(lv.color_hex(CARD), 0)
+        row.set_style_bg_opa(lv.OPA.COVER, 0)
+        row.set_style_radius(12, 0)
+        row.set_style_pad_all(GAP, 0)
+        text = ui.label(row, info.get(name, {}).get("title", name), ui.font, ui.WHITE)
+        text.set_pos(0, 0)
+        if hidden[name]:
+            why = ui.label(row, hidden[name], ui.small, ui.MUTED)
+            why.set_width(W - 4 * GAP - 140)
+            why.align_to(text, lv.ALIGN.OUT_BOTTOM_LEFT, 0, 4)
+
+        def unhide(name=name, row=row):
+            scope.launcher.unhide(name)
+            changed.append(name)
+            row.delete_async()  # from its own button's callback
+
+        u, _ = ui.button(row, "Unhide", unhide, w=120, color=ui.PANEL)
+        u.align(lv.ALIGN.RIGHT_MID, 0, 0)
+    return page

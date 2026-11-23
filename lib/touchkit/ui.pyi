@@ -32,6 +32,8 @@ def status(scope: AppScope) -> Any:
     """The app's status line label."""
 def missing(scope: AppScope, short: str, text: str) -> Any:
     """Say an app can't run here: `short` on the status line and `text` in the middle."""
+def hide_button(scope: AppScope, reason: str, below: Any) -> Any:
+    """A Hide from Home button under `below`, when there's a home screen; else None."""
 def label(parent: Any, text: str = "", font: Any = None, color: Any = None) -> Any: ...
 def button(
     parent: Any,

@@ -12,6 +12,15 @@ The box is a running Backline. With no address, it looks on this computer,
 or at ``$BACKLINE_BOX``. The space bar is pedal A and B is pedal B, as on
 the box. When the box goes away, the desk says so and joins it again when
 it's back.
+
+A board can also wait for its box, when the box is a browser playing
+Backline (a browser can connect, but can't be found): ``ble:NAME``
+advertises over Bluetooth as NAME, and ``usb`` listens on a second USB
+serial port (`remote.desk_link`). From the board's REPL, with the app in
+``/apps/backline``::
+
+    from backline import desk_main
+    desk_main.main(["ble:Backline"])
 """
 
 import socket
@@ -19,7 +28,7 @@ import sys
 
 import hmilink
 import lvgl as lv
-from hmilink import tcp
+from hmilink import stream, tcp
 
 from .desk import Desk
 from . import remote
@@ -48,29 +57,79 @@ def join(host, port, seconds=JOIN_S):
     return hmilink.Panel(link)
 
 
-class Remote:
-    """A `Desk` on ``screen`` that keeps a link to the box at ``(host, port)``."""
+def usb_serial():
+    """A second USB serial port on this board, beside the REPL's, for a
+    browser's WebSerial. Needs micropython-lib's ``usb-device-cdc``."""
+    import usb.device
+    from usb.device.cdc import CDCInterface
 
-    def __init__(self, screen, size, host, port, connect=join):
+    cdc = CDCInterface(timeout=0)
+    usb.device.get().init(cdc, builtin_driver=True)
+    return cdc
+
+
+def opener(spec, usb=usb_serial, adapter=None):
+    """``(where, connect)`` for a desk spec (`remote.desk_link`): what the
+    desk calls its box, and ``connect(host, port)`` for `Remote`, which makes
+    a panel on it. ``usb`` makes the USB port, once; ``adapter`` is the
+    Bluetooth radio (the board's own when it's left out).
+
+    Raises:
+        ValueError: A TCP port isn't a number.
+    """
+    kind, arg = remote.desk_link(spec)
+    if kind == "ble":
+        from hmilink import ble
+
+        return "Bluetooth, as %s" % arg, lambda _h, _p: hmilink.Panel(ble.advertise(arg, adapter=adapter))
+    if kind == "usb":
+        port = []
+
+        def on_usb(_h, _p):
+            if not port:
+                port.append(usb())
+            return hmilink.Panel(stream.link(port[0]))
+
+        return "USB", on_usb
+    return "%s:%d" % arg, lambda _h, _p: join(arg[0], arg[1])
+
+
+class Remote:
+    """A `Desk` on ``screen`` that keeps a link to the box at ``(host, port)``.
+
+    ``connect(host, port)`` makes the panel; ``where`` is what the desk
+    calls the box (``host:port`` when it's left out).
+    """
+
+    def __init__(self, screen, size, host, port, connect=join, where=None):
         self.host, self.port = host, port
+        self.where = where or "%s:%s" % (host, port)
         self.connect = connect
         self.desk = Desk(screen, size, None)
         self.waited = RETRY_MS
+        self.waiting = False
         self._try()
 
     def _try(self):
         try:
             panel = self.connect(self.host, self.port)
         except OSError as e:
-            self.desk._error({"msg": "no box at %s:%d (%s)" % (self.host, self.port, e)})
+            self.desk._error({"msg": "no box at %s (%s)" % (self.where, e)})
             return
         self.desk.attach(panel)
+        if not panel.ready:
+            self.waiting = True
+            self.desk._error({"msg": "waiting for the box: %s" % self.where})
 
     def step(self, ms=STEP_MS):
         """One pass of the UI loop: the link, and a new try when it's gone."""
         panel = self.desk.panel
         if panel is not None and not panel.closed:
             self.desk.poll()
+            if self.waiting and panel.ready:
+                self.waiting = False
+                self.desk.message = ""
+                self.desk.shown.pop("next", None)
             self.waited = 0
             return
         if panel is not None:
@@ -89,14 +148,16 @@ class Remote:
 def start(argv=()):
     """Open the desk on this computer's display and start it. Returns its
     `Remote`; LVGL's loop runs it from here."""
-    host, port = remote.target(list(argv))
+    argv = list(argv)
+    spec = argv[0] if argv else "%s:%d" % remote.target()
+    where, connect = opener(spec)
     from display_driver import app  # noqa: F401  (the display, on LVGL)
 
     disp = lv.display_get_default()
     size = (disp.get_horizontal_resolution(), disp.get_vertical_resolution())
     screen = lv.obj(None)
     lv.screen_load(screen)
-    view = Remote(screen, size, host, port)
+    view = Remote(screen, size, spec, None, connect, where)
     view.timer = lv.timer_create(lambda t: view.step(), STEP_MS, None)
     held = set()
 
@@ -118,7 +179,7 @@ def start(argv=()):
         app.on(events.KEYUP, key(False))
     except (ImportError, AttributeError):
         pass
-    print("desk: joining the box at %s:%d" % (host, port))
+    print("desk: joining the box at %s" % where)
     return view
 
 

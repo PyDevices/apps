@@ -5,14 +5,18 @@
 
     python tools/backline/desk_shot.py OUT.png [--size 800x480] [--song rock]
         [--kit rhythm909] [--at BEATS] [--tab perform|edit] [--tap PITCH:STEP]
+        [--pedals MAP] [--learn SLOT]
 
 The box plays SONG with no audio output, its clock moved by hand, and the
 desk draws from it through an hmilink panel, as it does in the app. The
 picture is taken BEATS beats after the first tap (6.5). ``--tap`` presses a
-cell of the step grid first, as a finger would. Needs LVGL, svgio, icons,
+cell of the step grid first, as a finger would. ``--pedals`` shows the
+editor's Pedals section with MAP, the switches' map as JSON
+(`backline.midipedal.MidiPedal.saved`), and ``--learn`` arms one slot. Needs LVGL, svgio, icons,
 hmilink, audiodsp and audioinstruments, and Pillow to write the PNG.
 """
 
+import json
 import sys
 
 here = __file__.replace("\\", "/")
@@ -32,7 +36,8 @@ from shot import save_png  # noqa: E402
 
 def main(argv):
     out = argv[0]
-    opts = {"--size": "800x480", "--song": "rock", "--kit": None, "--at": "6.5", "--tab": "perform", "--tap": None}
+    opts = {"--size": "800x480", "--song": "rock", "--kit": None, "--at": "6.5", "--tab": "perform", "--tap": None,
+            "--pedals": None, "--learn": None}
     i = 1
     while i < len(argv):
         opts[argv[i]] = argv[i + 1]
@@ -44,7 +49,9 @@ def main(argv):
     lv.screen_load(scr)
     frames = [0]
     ms = [0]
-    box = boxmod.Box(lambda: frames[0], song=opts["--song"], kit=opts["--kit"], now_ms=lambda: ms[0])
+    pedal_map = json.loads(opts["--pedals"]) if opts["--pedals"] else None
+    box = boxmod.Box(lambda: frames[0], song=opts["--song"], kit=opts["--kit"], now_ms=lambda: ms[0],
+                     pedal_map=pedal_map)
     box.device._tele_ms = 0
     panel = hmilink.Panel(local.connect(box.device.add(local.serve())))
     box.poll()
@@ -76,6 +83,12 @@ def main(argv):
         _headless.touch(x, y, False, 40)
         box.poll()
         desk.poll()
+    if opts["--pedals"]:
+        desk.show_tab("edit")
+        desk.editor._toggle_pedals()
+        if opts["--learn"] is not None:
+            box.midi.learn(int(opts["--learn"]))
+        box.poll()
     box.device._telemetry()
     desk.poll()
     _headless.advance(30)
