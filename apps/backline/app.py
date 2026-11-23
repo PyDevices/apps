@@ -20,6 +20,7 @@ import hmilink
 from hmilink import local, tcp
 from touchkit import ui
 
+from . import ask as askmod
 from . import box as boxmod
 from . import floor as floormod
 from . import glyphs, kits, midipedal, remote
@@ -117,9 +118,19 @@ def start(scope):
         return
     prefs = scope.store()
     config = _config(scope)
+    # The chat server a song is asked for from: settings.json in the app's
+    # data folder, as Huey keeps its own.
+    ask_settings, trouble = None, None
+    try:
+        data = scope.data_dir
+        ask_settings = askmod.load_settings(data + "/settings.json")
+    except (ValueError, AttributeError) as e:
+        data, trouble = None, "settings: %s" % (e,)
     try:
         box = boxmod.Box(_clock(out), song=prefs.get("song"), kit=prefs.get("kit"),
-                         pedal_map=prefs.get("pedals") or config.get("pedals"))
+                         pedal_map=prefs.get("pedals") or config.get("pedals"), worker=getattr(scope, "worker", None),
+                         ask_settings=ask_settings, user_songs=data + "/songs" if data else None)
+        box.error = box.error or trouble
     except Exception as e:  # noqa: BLE001
         out.close()
         ui.missing(scope, "can't start", "Backline: %s" % (e,))
@@ -209,6 +220,8 @@ def start(scope):
 
     def key_down(e):
         k = getattr(e, "key", None)
+        if views["desk"] is not None and views["desk"].typing():
+            return  # the keys are words in the prompt, not pedals
         if k in held:
             return
         held.add(k)
@@ -225,6 +238,8 @@ def start(scope):
 
     def key_up(e):
         k = getattr(e, "key", None)
+        if k not in held:
+            return  # went down while the prompt had the keys
         held.discard(k)
         if k == K_SPACE:
             floor.pedal(0, False)

@@ -37,7 +37,12 @@ start, fill, next part, outro, stop or tap tempo. The map is kept in the
 app's ``config.json`` (``midipedal.py``).
 
 Songs are songmodel projects in the app's ``songs`` folder, eight styles
-to start with. Kits are audioinstruments' drum machines, the drum kit of a
+to start with. The desk's sparkle button asks for a new one in words ("a
+slow 12-bar blues at 72, 4 times through, slowing in the outro") from any
+OpenAI-compatible chat server, such as lite-assistant on your own network
+or DeepInfra: set ``base_url``, ``key_file`` and ``chat_model`` in
+``settings.json`` in the app's data folder (``ask.py``). A song you keep is
+saved in that folder's ``songs``. Kits are audioinstruments' drum machines, the drum kit of a
 SoundFont (``kits.py`` says where it looks) and folders of WAV files.
 
 Each view draws from an hmilink panel on the box's own device, so any

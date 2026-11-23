@@ -27,6 +27,15 @@ Commands, from any panel:
   or ``pedals {"slot": n, "clear": true}``: the MIDI switches' map. Every
   panel hears ``pedals`` back with the whole map, and again when a slot
   learns its switch.
+- ``ask {"text": "a slow 12-bar blues at 72"}``: ask the chat server for a
+  song (`ask`). Telemetry's ``ask`` says ``"asking"``, then ``"ready"`` or
+  ``"failed"`` (with ``ask_error``), and every panel hears ``proposal``
+  with the song's `ask.preview`, also in the description for a panel that
+  joins later.
+- ``proposal {"do": "play"}``, ``{"do": "keep"}`` or ``{"do": "discard"}``:
+  play the song that came back (the song playing stops first), keep it
+  among the songs (saved in the box's own songs folder), or let it go and
+  have back the song from before.
 
 Edits are songmodel ops on the document, and they reach the sound while it
 plays: a step added or removed plays from its next pass, a new tempo keeps
@@ -48,11 +57,13 @@ import hmilink
 from hmilink import local
 from songmodel.link import SongModel
 
+from . import ask as askmod
 from . import engine as eng
 from . import kits
 from . import midipedal
 
 LEVEL = 0.9          # the kit's level at track volume 100
+_NAME_CHARS = "abcdefghijklmnopqrstuvwxyz0123456789"
 here = __file__.replace("\\", "/")
 SONGS = here[: here.rfind("/")] + "/songs"
 
@@ -80,6 +91,8 @@ class BacklineModel(SongModel):
         out["parts"] = self.doc.get("parts")
         box = self.host
         if box is not None:
+            out["proposal"] = box.proposal_preview
+            out["can_ask"] = box.ask_settings is not None
             out["songs"] = [n for n, _p in box.songs]
             out["titles"] = box.titles()
             out["kits"] = list(box.kits)
@@ -94,10 +107,25 @@ class BacklineModel(SongModel):
 class Box:
     """The engine, its kit and the device. ``clock()`` is the output's frame."""
 
-    def __init__(self, clock, song=None, kit=None, rate=kits.RATE, songs=None, now_ms=None, pedal_map=None):
+    def __init__(self, clock, song=None, kit=None, rate=kits.RATE, songs=None, now_ms=None, pedal_map=None,
+                 worker=None, ask_settings=None, user_songs=None, post=None):
         self.rate = rate
         self.songs = song_files() if songs is None else songs
+        #: Where kept songs are saved, and listed after the starters.
+        self.user_songs = user_songs
+        if user_songs:
+            self.songs = self.songs + song_files(user_songs)
         self.kits = kits.available()
+        #: What runs a blocking call off the main thread (``scope.worker``); None runs it here.
+        self.worker = worker
+        self.ask_settings = ask_settings
+        self._post = post
+        self.asker = None
+        self.ask_state = ""
+        self.ask_error = ""
+        self.proposal = None          # the song that came back, not yet kept or let go
+        self.proposal_preview = None
+        self._before = None           # (song index, the song) the proposal took the place of
         self.song_index = 0
         self._titles = None
         if isinstance(song, str):
@@ -208,6 +236,8 @@ class Box:
         t["song_index"] = self.song_index
         t["songs"] = len(self.songs)
         t["cast"] = self.cast
+        t["ask"] = self.ask_state
+        t["ask_error"] = self.ask_error
         # Panels on another screen: a browser, another computer or board.
         t["desks"] = sum(1 for link in self.device.links if not isinstance(link, local.Link))
         return t
@@ -291,6 +321,10 @@ class Box:
             self.model.load(project)
             self.use_kit(project["tracks"][0].get("instrument") or kits.MACHINES[0])
             return {"name": "song", "index": self.song_index, "kit": self.kit_spec(), "voices": self.voices()}
+        if name == "ask":
+            return self.ask(args.get("text", ""))
+        if name == "proposal":
+            return self.proposal_do(args.get("do"))
         if name == "kit":
             spec = args.get("spec")
             if spec is None:
@@ -300,6 +334,114 @@ class Box:
             self.use_kit(spec)
             return {"name": "kit", "spec": self.kit_spec(), "error": self.error, "voices": self.voices()}
         raise ValueError("unknown command %r" % name)
+
+    # -- a song asked for in words ------------------------------------------------
+
+    def ask(self, text):
+        """Ask the chat server for a song for ``text``, from the worker."""
+        text = " ".join(str(text).split())
+        if not text:
+            raise ValueError("say what to play")
+        if self.ask_settings is None:
+            raise ValueError("this box has no chat server set up")
+        if self.ask_state == "asking":
+            raise ValueError("still asking for the last one")
+        if self.asker is None:
+            starters = []
+            for name, path in song_files():
+                try:
+                    starters.append((name, load_song(path)))
+                except (OSError, ValueError):
+                    pass
+            choices = [k for k in self.kits if k in kits.MACHINES or k == kits.SOUNDFONT]
+            self.asker = askmod.Asker(self.ask_settings, choices, starters, self._post)
+        self.ask_state = "asking"
+        self.ask_error = ""
+        asker = self.asker
+        if self.worker is None:
+            try:
+                found = asker.ask(text)
+            except Exception as e:  # noqa: BLE001 - said on every panel
+                self._asked(None, e)
+            else:
+                self._asked(found, None)
+        else:
+            self.worker.submit(lambda: asker.ask(text), self._asked, key="backline-ask")
+        return {"name": "asking", "text": text}
+
+    def _asked(self, found, error):
+        """The worker's answer, on the main thread."""
+        if error is not None:
+            self.ask_state = "failed"
+            self.ask_error = str(error) or error.__class__.__name__
+            self.device.event("proposal", preview=None, error=self.ask_error)
+            return
+        project, preview = found
+        preview["kit_name"] = kits.title(preview["kit"]) if preview["kit"] in self.kits else preview["kit"]
+        self.proposal = project
+        self.proposal_preview = preview
+        self.ask_state = "ready"
+        self.device.event("proposal", preview=preview, error="")
+
+    def proposal_do(self, what):
+        """``"play"``, ``"keep"`` or ``"discard"`` the song that came back."""
+        if self.proposal is None:
+            raise ValueError("no song to %s: ask for one first" % what)
+        e = self.engine
+        if what == "play":
+            if self._before is None:
+                self._before = (self.song_index, json.loads(json.dumps(self.model.doc)))
+            e.stop()
+            self.model.load(json.loads(json.dumps(self.proposal)))
+            self.use_kit(self.proposal["tracks"][0]["instrument"])
+            e.gesture(0, "tap")
+            return {"name": "proposal", "did": "play", "kit": self.kit_spec(), "voices": self.voices()}
+        if what == "keep":
+            if not self.user_songs:
+                raise ValueError("this box has nowhere to keep songs")
+            path = self._save(self.proposal)
+            self.songs = self.songs + [(path[path.rfind("/") + 1:-5], path)]
+            self._titles = None
+            if self._before is not None:   # it is the song loaded now
+                self.song_index = len(self.songs) - 1
+            self._before = None
+            self._clear()
+            self.device.reset_doc()
+            return {"name": "proposal", "did": "keep", "index": len(self.songs) - 1}
+        if what == "discard":
+            self._clear()
+            if self._before is not None:
+                index, project = self._before
+                e.stop()
+                self.song_index = index
+                self.model.load(project)
+                self.use_kit(project["tracks"][0].get("instrument") or kits.MACHINES[0])
+            self._before = None
+            return {"name": "proposal", "did": "discard", "kit": self.kit_spec(), "voices": self.voices()}
+        raise ValueError("play, keep or discard, not %r" % (what,))
+
+    def _clear(self):
+        self.proposal = None
+        self.proposal_preview = None
+        self.ask_state = ""
+        self.ask_error = ""
+
+    def _save(self, project):
+        """Write ``project`` into the box's songs folder, under a name of its own."""
+        folder = self.user_songs
+        try:
+            os.mkdir(folder)
+        except OSError:
+            pass  # there already
+        stem = "".join(c if c in _NAME_CHARS else "_" for c in project.get("name", "song").lower()).strip("_") or "song"
+        taken = set(n for n, _p in self.songs)
+        name, n = stem, 2
+        while name in taken:
+            name, n = "%s_%d" % (stem, n), n + 1
+        path = folder + "/" + name + ".json"
+        with open(path, "w") as f:
+            json.dump(project, f)
+        return path
 
     def close(self):
         port = self.midi_in

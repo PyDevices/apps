@@ -199,6 +199,7 @@ class Client:
         formats = FORMATS if schema is not None else FORMATS[1:]
         if self.json_format in formats:
             formats = formats[formats.index(self.json_format):]
+        refused = None
         for kind in formats:
             body = self.body(messages, model, fields)
             if kind == "json_schema":
@@ -212,6 +213,8 @@ class Client:
                 # anything else is trouble no other format gets around
                 if kind == "text" or e.status not in (400, 422):
                     raise
+                refused = e
                 continue
             self.json_format = kind
             return found["choices"][0]["message"]["content"] or ""
+        raise refused
