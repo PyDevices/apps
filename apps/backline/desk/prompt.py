@@ -178,13 +178,7 @@ class PromptSheet:
             self.card.add_flag(lv.obj.FLAG.HIDDEN)
             return
         self.title.set_text(p.get("name") or "Untitled")
-        bits = [p.get("style", "").capitalize(), "%d BPM" % int(p.get("tempo", 0) + 0.5), p.get("meter", "4/4")]
-        if p.get("swing"):
-            bits.append("swing %d%%" % p["swing"])
-        elif p.get("feel") not in (None, "straight"):
-            bits.append(p["feel"])
-        bits.append(p.get("kit_name") or p.get("kit", ""))
-        self.facts.set_text("  ".join([bits[0]] + ["%s %s" % (glyphs.DOT, b) for b in bits[1:] if b]))
+        self.facts.set_text(askmod.facts_text(p, glyphs.DOT))
         plan = askmod.plan_text(p)
         self.plan.set_text(plan[0].upper() + plan[1:])
         self.strip.set_blocks(p.get("blocks") or [])
