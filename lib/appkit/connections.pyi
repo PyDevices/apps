@@ -7,7 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 HOSTS: tuple[str, ...]
-WIFI_PROVIDERS: tuple[tuple[str, Callable[[Any], None]], ...]
+BOARD_PROVIDERS: tuple[tuple[str, Callable[[Any], bool]], ...]
 HOST_PROVIDERS: tuple[tuple[str, Callable[[Any], None]], ...]
 
 def register(registry: Any = None) -> list[str]:

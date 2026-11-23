@@ -1,13 +1,17 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""`appkit.connections`: which network provider a device registers.
+"""`appkit.connections`: which providers a device registers.
 
     python connections_checks.py          # from tests/appkit, with the harness's paths
 
-Once as a computer, which gets hostnet, and once as a board with Wi-Fi,
-which gets wifinet alone: a stand-in ``network`` module with a station on
-"Home" and "Cafe" in range, and a stand-in castdisplay it must leave alone. Exit status 0 when every check passes.
+Once as a computer, which gets hostnet, then as a board with Wi-Fi, which
+gets wifinet and the sound outputs its firmware can drive: a stand-in
+``network`` module with a station on "Home" and "Cafe" in range, a stand-in
+castdisplay it must leave alone, and stand-in ``board_peripherals``,
+``usb`` and ``btclassic`` modules. Then a board whose firmware has none of
+those, which must register them without a word. Exit status 0 when every
+check passes.
 """
 
 import os
@@ -49,7 +53,26 @@ PLANT = os.getenv("CONNECTIONS_PLANT")
 if PLANT == "no_wifi":
     connections._wifi = lambda: False
 elif PLANT == "board_finds_rokus":
-    connections.WIFI_PROVIDERS = (("castdisplay", connections._castdisplay),)
+    connections.BOARD_PROVIDERS = (("castdisplay", connections._castdisplay),)
+elif PLANT == "board_skips_audio":
+    connections.BOARD_PROVIDERS = ()
+elif PLANT == "starts_usb_host":
+    def _usb_starts(registry):
+        from usb.host import endpoints
+
+        endpoints.register(registry)
+        return True
+    connections.BOARD_PROVIDERS = tuple((n, _usb_starts if n == "usb.host" else add)
+                                        for n, add in connections.BOARD_PROVIDERS)
+elif PLANT == "noisy_absence":
+    def _usb_raises(registry):
+        import usb.core
+
+        if usb.core.stats() is None:
+            raise OSError("this firmware has no USB host")
+        return True
+    connections.BOARD_PROVIDERS = tuple((n, _usb_raises if n == "usb.host" else add)
+                                        for n, add in connections.BOARD_PROVIDERS)
 
 
 def ids(reg):
@@ -112,22 +135,119 @@ class Castdisplay:
     endpoints = Rokus
 
 
-# A board with Wi-Fi: its networks, joined from the picker, and no looking
-# for Rokus, though castdisplay is there: Cast does that when it opens.
+class Factory:
+    """A board's audio_out: a factory role, called with a format."""
+
+    capability = None
+
+    def __call__(self, format=None, **kwargs):
+        return ("codec", format)
+
+
+class BoardPeripherals:
+    PERIPHERALS = frozenset({"audio_out"})
+    FACTORY_ROLES = frozenset({"audio_out"})
+    audio_out = Factory()
+
+
+class UsbCore:
+    host = True
+    started = []
+
+    @staticmethod
+    def stats():
+        return {"running": bool(UsbCore.started)} if UsbCore.host else None
+
+    @staticmethod
+    def start(full_speed=False, classes=None):
+        UsbCore.started.append(full_speed)
+
+
+class UsbEndpoints:
+    """usb.host.endpoints: register starts the port unless told not to, as the real one does."""
+
+    registered = []
+
+    @staticmethod
+    def register(registry=None, start=True, full_speed=False):
+        UsbEndpoints.registered.append(registry)
+        if start:
+            UsbCore.start(full_speed=full_speed)
+
+
+class UsbHost:
+    endpoints = UsbEndpoints
+
+
+class Usb:
+    core = UsbCore
+    host = UsbHost
+
+
+class Btclassic:
+    """btclassic with its A2DP source; registering must not touch the radio."""
+
+    class Bluetooth:
+        def __init__(self):
+            raise AssertionError("registering turned the Bluetooth radio on")
+
+    class AudioSource:
+        pass
+
+
+heard = []
+connections.print = lambda *a: heard.append(" ".join(str(x) for x in a))
+
+# A board with Wi-Fi: its networks, joined from the picker, its sound
+# outputs, and no looking for Rokus, though castdisplay is there: Cast does
+# that when it opens.
 sys.modules["network"] = Network
 sys.modules["castdisplay"] = Castdisplay
+sys.modules["board_peripherals"] = BoardPeripherals
+sys.modules["usb"] = Usb
+sys.modules["usb.core"] = UsbCore
+sys.modules["usb.host"] = UsbHost
+sys.modules["usb.host.endpoints"] = UsbEndpoints
+sys.modules["btclassic"] = Btclassic
 del connections._done[:]
 reg = endpointkit.Registry()
 names = connections.register(reg)
-wifi_names = [name for name, _ in connections.WIFI_PROVIDERS]
+board_names = [name for name, _ in connections.BOARD_PROVIDERS]
 check(names[:1] == ["wifinet"], "a board with Wi-Fi registers wifinet: %r" % (names,))
-check(all(name in wifi_names for name in names[1:]), "and nothing of a computer's: %r" % (names,))
+check(all(name in board_names for name in names[1:]), "and nothing of a computer's: %r" % (names,))
+check(names[1:] == ["audiodev", "usb.host", "btclassic"], "and every sound output its firmware has: %r" % (names,))
+check(UsbEndpoints.registered == [reg], "the USB host port's devices are registered")
+check(not UsbCore.started, "and the port isn't started, so an app starts it with its own settings: %r" % UsbCore.started)
+audio = [ep.id for ep in reg.endpoints("audio.out")]
+check(audio == ["board-out:main"], "the board's own output is listed, and no speaker before a scan: %r" % audio)
+from audiodev import endpoints as _audio_endpoints  # noqa: E402
+
+check(isinstance(BoardPeripherals.audio_out, _audio_endpoints.RoutedAudioOut),
+      "the board's audio_out now follows the audio.out choice")
+check(not heard, "nothing is printed: %r" % heard)
 check("castdisplay" not in names and not Rokus.registered, "a board doesn't look for Rokus: %r" % (names,))
 check(reg.selection("net") == ["wifi:Home"], "the network the board is on is chosen: %r" % reg.selection("net"))
 reg.poll()
 check(ids(reg) == ["wifi:Home", "wifi:Cafe"], "the networks in range are listed after a scan: %r" % ids(reg))
 check(reg.find("wifi:Cafe").state == endpointkit.NEEDS_PAIRING, "a new secured network asks for its password")
 check(not reg.providers("net") or all(p.name != "host-net" for p in reg.providers("net")), "a board doesn't report a host link")
+
+# A board whose firmware has a USB stack but no host port, btclassic
+# without the A2DP source, and an audio_out that isn't a factory role: it
+# registers none of them, and says nothing about it.
+UsbCore.host = False
+del Btclassic.AudioSource
+BoardPeripherals.FACTORY_ROLES = frozenset()
+BoardPeripherals.audio_out = ("an object, not a factory",)
+UsbEndpoints.registered[:] = []
+del heard[:]
+del connections._done[:]
+_audio_endpoints._routes[:] = []
+reg = endpointkit.Registry()
+names = connections.register(reg)
+check(names == ["wifinet"], "a board without them registers wifinet alone: %r" % (names,))
+check(not UsbEndpoints.registered and not reg.endpoints("audio.out"), "no USB host started, no sound output listed")
+check(not heard, "and nothing is printed: %r" % heard)
 
 if FAILS:
     print("%d checks failed" % len(FAILS))
