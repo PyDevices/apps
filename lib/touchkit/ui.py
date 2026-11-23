@@ -68,13 +68,35 @@ def status(scope):
 def missing(scope, short, text):
     """An app that can't run here: *short* on the status line and *text* in
     the middle of the screen, saying which module or hardware is lacking.
-    Home and BOOT go back as usual."""
+    Home and BOOT go back as usual, and `hide_button` goes under the
+    message. Returns the message label."""
     status(scope).set_text(short)
     msg = label(scope.root, text, font, WHITE)
     msg.set_width(scope.size[0] - 48)
     msg.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
     msg.align(lv.ALIGN.CENTER, 0, 0)
+    hide_button(scope, short, msg)
     return msg
+
+
+def hide_button(scope, reason, below):
+    """A "Hide from Home" button under *below*, for an app that can't run
+    here and draws its own message: a tap keeps the app off Home's pages,
+    with *reason* on Home's Hidden apps page, and goes home. Only a tap
+    hides an app. With no home screen to go back to there's no button, and
+    it returns None; else the button."""
+    launcher = getattr(scope, "launcher", None)
+    home = getattr(launcher, "home", None)
+    if home is None or scope.name == home:
+        return None
+
+    def hide():
+        launcher.hide(scope.name, reason)
+        launcher.request(home)
+
+    b, _ = button(scope.root, "Hide from Home", hide, color=PANEL)
+    b.align_to(below, lv.ALIGN.OUT_BOTTOM_MID, 0, 24)
+    return b
 
 
 def label(parent, text="", font=None, color=None):
