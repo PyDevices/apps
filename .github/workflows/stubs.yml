@@ -37,6 +37,6 @@ jobs:
       - name: Install mypy and what the libraries import
         run: >
           python -m pip install mypy numpy pillow requests freetype-py
-          "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev22" "omnipython-lvgl>=9.6.1.dev1" "omnipython-pygraphics>=0.1.7.dev0" "omnipython-iconkit>=0.1.0.dev3" "omnipython-audiodsp>=0.6.13.dev4"
+          "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev22" "omnipython-lvgl>=9.6.1.dev1" "omnipython-pygraphics>=0.1.7.dev0" "omnipython-audiodsp>=0.6.13.dev4"
       - name: mypy over every stub, then stubtest over each module that imports under CPython
         run: python tools/check_stubs.py

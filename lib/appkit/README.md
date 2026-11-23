@@ -19,7 +19,7 @@ files of [`lib/appkit`](lib/appkit) to `/lib/appkit` on a board, with
 [mpftp](https://github.com/PyDevices/mcuctl), `mpremote` or any file tool. On a
 CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
-appkit's Home and its apps draw with [iconkit](https://github.com/PyDevices/omnipython/tree/main/packages/iconkit), which lives in the omnipython repository as its own package (`omnipython-iconkit`). Including appkit's `manifest.py` in a firmware build freezes iconkit with it, from the folder you pass as `iconkit=` (omnipython's `packages/iconkit`) or, without that, from the omnipython-lib tree in `$OMNIPYTHON_LIBRARY`; with neither the build stops and says so. Getting appkit with `require("appkit", library="omnipython-lib")` brings iconkit along. Otherwise install iconkit the way you do omnipython itself.
+appkit's Home and its apps draw Material Symbols with [icons](https://github.com/PyDevices/omnipython/tree/main/packages/icons), a package of the omnipython repository, which draws each icon at any size with the `ttfio` C module. On a computer, `pip install omnipython-desktop` brings both. On a board, the firmware needs `ttfio` and `icons` built in: omnipython-builds' `build_mp.py` does that with `--modules ttfio,icons`. Including appkit's `manifest.py` in a firmware build freezes appkit alone; with `apps=` it checks each app's icon against the `icons` it finds in `$OMNIPYTHON_LIBRARY` or on the build's import path, and stops when there is none.
 
 On a Wi-Fi board, `omip` installs appkit, or an app with
 everything it needs, into the folders appkit looks in:
@@ -384,9 +384,9 @@ python -m unittest discover -s tests -p 'test_*.py'
 ```
 
 Run them from this folder. They take omnipython's `lib` from this repository
-(or `OMNIPYTHON_LIB`), iconkit from `packages/iconkit/lib` in the same
-omnipython checkout (or `ICONKIT_LIB`) and, for the MicroPython half, a unix `micropython`
-(from `OMNIPYTHON_MICROPYTHON` or `PATH`). Without one, the MicroPython checks
+(or `OMNIPYTHON_LIB`), icons from `packages/icons` in the same
+omnipython checkout (or `ICONS_LIB`) with `freetype-py` installed and, for the MicroPython half, a unix `micropython`
+(from `OMNIPYTHON_MICROPYTHON` or `PATH`); the picker's checks need one with `ttfio` and `icons` built in. Without one, the MicroPython checks
 skip loudly.
 
 Planned work is in [ROADMAP.md](ROADMAP.md).

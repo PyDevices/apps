@@ -205,16 +205,19 @@ jobs:
         with:
           python-version: "3.12"
 
-      # freetype-py: ttfio draws the status bar's icons with it on CPython.
-      - name: Install LVGL for CPython
+      # icons draws with ttfio: on CPython, omnipython's utils/ttfio.py over
+      # freetype-py, put on the path alone.
+      - name: Install LVGL and FreeType for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
           python -m pip install "omnipython-lvgl>=9.6.1.dev1" freetype-py
+          mkdir -p "$RUNNER_TEMP/ttfio" && cp omnipython/utils/ttfio.py "$RUNNER_TEMP/ttfio/"
 
       - name: appkit's tests
         working-directory: studio
         env:
           OMNIPYTHON_LIB: ${{ github.workspace }}/omnipython/lib
+          PYTHONPATH: ${{ runner.temp }}/ttfio
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
         run: python -m unittest discover -s tests/appkit -p 'test_*.py' -v
@@ -252,10 +255,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Install LVGL, svgio and iconkit for CPython
+      - name: Install LVGL, svgio and icons for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" "omnipython-iconkit>=0.1.0.dev3" resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" resvg_py pillow
 
       - name: Perch's tests
         env:
@@ -333,7 +336,7 @@ jobs:
       - name: Install LVGL, svgio, jpegio and pygraphics for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.0.dev21" "omnipython>=0.8.0.dev21" "omnipython-iconkit>=0.1.0.dev3" "omnipython-pygraphics>=0.1.7.dev0" resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" "omnipython-pygraphics>=0.1.7.dev0" resvg_py pillow
 
       - name: Bluetooth Receiver's tests
         env:
@@ -360,7 +363,7 @@ jobs:
       - name: Install LVGL, svgio and omnipython for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" "omnipython-iconkit>=0.1.0.dev3" resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" resvg_py pillow
 
       - name: Huey's tests
         env:
@@ -384,18 +387,20 @@ jobs:
         with:
           repository: PyDevices/omnipython
           path: omnipython
+          # icons draws with ttfio: on CPython, utils/ttfio.py over freetype-py.
           sparse-checkout: |
-            lib
-            packages/usb
-            packages/iconkit/lib
-            packages/_boardname
+            /lib/
+            /packages/usb/
+            /packages/icons/
+            /packages/_boardname/
+            /utils/ttfio.py
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      # freetype-py: ttfio draws the status bar's icons with it on CPython.
-      - name: Install LVGL for CPython
+      - name: Install LVGL and FreeType for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
           python -m pip install "omnipython-lvgl>=9.6.1.dev1" freetype-py
@@ -404,6 +409,7 @@ jobs:
         working-directory: studio
         env:
           OMNIPYTHON_DIR: ${{ github.workspace }}/omnipython
+          PYTHONPATH: ${{ github.workspace }}/omnipython/utils
           GAMEPAD_REQUIRE: "1"
           SDL_VIDEODRIVER: dummy
         run: python -m unittest tests.test_gamepad -v
@@ -425,18 +431,20 @@ jobs:
         with:
           repository: PyDevices/omnipython
           path: omnipython
+          # icons draws with ttfio: on CPython, utils/ttfio.py over freetype-py.
           sparse-checkout: |
-            lib
-            packages/midiports
-            packages/iconkit/lib
-            packages/_boardname
+            /lib/
+            /packages/midiports/
+            /packages/icons/
+            /packages/_boardname/
+            /utils/ttfio.py
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
-      # freetype-py: ttfio draws the status bar's icons with it on CPython.
-      - name: Install LVGL for CPython
+      - name: Install LVGL and FreeType for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
           python -m pip install "omnipython-lvgl>=9.6.1.dev1" freetype-py
@@ -445,6 +453,7 @@ jobs:
         working-directory: studio
         env:
           OMNIPYTHON_DIR: ${{ github.workspace }}/omnipython
+          PYTHONPATH: ${{ github.workspace }}/omnipython/utils
           MIDICONTROLLER_REQUIRE: "1"
           SDL_VIDEODRIVER: dummy
         run: python -m unittest tests.test_midicontroller -v
@@ -547,17 +556,20 @@ jobs:
           ref: ${{ env.OMNIPYTHON_REF }}
           path: omnipython
 
-      # appkit draws its icons from iconkit, and the REPL app's test pages through
-      # vtterm's scrollback, both newer than the pin above.
+      # appkit draws its icons with icons (and icons with ttfio, on CPython
+      # utils/ttfio.py over freetype-py), and the REPL app's test pages
+      # through vtterm's scrollback, all newer than the pin above.
       - uses: actions/checkout@v7
         with:
           repository: PyDevices/omnipython
-          path: iconkit-src
+          path: omnipython-main
           sparse-checkout: |
-            packages/iconkit/lib
-            packages/vtterm
-            packages/palettes/lib
-            lib
+            /packages/icons/
+            /packages/vtterm/
+            /packages/palettes/lib/
+            /lib/
+            /utils/ttfio.py
+          sparse-checkout-cone-mode: false
 
       - uses: actions/setup-python@v7
         with:
@@ -568,7 +580,7 @@ jobs:
       - name: Install LVGL for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-pygraphics>=0.1.7.dev0"
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-pygraphics>=0.1.7.dev0" freetype-py
 
       - name: Resolve audioeffects' audiodsp pin
         id: pin
@@ -623,7 +635,7 @@ jobs:
           AUDIOEFFECTS_CATALOG: ${{ github.workspace }}/catalogs/audioeffects/lib/audioeffects/catalog.json
           HMILINK_PATH: ${{ github.workspace }}/omnipython/packages/hmilink
           VAMP_REQUIRE: "1"
-          VTTERM_PATH: ${{ github.workspace }}/iconkit-src/packages
+          VTTERM_PATH: ${{ github.workspace }}/omnipython-main/packages
           REPL_REQUIRE: "1"
-          PYTHONPATH: ${{ github.workspace }}/iconkit-src/packages/iconkit/lib
+          PYTHONPATH: ${{ github.workspace }}/omnipython-main/packages/icons:${{ github.workspace }}/omnipython-main/utils
         run: python -m unittest discover -s tests -v

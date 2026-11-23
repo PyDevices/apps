@@ -37,11 +37,11 @@ _LIB = os.getenv("OMNIPYTHON_LIB") or _join(_ROOT, "..", "omnipython", "lib")
 _OMNI = _up(_LIB)
 # lib first: tests/appkit would hide the real appkit.
 _PATHS = [_join(_ROOT, "lib"), _HERE, _TESTS,
-          _join(_OMNI, "packages", "endpointkit"),
-          _join(_OMNI, "packages", "icons"),
-          _join(_OMNI, "packages", "iconkit", "lib"), _LIB]
+          _join(_OMNI, "packages", "endpointkit"), _LIB]
+# On MicroPython icons and ttfio come built in, so the font stays in flash and off the heap.
 if sys.implementation.name != "micropython":
-    _PATHS.append(_join(_OMNI, "utils"))   # ttfio over freetype-py; a board has it built in
+    _PATHS.insert(3, _join(_OMNI, "packages", "icons"))
+    _PATHS.append(_join(_OMNI, "utils"))   # ttfio over freetype-py
 sys.path[:0] = _PATHS
 
 try:

@@ -11,7 +11,7 @@ for him to do.
 """
 
 import lvgl as lv
-from iconkit import lvicons
+from icons import lvgl as lvicons
 
 from .stage import TICK_MS, Stage
 

@@ -32,20 +32,22 @@ def _omnipython_lib():
 OMNIPYTHON_LIB = _omnipython_lib()
 
 
-def _iconkit_lib():
-    """``ICONKIT_LIB``, or ``packages/iconkit/lib`` in the omnipython checkout that
-    ``OMNIPYTHON_LIB`` belongs to: where ``iconkit`` comes from. None when neither exists."""
-    explicit = os.environ.get("ICONKIT_LIB")
+def _icons_lib():
+    """``ICONS_LIB``, or ``packages/icons`` in the omnipython checkout that
+    ``OMNIPYTHON_LIB`` belongs to: the folder the ``icons`` package is in. None
+    when neither exists. CPython takes it from here; MicroPython uses the
+    ``icons`` frozen into its build, which also has the ttfio it draws with."""
+    explicit = os.environ.get("ICONS_LIB")
     if explicit:
         return Path(explicit)
     if OMNIPYTHON_LIB is not None:
-        candidate = OMNIPYTHON_LIB.parent / "packages" / "iconkit" / "lib"
-        if (candidate / "iconkit").is_dir():
+        candidate = OMNIPYTHON_LIB.parent / "packages" / "icons"
+        if (candidate / "icons").is_dir():
             return candidate
     return None
 
 
-ICONKIT_LIB = _iconkit_lib()
+ICONS_LIB = _icons_lib()
 
 #: About the T-Watch S3's MicroPython heap (its PSRAM).
 WATCH_HEAP = "8M"
@@ -89,10 +91,13 @@ def run(cmd, *, state_dir=None, timeout=300, extra_env=None, cwd=None):
     env = dict(os.environ)
     env.setdefault("SDL_VIDEODRIVER", "dummy")
     env.setdefault("SDL_AUDIODRIVER", "dummy")
-    paths = [str(LIB)] + [str(p) for p in (OMNIPYTHON_LIB, ICONKIT_LIB) if p]
-    env["PYTHONPATH"] = os.pathsep.join(paths + [env.get("PYTHONPATH", "")])
-    # MicroPython: omnipython's source ahead of anything frozen into the build.
-    env["MICROPYPATH"] = ":".join(paths[1:] + [".frozen"])
+    paths = [str(LIB)] + [str(p) for p in (OMNIPYTHON_LIB,) if p]
+    icons = [str(ICONS_LIB)] if ICONS_LIB else []
+    env["PYTHONPATH"] = os.pathsep.join(paths + icons + [env.get("PYTHONPATH", "")])
+    # MicroPython: this repository's lib and omnipython's source ahead of
+    # anything frozen into the build, except icons, whose font stays in flash
+    # only when it's frozen.
+    env["MICROPYPATH"] = ":".join(paths + [".frozen"])
     env.pop("OMNIPYTHON_SUPERVISED", None)
     own = None
     if state_dir is None:

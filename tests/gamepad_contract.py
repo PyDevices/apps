@@ -28,8 +28,8 @@ _PYDEVICES = os.getenv("OMNIPYTHON_DIR") or os.path.join(_ROOT, "..", "omnipytho
 _USB = os.path.join(_PYDEVICES, "packages", "usb")
 # lib first: tests/appkit would hide the real appkit.
 sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE, os.path.join(_USB, "usb-hid")]
-# The shell's header draws through appkit, which wants iconkit.
-sys.path += [os.path.join(_PYDEVICES, "lib"), os.path.join(_PYDEVICES, "packages", "iconkit", "lib"),
+# The shell's header draws through appkit, which wants icons.
+sys.path += [os.path.join(_PYDEVICES, "lib"), os.path.join(_PYDEVICES, "packages", "icons"),
              os.path.join(_PYDEVICES, "packages", "_boardname")]
 
 SW, SH = (int(n) for n in (os.getenv("GAMEPAD_SCREEN") or "800x480").split("x"))

@@ -11,7 +11,7 @@ to Bluetooth; the app hands it what the sink and the hands-free unit say.
 
 import lvgl as lv
 from controlkit import RingButton, SpectrumBars
-from iconkit import lvicons
+from icons import lvgl as lvicons
 from controlkit.theme import BLACK
 
 from . import glyphs
@@ -390,7 +390,7 @@ class Screen:
 
     def _build_modes(self):
         # Repeat and shuffle, lit in the accent while on; "single" marks the
-        # repeat with a small 1, as iconkit has no repeat-one icon. Shuffle
+        # repeat with a small 1, as the icons package has no repeat-one icon. Shuffle
         # lines up with the volume's mark, repeat with the slider's end.
         x, y, _ = MODES
         margin = (MODE_HIT - MODE_ICON) // 2
@@ -405,7 +405,7 @@ class Screen:
         _show(one, False)
 
     def _mode_button(self, x, y, name):
-        """A button for mode *name* with iconkit's icon of that name: ``(button, icon)``."""
+        """A button for mode *name* with the icon of that name: ``(button, icon)``."""
         b = _box(self.root, x, y - MODE_HIT // 2, MODE_HIT, MODE_HIT)
         b.add_flag(lv.obj.FLAG.CLICKABLE)
         b.add_event_cb(lambda e: self.on[name](), lv.EVENT.CLICKED, None)

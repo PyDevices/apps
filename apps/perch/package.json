@@ -49,7 +49,7 @@
   ],
   "deps": [
     [
-      "iconkit",
+      "icons",
       "latest"
     ]
   ],

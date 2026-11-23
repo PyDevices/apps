@@ -12,7 +12,7 @@ POLL_MS: int
 def title(kind: str) -> str:
     """What the picker calls `kind`: "Audio out" for `audio.out`."""
 def icon(kind: str) -> str:
-    """The iconkit name of `kind`'s icon: endpointkit's, or `OTHER_ICON` when iconkit hasn't it."""
+    """The icon name of `kind`'s icon: endpointkit's, or `OTHER_ICON` when icons hasn't it."""
 def kinds(registry: Any) -> list[str]:
     """The kinds `registry` has providers for, in the order endpointkit knows them."""
 def summary(registry: Any, kind: str) -> str:

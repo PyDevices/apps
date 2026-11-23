@@ -19,7 +19,7 @@ from unittest import mock
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "lib"))
 
-# touchkit.settings needs only appkit.data; the rest of appkit wants iconkit.
+# touchkit.settings needs only appkit.data; the rest of appkit wants icons.
 _spec = importlib.util.spec_from_file_location("appkit.data", os.path.join(ROOT, "lib", "appkit", "data.py"))
 data = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(data)
