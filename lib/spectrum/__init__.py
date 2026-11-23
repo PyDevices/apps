@@ -1,8 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""spectrum -- the spectrum analyzer in an app's area,
-sharing the panel with LVGL.
+"""A spectrum analyzer in an app's area, sharing the panel with LVGL.
 
 The analyzer draws straight into the panel's framebuffer, so it gets the
 rows LVGL leaves alone: an app puts nothing on ``scope.root`` where the

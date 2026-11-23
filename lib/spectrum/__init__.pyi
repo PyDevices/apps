@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The spectrum analyzer in an app's area, sharing the panel with LVGL."""
+"""A spectrum analyzer in an app's area, sharing the panel with LVGL."""
 
 from typing import Any, Callable, Iterable, Protocol
 

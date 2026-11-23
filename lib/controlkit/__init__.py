@@ -1,7 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The shared controls: every knob, slider, meter, button and pad the apps draw.
+"""LVGL controls: encoders, sliders, meters, lamp buttons, pad grids and a dot-matrix display.
+
+These are the shared controls: every knob, slider, meter, button and pad the apps draw.
 
 Each control is a plain class over LVGL, placed by its parent's coordinates:
 the encoder with its LED ring, the slider with an optional lamp, the LED
