@@ -60,7 +60,11 @@ def join(host, port, seconds=JOIN_S):
 
 def usb_serial():
     """A second USB serial port on this board, beside the REPL's, for a
-    browser's WebSerial. Needs micropython-lib's ``usb-device-cdc``."""
+    browser's WebSerial. Needs micropython-lib's ``usb-device-cdc``.
+
+    A board with one USB port can't be a USB device while it's a USB host,
+    and Home starts the host for keyboards. Stop it first with
+    ``usb.core.stop()``, and plug that port into the computer."""
     import usb.device
     from usb.device.cdc import CDCInterface
 
