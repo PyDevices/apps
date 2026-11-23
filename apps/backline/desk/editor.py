@@ -6,7 +6,8 @@
 On the left, the song's form (tap a part to edit it), the part's step grid
 and a pager for its bars. On the right, the song library, the kits of all
 three kinds, and a mixer: the kit's volume and a fader for each group of
-drums. Every change is an op or a command through the desk's panel, so it
+drums. The Pedals button swaps the mixer for the MIDI switches' map
+(`pedals.Pedals`). Every change is an op or a command through the desk's panel, so it
 reaches the sound at once and every other screen shows it.
 
 While Follow is on, the grid shows whatever part plays and turns its bars
@@ -24,6 +25,7 @@ from . import look
 from .. import parts as song
 from ..floor import text_width
 from .grid import Grid
+from .pedals import Pedals
 from .strip import Strip
 
 SEND_MS = 60                  # a moving fader sends at most this often
@@ -111,10 +113,16 @@ class Editor:
         self.kits.set_scroll_dir(lv.DIR.VER)
         self.kit_buttons = {}
         y += kh + m
-        look.heading(self.base, "Mixer", f["small"], rx, y)
+        self.mix_heading = look.heading(self.base, "Mixer", f["small"], rx, y)
+        pw = int(70 * s)
+        self.pedals_btn = look.button(self.base, rx + rw - pw, y - 3, pw, f["small"].line_height + 4, "PEDALS",
+                                      fnt=f["small"], on_click=self._toggle_pedals, radius=4)
         y += f["small"].line_height + 4
         mh = int(h) - y - m
         mixer = look.box(self.base, rx, y, rw, mh, look.PANEL, 8, look.LINE)
+        self.mixer = mixer
+        self.pedals = Pedals(self.base, rx, y, rw, mh, desk)
+        self.pedals.base.add_flag(lv.obj.FLAG.HIDDEN)
         self.faders = {}
         self.fader_labels = []
         n = len(FADERS)
@@ -175,6 +183,15 @@ class Editor:
         look.select(self.follow_btn, False)
         self.show_block(i, 0)
 
+    def _toggle_pedals(self):
+        """Show the pedals' map in the mixer's place, or the mixer again."""
+        on = self.mixer.has_flag(lv.obj.FLAG.HIDDEN)
+        hide, show = (self.pedals.base, self.mixer) if on else (self.mixer, self.pedals.base)
+        hide.add_flag(lv.obj.FLAG.HIDDEN)
+        show.remove_flag(lv.obj.FLAG.HIDDEN)
+        self.pedals_btn.get_child(0).set_text("PEDALS" if on else "MIXER")
+        self.mix_heading.set_text("MIXER" if on else "PEDALS")
+
     def _toggle_follow(self):
         self.follow = not self.follow
         look.select(self.follow_btn, self.follow)
@@ -234,6 +251,7 @@ class Editor:
         keep = self.block if 0 <= self.block < len(self.blocks) else 0
         self.show_block(keep, self.bar)
         self.show_mix(doc)
+        self.pedals.on_map(desc.get("pedals"))
 
     def set_kits(self, kit_list, current):
         box = self.kits
@@ -286,6 +304,8 @@ class Editor:
             self.show_block(min(self.block, len(self.blocks) - 1), self.bar)
 
     def on_event(self, ev):
+        if ev.get("name") == "pedals":
+            self.pedals.on_map(ev)
         if ev.get("name") in ("kit", "song") and "voices" in ev:
             doc = self.desk.panel.doc
             self.show_kit(ev.get("spec", ev.get("kit")))

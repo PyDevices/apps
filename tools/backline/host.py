@@ -5,7 +5,7 @@
 
     python tools/backline/host.py [--port 9300] [--song rock] [--kit rhythm909]
         [--seconds 60] [--wav OUT.wav] [--log OUT.json] [--play]
-        [--cast KIND:HOST] [--stamp]
+        [--cast KIND:HOST] [--stamp] [--midi SPEC] [--pedals MAP]
 
 The box plays at the pace of the wall clock and serves desks on PORT: a
 browser opens ``http://localhost:PORT/``, and ``python -m backline.desk_main
@@ -25,6 +25,12 @@ PC won't take a cast from itself: cast to it from another computer. The
 cast's counters print every five seconds. ``--stamp`` puts the
 wall clock's seconds (modulo 1000) in the cast's corner, so a screenshot
 of the receiver taken at a known time shows how far behind it is.
+
+``--midi`` reads a MIDI foot controller's switches from SPEC
+(`backline.midipedal.open_input`: ``windows:NAME``, ``linux:NAME`` and the
+rest), mapped by MAP, the switches' map as JSON
+(`backline.midipedal.MidiPedal.saved`). With ``--log``, every part the song
+moves to is logged too, with the second it began and what the pedal did.
 """
 
 import json
@@ -40,6 +46,7 @@ from hmilink import tcp  # noqa: E402
 
 from backline import box as boxmod  # noqa: E402
 from backline import kits  # noqa: E402
+from backline import midipedal  # noqa: E402
 from backline import page_data  # noqa: E402
 from backline import remote  # noqa: E402
 from render import write_wav  # noqa: E402
@@ -72,7 +79,7 @@ def open_cast(box, spec, stamp):
 
 def main(argv):
     opts = {"--port": "9300", "--song": "rock", "--kit": None, "--seconds": "60", "--wav": None, "--log": None,
-            "--cast": None}
+            "--cast": None, "--midi": None, "--pedals": None}
     flags = set()
     i = 0
     while i < len(argv):
@@ -88,7 +95,12 @@ def main(argv):
     def now_ms():
         return int((time.monotonic() - start) * 1000)
 
-    box = boxmod.Box(lambda: frames[0], song=opts["--song"], kit=opts["--kit"], now_ms=now_ms)
+    pedal_map = json.loads(opts["--pedals"]) if opts["--pedals"] else None
+    box = boxmod.Box(lambda: frames[0], song=opts["--song"], kit=opts["--kit"], now_ms=now_ms, pedal_map=pedal_map)
+    if opts["--midi"]:
+        box.midi_in = midipedal.open_input(spec=opts["--midi"])
+        print("backline host: switches from %s" % opts["--midi"], flush=True)
+    parts = []
     ops = []
     forward = box.forward
 
@@ -124,6 +136,12 @@ def main(argv):
             if due - frames[0] > RATE // 10:
                 late += 1
             box.poll()
+            t = box.engine.telemetry()
+            part = t["part"] if t["playing"] else None
+            if not parts or parts[-1]["part"] != part:
+                parts.append({"s": round(frames[0] / RATE, 3), "part": part, "gesture": t["gesture"],
+                              "tempo": t["tempo"]})
+                print("backline host: %.2f s %s (%s)" % (frames[0] / RATE, part or "stopped", t["gesture"]), flush=True)
             now = time.monotonic()
             if view is not None and now - ui_last >= UI_MS / 1000:
                 if stamp is not None:
@@ -144,7 +162,7 @@ def main(argv):
         write_wav(opts["--wav"], bytes(out))
     if opts["--log"]:
         with open(opts["--log"], "w") as f:
-            json.dump({"ops": ops, "tempo": box.engine.project["tempo"], "late": late}, f, indent=1)
+            json.dump({"ops": ops, "parts": parts, "tempo": box.engine.project["tempo"], "late": late}, f, indent=1)
     print("backline host: %.1f s played, %d ops, %d late passes" % (frames[0] / RATE, len(ops), late), flush=True)
     if view is not None:
         print("backline host: cast %s" % (view.stats(),), flush=True)
