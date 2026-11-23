@@ -34,7 +34,7 @@ from backline import engine as eng  # noqa: E402
 from songmodel import model  # noqa: E402
 
 PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-shift", "lost-plan", "quiet-failure",
-          "keep-nowhere", "whole-reply", "old-song-shown")
+          "keep-nowhere", "whole-reply", "old-song-shown", "ble-refused", "lower-style", "form-bars")
 NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 RESULTS = [0, 0]
 SKIPS = []
@@ -234,6 +234,20 @@ def plant(name):
             t["song_index"] = self.song_index
             return t
         box.Box.telemetry = telemetry
+    elif name == "lower-style":
+        old_facts = ask.facts_text
+        # the style left as the model wrote it, not starting with a capital
+        ask.facts_text = lambda p, dot="-": old_facts(p, dot).replace(p["style"][:1].upper(), p["style"][:1], 1)
+    elif name == "form-bars":
+        old_build = ask.build
+
+        def build(spec, songs, prompt=""):
+            p, filled = old_build(spec, songs, prompt)
+            p["form"] = [[e["part"], int(e["bars"])] for e in spec["form"]]
+            return p, filled
+        ask.build = build
+    elif name == "ble-refused":
+        ask.OTHERS = ()
     elif name == "whole-reply":
         old_json = chatclient.Client.chat_json
 
@@ -264,6 +278,29 @@ def check_spec():
     check("the fenced answer a chat model likes to give is read", ask.parse("```json\n{\"a\": 1}\n```") == {"a": 1})
 
 
+def check_settings(tmp):
+    path = tmp + "/backline-settings.json"
+    with open(path, "w") as f:
+        json.dump({"ble": "Backline", "base_url": "http://stand-in/v1", "key_file": ""}, f)
+    try:
+        found = ask.load_settings(path)
+    except ValueError as e:
+        found = {"refused": str(e)}
+    os.remove(path)
+    check("settings.json naming the box's Bluetooth name still gives the chat server",
+          found.get("base_url") == "http://stand-in/v1" and found.get("key_file") == "" and "ble" not in found,
+          repr(found))
+    with open(path, "w") as f:
+        json.dump({"base_url": "http://stand-in/v1", "chat_modle": "m"}, f)
+    try:
+        ask.load_settings(path)
+        refused = ""
+    except ValueError as e:
+        refused = str(e)
+    os.remove(path)
+    check("a misspelt setting is still refused, naming it", "chat_modle" in refused, repr(refused))
+
+
 def check_build():
     p, filled = ask.build(blues(), starters(), "a slow blues")
     pats = p["tracks"][0]["patterns"]
@@ -289,6 +326,18 @@ def check_build():
           repr(view["blocks"]))
     check("and says the plan in words", ask.plan_text(view) == "4 times through, the outro slowing to 48",
           ask.plan_text(view))
+    view["kit_name"] = "Rhythm 808"
+    check("and the song in a line, on every interpreter",
+          ask.facts_text(view) == "Blues  - 72 BPM  - 4/4  - shuffle  - Rhythm 808", ask.facts_text(view))
+
+    long_intro = blues()
+    long_intro["form"][0]["bars"] = 4
+    del long_intro["patterns"]["intro"]
+    lp, _filled = ask.build(long_intro, starters(), "")
+    shown = dict((b["short"], b["bars"]) for b in ask.preview(lp)["blocks"])
+    plays = lp["tracks"][0]["patterns"][lp["parts"]["intro"]]["bars"]
+    check("an intro the form names but the spec doesn't write shows the bars it plays",
+          plays != 4 and shown.get("INTRO") == plays, "shown %r, plays %r" % (shown.get("INTRO"), plays))
 
     two = blues()
     two["form"] = two["form"][:2] + [{"part": "main2", "bars": 12}] + two["form"][2:]
@@ -473,6 +522,7 @@ def main():
     p, tmp = args()
     plant(p)
     check_spec()
+    check_settings(tmp)
     project = check_build()
     check_asking()
     check_plays(project)

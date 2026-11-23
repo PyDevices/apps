@@ -40,6 +40,9 @@ DEFAULTS = {
     # the model that writes the song
     "chat_model": "gemma-4-E2B-it",
 }
+#: Settings the same file holds for the rest of Backline, passed over here:
+#: ``ble``, the name desks find the box by over Bluetooth (`remote.ble_name`).
+OTHERS = ("ble",)
 
 #: The parts a spec can write, in the order a song's patterns hold them.
 PARTS = ("intro", "main1", "main2", "fill1", "fill2", "transition", "outro")
@@ -95,6 +98,8 @@ def load_settings(path):
     if not isinstance(given, dict):
         raise ValueError("%s isn't a JSON object" % path)
     for name in given:
+        if name in OTHERS:
+            continue
         if name not in DEFAULTS:
             raise ValueError("%s has no setting %r" % (path, name))
         if not isinstance(given[name], str):
@@ -187,7 +192,8 @@ def system_prompt(kits):
         "- steps: steps in a bar: 12 for a shuffle or 12/8, else 16.\n"
         "- form: the parts in the order they play, each {\"part\": name, \"bars\": n}. Parts: intro, main1, "
         "main2, fill1, fill2, transition, outro. main1 is required. A 12-bar blues has main1 of 12 bars. "
-        "fill1 is the fill played in main1, fill2 in main2, transition goes into main2.\n"
+        "fill1 is the fill played in main1, fill2 in main2, transition goes into main2. Each part is in form "
+        "once: the song going round more than once is play.repeat, never a part listed again.\n"
         "- patterns: for each part in form, its drums, each a step grid string: one character a step, "
         "X accent, x hit, o soft, g ghost note, . rest. A grid is one bar of exactly steps characters, or two "
         "to four such bars with \"|\" between them, and repeats to fill the part. Drums: %s.\n"
@@ -494,7 +500,10 @@ def build(spec, starters, prompt=""):
     end = spec["play"]["outro_tempo"]
     p["tempo_map"] = [{"part": "outro", "tempo": float(end)}] if end and "outro" in where else []
     p["prompt"] = prompt
-    p["form"] = [[e["part"], int(e["bars"])] for e in spec["form"]]
+    # a part taken from a starter, or main 2 copied from main 1, plays as long as
+    # the pattern it got, whatever the spec's form asked for
+    p["form"] = [[e["part"], patterns[where[e["part"]]]["bars"] if e["part"] in where else int(e["bars"])]
+                 for e in spec["form"]]
     return p, filled
 
 
@@ -548,6 +557,19 @@ def preview(project, filled=(), tries=1, kit_name=None):
         "tries": tries,
         "prompt": project.get("prompt", ""),
     }
+
+
+def facts_text(p, dot="-"):
+    """The song in a line, from a `preview`: "Blues - 72 BPM - 4/4 - shuffle - Rhythm 808", *dot* between."""
+    style = p.get("style", "")
+    # str has no capitalize() on MicroPython
+    bits = [style[:1].upper() + style[1:], "%d BPM" % int(p.get("tempo", 0) + 0.5), p.get("meter", "4/4")]
+    if p.get("swing"):
+        bits.append("swing %d%%" % p["swing"])
+    elif p.get("feel") not in (None, "straight"):
+        bits.append(p["feel"])
+    bits.append(p.get("kit_name") or p.get("kit", ""))
+    return "  ".join([bits[0]] + ["%s %s" % (dot, b) for b in bits[1:] if b])
 
 
 def plan_text(p):
