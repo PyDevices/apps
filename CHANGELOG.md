@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3.dev5
+
+- applibs: one package on the library index holds every library in lib/, chatclient included, so `mip install applibs` brings them all, and a library added to lib/ is published with it. Each app's package.json asks for applibs.
+- Backline: a drum machine played with your foot, from a switch on a pin, the BOOT button or a MIDI foot controller, with a desk view on the box, another computer, a browser or a TV, and grooves you can ask for in words.
+- appkit: a status bar, on by default, and a picker over the running app for every connection that pairs, joins and asks for a password or PIN on the keyboard. Apps follow the sound output, MIDI and network chosen for them, and Home and the apps draw with icons instead of iconkit.
+- Home: hide an app that can't run here, and put it back.
+- midiEngine: reads the MIDI inputs chosen in the picker, and moves when they change.
+
 ## 0.1.3.dev4
 
 - Bluetooth Receiver: shows the phone's battery and signal, has a call card, and shuffle and repeat buttons that follow the phone's player.
