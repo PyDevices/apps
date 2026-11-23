@@ -220,6 +220,7 @@ jobs:
           PYTHONPATH: ${{ runner.temp }}/ttfio
           SDL_VIDEODRIVER: dummy
           SDL_AUDIODRIVER: dummy
+          HOSTKEYS_REQUIRE: "1"
         run: python -m unittest discover -s tests/appkit -p 'test_*.py' -v
 
   # Each app's package.json matches its folder and its imports, so

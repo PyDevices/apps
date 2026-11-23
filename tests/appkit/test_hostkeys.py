@@ -9,7 +9,8 @@ and each plant in its ``PLANTS`` failing it.
 It runs omnipython's real ``usb.core``, ``usb.host.endpoints`` and
 ``usb.host.hid``, from ``$OMNIPYTHON_DIR`` or the checkout ``OMNIPYTHON_LIB``
 belongs to, and endpointkit from the same checkout. Without them, or without
-LVGL on the interpreter, it skips.
+LVGL on the interpreter, it skips, unless ``HOSTKEYS_REQUIRE=1`` says the
+CPython half must run.
 """
 
 import os
@@ -50,7 +51,8 @@ def setUpModule():
         dst = Path(_tree.name) / path
         dst.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy(usb / pkg / path, dst)
-    _env = {"HOSTKEYS_USB_TREE": _tree.name, "HOSTKEYS_ENDPOINTKIT": str(omni / "packages" / "endpointkit")}
+    _env = {"HOSTKEYS_USB_TREE": _tree.name, "HOSTKEYS_ENDPOINTKIT": str(omni / "packages" / "endpointkit"),
+            "HOSTKEYS_UTILS": str(omni / "utils")}
 
 
 def tearDownModule():
@@ -63,6 +65,8 @@ def _run(case, interpreter, plant=None):
         extra["HOSTKEYS_PLANT"] = plant
     r = run([*interpreter, CONTRACT], timeout=120, extra_env=extra)
     if r.returncode == 2:
+        if os.environ.get("HOSTKEYS_REQUIRE") == "1" and interpreter[0] == sys.executable:
+            case.fail("HOSTKEYS_REQUIRE is set, but " + r.stdout.strip())
         case.skipTest(r.stdout.strip())
     return r
 

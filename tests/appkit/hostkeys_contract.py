@@ -35,6 +35,9 @@ if not _TREE or not _ENDPOINTKIT:
     sys.exit(2)
 # lib first: tests/appkit would hide the real appkit.
 sys.path[:0] = [_ROOT + "/lib", _TESTS, _TREE, _ENDPOINTKIT]
+# usb.util imports micropython's const: on CPython, omnipython's stand-in.
+if os.getenv("HOSTKEYS_UTILS"):
+    sys.path.append(os.getenv("HOSTKEYS_UTILS"))
 
 try:
     import lvgl as lv
