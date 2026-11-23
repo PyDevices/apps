@@ -302,12 +302,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      # iconkit: the floor check puts Backline's item on appkit's status bar,
-      # and appkit's shell draws its own icons with iconkit.
       - name: Install LVGL, svgio, icons and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" "omnipython-iconkit>=0.1.0.dev3" omnipython-audiodsp numpy resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" omnipython-audiodsp numpy resvg_py pillow
 
       - name: Backline's tests
         env:
