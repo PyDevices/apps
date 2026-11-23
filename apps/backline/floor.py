@@ -111,6 +111,7 @@ class Floor:
         self.panel = panel
         w, h = size
         lay = self.lay = art.Layout(w, h)
+        self.texts = art.Texts(lay)     # kept while the view hides: `hide`
         self.pictures = []
         self.shown = {}
         self.tele = {}
@@ -253,30 +254,38 @@ class Floor:
 
     def _draw(self):
         """Draw the art: the tempo's digits, the lamps' glow, and the panel,
-        the ring and the beat's digits for the meter."""
+        the ring and the beat's digits for the meter, all from the text
+        kept in `texts` and with one decoder."""
         lay = self.lay
-        for ch in "0123456789 ":
-            self.small[ch] = art.Picture(None, art.digit_svg(ch, lay.small_w, lay.small_h), lay.small_w, lay.small_h)
-        gr = self.glow_r
-        for i, glow in enumerate(self.glows):
-            pic = art.Picture(None, art.glow_svg(gr, PEDAL_COLORS[i]), 2 * gr, 2 * gr)
-            glow.set_src(pic.dsc)
-            self.glow_pictures.append(pic)
-        self.pictures = list(self.small.values()) + self.glow_pictures
-        self._ring(*self.want_meter)
+        texts = self.texts
+        decoder = art.decoder()
+        try:
+            gr = self.glow_r
+            digits, glows = texts.face((gr, color) for color in PEDAL_COLORS[: len(self.glows)])
+            for ch in art.TEMPO_DIGITS:
+                self.small[ch] = art.Picture(None, digits[ch], lay.small_w, lay.small_h, decoder=decoder)
+            for glow, text in zip(self.glows, glows):
+                pic = art.Picture(None, text, 2 * gr, 2 * gr, decoder=decoder)
+                glow.set_src(pic.dsc)
+                self.glow_pictures.append(pic)
+            self.pictures = list(self.small.values()) + self.glow_pictures
+            self._ring(*self.want_meter, decoder=decoder)
+        finally:
+            decoder.close()
 
-    def _big(self, ch):
+    def _big(self, ch, decoder=None):
         """The beat's digit ``ch``, drawn the first time it's wanted."""
         pic = self.big.get(ch)
         if pic is None:
             lay = self.lay
-            pic = self.big[ch] = art.Picture(None, art.digit_svg(ch, lay.big_w, lay.big_h), lay.big_w, lay.big_h)
+            pic = self.big[ch] = art.Picture(None, self.texts.big(ch), lay.big_w, lay.big_h, decoder=decoder)
             self.pictures.append(pic)
         return pic
 
     def hide(self):
         """Hide the view and let go of its art: every image shows nothing
-        and every picture can be collected. `show` draws it again."""
+        and every picture can be collected. `show` draws it again, from the
+        text kept in `texts`."""
         self.base.add_flag(lv.obj.FLAG.HIDDEN)
         if self.hidden:
             return
@@ -323,7 +332,7 @@ class Floor:
         """What the art holds, in bytes."""
         return sum(p.bytes for p in self.pictures) + sum(p.bytes for p in self.ring_pictures)
 
-    def _ring(self, steps, group):
+    def _ring(self, steps, group, decoder=None):
         """Draw the panel and the ring's segments for a bar of ``steps``,
         ``group`` to a beat, unless that is what is drawn already. The
         beat's digits are drawn for it too: a dash, and one to its beats."""
@@ -335,22 +344,30 @@ class Floor:
             pic.image.delete()
         self.ring_pictures = []  # so a collection while the new ones draw can take the old
         lay = self.lay
-        self.ring_pictures = art.bands(self.base, art.panel_svg(lay, steps, group), lay.w, lay.h)
-        under = len(self.ring_pictures)
-        for i, pic in enumerate(self.ring_pictures):
-            pic.image.move_to_index(i)
-        self.segments = []
-        for b in range(steps):
-            x, y, bw, bh = art.segment_box(lay, b, steps, group)
-            pic = art.Picture(self.base, art.segment_svg(lay, b, steps, group), bw, bh, x, y)
-            pic.image.add_flag(lv.obj.FLAG.HIDDEN)
-            pic.image.move_to_index(under + b)
-            self.ring_pictures.append(pic)
-            self.segments.append(pic.image)
-        self.looks = ["off"] * steps
-        self.shown.pop("beat", None)
-        for ch in "-123456789"[: 1 + min(9, steps // max(1, group))]:
-            self._big(ch)
+        own = decoder is None
+        if own:
+            decoder = art.decoder()
+        try:
+            panel_text, segment_texts = self.texts.ring(steps, group)
+            self.ring_pictures = art.bands(self.base, panel_text, lay.w, lay.h, decoder=decoder)
+            under = len(self.ring_pictures)
+            for i, pic in enumerate(self.ring_pictures):
+                pic.image.move_to_index(i)
+            self.segments = []
+            for b in range(steps):
+                x, y, bw, bh = art.segment_box(lay, b, steps, group)
+                pic = art.Picture(self.base, segment_texts[b], bw, bh, x, y, decoder=decoder)
+                pic.image.add_flag(lv.obj.FLAG.HIDDEN)
+                pic.image.move_to_index(under + b)
+                self.ring_pictures.append(pic)
+                self.segments.append(pic.image)
+            self.looks = ["off"] * steps
+            self.shown.pop("beat", None)
+            for ch in art.beat_digits(steps, group):
+                self._big(ch, decoder)
+        finally:
+            if own:
+                decoder.close()
 
     def _doc(self, doc, desc):
         self.doc_name = doc.get("name", "") if doc else ""

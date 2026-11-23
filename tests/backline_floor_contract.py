@@ -102,7 +102,7 @@ def plant(name):
         art.glow_svg = (lambda g: lambda r, c: g(r, 0x000000))(art.glow_svg)
     elif name == "four-beats":
         old = floor.Floor._ring
-        floor.Floor._ring = lambda self, steps, group: old(self, 4, 1)
+        floor.Floor._ring = lambda self, steps, group, decoder=None: old(self, 4, 1, decoder)
     elif name == "truncate":
         def fit(label, choices, width, space=1):
             label.set_style_text_letter_space(space, 0)

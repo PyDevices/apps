@@ -37,6 +37,7 @@ DESK = str(TESTS / "backline_desk_contract.py")
 CAST = str(TESTS / "backline_cast_contract.py")
 ASK = str(TESTS / "backline_ask_contract.py")
 MEMORY = str(TESTS / "backline_memory_contract.py")
+TEXT = str(TESTS / "backline_text_contract.py")
 PAGE = str(TESTS.parent / "tools" / "backline" / "desk_page.py")
 sys.path.insert(0, str(TESTS))
 
@@ -59,6 +60,7 @@ ASK_PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-
 ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 MEMORY_PLANTS = ("keep-floor", "keep-face", "alpha-panel", "whole-panel", "all-digits", "stale-return")
+TEXT_PLANTS = ("rewrite-every-show", "stale-meter", "one-size", "keep-pixels", "keep-every-meter")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 
 
@@ -317,6 +319,44 @@ class ViewMemory(unittest.TestCase):
     def test_memory_plants(self):
         cmd, env = _cmd("cpython", MEMORY)
         for plant in MEMORY_PLANTS:
+            with self.subTest(plant=plant):
+                result = _run(cmd, env, "--plant=" + plant)
+                self.assertIn("PLANTED " + plant, result.stdout, result.stdout + result.stderr)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
+
+
+class ViewText(unittest.TestCase):
+    """The SVG text the floor and desk views draw from, at 800x480 and
+    720x720: written once a size and meter, not again for a switch, written
+    again for another meter, and kept under a budget. Each text plant must
+    fail it."""
+
+    def setUp(self):
+        DeskView.setUp(self)
+
+    def test_text(self):
+        cmd, env = _cmd("cpython", TEXT)
+        result = _run(cmd, env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_text_micropython(self):
+        cmd, env = _cmd("micropython", TEXT)
+        if cmd is None:
+            self.skipTest("no micropython")
+        result = _run(cmd, env)
+        said = result.stdout + result.stderr
+        if any("no module named '%s'" % m in said for m in ("lvgl", "svgio", "icons", "audiocore")):
+            if REQUIRE:
+                self.fail("this micropython has no LVGL, svgio, icons or audiodsp")
+            self.skipTest("this micropython has no LVGL, svgio, icons or audiodsp")
+        self.assertEqual(result.returncode, 0, said)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_text_plants(self):
+        cmd, env = _cmd("cpython", TEXT)
+        for plant in TEXT_PLANTS:
             with self.subTest(plant=plant):
                 result = _run(cmd, env, "--plant=" + plant)
                 self.assertIn("PLANTED " + plant, result.stdout, result.stdout + result.stderr)
