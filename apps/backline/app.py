@@ -96,6 +96,14 @@ def start(scope):
             box.device.add(tcp.serve(port, page=page_data.page()))
         except OSError as e:
             box.error = "desks can't join on port %d: %s" % (port, e)
+    name = remote.ble_name(prefs, scope.data_dir)
+    if name:
+        try:
+            from hmilink import ble
+
+            box.device.add(ble.serve(name))
+        except Exception as e:  # noqa: BLE001 - said on the screen
+            box.error = "no desks over Bluetooth: %s" % (e,)
     panel = hmilink.Panel(local.connect(listener))
     box.poll()
     panel.poll()
