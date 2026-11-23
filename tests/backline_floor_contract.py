@@ -1,8 +1,9 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Backline's floor view on real LVGL with no window, at 320x240, 480x320
-and 800x480: it fits the screen, lights one more segment of the ring each
+"""Backline's floor view on real LVGL with no window, at 320x240, 480x320,
+800x480 and 720x720: it fits the screen, the bar's words fit inside the
+ring on one line and the tempo's digits inside their window, lights one more segment of the ring each
 beat and redraws little else, gives a 12/8 song twelve segments, shows the
 song's name and the part coming next in full, shows the part and the next
 one, lights a pedal's lamp while it is down, a touch on a lamp reaches the
@@ -41,12 +42,12 @@ from backline import art, floor, glyphs  # noqa: E402
 from backline.engine import BAR  # noqa: E402
 
 PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
-          "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
+          "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback", "screen-font", "wide-tempo")
 # Icons newer than some firmware's font: the fallback check hides them.
 NEW_ICONS = ("footprint", "steps", "sound_sampler", "music_cast", "cast_connected", "smartphone", "auto_awesome",
              "keyboard_voice", "mic_external_on", "repeat_one", "loop", "playlist_play", "lyrics", "timeline",
              "linear_scale", "waves", "spatial_audio", "settings_input_component", "view_module", "vibration")
-SIZES = ((320, 240), (480, 320), (800, 480))
+SIZES = ((320, 240), (480, 320), (800, 480), (720, 720))
 RESULTS = [0, 0]
 
 
@@ -128,6 +129,16 @@ def plant(name):
         glyphs.bar_reading = reading
     elif name == "no-fallback":
         glyphs.pick = lambda role: glyphs.ICONS[role][0][0]
+    elif name == "screen-font":
+        art.Layout.font_px = (lambda old: lambda self, want: old(self, max(want, self.h * 0.06)))(art.Layout.font_px)
+    elif name == "wide-tempo":
+        old = art.Layout.__init__
+
+        def init(self, w, h):
+            old(self, w, h)
+            self.small_h = max(14, self.tempo[3] - 8)
+            self.small_w = int(self.small_h * 0.58)
+        art.Layout.__init__ = init
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -210,6 +221,21 @@ def run_size(w, h):
         o.get_coords(a)
         where.append((a.x1, a.y1, a.x2, a.y2))
     check(tag + ": everything fits on the screen", not out, "outside: %r" % where)
+    wide = []
+    for kw in ({"playing": False}, {"bar": 12, "bars": 12}):
+        show(beat=1, **kw)
+        font = view.bar.get_style_text_font(0)
+        text = view.bar.get_text()
+        wide.append((text, floor.text_width(text, font, view.bar.get_style_text_letter_space(0))))
+    check(tag + ": the bar's words fit inside the ring on one line", wide[0][0] == "STOPPED" and
+          "12 / 12" in wide[1][0] and all(tw <= view.bar.get_width() for _t, tw in wide),
+          "%r in %d" % (wide, view.bar.get_width()))
+    show(beat=1)
+    tx, _ty, tw, _th = view.lay.tempo
+    slots = art.tempo_slots(view.lay)
+    check(tag + ": the tempo's digits sit inside their window",
+          slots[0] >= tx and slots[-1] + view.lay.small_w <= tx + tw, "%r of %d wide in %r" % (slots, view.lay.small_w,
+                                                                                              view.lay.tempo))
     held = view.bytes()
     check(tag + ": the art holds under four screens' worth", held < 4 * w * h * 3, "%d bytes" % held)
     lay = view.lay

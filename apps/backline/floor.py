@@ -18,7 +18,10 @@ command. So the same view works on the box's own screen, through
 
 Everything is sized from ``(width, height)``. The art is drawn once by
 svgio at that size (art.py); a beat shows one lit segment and hides
-another, and nothing else is redrawn unless it changed.
+another, and nothing else is redrawn unless it changed. While the view is
+hidden (`hide`) it lets go of its art, which `show` draws again, so a
+screen that shows the desk view instead holds one view's pictures, not
+both.
 """
 
 import lvgl as lv
@@ -112,6 +115,7 @@ class Floor:
         self.shown = {}
         self.tele = {}
         self.doc_name = ""
+        self.hidden = False
 
         base = lv.obj(root)
         base.remove_style_all()
@@ -125,37 +129,39 @@ class Floor:
         # The panel and the ring's lit segments, one a step of the bar, are
         # drawn for the song's meter, and again when it changes.
         self.meter = None
+        self.want_meter = _meter(panel.doc)
         self.ring_pictures = []
         self.segments = []
         self.looks = []
-        self._ring(*_meter(panel.doc))
 
-        # Seven-segment digits: drawn once, shown by swapping an image's source.
+        # Seven-segment digits, shown by swapping an image's source: the
+        # tempo's ten and a blank, and the beat's for the meter (`_draw`).
         self.big = {}
-        for ch in "0123456789- ":
-            self.big[ch] = art.Picture(None, art.digit_svg(ch, lay.big_w, lay.big_h), lay.big_w, lay.big_h)
         self.small = {}
-        for ch in "0123456789 ":
-            self.small[ch] = art.Picture(None, art.digit_svg(ch, lay.small_w, lay.small_h), lay.small_w, lay.small_h)
-        self.pictures.extend(self.big.values())
-        self.pictures.extend(self.small.values())
-        self.beat_digit = self.big["-"].show(base, int(lay.cx - lay.big_w / 2), int(lay.cy - lay.big_h * 0.62))
+        self.glow_pictures = []
+        self.beat_digit = art.image(base, int(lay.cx - lay.big_w / 2), int(lay.cy - lay.big_h * 0.62),
+                                    lay.big_w, lay.big_h)
         _x, ty, _tw, th = lay.tempo
-        self.tempo_digits = [self.small[" "].show(base, x, ty + (th - lay.small_h) // 2) for x in art.tempo_slots(lay)]
+        self.tempo_digits = [art.image(base, x, ty + (th - lay.small_h) // 2, lay.small_w, lay.small_h)
+                             for x in art.tempo_slots(lay)]
 
         small = lay.font(0.06)
         tiny = lay.font(0.05)
         eyebrow = _label(base, tiny, 0x8792A5, "BEAT")
         eyebrow.align_to(self.beat_digit, lv.ALIGN.OUT_TOP_MID, 0, -2)
         eyebrow.set_style_text_letter_space(2, 0)
-        self.bar = _label(base, small, 0xC8D0DC, "")
+        # Sized from the ring, which on a square screen is narrower than the
+        # screen's height would say, so "STOPPED" stays on one line.
+        self.bar = _label(base, lay.font_px(lay.r * 0.15), 0xC8D0DC, "")
         self.bar.set_style_text_letter_space(1, 0)
         self.bar.set_width(int(lay.r))
         self.bar.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
         self.bar.set_pos(int(lay.cx - lay.r / 2), int(lay.cy + lay.big_h * 0.45))
 
         cx, cy, cw, _ch = lay.col
-        self.song = _label(base, small, 0x9AA6B8, "", cw - 2)
+        # No taller than the column has room for: on a square screen the
+        # column is narrow for the screen's height.
+        self.song = _label(base, lay.font_px(min(lay.h * 0.06, cw * 0.11)), 0x9AA6B8, "", cw - 2)
         self.song.set_pos(cx + 2, cy)
 
         wx, wy, ww, wh = lay.window
@@ -199,14 +205,13 @@ class Floor:
 
         # The pedals' lamps: a glow over each, and a touch area that is the pedal.
         self.glows = []
+        gr = self.glow_r = int(lay.pedal_r * 1.6)
         for i, px in enumerate(lay.pedal_x):
-            gr = int(lay.pedal_r * 1.6)
-            pic = art.Picture(base, art.glow_svg(gr, PEDAL_COLORS[i]), 2 * gr, 2 * gr, px - gr, lay.pedal_y - gr)
-            pic.image.add_flag(lv.obj.FLAG.HIDDEN)
-            self.pictures.append(pic)
-            self.glows.append(pic.image)
+            glow = art.image(base, px - gr, lay.pedal_y - gr, 2 * gr, 2 * gr)
+            glow.add_flag(lv.obj.FLAG.HIDDEN)
+            self.glows.append(glow)
             letter = _label(base, small, 0xDDE3EC, "AB"[i])
-            letter.align_to(pic.image, lv.ALIGN.CENTER, 0, 0)
+            letter.align_to(glow, lv.ALIGN.CENTER, 0, 0)
             pad = lv.obj(base)
             pad.remove_style_all()
             pad.set_size(2 * gr, 2 * gr)
@@ -237,11 +242,65 @@ class Floor:
             btn.add_event_cb(lambda _e: on_switch(), lv.EVENT.CLICKED, None)
             self.switch = btn
 
+        self._draw()
         panel.on_doc = self._doc
         panel.on_tele = self._tele
         if panel.doc is not None:
             self._doc(panel.doc, panel.desc)
         self._tele({})
+
+    # -- the art -------------------------------------------------------------
+
+    def _draw(self):
+        """Draw the art: the tempo's digits, the lamps' glow, and the panel,
+        the ring and the beat's digits for the meter."""
+        lay = self.lay
+        for ch in "0123456789 ":
+            self.small[ch] = art.Picture(None, art.digit_svg(ch, lay.small_w, lay.small_h), lay.small_w, lay.small_h)
+        gr = self.glow_r
+        for i, glow in enumerate(self.glows):
+            pic = art.Picture(None, art.glow_svg(gr, PEDAL_COLORS[i]), 2 * gr, 2 * gr)
+            glow.set_src(pic.dsc)
+            self.glow_pictures.append(pic)
+        self.pictures = list(self.small.values()) + self.glow_pictures
+        self._ring(*self.want_meter)
+
+    def _big(self, ch):
+        """The beat's digit ``ch``, drawn the first time it's wanted."""
+        pic = self.big.get(ch)
+        if pic is None:
+            lay = self.lay
+            pic = self.big[ch] = art.Picture(None, art.digit_svg(ch, lay.big_w, lay.big_h), lay.big_w, lay.big_h)
+            self.pictures.append(pic)
+        return pic
+
+    def hide(self):
+        """Hide the view and let go of its art: every image shows nothing
+        and every picture can be collected. `show` draws it again."""
+        self.base.add_flag(lv.obj.FLAG.HIDDEN)
+        if self.hidden:
+            return
+        self.hidden = True
+        for pic in self.ring_pictures:
+            pic.image.delete()
+        for img in [self.beat_digit] + self.tempo_digits + self.glows:
+            img.set_src(None)
+        self.ring_pictures = []
+        self.segments = []
+        self.meter = None
+        self.big = {}
+        self.small = {}
+        self.glow_pictures = []
+        self.pictures = []
+
+    def show(self):
+        """Draw the art again and show the view as the song is now."""
+        if self.hidden:
+            self.hidden = False
+            self._draw()
+            self.shown = {}
+            self._tele({})
+        self.base.remove_flag(lv.obj.FLAG.HIDDEN)
 
     # -- the pedals ------------------------------------------------------------
 
@@ -266,35 +325,47 @@ class Floor:
 
     def _ring(self, steps, group):
         """Draw the panel and the ring's segments for a bar of ``steps``,
-        ``group`` to a beat, unless that is what is drawn already."""
-        if self.meter == (steps, group):
+        ``group`` to a beat, unless that is what is drawn already. The
+        beat's digits are drawn for it too: a dash, and one to its beats."""
+        self.want_meter = (steps, group)
+        if self.meter == (steps, group) or self.hidden:
             return
         self.meter = (steps, group)
         for pic in self.ring_pictures:
             pic.image.delete()
+        self.ring_pictures = []  # so a collection while the new ones draw can take the old
         lay = self.lay
-        panel = art.Picture(self.base, art.panel_svg(lay, steps, group), lay.w, lay.h)
-        panel.image.move_to_index(0)
-        self.ring_pictures = [panel]
+        self.ring_pictures = art.bands(self.base, art.panel_svg(lay, steps, group), lay.w, lay.h)
+        under = len(self.ring_pictures)
+        for i, pic in enumerate(self.ring_pictures):
+            pic.image.move_to_index(i)
         self.segments = []
         for b in range(steps):
             x, y, bw, bh = art.segment_box(lay, b, steps, group)
             pic = art.Picture(self.base, art.segment_svg(lay, b, steps, group), bw, bh, x, y)
             pic.image.add_flag(lv.obj.FLAG.HIDDEN)
-            pic.image.move_to_index(1 + b)
+            pic.image.move_to_index(under + b)
             self.ring_pictures.append(pic)
             self.segments.append(pic.image)
         self.looks = ["off"] * steps
         self.shown.pop("beat", None)
+        for ch in "-123456789"[: 1 + min(9, steps // max(1, group))]:
+            self._big(ch)
 
     def _doc(self, doc, desc):
         self.doc_name = doc.get("name", "") if doc else ""
         self._ring(*_meter(doc))
+        if self.hidden:
+            return
         if not self.tele.get("song"):
             self._set("song", self.doc_name.upper(), self._song)
 
     def _song(self, text):
         fit(self.song, [text], self.song.get_width(), 1)
+
+    def _bar(self, text):
+        """The bar, or only its numbers where "BAR" leaves no room inside the ring."""
+        fit(self.bar, [text, text[4:]] if text.startswith("BAR ") else [text], self.bar.get_width(), 1)
 
     def _set(self, key, value, fn):
         if self.shown.get(key) != value:
@@ -334,6 +405,8 @@ class Floor:
         playing = v.get("playing", False)
         steps = v.get("steps") or 4
         self._ring(steps, max(1, steps // (v.get("beats") or steps)))
+        if self.hidden:
+            return  # kept for `show`
         step = v.get("step", v.get("beat", 0)) if playing else 0
         beat = v.get("beat", 0) if playing else 0
         self._set("song", (v.get("song") or self.doc_name).upper(), self._song)
@@ -356,11 +429,11 @@ class Floor:
                 now = look == "now"
                 seg.set_style_image_recolor(lv.color_hex(color) if now else deep, 0)
                 seg.set_style_image_recolor_opa(120 if now else 225, 0)
-            self.beat_digit.set_src(self.big[str(beat) if 0 < beat < 10 else "-"].dsc)
+            self.beat_digit.set_src(self._big(str(beat) if 0 < beat < 10 else "-").dsc)
             self.shown.pop("pulse", None)
         self._set("pulse", pulse(v, steps) if playing else 0, self._pulse)
         bar = ("BAR %d / %d" % (v.get("bar", 1), v.get("bars", 1))) if playing else "STOPPED"
-        self._set("bar", bar, self.bar.set_text)
+        self._set("bar", bar, self._bar)
         self._set("part", (v.get("part") or "Ready").upper(), self.part.set_text)
         nxt = v.get("next") or ""
         if self._set("next", (nxt, playing), lambda n: None):
