@@ -16,7 +16,7 @@ import sys
 import time
 
 _HERE = __file__.rsplit("/", 1)[0] if "/" in __file__ else "."
-sys.path[:0] = [_HERE + "/..", _HERE]
+sys.path[:0] = [_HERE + "/..", _HERE + "/../lib", _HERE]
 
 import lvgl as lv
 

@@ -13,6 +13,8 @@ holds only what differs, and no file at all means the defaults.
 
 import json
 
+import chatclient
+
 #: Every setting and its value when the file doesn't give one.
 DEFAULTS = {
     # an OpenAI-compatible server: the address its /chat/completions is
@@ -92,11 +94,4 @@ def read_key(settings):
     Raises:
         OSError: The key file isn't there, or is empty.
     """
-    path = settings["key_file"]
-    if not path:
-        return ""
-    with open(path) as f:
-        key = f.read().strip()
-    if not key:
-        raise OSError("%s is empty" % path)
-    return key
+    return chatclient.read_key(settings["key_file"])
