@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Backline on a screen: the box, its audio output, the floor view and the keys.
+"""Backline on a screen: the box, its audio output, the floor and desk views and the keys.
 
 The package's ``main`` brings this in, so the engine, the kits and the
 songs import without LVGL or an audio output.
@@ -9,24 +9,28 @@ songs import without LVGL or an audio output.
 
 import sys
 
+import lvgl as lv
+
 try:
     from time import ticks_diff, ticks_ms
 except ImportError:
     from multimer import ticks_diff, ticks_ms
 
 import hmilink
-from hmilink import local
+from hmilink import local, tcp
 from touchkit import ui
 
 from . import box as boxmod
 from . import floor as floormod
-from . import kits
+from . import glyphs, kits, remote
+from . import page_data
 
 SERVICE_MS = 4       # the pedals and the notes due
 UI_MS = 30           # the panel and the screen
 CODEC_VOLUME = 85
 DESKTOPS = ("win32", "linux", "darwin")
-K_SPACE, K_B, K_K, K_LEFT, K_RIGHT = 32, 98, 107, 1073741904, 1073741903
+K_SPACE, K_B, K_D, K_K, K_TAB, K_LEFT, K_RIGHT = 32, 98, 100, 107, 9, 1073741904, 1073741903
+DESK_SIZE = (640, 400)       # the smallest screen that offers the desk view
 
 state = None  # for the console
 
@@ -41,6 +45,23 @@ def _clock(out):
     start = ticks_ms()
     rate = kits.RATE
     return lambda: ticks_diff(ticks_ms(), start) * rate // 1000
+
+
+def _cast(box, prefs):
+    """The desk view cast where the settings say (`remote.cast_target`), or
+    None. A cast that can't start says why on the box and the box plays on."""
+    try:
+        target = remote.cast_target(prefs)
+        if target is None:
+            return None
+        from . import cast
+
+        caster = cast.start(box.device, target)
+        box.cast = target.get("name") or target.get("host") or target["kind"]
+        return caster
+    except Exception as e:  # noqa: BLE001 - said on the screen
+        box.error = "no cast: %s" % (e,)
+        return None
 
 
 def start(scope):
@@ -69,14 +90,51 @@ def start(scope):
     out.attach(scope)
     out.play(box.bus.output, loop=True)
     listener = box.device.add(local.serve())
+    port = remote.listen_port(prefs)
+    if port:
+        try:
+            box.device.add(tcp.serve(port, page=page_data.page()))
+        except OSError as e:
+            box.error = "desks can't join on port %d: %s" % (port, e)
     panel = hmilink.Panel(local.connect(listener))
     box.poll()
     panel.poll()
-    floor = floormod.Floor(scope.root, (W, H), panel)
+    caster = _cast(box, prefs)
+    views = {"floor": None, "desk": None, "desk_panel": None, "shown": "floor"}
+    can_desk = W >= DESK_SIZE[0] and H >= DESK_SIZE[1]
+
+    def show(which):
+        """Show the floor or the desk view; the desk is made the first time."""
+        if which == "desk" and not can_desk:
+            return
+        if which == "desk" and views["desk"] is None:
+            from .desk import Desk
+
+            views["desk_panel"] = hmilink.Panel(local.connect(listener))
+            box.poll()
+            views["desk_panel"].poll()
+            views["desk"] = Desk(scope.root, (W, H), views["desk_panel"], on_switch=lambda: show("floor"))
+        views["shown"] = which
+        hide, keep = (views["floor"], views["desk"]) if which == "desk" else (views["desk"], views["floor"])
+        if hide is not None:
+            hide.base.add_flag(lv.obj.FLAG.HIDDEN)
+        keep.base.remove_flag(lv.obj.FLAG.HIDDEN)
+        if own_status:
+            status.move_foreground()
+
+    floor = floormod.Floor(scope.root, (W, H), panel, on_switch=(lambda: show("desk")) if can_desk else None)
+    views["floor"] = floor
     own_status = getattr(scope, "status", None) is None
     if own_status:
         status.move_foreground()
-    state = {"box": box, "floor": floor, "out": out}
+    state = {"box": box, "floor": floor, "out": out, "views": views, "show": show, "cast": caster}
+    # On the status bar while a song plays: the part and the tempo. A tap
+    # brings the floor view back to the front.
+    bar = getattr(scope, "bar", None)
+    if bar is not None:
+        from appkit.bar import Item
+
+        bar.add(Item("backline", lambda: glyphs.bar_reading(box.telemetry()), on_click=lambda: show("floor")), scope)
     held = set()
 
     def service(_t):
@@ -85,6 +143,10 @@ def start(scope):
     def tick(_t):
         box.poll()
         floor.poll()
+        if views["desk"] is not None:
+            views["desk"].poll()
+        if caster is not None:
+            caster.step()
         t = box.telemetry()
         prefs["song"] = box.songs[box.song_index][0]
         prefs["kit"] = box.engine.kit.spec if box.engine.kit is not None else None
@@ -104,6 +166,8 @@ def start(scope):
             floor.pedal(1, True)
         elif k == K_K:
             panel.command("kit", step=1)
+        elif k in (K_D, K_TAB):
+            show("floor" if views["shown"] == "desk" else "desk")
         elif k in (K_LEFT, K_RIGHT) and not box.engine.transport["playing"]:
             panel.command("song", step=1 if k == K_RIGHT else -1)
 
@@ -133,6 +197,10 @@ def start(scope):
         out.detach()
         out.close()
         panel.close()
+        if caster is not None:
+            caster.close()
+        if views["desk_panel"] is not None:
+            views["desk_panel"].close()
         box.close()  # after the output, so it never pulls a closed kit
         try:
             power = getattr(bp, "audio_power", None)

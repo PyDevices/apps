@@ -57,6 +57,10 @@ except ImportError as e:
 
 import _headless
 from appkit import picker as P
+from appkit import connections
+
+# The fakes are this device: the Shell registers no real provider beside them.
+connections.register = lambda registry=None: []
 
 SW, SH = (int(n) for n in (os.getenv("PICKER_SCREEN") or "480x320").split("x"))
 SHOTS = os.getenv("PICKER_SHOTS")

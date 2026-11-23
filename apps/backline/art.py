@@ -171,10 +171,10 @@ class Layout:
         return best or lv.font_default()
 
 
-def panel_svg(lay):
-    """Everything that never moves: the panel, the ring's housing and dim
-    track, the part window's glass, the tempo window with its ghost digits,
-    and the pedal lamps unlit."""
+def panel_svg(lay, steps=4, group=1):
+    """Everything that never moves: the panel, the ring's housing and its dim
+    track of ``steps`` segments, the part window's glass, the tempo window
+    with its ghost digits, and the pedal lamps unlit."""
     w, h = lay.w, lay.h
     cx, cy, r = lay.cx, lay.cy, lay.r
     out = [_HEAD % (w, h, w, h), "<defs>"]
@@ -218,19 +218,22 @@ def panel_svg(lay):
     out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#bezel2)"/>' % (cx, cy, r * 0.955))
     out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#face)"/>' % (cx, cy, r * 0.93))
     out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#hub)"/>' % (cx, cy, r * 0.62))
-    # Sixteenth ticks outside the beat track, the beats longer.
-    for i in range(16):
-        a = math.radians(-90 + i * 22.5)
-        major = i % 4 == 0
+    # Ticks outside the track, a beat's longer: sixteenths where a beat is
+    # one segment, else one tick a segment.
+    per = 4 if group == 1 else 1
+    ticks = steps * per
+    for i in range(ticks):
+        a = math.radians(-90 + i * 360.0 / ticks)
+        major = i % (per * group) == 0
         r0 = r * 0.865
         r1 = r * (0.915 if major else 0.893)
         out.append('<line x1="%.2f" y1="%.2f" x2="%.2f" y2="%.2f" stroke="#c8d0dc" stroke-opacity="%.2f" '
                    'stroke-width="%.1f" stroke-linecap="round"/>'
                    % (cx + r0 * math.cos(a), cy + r0 * math.sin(a), cx + r1 * math.cos(a), cy + r1 * math.sin(a),
                       0.75 if major else 0.3, max(1.0, r / 60.0) * (1.6 if major else 1.0)))
-    # The dim beat track: four segments.
-    for b in range(4):
-        a0, a1 = beat_span(b)
+    # The dim track, a segment a step.
+    for b in range(steps):
+        a0, a1 = beat_span(b, steps, group)
         out.append('<path d="%s" fill="#1d2430" stroke="#3a4555" stroke-opacity="0.8" stroke-width="1"/>'
                    % _band(cx, cy, lay.beat_in, lay.beat_out, a0, a1))
     # An inner hairline round the digit.
@@ -260,40 +263,40 @@ def panel_svg(lay):
     return "".join(out)
 
 
-def beat_span(beat):
-    """The angles of beat ``beat``'s segment (0 at the top, clockwise), with a gap each side."""
-    gap = 5.0
-    a0 = -90 + beat * 90 + gap
-    return a0, a0 + 90 - 2 * gap
+def beat_span(step, steps=4, group=1):
+    """The angles of ring segment ``step`` (from 0 at the top, clockwise) of
+    ``steps``, with a gap each side: a wide one where a beat starts or ends,
+    a narrow one between the steps of one beat (12/8's eighths, in threes)."""
+    size = 360.0 / steps
+    wide = min(5.0, size * 0.2)
+    narrow = min(2.0, size * 0.1)
+    a0 = -90 + step * size + (wide if step % group == 0 else narrow)
+    a1 = -90 + (step + 1) * size - (wide if (step + 1) % group == 0 else narrow)
+    return a0, a1
 
 
-def segment_box(lay, beat):
-    """The square, in screen pixels, that holds beat ``beat``'s lit segment and its glow."""
+def segment_box(lay, step, steps=4, group=1):
+    """The box, in screen pixels, that holds a lit segment and its glow."""
     pad = lay.r * 0.06
-    r = lay.beat_out + pad
-    a0, a1 = beat_span(beat)
-    xs = [lay.cx, ]
-    ys = [lay.cy, ]
-    for a in (a0, a1, (a0 + a1) / 2):
-        for rr in (lay.beat_in - pad, r):
-            xs.append(lay.cx + rr * math.cos(math.radians(a)))
-            ys.append(lay.cy + rr * math.sin(math.radians(a)))
-    # Each quadrant's outer corner reaches the full radius.
-    qx = 1 if beat in (0, 1) else -1
-    qy = -1 if beat in (0, 3) else 1
-    xs.append(lay.cx + qx * r)
-    ys.append(lay.cy + qy * r)
+    a0, a1 = beat_span(step, steps, group)
+    xs = []
+    ys = []
+    for k in range(9):
+        a = math.radians(a0 - 2 + (a1 - a0 + 4) * k / 8.0)
+        for rr in (lay.beat_in - pad, lay.beat_out + pad):
+            xs.append(lay.cx + rr * math.cos(a))
+            ys.append(lay.cy + rr * math.sin(a))
     x0, y0 = int(min(xs)) - 1, int(min(ys)) - 1
     x1, y1 = int(max(xs)) + 2, int(max(ys)) + 2
     return x0, y0, x1 - x0, y1 - y0
 
 
-def segment_svg(lay, beat, color=0xFFF4E0):
-    """Beat ``beat``'s lit segment: a bright band with a glow round it, in
-    its own box (`segment_box`), so it moves nothing else when shown."""
-    x0, y0, bw, bh = segment_box(lay, beat)
+def segment_svg(lay, step, steps=4, group=1, color=0xFFF4E0):
+    """Segment ``step``'s light: a bright band with a glow round it, in its
+    own box (`segment_box`), so it moves nothing else when shown."""
+    x0, y0, bw, bh = segment_box(lay, step, steps, group)
     cx, cy = lay.cx - x0, lay.cy - y0
-    a0, a1 = beat_span(beat)
+    a0, a1 = beat_span(step, steps, group)
     hot = hexcolor(color)
     out = [_HEAD % (bw, bh, bw, bh), "<defs>"]
     mid = (lay.beat_in + lay.beat_out) / 2

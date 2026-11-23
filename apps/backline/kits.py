@@ -101,6 +101,43 @@ def kit_folders():
     return found
 
 
+#: General MIDI's drum notes, for a kit that doesn't name its own.
+GM_DRUMS = (
+    (35, "Kick 2"), (36, "Kick"), (37, "Side Stick"), (38, "Snare"), (39, "Clap"), (40, "Snare 2"),
+    (41, "Low Floor Tom"), (42, "Closed Hat"), (43, "Floor Tom"), (44, "Pedal Hat"), (45, "Low Tom"),
+    (46, "Open Hat"), (47, "Low Mid Tom"), (48, "High Mid Tom"), (49, "Crash"), (50, "High Tom"),
+    (51, "Ride"), (52, "China"), (53, "Ride Bell"), (54, "Tambourine"), (55, "Splash"), (56, "Cowbell"),
+    (57, "Crash 2"), (59, "Ride 2"), (60, "High Bongo"), (61, "Low Bongo"), (62, "Mute Conga"),
+    (63, "Open Conga"), (64, "Low Conga"), (69, "Cabasa"), (70, "Maracas"), (75, "Claves"),
+)
+SOURCES = (("machine", "Drum machines"), ("soundfont", "SoundFont"), ("samples", "Sample kits"))
+
+
+def source(spec):
+    """Which of the three kinds kit ``spec`` is: ``"machine"``, ``"soundfont"`` or ``"samples"``."""
+    if spec.startswith(SAMPLES):
+        return "samples"
+    if spec == SOUNDFONT or spec.startswith(SOUNDFONT + ":"):
+        return "soundfont"
+    return "machine"
+
+
+def title(spec):
+    """What a screen calls kit ``spec``."""
+    if spec in NAMES:
+        return NAMES[spec]
+    path = spec.split(":", 1)[1] if ":" in spec else (find_bank() or "")
+    name = path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    if name.lower().endswith(".sf2"):
+        name = name[:-4]
+    return name or spec
+
+
+def describe(specs):
+    """``[{"spec", "name", "source"}]`` for each kit spec, as panels list them."""
+    return [{"spec": s, "name": title(s), "source": source(s)} for s in specs]
+
+
 def available():
     """Every kit this device can play, as the specs `open_kit` takes."""
     specs = list(MACHINES)
@@ -140,6 +177,19 @@ class DrumMachineKit:
         self.output = self.inst.output
         self._fill = getattr(self.inst, "fill", None)
 
+    def voices(self):
+        """``[(pitch, name)]``: the drum notes this kit plays."""
+        import audioinstruments
+
+        mod = getattr(audioinstruments, self.spec, None)
+        if mod is None:
+            try:
+                mod = __import__("audioinstruments." + self.spec, None, None, ["NOTE_MAP"])
+            except ImportError:
+                mod = None
+        table = getattr(mod, "NOTE_MAP", None)
+        return [list(v) for v in table] if table else [list(v) for v in GM_DRUMS]
+
     def note_on(self, pitch, velocity, delay=0):
         self.inst.note_on(pitch, velocity)
 
@@ -166,6 +216,9 @@ class SoundFontKit(DrumMachineKit):
         self.inst = audioinstruments.create("soundfont_drums", rate, CHANNELS, bank=bank)
         self.output = self.inst.output
         self._fill = getattr(self.inst, "fill", None)
+
+    def voices(self):
+        return [list(v) for v in GM_DRUMS]
 
 
 def read_wav(path):
@@ -262,6 +315,10 @@ class SampleKit:
         with open(self.folder + "/kit.json", "w") as f:
             json.dump(self.info, f)
 
+    def voices(self):
+        names = dict(GM_DRUMS)
+        return [[p, names.get(p, "Pad %d" % p)] for p in sorted(self.pads)]
+
     def note_on(self, pitch, velocity, delay=0):
         pad = self.pads.get(pitch)
         if pad is None:
@@ -312,6 +369,10 @@ class Bus:
     def fill(self):
         if self.kit is not None:
             self.kit.fill()
+
+    def level(self, level):
+        """The whole kit's level, 0 to 1."""
+        self.mixer.voice[0].level = max(0.0, min(1.0, level))
 
     def close(self):
         self.mixer.voice[0].stop()

@@ -23,7 +23,8 @@ another, and nothing else is redrawn unless it changed.
 
 import lvgl as lv
 
-from . import art
+from . import art, glyphs
+from .engine import BAR, meter
 
 PEDAL_COLORS = (0xFFB703, 0x4CC9F0)
 HINTS = {
@@ -35,6 +36,18 @@ HINTS = {
     "outro": "TAP TAP: STOP NOW",
 }
 ARROW = "  " + lv.SYMBOL.RIGHT + "  "
+PULSE_LEVELS = 3          # how many steps the beat's pulse fades in
+PULSE_SPAN = 0.34         # the share of a beat it lasts
+
+
+def pulse(tele, steps):
+    """How bright the beat's pulse is now, 0 to `PULSE_LEVELS`: brightest
+    as a beat lands, gone a third of the way through it. Read from where the
+    part is (``at``), so it keeps time with the song, not with the screen."""
+    beats = tele.get("beats") or steps
+    span = BAR * (steps // max(1, beats) or 1) / float(steps)
+    phase = (tele.get("at", 0) % BAR) % span / span
+    return max(0, PULSE_LEVELS - int(phase * PULSE_LEVELS / PULSE_SPAN))
 
 
 def _label(parent, font, color, text="", width=None):
@@ -50,10 +63,47 @@ def _label(parent, font, color, text="", width=None):
     return lbl
 
 
-class Floor:
-    """The floor view on ``root``, ``size`` = (width, height), showing ``panel``."""
+def _meter(doc):
+    """``(steps, group)`` for the ring, from a song document (4/4 without one)."""
+    return meter(doc or {})
 
-    def __init__(self, root, size, panel):
+
+def text_width(text, font, space=0):
+    """How wide ``text`` draws in ``font`` with ``space`` between letters."""
+    n = len(text.encode())        # LVGL counts bytes, and a symbol is three
+    try:
+        attrs = lv.text_attributes_t()
+        attrs.init()
+        attrs.letter_space = space
+        return lv.text_get_width(text, n, font, attrs)
+    except AttributeError:  # LVGL before 9.4 takes the spacing itself
+        return lv.text_get_width(text, n, font, space)
+
+
+def fit(label, choices, width, space=1):
+    """Show the first of ``choices`` that fits ``width`` on ``label``: each
+    with ``space`` between letters, then each with none. The last choice,
+    tightest, is shown when none fits."""
+    font = label.get_style_text_font(0)
+    for sp in (space, 0) if space else (0,):
+        for text in choices:
+            if text_width(text, font, sp) <= width:
+                label.set_style_text_letter_space(sp, 0)
+                label.set_text(text)
+                return text
+    label.set_style_text_letter_space(0, 0)
+    label.set_text(choices[-1])
+    return choices[-1]
+
+
+class Floor:
+    """The floor view on ``root``, ``size`` = (width, height), showing ``panel``.
+
+    With ``on_switch``, a button in the corner calls it: the app shows the
+    desk view there instead.
+    """
+
+    def __init__(self, root, size, panel, on_switch=None):
         self.root = root
         self.panel = panel
         w, h = size
@@ -72,17 +122,13 @@ class Floor:
         base.set_style_bg_opa(255, 0)
         self.base = base
 
-        self.pictures.append(art.Picture(base, art.panel_svg(lay), w, h))
-
-        # The lit segments, one per beat, each in its own box.
+        # The panel and the ring's lit segments, one a step of the bar, are
+        # drawn for the song's meter, and again when it changes.
+        self.meter = None
+        self.ring_pictures = []
         self.segments = []
-        self.looks = ["off"] * 4
-        for b in range(4):
-            x, y, bw, bh = art.segment_box(lay, b)
-            pic = art.Picture(base, art.segment_svg(lay, b), bw, bh, x, y)
-            pic.image.add_flag(lv.obj.FLAG.HIDDEN)
-            self.pictures.append(pic)
-            self.segments.append(pic.image)
+        self.looks = []
+        self._ring(*_meter(panel.doc))
 
         # Seven-segment digits: drawn once, shown by swapping an image's source.
         self.big = {}
@@ -109,9 +155,8 @@ class Floor:
         self.bar.set_pos(int(lay.cx - lay.r / 2), int(lay.cy + lay.big_h * 0.45))
 
         cx, cy, cw, _ch = lay.col
-        self.song = _label(base, small, 0x9AA6B8, "", cw)
+        self.song = _label(base, small, 0x9AA6B8, "", cw - 2)
         self.song.set_pos(cx + 2, cy)
-        self.song.set_style_text_letter_space(0 if cw < 180 else 1, 0)
 
         wx, wy, ww, wh = lay.window
         part_font = lay.font(0.11)
@@ -132,10 +177,7 @@ class Floor:
         chip.set_pos(cx, lay.chip_y)
         chip.remove_flag(lv.obj.FLAG.SCROLLABLE)
         self.chip = chip
-        narrow = cw < 180
         self.chip_text = _label(chip, tiny, 0xC8D0DC, "", cw - 8)
-        self.chip_text.set_style_text_letter_space(0 if narrow else 1, 0)
-        self.next_word = "" if narrow else "NEXT"
         self.chip_text.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
         self.chip_text.align(lv.ALIGN.CENTER, 0, 0)
 
@@ -144,7 +186,8 @@ class Floor:
         bpm = _label(base, tiny, 0x8792A5, "BPM")
         bpm.set_style_text_letter_space(2, 0)
         bpm.set_pos(tx + tw + gap, ty + (th - tiny.line_height) // 2)
-        self.kit = _label(base, small, 0xC8D0DC, "", cw)
+        # A size smaller than the song's, so on a big screen it clears the lamps.
+        self.kit = _label(base, tiny, 0xC8D0DC, "", cw)
         self.kit.set_pos(cx + 2, lay.kit_y)
         # What the pedal does now, between the lamps, where there's room.
         hint_font = lay.font(0.034)
@@ -173,6 +216,27 @@ class Floor:
             pad.add_event_cb(self._pad(i, False), lv.EVENT.RELEASED, None)
             pad.add_event_cb(self._pad(i, False), lv.EVENT.PRESS_LOST, None)
 
+        # Where the screen can show the desk instead, a button for it in the
+        # corner above the ring.
+        self.switch = None
+        if on_switch is not None:
+            size = max(28, min(lay.m * 3, 48))
+            btn = lv.obj(base)
+            btn.remove_style_all()
+            btn.set_size(size, size)
+            btn.set_pos(max(2, lay.m // 3), max(2, lay.m // 3))
+            btn.set_style_radius(size // 4, 0)
+            btn.set_style_bg_color(lv.color_hex(0x0E131B), 0)
+            btn.set_style_bg_opa(220, 0)
+            btn.set_style_border_color(lv.color_hex(0x3A4555), 0)
+            btn.set_style_border_width(1, 0)
+            btn.add_flag(lv.obj.FLAG.CLICKABLE)
+            btn.remove_flag(lv.obj.FLAG.SCROLLABLE)
+            icon = glyphs.show(btn, "desk", size * 2 // 3, lv.color_hex(0xC8D0DC))
+            icon.center()
+            btn.add_event_cb(lambda _e: on_switch(), lv.EVENT.CLICKED, None)
+            self.switch = btn
+
         panel.on_doc = self._doc
         panel.on_tele = self._tele
         if panel.doc is not None:
@@ -198,12 +262,39 @@ class Floor:
 
     def bytes(self):
         """What the art holds, in bytes."""
-        return sum(p.bytes for p in self.pictures)
+        return sum(p.bytes for p in self.pictures) + sum(p.bytes for p in self.ring_pictures)
+
+    def _ring(self, steps, group):
+        """Draw the panel and the ring's segments for a bar of ``steps``,
+        ``group`` to a beat, unless that is what is drawn already."""
+        if self.meter == (steps, group):
+            return
+        self.meter = (steps, group)
+        for pic in self.ring_pictures:
+            pic.image.delete()
+        lay = self.lay
+        panel = art.Picture(self.base, art.panel_svg(lay, steps, group), lay.w, lay.h)
+        panel.image.move_to_index(0)
+        self.ring_pictures = [panel]
+        self.segments = []
+        for b in range(steps):
+            x, y, bw, bh = art.segment_box(lay, b, steps, group)
+            pic = art.Picture(self.base, art.segment_svg(lay, b, steps, group), bw, bh, x, y)
+            pic.image.add_flag(lv.obj.FLAG.HIDDEN)
+            pic.image.move_to_index(1 + b)
+            self.ring_pictures.append(pic)
+            self.segments.append(pic.image)
+        self.looks = ["off"] * steps
+        self.shown.pop("beat", None)
 
     def _doc(self, doc, desc):
         self.doc_name = doc.get("name", "") if doc else ""
+        self._ring(*_meter(doc))
         if not self.tele.get("song"):
-            self._set("song", self.doc_name.upper(), self.song.set_text)
+            self._set("song", self.doc_name.upper(), self._song)
+
+    def _song(self, text):
+        fit(self.song, [text], self.song.get_width(), 1)
 
     def _set(self, key, value, fn):
         if self.shown.get(key) != value:
@@ -225,23 +316,36 @@ class Floor:
         hint.remove_flag(lv.obj.FLAG.HIDDEN)
         hint.set_y(lay.pedal_y - h // 2)
 
+    def _pulse(self, level):
+        """Brighten the beat's digit and its lit segment by ``level`` (0 to
+        `PULSE_LEVELS`), more on the bar's first beat."""
+        accent = self.tele.get("beat") == 1
+        self.beat_digit.set_style_image_recolor(lv.color_hex(0xFFFFFF), 0)
+        self.beat_digit.set_style_image_recolor_opa(level * (36 if accent else 24), 0)
+        step = self.shown.get("beat", 0)
+        if 0 < step <= len(self.segments):
+            self.segments[step - 1].set_style_image_recolor_opa(120 - level * (30 if accent else 20), 0)
+
     def _tele(self, values):
         v = self.tele
         v.update(values)
         role = v.get("role", "stopped")
         color = art.ROLE_COLORS.get(role, art.ROLE_COLORS["stopped"])
         playing = v.get("playing", False)
+        steps = v.get("steps") or 4
+        self._ring(steps, max(1, steps // (v.get("beats") or steps)))
+        step = v.get("step", v.get("beat", 0)) if playing else 0
         beat = v.get("beat", 0) if playing else 0
-        self._set("song", (v.get("song") or self.doc_name).upper(), self.song.set_text)
+        self._set("song", (v.get("song") or self.doc_name).upper(), self._song)
         recolor = self._set("color", color, lambda c: None)
         if recolor:
             self.part.set_style_text_color(lv.color_hex(color), 0)
-        if self._set("beat", beat, lambda b: None) or recolor:
+        if self._set("beat", step, lambda b: None) or recolor:
             # The beat now is hot, its centre near white; the beats before it
             # stay lit in a deeper shade of the part's colour.
             deep = lv.color_hex(art.mix(color, 0x000000, 0.35))
             for i, seg in enumerate(self.segments):
-                look = "off" if i >= beat else "now" if i == beat - 1 else "past"
+                look = "off" if i >= step else "now" if i == step - 1 else "past"
                 if not recolor and self.looks[i] == look:
                     continue          # unchanged: left alone, so it isn't redrawn
                 self.looks[i] = look
@@ -253,14 +357,19 @@ class Floor:
                 seg.set_style_image_recolor(lv.color_hex(color) if now else deep, 0)
                 seg.set_style_image_recolor_opa(120 if now else 225, 0)
             self.beat_digit.set_src(self.big[str(beat) if 0 < beat < 10 else "-"].dsc)
+            self.shown.pop("pulse", None)
+        self._set("pulse", pulse(v, steps) if playing else 0, self._pulse)
         bar = ("BAR %d / %d" % (v.get("bar", 1), v.get("bars", 1))) if playing else "STOPPED"
         self._set("bar", bar, self.bar.set_text)
         self._set("part", (v.get("part") or "Ready").upper(), self.part.set_text)
         nxt = v.get("next") or ""
         if self._set("next", (nxt, playing), lambda n: None):
-            arrow = ARROW if self.next_word else lv.SYMBOL.RIGHT + " "
-            self.chip_text.set_text((self.next_word + arrow + nxt.upper()).strip() if nxt else "LOOPING" if playing
-                                    else "TAP" + ARROW + "INTRO")
+            if nxt:
+                up = nxt.upper()
+                choices = ["NEXT" + ARROW + up, lv.SYMBOL.RIGHT + " " + up, up]
+            else:
+                choices = [lv.SYMBOL.LOOP + "  LOOPING", "LOOPING"] if playing else ["TAP" + ARROW + "INTRO", "TAP " + lv.SYMBOL.RIGHT + " INTRO"]
+            fit(self.chip_text, choices, self.chip_text.get_width(), 1)
             ncolor = art.ROLE_COLORS.get(v.get("next_role") or "stopped", 0x3A4555)
             self.chip.set_style_border_color(lv.color_hex(ncolor if nxt else 0x3A4555), 0)
             self.chip_text.set_style_text_color(lv.color_hex(ncolor if nxt else 0x9AA6B8), 0)

@@ -16,8 +16,10 @@ without it they skip, and so do the plants only they catch.
 ``BACKLINE_REQUIRE=1`` makes a skipped kit or panel check a failure; the
 SoundFont kit still skips without a bank, since none ships with the tests.
 
-The floor view's check needs LVGL and svgio (on CPython, omnipython-lvgl,
-omnipython-desktop, resvg-py and Pillow), and skips without them.
+The floor and desk views' checks need LVGL, svgio and icons (on CPython,
+omnipython-lvgl, omnipython-desktop, resvg-py and Pillow), and skip without
+them; the desk's also needs audiodsp. The browser desk page's module must
+match its source (``tools/backline/desk_page.py --check``).
 """
 
 import os
@@ -31,14 +33,22 @@ from pathlib import Path
 TESTS = Path(__file__).resolve().parent
 CONTRACT = str(TESTS / "backline_contract.py")
 FLOOR = str(TESTS / "backline_floor_contract.py")
+DESK = str(TESTS / "backline_desk_contract.py")
+CAST = str(TESTS / "backline_cast_contract.py")
+PAGE = str(TESTS.parent / "tools" / "backline" / "desk_page.py")
 sys.path.insert(0, str(TESTS))
 
 from test_engine import _find, audio_checkout  # noqa: E402
 
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
-          "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro")
-NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel")
-FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp")
+          "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
+          "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard")
+NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard")
+FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
+                "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
+DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
+               "long-names", "tight-mixer", "no-joiners")
+CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 
 
@@ -133,7 +143,7 @@ class PlantedFaults(unittest.TestCase):
 
 def _cpython_lacks():
     """Why the floor view can't be drawn on this Python, or None."""
-    for name in ("lvgl", "svgio"):
+    for name in ("lvgl", "svgio", "icons"):
         try:
             __import__(name)
         except ImportError as e:
@@ -163,11 +173,11 @@ class FloorView(unittest.TestCase):
         if cmd is None:
             self.skipTest("no micropython")
         result = _run(cmd, env)
-        if "no module named 'lvgl'" in result.stdout + result.stderr or \
-                "no module named 'svgio'" in result.stdout + result.stderr:
+        said = result.stdout + result.stderr
+        if any("no module named '%s'" % m in said for m in ("lvgl", "svgio", "icons")):
             if REQUIRE:
-                self.fail("this micropython has no LVGL or svgio")
-            self.skipTest("this micropython has no LVGL or svgio")
+                self.fail("this micropython has no LVGL, svgio or icons")
+            self.skipTest("this micropython has no LVGL, svgio or icons")
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(" 0 failed", result.stdout)
 
@@ -178,6 +188,60 @@ class FloorView(unittest.TestCase):
                 result = _run(cmd, env, "--plant=" + plant)
                 self.assertNotEqual(result.returncode, 0, result.stdout)
                 self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
+
+
+class DeskView(unittest.TestCase):
+    """Two desks on one box at 800x480 and 1280x720, one local and one over
+    TCP, staying in step through edits while the song plays; each desk plant
+    must fail it."""
+
+    def setUp(self):
+        why = _cpython_lacks()
+        if why is None:
+            try:
+                import audiocore  # noqa: F401
+            except ImportError as e:
+                why = "audiocore: %s" % e
+        if why:
+            if REQUIRE:
+                self.fail("the desk view needs LVGL, svgio, icons and audiodsp: " + why)
+            self.skipTest("no LVGL, svgio, icons or audiodsp here: " + why)
+
+    def test_desk(self):
+        cmd, env = _cmd("cpython", DESK)
+        result = _run(cmd, env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_desk_plants(self):
+        cmd, env = _cmd("cpython", DESK)
+        for plant in DESK_PLANTS:
+            with self.subTest(plant=plant):
+                result = _run(cmd, env, "--plant=" + plant)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
+
+    def test_cast(self):
+        """The desk at 1280x720 on a display of its own, its frames handed
+        to a stand-in for a cast while the song plays."""
+        cmd, env = _cmd("cpython", CAST)
+        result = _run(cmd, env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_cast_plants(self):
+        cmd, env = _cmd("cpython", CAST)
+        for plant in CAST_PLANTS:
+            with self.subTest(plant=plant):
+                result = _run(cmd, env, "--plant=" + plant)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
+
+
+class DeskPage(unittest.TestCase):
+    def test_page_module_is_current(self):
+        result = subprocess.run([sys.executable, PAGE, "--check"], capture_output=True, text=True, timeout=60)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
 
 if __name__ == "__main__":

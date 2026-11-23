@@ -23,6 +23,38 @@
       "box.py"
     ],
     [
+      "cast.py",
+      "cast.py"
+    ],
+    [
+      "desk/__init__.py",
+      "desk/__init__.py"
+    ],
+    [
+      "desk/editor.py",
+      "desk/editor.py"
+    ],
+    [
+      "desk/grid.py",
+      "desk/grid.py"
+    ],
+    [
+      "desk/look.py",
+      "desk/look.py"
+    ],
+    [
+      "desk/perform.py",
+      "desk/perform.py"
+    ],
+    [
+      "desk/strip.py",
+      "desk/strip.py"
+    ],
+    [
+      "desk_main.py",
+      "desk_main.py"
+    ],
+    [
       "engine.py",
       "engine.py"
     ],
@@ -31,12 +63,28 @@
       "floor.py"
     ],
     [
+      "glyphs.py",
+      "glyphs.py"
+    ],
+    [
       "kits.py",
       "kits.py"
     ],
     [
+      "page_data.py",
+      "page_data.py"
+    ],
+    [
+      "parts.py",
+      "parts.py"
+    ],
+    [
       "pedal.py",
       "pedal.py"
+    ],
+    [
+      "remote.py",
+      "remote.py"
     ],
     [
       "songs/ballad_68.json",
@@ -103,6 +151,10 @@
     [
       "touchkit",
       "latest"
+    ],
+    [
+      "github:PyDevices/omnipython/packages/castdisplay",
+      "main"
     ]
   ],
   "upstream": [
