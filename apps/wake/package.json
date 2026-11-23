@@ -17,11 +17,7 @@
   ],
   "deps": [
     [
-      "appkit",
-      "latest"
-    ],
-    [
-      "deskkit",
+      "applibs",
       "latest"
     ],
     [
@@ -34,10 +30,6 @@
     ],
     [
       "medialink",
-      "latest"
-    ],
-    [
-      "touchkit",
       "latest"
     ]
   ],

@@ -36,15 +36,19 @@ APPS = os.path.join(ROOT, "apps")
 PROGRAMS = os.path.join(ROOT, "programs")
 LIB = os.path.join(ROOT, "lib")
 
-#: Import name -> package on the OmniPython index.
+#: This repository's libraries: every folder in lib/ with an __init__.py. The
+#: index publishes them all as one package, applibs, so an app that imports any
+#: of them installs that.
+LIBS = sorted(
+    name for name in os.listdir(LIB) if os.path.isfile(os.path.join(LIB, name, "__init__.py"))
+)
+APPLIBS = "applibs"
+
+#: Import name -> package on the OmniPython index, besides this repository's libraries.
 INDEX = {
-    "appkit": "appkit",
     "audioeffects": "audioeffects",
     "audioinstruments": "audioinstruments",
     "bledev": "bledev",
-    "chatclient": "chatclient",
-    "controlkit": "controlkit",
-    "deskkit": "deskkit",
     "endpointkit": "endpointkit",
     "hmilink": "hmilink",
     "icons": "icons",
@@ -52,13 +56,7 @@ INDEX = {
     "midiports": "midiports",
     "mp4mux": "mp4mux",
     "palettes": "palettes",
-    "programkit": "programkit",
     "pygraphics": "pygraphics",
-    "sayso": "sayso",
-    "songmodel": "songmodel",
-    "soundmodule": "soundmodule",
-    "spectrum": "spectrum",
-    "touchkit": "touchkit",
     "usb_hid": "usb-hid",
 }
 
@@ -89,7 +87,7 @@ UPSTREAM = {
     "requests": "requests",
 }
 
-#: An index package -> what it needs over HTTP (see appkit.net): requests from
+#: A library here -> what it needs over HTTP (see appkit.net): requests from
 #: micropython-lib on MicroPython, and on CircuitPython adafruit_requests from
 #: Adafruit's library bundle, since CircuitPython's core has no HTTP client.
 #: omip skips the first where the firmware has it frozen in, and reads the
@@ -176,15 +174,18 @@ def python_files(folder):
 
 
 def lib_needs(name, seen):
-    """Add to *seen* the index packages this repository's library *name* imports, and theirs."""
-    if not os.path.isdir(os.path.join(LIB, name)):
+    """Add to *seen* what this repository's library *name* imports: index
+    packages, and libraries here (by their own names), and theirs."""
+    if name not in LIBS:
         return
     for other in imported(python_files(os.path.join(LIB, name))):
         if other in WHERE_INSTALLED.get(name, ()):
             continue
-        if other in INDEX and INDEX[other] not in seen:
-            seen.add(INDEX[other])
+        if other in LIBS and other not in seen:
+            seen.add(other)
             lib_needs(other, seen)
+        elif other in INDEX and INDEX[other] not in seen:
+            seen.add(INDEX[other])
 
 
 def needs(folder):
@@ -196,7 +197,9 @@ def needs(folder):
             continue
         if module == "apps":
             continue  # another app, which Home brings up on its own
-        if module in INDEX:
+        if module in LIBS:
+            index.add(module)
+        elif module in INDEX:
             index.add(INDEX[module])
         elif module in ELSEWHERE:
             elsewhere.add(ELSEWHERE[module])
@@ -217,7 +220,9 @@ def needs(folder):
         closure.add(package)
     for package in sorted(index):
         lib_needs(package, closure)
-    deps = [[package, "latest"] for package in sorted(closure)]
+    # closure names this repository's libraries one by one; they install as applibs.
+    packages = {APPLIBS if package in LIBS else package for package in closure}
+    deps = [[package, "latest"] for package in sorted(packages)]
     deps += [[url, "main"] for url in sorted(elsewhere)]
     # an app that draws with another's modules installs that app too
     top = [os.path.join(folder, name) for name in os.listdir(folder) if name.endswith(".py")]

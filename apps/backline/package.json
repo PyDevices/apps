@@ -137,19 +137,11 @@
   ],
   "deps": [
     [
-      "appkit",
+      "applibs",
       "latest"
     ],
     [
       "audioinstruments",
-      "latest"
-    ],
-    [
-      "chatclient",
-      "latest"
-    ],
-    [
-      "deskkit",
       "latest"
     ],
     [
@@ -166,14 +158,6 @@
     ],
     [
       "midiports",
-      "latest"
-    ],
-    [
-      "songmodel",
-      "latest"
-    ],
-    [
-      "touchkit",
       "latest"
     ],
     [

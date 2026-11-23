@@ -24,9 +24,10 @@
 # index_dir= says where to write _appkit_apps.py (default: a temporary folder).
 #
 # The require() line below is what appkit needs that it doesn't carry: a mip
-# install of appkit brings it along. A firmware build freezes it only with
-# requires=True, from a library the build has registered (omnipython-lib with
-# add_library), so including this file alone freezes appkit and nothing more.
+# install of applibs, which holds appkit, brings it along. A firmware build
+# freezes it only with requires=True, from a library the build has registered
+# (omnipython-lib with add_library), so including this file alone freezes
+# appkit and nothing more.
 
 options.defaults(apps=None, index_dir=None, requires=False)
 

@@ -197,11 +197,7 @@
   ],
   "deps": [
     [
-      "appkit",
-      "latest"
-    ],
-    [
-      "deskkit",
+      "applibs",
       "latest"
     ],
     [
@@ -214,10 +210,6 @@
     ],
     [
       "mp4mux",
-      "latest"
-    ],
-    [
-      "touchkit",
       "latest"
     ]
   ],

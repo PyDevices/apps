@@ -13,11 +13,7 @@
   ],
   "deps": [
     [
-      "appkit",
-      "latest"
-    ],
-    [
-      "deskkit",
+      "applibs",
       "latest"
     ],
     [
@@ -26,10 +22,6 @@
     ],
     [
       "icons",
-      "latest"
-    ],
-    [
-      "touchkit",
       "latest"
     ]
   ],

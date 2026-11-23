@@ -41,7 +41,7 @@
   ],
   "deps": [
     [
-      "appkit",
+      "applibs",
       "latest"
     ],
     [

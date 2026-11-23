@@ -66,7 +66,8 @@ The full list, with what each app does and needs, is in
 [the apps](../reference/apps.md); any folder there installs the same way.
 
 Each app lands in `/apps/<name>`, where Home looks, and what it imports goes in
-`/lib`: appkit and touchkit from the OmniPython index, vtterm for the REPL app,
+`/lib`: appkit, touchkit and the other libraries the apps share from the
+OmniPython index, as one package (`applibs`), vtterm for the REPL app,
 `requests` from micropython-lib for the apps that go online. Anything the
 firmware has frozen in is skipped. On a WT32-SC01 Plus over Wi-Fi each of these
 took between 6 and 22 seconds.

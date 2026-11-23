@@ -6,11 +6,11 @@
 #   include("/path/to/apps/lib/deskkit")                  deskkit
 #   include("/path/to/apps/lib/deskkit", requires=True)   deskkit, appkit and requests
 #
-# The require() lines below are what deskkit needs that it doesn't carry: a mip
-# install of deskkit brings them along. A firmware build freezes them only with
-# requires=True, from a library the build has registered (micropython-lib, or
-# omnipython-lib with add_library), so including this file alone freezes
-# deskkit and nothing more.
+# The require() lines below are what deskkit needs that it doesn't carry: a
+# mip install of applibs, which holds deskkit, brings them along. A firmware
+# build freezes them only with requires=True, from a library the build has
+# registered (micropython-lib, or omnipython-lib with add_library), so
+# including this file alone freezes deskkit and nothing more.
 
 options.defaults(requires=False)
 

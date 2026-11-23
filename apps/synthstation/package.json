@@ -41,15 +41,11 @@
   ],
   "deps": [
     [
-      "appkit",
+      "applibs",
       "latest"
     ],
     [
       "audioinstruments",
-      "latest"
-    ],
-    [
-      "controlkit",
       "latest"
     ],
     [

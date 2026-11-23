@@ -6,11 +6,11 @@
 #   include("/path/to/apps/lib/songmodel")                  songmodel
 #   include("/path/to/apps/lib/songmodel", requires=True)   songmodel and hmilink
 #
-# The require() lines below are what songmodel needs that it doesn't carry: a mip
-# install of songmodel brings them along. A firmware build freezes them only with
-# requires=True, from a library the build has registered (micropython-lib, or
-# omnipython-lib with add_library), so including this file alone freezes
-# songmodel and nothing more.
+# The require() lines below are what songmodel needs that it doesn't carry: a
+# mip install of applibs, which holds songmodel, brings them along. A firmware
+# build freezes them only with requires=True, from a library the build has
+# registered (micropython-lib, or omnipython-lib with add_library), so
+# including this file alone freezes songmodel and nothing more.
 
 options.defaults(requires=False)
 

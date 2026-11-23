@@ -21,19 +21,11 @@
   ],
   "deps": [
     [
-      "appkit",
+      "applibs",
       "latest"
     ],
     [
       "bledev",
-      "latest"
-    ],
-    [
-      "controlkit",
-      "latest"
-    ],
-    [
-      "deskkit",
       "latest"
     ],
     [
@@ -46,10 +38,6 @@
     ],
     [
       "midiports",
-      "latest"
-    ],
-    [
-      "touchkit",
       "latest"
     ]
   ],

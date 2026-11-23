@@ -21,12 +21,13 @@ CPython or CircuitPython desktop, put this repository's `lib` on `PYTHONPATH`.
 
 appkit's Home and its apps draw Material Symbols with [icons](https://github.com/PyDevices/omnipython/tree/main/packages/icons), a package of the omnipython repository, which draws each icon at any size with the `ttfio` C module. On a computer, `pip install omnipython-desktop` brings both. On a board, the firmware needs `ttfio` and `icons` built in: omnipython-builds' `build_mp.py` does that with `--modules ttfio,icons`. Including appkit's `manifest.py` in a firmware build freezes appkit alone; with `apps=` it checks each app's icon against the `icons` it finds in `$OMNIPYTHON_LIBRARY` or on the build's import path, and stops when there is none.
 
-On a Wi-Fi board, `omip` installs appkit, or an app with
-everything it needs, into the folders appkit looks in:
+On a Wi-Fi board, `omip` installs appkit with the other libraries the apps
+share (the `applibs` package), or an app with everything it needs, into the
+folders appkit looks in:
 
 ```python
 import omip
-omip.install("appkit")
+omip.install("applibs")
 omip.install("github:PyDevices/apps/apps/home")
 ```
 

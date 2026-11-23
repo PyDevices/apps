@@ -6,11 +6,11 @@
 #   include("/path/to/apps/lib/spectrum")                  spectrum
 #   include("/path/to/apps/lib/spectrum", requires=True)   spectrum, pygraphics and touchkit
 #
-# The require() lines below are what spectrum needs that it doesn't carry: a mip
-# install of spectrum brings them along. A firmware build freezes them only with
-# requires=True, from a library the build has registered (micropython-lib, or
-# omnipython-lib with add_library), so including this file alone freezes
-# spectrum and nothing more.
+# The require() lines below are what spectrum needs that it doesn't carry: a
+# mip install of applibs, which holds spectrum, brings them along. A firmware
+# build freezes them only with requires=True, from a library the build has
+# registered (micropython-lib, or omnipython-lib with add_library), so
+# including this file alone freezes spectrum and nothing more.
 
 options.defaults(requires=False)
 
