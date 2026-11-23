@@ -305,7 +305,7 @@ HTML = (
     '  document.getElementById("pfacts").textContent = bits.filter((b) => b).join("  \\u2022  ");\n'
     '  document.getElementById("pplan").textContent = planText(p);\n'
     '  const filled = p.filled || [];\n'
-    '  document.getElementById("pfilled").textContent = filled.length ? "From the starter songs: " + filled.join(", ") : "";\n'
+    '  document.getElementById("pfilled").textContent = filled.length ? "Filled in: " + filled.join(", ") : "";\n'
     '  const strip = document.getElementById("pstrip");\n'
     '  strip.textContent = "";\n'
     '  for (const b of p.blocks || []) {\n'

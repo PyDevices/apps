@@ -189,7 +189,7 @@ class PromptSheet:
         self.plan.set_text(plan[0].upper() + plan[1:])
         self.strip.set_blocks(p.get("blocks") or [])
         filled = p.get("filled") or []
-        self.filled.set_text(("From the starter songs: " + ", ".join(filled)) if filled else "")
+        self.filled.set_text(("Filled in: " + ", ".join(filled)) if filled else "")
         self.card.remove_flag(lv.obj.FLAG.HIDDEN)
 
     # -- what comes from the box --

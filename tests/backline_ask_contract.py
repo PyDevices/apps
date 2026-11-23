@@ -279,6 +279,17 @@ def check_build():
           repr(view["blocks"]))
     check("and says the plan in words", ask.plan_text(view) == "4 times through, the outro slowing to 48",
           ask.plan_text(view))
+
+    two = blues()
+    two["form"] = two["form"][:2] + [{"part": "main2", "bars": 12}] + two["form"][2:]
+    check("a main 2 the form names but the spec doesn't write is no error", ask.check(two, KITS) == [],
+          repr(ask.check(two, KITS)))
+    q, filled2 = ask.build(two, starters(), "a slow blues")
+    pats2, parts2 = q["tracks"][0]["patterns"], q["parts"]
+    first, second = pats2[parts2["mains"][0]], pats2[parts2["mains"][1]] if len(parts2["mains"]) > 1 else None
+    check("it plays main 1's groove, and the sheet says so",
+          second is not None and second["notes"] == first["notes"] and "main2 from main1" in filled2,
+          "%r %r" % (parts2, filled2))
     return p
 
 

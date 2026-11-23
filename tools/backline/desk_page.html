@@ -289,7 +289,7 @@ function showProposal(p) {
   document.getElementById("pfacts").textContent = bits.filter((b) => b).join("  \u2022  ");
   document.getElementById("pplan").textContent = planText(p);
   const filled = p.filled || [];
-  document.getElementById("pfilled").textContent = filled.length ? "From the starter songs: " + filled.join(", ") : "";
+  document.getElementById("pfilled").textContent = filled.length ? "Filled in: " + filled.join(", ") : "";
   const strip = document.getElementById("pstrip");
   strip.textContent = "";
   for (const b of p.blocks || []) {

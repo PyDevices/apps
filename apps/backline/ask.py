@@ -317,9 +317,8 @@ def check(spec, kits):
             hits += len(g) - g.count(".")
         if not hits and not bad and part == "main1":
             errors.append("patterns.main1 plays nothing")
-    for part in ("main1", "main2"):
-        if part in bars and part not in pats:
-            errors.append("patterns needs %s, which form lists" % part)
+    if "main1" in bars and "main1" not in pats:
+        errors.append("patterns needs main1, which form lists")
 
     play = spec["play"]
     if not isinstance(play, dict) or sorted(play) != ["outro_tempo", "repeat"]:
@@ -397,7 +396,8 @@ def closest(spec, starters):
 def build(spec, starters, prompt=""):
     """The songmodel project for a checked *spec*, and what came from a starter song.
 
-    The parts the spec writes become patterns. Fills, a transition into
+    The parts the spec writes become patterns. A main 2 the form names but
+    the spec doesn't write plays main 1's groove. Fills, a transition into
     main 2, the outro and the accent hit, where the spec leaves them out,
     are the closest starter's (`closest`), so every pedal gesture has a
     part to play.
@@ -446,6 +446,14 @@ def build(spec, starters, prompt=""):
         drums = spec["patterns"].get(part)
         if drums:
             take(part, _pattern(bars[part], steps, drums))
+        elif part == "main2" and part in bars:
+            # a second main the spec names but doesn't write plays the first's groove
+            mine = spec["patterns"]["main1"]
+            if all(bars[part] % max(1, len(g.replace("|", "").replace(" ", "")) // steps) == 0 for g in mine.values()):
+                take(part, _pattern(bars[part], steps, mine))
+            else:
+                take(part, json.loads(json.dumps(patterns[where["main1"]])))
+            filled.append("main2 from main1")
         elif part in ("fill1", "outro") or (part in ("fill2", "transition") and "main2" in bars):
             borrow(part, donor_index(part))
         elif part in bars and part == "intro":
