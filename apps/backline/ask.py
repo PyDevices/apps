@@ -114,10 +114,18 @@ def _bars(steps):
 
 
 def schema(kits):
-    """The JSON Schema a song spec follows, with *kits* the kit names to choose from."""
-    # whole bars of 12 or 16 steps, one to four of them: a small model held
-    # to a schema then can't miscount a bar, or write one grid forever
-    grid = {"type": "string", "pattern": "^(%s|%s)$" % (_bars(16), _bars(12))}
+    """The JSON Schema a song spec follows, with *kits* the kit names to choose from.
+
+    It is one of two shapes, a song of 12 steps a bar and a song of 16, so
+    a server that holds the model to it holds every grid to the song's
+    bar: one to four whole bars, which a small model can then neither
+    miscount nor write forever.
+    """
+    return {"anyOf": [_song_schema(kits, 16), _song_schema(kits, 12)]}
+
+
+def _song_schema(kits, steps):
+    grid = {"type": "string", "pattern": "^%s$" % _bars(steps)}
     voices = {"type": "object", "properties": dict((name, grid) for name, _n in VOICES), "additionalProperties": False}
     return {
         "type": "object",
@@ -129,7 +137,7 @@ def schema(kits):
             "feel": {"type": "string", "enum": list(FEELS)},
             "swing": {"type": "integer", "minimum": 0, "maximum": 60},
             "kit": {"type": "string", "enum": list(kits)},
-            "steps": {"type": "integer", "enum": [12, 16]},
+            "steps": {"type": "integer", "enum": [steps]},
             "form": {"type": "array", "items": {
                 "type": "object",
                 "properties": {"part": {"type": "string", "enum": list(PARTS)},
@@ -186,8 +194,9 @@ def system_prompt(kits):
         "to four such bars with \"|\" between them, and repeats to fill the part. Drums: %s.\n"
         "- play: {\"repeat\": n, \"outro_tempo\": bpm}. repeat is how many times the song goes through its "
         "main parts before the outro, and 0 loops until the player stops it: \"loop continuously\" is 0, "
-        "\"4 times through\" is 4. outro_tempo is the tempo the outro slows to by its end, or 0 to keep the "
-        "tempo: \"slowing in the outro\" is about two thirds of the tempo.\n\n"
+        "\"4 times through\" is 4, and when the person doesn't say how many times, 0. outro_tempo is the "
+        "tempo the outro slows to by its end: about two thirds of the tempo when the person asks for the end "
+        "to slow, and 0, keeping the tempo, when they don't.\n\n"
         "Kits:\n%s\n\n"
         "When the person names a song or an artist, take only its style, tempo and feel, and write an original "
         "groove in that style. Never transcribe or reproduce the drum part of a real recording.\n\n"
@@ -209,7 +218,7 @@ def check(spec, kits):
     errors = []
     if not isinstance(spec, dict):
         return ["the answer isn't a JSON object"]
-    need = schema(kits)["required"]
+    need = _song_schema(kits, 16)["required"]
     for key in need:
         if key not in spec:
             errors.append("%s is missing" % key)
