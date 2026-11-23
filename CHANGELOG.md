@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3.dev6
+
+- appkit: mirror a board's screen to a browser from the picker's Cast to, behind the board's WebREPL password; the status bar shows a cast icon while it's on, and "viewing" while a browser watches.
+- appkit: type on a USB keyboard plugged into the board's host port.
+- Backline: the asked-for song shows on a board's own desk; one view's art at a time, so the desk opens on an 8 MB board, and switching views is quicker.
+
 ## 0.1.3.dev5
 
 - applibs: one package on the library index holds every library in lib/, chatclient included, so `mip install applibs` brings them all, and a library added to lib/ is published with it. Each app's package.json asks for applibs.
