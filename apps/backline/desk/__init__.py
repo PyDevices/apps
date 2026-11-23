@@ -161,6 +161,17 @@ class Desk:
         if self.panel is not None and not self.panel.closed:
             self.panel.command(name, **args)
 
+    def hide(self):
+        """Hide the desk, and let go of the art of the floor view's face on
+        the Perform tab (`floor.Floor.hide`) until `show`."""
+        self.base.add_flag(lv.obj.FLAG.HIDDEN)
+        self.perform.floor.hide()
+
+    def show(self):
+        """Show the desk, the Perform tab's face drawn again."""
+        self.perform.floor.show()
+        self.base.remove_flag(lv.obj.FLAG.HIDDEN)
+
     def toggle_prompt(self):
         """Open the prompt sheet over the tabs, or close it."""
         self.prompt.toggle()

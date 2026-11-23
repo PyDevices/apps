@@ -36,6 +36,7 @@ FLOOR = str(TESTS / "backline_floor_contract.py")
 DESK = str(TESTS / "backline_desk_contract.py")
 CAST = str(TESTS / "backline_cast_contract.py")
 ASK = str(TESTS / "backline_ask_contract.py")
+MEMORY = str(TESTS / "backline_memory_contract.py")
 PAGE = str(TESTS.parent / "tools" / "backline" / "desk_page.py")
 sys.path.insert(0, str(TESTS))
 
@@ -49,7 +50,7 @@ PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-f
           "switch-swapped")
 NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
-                "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
+                "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback", "screen-font", "wide-tempo")
 DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
                "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
                "wide-sheet", "deaf-silence")
@@ -57,6 +58,7 @@ ASK_PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-
               "keep-nowhere", "whole-reply", "old-song-shown", "ble-refused", "lower-style", "form-bars")
 ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
+MEMORY_PLANTS = ("keep-floor", "keep-face", "alpha-panel", "whole-panel", "all-digits", "stale-return")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 
 
@@ -280,6 +282,44 @@ class DeskView(unittest.TestCase):
         for plant in CAST_PLANTS:
             with self.subTest(plant=plant):
                 result = _run(cmd, env, "--plant=" + plant)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
+
+
+class ViewMemory(unittest.TestCase):
+    """What the floor and desk views hold on a box's own screen at 800x480
+    and 720x720, going back and forth; on MicroPython, the heap they take
+    too. Each memory plant must fail it."""
+
+    def setUp(self):
+        DeskView.setUp(self)
+
+    def test_memory(self):
+        cmd, env = _cmd("cpython", MEMORY)
+        result = _run(cmd, env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_memory_micropython(self):
+        cmd, env = _cmd("micropython", MEMORY)
+        if cmd is None:
+            self.skipTest("no micropython")
+        result = _run(cmd, env)
+        said = result.stdout + result.stderr
+        if any("no module named '%s'" % m in said for m in ("lvgl", "svgio", "icons", "audiocore")):
+            if REQUIRE:
+                self.fail("this micropython has no LVGL, svgio, icons or audiodsp")
+            self.skipTest("this micropython has no LVGL, svgio, icons or audiodsp")
+        self.assertEqual(result.returncode, 0, said)
+        self.assertIn(" 0 failed", result.stdout)
+        self.assertNotIn("\nskip ", "\n" + result.stdout, result.stdout)
+
+    def test_memory_plants(self):
+        cmd, env = _cmd("cpython", MEMORY)
+        for plant in MEMORY_PLANTS:
+            with self.subTest(plant=plant):
+                result = _run(cmd, env, "--plant=" + plant)
+                self.assertIn("PLANTED " + plant, result.stdout, result.stdout + result.stderr)
                 self.assertNotEqual(result.returncode, 0, result.stdout)
                 self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
 

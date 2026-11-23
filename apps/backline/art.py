@@ -5,9 +5,11 @@
 
 Each piece is a small SVG document: the panel behind everything, a lit
 segment of the beat ring for each beat, seven-segment digits for the beat
-and the tempo, and the glow of a pedal's lamp. `Picture` draws one into an
-RGB565A8 buffer and shows it as an LVGL image, so a beat costs LVGL an image
-shown and one hidden, never a redraw of the art.
+and the tempo, and the glow of a pedal's lamp. `Picture` draws one into a
+buffer and shows it as an LVGL image, so a beat costs LVGL an image shown
+and one hidden, never a redraw of the art. A piece with see-through parts is
+RGB565A8, three bytes a pixel; the panel covers the screen, so it is RGB565,
+two, and drawn in bands (`bands`) so no one picture needs a big block.
 
 The shapes keep to what every svgio draws the same way: paths, circles,
 rectangles, lines, and linear and radial gradients with their stops'
@@ -56,26 +58,46 @@ def mix(a, b, t):
     return out
 
 
-class Picture:
-    """An SVG drawn into an RGB565A8 buffer, and the LVGL image that shows it."""
+def image(parent, x, y, w, h):
+    """An LVGL image ``w`` by ``h`` at ``(x, y)`` in ``parent``, showing
+    nothing until it is given a `Picture`'s ``dsc``."""
+    img = lv.image(parent)
+    img.set_size(w, h)
+    img.set_pos(x, y)
+    img.remove_flag(lv.obj.FLAG.CLICKABLE)
+    img.remove_flag(lv.obj.FLAG.SCROLLABLE)
+    return img
 
-    def __init__(self, parent, svg, width, height, x=0, y=0):
+
+class Picture:
+    """An SVG drawn into a buffer, and the LVGL image that shows it.
+
+    With ``alpha`` (the default) the buffer is RGB565A8, so what's behind
+    shows through; without, it is RGB565, a third smaller, for art that
+    covers its whole box.
+    """
+
+    def __init__(self, parent, svg, width, height, x=0, y=0, alpha=True):
         decoder = svgio.SvgDecoder()
         w, h = decoder.open(svg.encode(), width=width)
         if (w, h) != (width, height):
             raise ValueError("art drew at %dx%d, not %dx%d" % (w, h, width, height))
-        self.data = bytearray(w * h * 3)
-        planes = memoryview(self.data)
-        decoder.decode(planes[: w * h * 2], planes[w * h * 2:])
+        size = w * h * (3 if alpha else 2)
+        self.data = bytearray(size)
+        if alpha:
+            planes = memoryview(self.data)
+            decoder.decode(planes[: w * h * 2], planes[w * h * 2:])
+        else:
+            decoder.decode(self.data)
         if hasattr(decoder, "close"):
             decoder.close()
         dsc = lv.image_dsc_t()
         dsc.header.magic = lv.IMAGE_HEADER_MAGIC
-        dsc.header.cf = lv.COLOR_FORMAT.RGB565A8
+        dsc.header.cf = lv.COLOR_FORMAT.RGB565A8 if alpha else lv.COLOR_FORMAT.RGB565
         dsc.header.w = w
         dsc.header.h = h
         dsc.header.stride = w * 2
-        dsc.data_size = w * h * 3
+        dsc.data_size = size
         dsc.data = self.data
         self.dsc = dsc
         self.w = w
@@ -86,17 +108,40 @@ class Picture:
 
     def show(self, parent, x=0, y=0):
         """Another LVGL image of the same pixels, at ``(x, y)`` in ``parent``."""
-        image = lv.image(parent)
-        image.set_src(self.dsc)
-        image.set_size(self.w, self.h)
-        image.set_pos(x, y)
-        image.remove_flag(lv.obj.FLAG.CLICKABLE)
-        image.remove_flag(lv.obj.FLAG.SCROLLABLE)
-        return image
+        img = image(parent, x, y, self.w, self.h)
+        img.set_src(self.dsc)
+        return img
 
     @property
     def bytes(self):
         return len(self.data)
+
+
+BAND = 65536  # the most bytes a band of a screen-sized picture holds (`bands`)
+
+
+def bands(parent, svg, width, height):
+    """``svg``, which covers its whole box, drawn as RGB565 pictures of a
+    band of rows each, top to bottom in ``parent``, none over `BAND` bytes.
+
+    A picture the size of the screen would need one free block that big,
+    and a heap a running app has left in pieces may have the bytes but no
+    such block. Each band is the same SVG with its view moved down, so the
+    bands are the picture drawn whole, a few pixels a step of rounding
+    apart.
+    """
+    head = _HEAD % (width, height, width, height)
+    if not svg.startswith(head):
+        raise ValueError("bands() takes an SVG that starts with its own size")
+    body = svg[len(head):]
+    step = max(1, BAND // (2 * width))
+    out = []
+    for y in range(0, height, step):
+        rows = min(step, height - y)
+        band = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 %d %d %d">'
+                % (width, rows, y, width, rows)) + body
+        out.append(Picture(parent, band, width, rows, 0, y, alpha=False))
+    return out
 
 
 def _arc(cx, cy, r, a0, a1):
@@ -159,10 +204,19 @@ class Layout:
         tw = self.tempo[3] - 8
         self.small_h = max(14, tw)
         self.small_w = int(self.small_h * 0.58)
+        # Three digits and their gaps (`tempo_slots`) fit the window's width
+        # too, which on a square screen is the narrower side.
+        most = int((self.tempo[2] - 8) / 3.34)
+        if self.small_w > most:
+            self.small_w = most
+            self.small_h = int(most / 0.58)
 
     def font(self, share):
         """The largest built-in font no taller than ``share`` of the screen's height."""
-        want = self.h * share
+        return self.font_px(self.h * share)
+
+    def font_px(self, want):
+        """The largest built-in font no taller than ``want`` pixels (the smallest when none is)."""
         best = None
         for size in (14, 16, 24, 32, 40):
             f = getattr(lv, "font_montserrat_%d" % size, None)

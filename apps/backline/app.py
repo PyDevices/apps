@@ -7,9 +7,8 @@ The package's ``main`` brings this in, so the engine, the kits and the
 songs import without LVGL or an audio output.
 """
 
+import gc
 import sys
-
-import lvgl as lv
 
 try:
     from time import ticks_diff, ticks_ms
@@ -128,6 +127,45 @@ def _switches(box, prefs, config, scope):
         return [], None
 
 
+class Views:
+    """The box's own screen: the floor view (``make_floor(on_switch)``), and
+    in its place the desk view, made the first time it's asked for by
+    ``make_desk(on_switch)``, or never where that is None (a screen under
+    `DESK_SIZE`). Each view's ``on_switch`` shows the other, and
+    ``on_show()``, when given, runs after either is shown.
+
+    The view going away lets go of its art first (``hide``) and the heap is
+    collected, so the one coming back draws into the room it left: the
+    screen holds one view's pictures, not both. On an 8 MB board at 800x480
+    both at once didn't fit.
+    """
+
+    def __init__(self, make_floor, make_desk=None, on_show=None):
+        self.shown = "floor"
+        self.desk = None
+        self._make_desk = make_desk
+        self._on_show = on_show
+        self.floor = make_floor(self._switch("desk") if make_desk is not None else None)
+
+    def _switch(self, which):
+        return lambda: self.show(which)
+
+    def show(self, which):
+        """Show ``"floor"`` or ``"desk"``."""
+        if which == "desk" and self._make_desk is None:
+            return
+        self.shown = which
+        hide = self.floor if which == "desk" else self.desk
+        if hide is not None:
+            hide.hide()
+        gc.collect()
+        if which == "desk" and self.desk is None:
+            self.desk = self._make_desk(self._switch("floor"))
+        (self.desk if which == "desk" else self.floor).show()
+        if self._on_show is not None:
+            self._on_show()
+
+
 def start(scope):
     global state
     W, H = scope.size
@@ -187,30 +225,25 @@ def start(scope):
     box.midi_in = _midi_in(box, prefs, config)
     box.switches, give_boot_back = _switches(box, prefs, config, scope)
     kept = [box.midi.saved()]
-    views = {"floor": None, "desk": None, "desk_panel": None, "shown": "floor"}
     can_desk = W >= DESK_SIZE[0] and H >= DESK_SIZE[1]
+    desk_panel = []
 
-    def show(which):
-        """Show the floor or the desk view; the desk is made the first time."""
-        if which == "desk" and not can_desk:
-            return
-        if which == "desk" and views["desk"] is None:
-            from .desk import Desk
+    def make_desk(on_switch):
+        from .desk import Desk
 
-            views["desk_panel"] = hmilink.Panel(local.connect(listener))
-            box.poll()
-            views["desk_panel"].poll()
-            views["desk"] = Desk(scope.root, (W, H), views["desk_panel"], on_switch=lambda: show("floor"))
-        views["shown"] = which
-        hide, keep = (views["floor"], views["desk"]) if which == "desk" else (views["desk"], views["floor"])
-        if hide is not None:
-            hide.base.add_flag(lv.obj.FLAG.HIDDEN)
-        keep.base.remove_flag(lv.obj.FLAG.HIDDEN)
+        desk_panel.append(hmilink.Panel(local.connect(listener)))
+        box.poll()
+        desk_panel[0].poll()
+        return Desk(scope.root, (W, H), desk_panel[0], on_switch=on_switch)
+
+    def on_show():
         if own_status:
             status.move_foreground()
 
-    floor = floormod.Floor(scope.root, (W, H), panel, on_switch=(lambda: show("desk")) if can_desk else None)
-    views["floor"] = floor
+    views = Views(lambda on_switch: floormod.Floor(scope.root, (W, H), panel, on_switch=on_switch),
+                  make_desk if can_desk else None, on_show)
+    floor = views.floor
+    show = views.show
     own_status = getattr(scope, "status", None) is None
     if own_status:
         status.move_foreground()
@@ -230,8 +263,8 @@ def start(scope):
     def tick(_t):
         box.poll()
         floor.poll()
-        if views["desk"] is not None:
-            views["desk"].poll()
+        if views.desk is not None:
+            views.desk.poll()
         if caster is not None:
             caster.step()
         t = box.telemetry()
@@ -250,7 +283,7 @@ def start(scope):
 
     def key_down(e):
         k = getattr(e, "key", None)
-        if views["desk"] is not None and views["desk"].typing():
+        if views.desk is not None and views.desk.typing():
             return  # the keys are words in the prompt, not pedals
         if k in held:
             return
@@ -262,7 +295,7 @@ def start(scope):
         elif k == K_K:
             panel.command("kit", step=1)
         elif k in (K_D, K_TAB):
-            show("floor" if views["shown"] == "desk" else "desk")
+            show("floor" if views.shown == "desk" else "desk")
         elif k in (K_LEFT, K_RIGHT) and not box.engine.transport["playing"]:
             panel.command("song", step=1 if k == K_RIGHT else -1)
 
@@ -296,8 +329,8 @@ def start(scope):
         panel.close()
         if caster is not None:
             caster.close()
-        if views["desk_panel"] is not None:
-            views["desk_panel"].close()
+        for p in desk_panel:
+            p.close()
         box.close()  # after the output, so it never pulls a closed kit
         if give_boot_back is not None:
             give_boot_back()
