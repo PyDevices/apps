@@ -56,6 +56,14 @@ elif PLANT == "board_finds_rokus":
     connections.BOARD_PROVIDERS = (("castdisplay", connections._castdisplay),)
 elif PLANT == "board_skips_audio":
     connections.BOARD_PROVIDERS = ()
+elif PLANT == "starts_usb_host":
+    def _usb_starts(registry):
+        from usb.host import endpoints
+
+        endpoints.register(registry)
+        return True
+    connections.BOARD_PROVIDERS = tuple((n, _usb_starts if n == "usb.host" else add)
+                                        for n, add in connections.BOARD_PROVIDERS)
 elif PLANT == "noisy_absence":
     def _usb_raises(registry):
         import usb.core
@@ -148,15 +156,23 @@ class UsbCore:
 
     @staticmethod
     def stats():
-        return (True, 0, 0, 0, 0, 1) if UsbCore.host else None
+        return {"running": bool(UsbCore.started)} if UsbCore.host else None
+
+    @staticmethod
+    def start(full_speed=False, classes=None):
+        UsbCore.started.append(full_speed)
 
 
 class UsbEndpoints:
+    """usb.host.endpoints: register starts the port unless told not to, as the real one does."""
+
     registered = []
 
     @staticmethod
-    def register(registry=None):
+    def register(registry=None, start=True, full_speed=False):
         UsbEndpoints.registered.append(registry)
+        if start:
+            UsbCore.start(full_speed=full_speed)
 
 
 class UsbHost:
@@ -201,6 +217,7 @@ check(names[:1] == ["wifinet"], "a board with Wi-Fi registers wifinet: %r" % (na
 check(all(name in board_names for name in names[1:]), "and nothing of a computer's: %r" % (names,))
 check(names[1:] == ["audiodev", "usb.host", "btclassic"], "and every sound output its firmware has: %r" % (names,))
 check(UsbEndpoints.registered == [reg], "the USB host port's devices are registered")
+check(not UsbCore.started, "and the port isn't started, so an app starts it with its own settings: %r" % UsbCore.started)
 audio = [ep.id for ep in reg.endpoints("audio.out")]
 check(audio == ["board-out:main"], "the board's own output is listed, and no speaker before a scan: %r" % audio)
 from audiodev import endpoints as _audio_endpoints  # noqa: E402

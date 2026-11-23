@@ -15,7 +15,9 @@ On a board with Wi-Fi that's `wifinet`, the networks in range, joined from
 the picker. Every board also gets the sound outputs its firmware can drive:
 its own output (and its ``audio_out`` then plays wherever ``audio.out`` is
 chosen), the USB host port's devices, and Bluetooth speakers. What the
-firmware lacks is left out without a word. Looking for Rokus costs a board
+firmware lacks is left out without a word. The USB host port is never
+started here: its devices, a USB sound card among them, are listed only
+while a program has it running, from the first poll after it starts. Looking for Rokus costs a board
 time on every screen, so the Cast app registers castdisplay itself when it
 opens.
 
@@ -103,7 +105,10 @@ def _usb_host(registry):
 
     if usb.core.stats() is None:
         return False  # usb.core is installed, but this firmware has no USB host
-    endpoints.register(registry)
+    # Never started here: an app starts the port with its own settings (a
+    # keyboard behind a hub is heard only at full speed), and its devices
+    # are listed on the first poll after it does.
+    endpoints.register(registry, start=False)
     return True
 
 
