@@ -103,6 +103,20 @@ def _status_row(scope):
     return lbl, ui.small.line_height + 8
 
 
+def _missing(scope, short, text):
+    """What this board lacks: *short* on the status line, *text* in the
+    middle, and touchkit's Hide from Home button under it."""
+    status, row = _status_row(scope)
+    status.set_text(short)
+    W, H = scope.size
+    msg = ui.label(scope.root, text, ui.font, ui.WHITE)
+    msg.set_width(W - 48)
+    msg.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+    msg.align(lv.ALIGN.CENTER, 0, row // 2)
+    ui.hide_button(scope, short, msg)
+    return msg
+
+
 def _zone(parent, x, y, size, color=None):
     """A round, touchable area that keeps the press while the finger slides off it."""
     o = ui.plain(lv.obj(parent))
@@ -168,7 +182,7 @@ def be_gamepad(scope):
         import usb_hid
     except ImportError as e:
         print("gamepad:", e)
-        ui.missing(scope, "missing: usb-hid", 'The gamepad needs usb-hid:\nomip.install("usb-hid")')
+        _missing(scope, "missing: usb-hid", 'The gamepad needs usb-hid:\nomip.install("usb-hid")')
         return None
     status, row = _status_row(scope)
     _free_port()
@@ -314,7 +328,7 @@ def test_gamepad(scope):
         from usb.host import hid_generic
     except ImportError as e:
         print("gamepad:", e)
-        ui.missing(scope, "missing: usb-host-hid", 'The tester needs usb-host-hid:\nomip.install("usb-host-hid")')
+        _missing(scope, "missing: usb-host-hid", 'The tester needs usb-host-hid:\nomip.install("usb-host-hid")')
         return None
     status, row = _status_row(scope)
     # A gamepad is a full-speed device, and full speed reaches one behind a
@@ -458,7 +472,7 @@ def test_gamepad(scope):
 def main(scope):
     can = sides()
     if not can:
-        ui.missing(scope, "no USB port for this", "Gamepad needs a board with a USB device port (to be a gamepad) "
+        _missing(scope, "no USB port for this", "Gamepad needs a board with a USB device port (to be a gamepad) "
                  "or a USB host port (to test one), such as an ESP32-S3 or ESP32-P4.")
         return
     if len(can) == 1:
