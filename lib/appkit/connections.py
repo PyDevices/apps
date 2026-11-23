@@ -15,11 +15,16 @@ On a board with Wi-Fi that's `wifinet`, the networks in range, joined from
 the picker. Every board also gets the sound outputs its firmware can drive:
 its own output (and its ``audio_out`` then plays wherever ``audio.out`` is
 chosen), the USB host port's devices, and Bluetooth speakers. What the
-firmware lacks is left out without a word. The USB host port is never
-started here: its devices, a USB sound card among them, are listed only
-while a program has it running, from the first poll after it starts. Looking for Rokus costs a board
+firmware lacks is left out without a word. Looking for Rokus costs a board
 time on every screen, so the Cast app registers castdisplay itself when it
 opens.
+
+The USB host port's devices come from `usb_host`. On a board whose host
+port is its own, apart from the port the REPL uses (an ESP32-P4, an
+ESP32-S31, the GIGA), it starts the port, so a keyboard there types into
+text fields through `appkit.hostkeys` and a USB sound card is listed from
+boot. On an ESP32-S2 or S3 the host would take the REPL's port, so its
+devices are listed only once a program has started it.
 
 On a computer it's everything the computer's own libraries can list, each
 one only where it's installed: `hostnet` for the operating system's network
@@ -41,7 +46,14 @@ except ImportError:
 #: The platforms where the operating system owns networking.
 HOSTS = ("linux", "win32", "darwin")
 
+#: Chips whose USB host has a controller of its own, so starting it leaves
+#: the REPL's USB port alone, and whether that host is full speed only.
+#: On an ESP32-S2 or S3 the host and the REPL share the one port, so the
+#: host port is used there only once something else has started it.
+USB_HOST_APART = {"ESP32P4": False, "ESP32S31": False, "STM32H747": True}
+
 _done = []
+_usb = []
 
 
 def _wifi():
@@ -100,16 +112,7 @@ def _board_audio(registry):
 
 
 def _usb_host(registry):
-    import usb.core
-    from usb.host import endpoints
-
-    if usb.core.stats() is None:
-        return False  # usb.core is installed, but this firmware has no USB host
-    # Never started here: an app starts the port with its own settings (a
-    # keyboard behind a hub is heard only at full speed), and its devices
-    # are listed on the first poll after it does.
-    endpoints.register(registry, start=False)
-    return True
+    return usb_host(registry)
 
 
 def _bt_audio(registry):
@@ -178,6 +181,70 @@ def register(registry=None):
         names.append(name)
     _done.append(names)
     return names
+
+
+def _machine():
+    """The chip this firmware was built for, as ``sys.implementation._machine``
+    names it, without dashes: ``"ESP32P4"``. Empty on a computer."""
+    return getattr(sys.implementation, "_machine", "").replace("-", "").upper()
+
+
+def _board():
+    """True on a board running MicroPython: a computer's pyusb, or
+    CircuitPython's usb.core, isn't the host port `usb_host` drives."""
+    return sys.platform not in HOSTS and sys.implementation.name == "micropython"
+
+
+def _usb_host_start():
+    """How to start this board's USB host port: ``{"full_speed": ...}``,
+    ``{}`` when it's running already, or None to leave it alone (no host
+    in this firmware, a computer, or a host that shares the REPL's port)."""
+    if not _board():
+        return None
+    try:
+        import usb.core
+    except ImportError:
+        return None
+    if usb.core.stats() is None:
+        return None
+    if usb.core.running():
+        return {}
+    machine = _machine()
+    for chip, full_speed in USB_HOST_APART.items():
+        if chip in machine:
+            return {"full_speed": full_speed}
+    return None
+
+
+def usb_host(registry=None):
+    """Register what's plugged into this board's USB host port
+    (`usb.host.endpoints`), once, starting the port when it has a
+    controller of its own; returns True when it's registered.
+
+    False on a computer, on firmware without a USB host, on a board whose
+    host shares the REPL's port and isn't running, and where endpointkit
+    or usb-host-endpoints isn't installed.
+    """
+    if _usb:
+        return _usb[0]
+    ok = False
+    start = _usb_host_start() if endpointkit is not None else None
+    if start is not None:
+        try:
+            from usb.host import endpoints
+        except ImportError:
+            endpoints = None
+            print("appkit.connections: install usb-host-endpoints to use the USB host port's keyboards and devices")
+        if endpoints is not None:
+            reg = registry if registry is not None else endpointkit.registry
+            if start:
+                import usb.core
+
+                usb.core.start(**start)
+            endpoints.register(reg, start=False)
+            ok = True
+    _usb.append(ok)
+    return ok
 
 
 def device(endpoints):

@@ -1,3 +1,4 @@
 # Modules whose import fails or blocks under CPython: mypy reads their stubs, stubtest can't.
+appkit.hostkeys
 appkit.manifest
 songmodel.link
