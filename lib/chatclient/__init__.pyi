@@ -51,6 +51,7 @@ class Client:
         model: str,
         schema: dict[str, Any] | None = None,
         name: str = "answer",
+        stream: bool = False,
         **fields: Any,
     ) -> str:
         """The model's reply to `messages`, asked for as JSON: the text, still to parse."""

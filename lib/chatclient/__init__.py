@@ -184,7 +184,7 @@ class Client:
             reply.close()
             raise
 
-    def chat_json(self, messages, model, schema=None, name="answer", **fields):
+    def chat_json(self, messages, model, schema=None, name="answer", stream=False, **fields):
         """The model's reply to *messages*, asked for as JSON: the text, still to parse.
 
         With *schema*, a JSON Schema, the server is asked to hold the reply
@@ -192,6 +192,10 @@ class Client:
         that is asked for any JSON object, and one that refuses that too is
         asked plainly, so the messages must say what JSON to write. What
         worked is kept in `json_format` and asked for first next time.
+
+        With *stream*, the reply is read as it arrives, so `timeout` is how
+        long the server may go quiet, not how long the whole reply may take:
+        what a slow model writing a long answer needs.
 
         Raises:
             ServerError: The server refused the plain request as well.
@@ -206,7 +210,21 @@ class Client:
                 body["response_format"] = {"type": "json_schema", "json_schema": {"name": name, "schema": schema}}
             elif kind == "json_object":
                 body["response_format"] = {"type": "json_object"}
+            if stream:
+                body["stream"] = True
             try:
+                if stream:
+                    reply = self._send("/chat/completions", {"Content-Type": "application/json"}, [json.dumps(body).encode()], self.timeout)
+                    chat = None
+                    try:
+                        chat = Chat(reply)
+                        while not chat.done:
+                            chat.more()
+                    finally:
+                        if chat is None or not chat.done:
+                            reply.close()
+                    self.json_format = kind
+                    return chat.text
                 found = self._json("/chat/completions", {"Content-Type": "application/json"}, [json.dumps(body).encode()], self.timeout)
             except ServerError as e:
                 # 400 or 422 is the server saying it can't take this format;

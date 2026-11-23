@@ -584,7 +584,7 @@ class Asker:
         errors = []
         for attempt in range(TRIES):
             try:
-                text = client.chat_json(messages, self.settings["chat_model"], schema(self.kits), "song",
+                text = client.chat_json(messages, self.settings["chat_model"], schema(self.kits), "song", stream=True,
                                         max_tokens=MAX_TOKENS, temperature=0.6)
             except chatclient.ServerError as e:
                 raise AskError("the server refused: %s" % (e,))

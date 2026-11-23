@@ -34,7 +34,7 @@ from backline import engine as eng  # noqa: E402
 from songmodel import model  # noqa: E402
 
 PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-shift", "lost-plan", "quiet-failure",
-          "keep-nowhere")
+          "keep-nowhere", "whole-reply")
 NEEDS_BOX = ("quiet-failure", "keep-nowhere")
 RESULTS = [0, 0]
 SKIPS = []
@@ -98,6 +98,30 @@ class Reply:
         pass
 
 
+class Streamed:
+    """The answer sent as a slow server sends it: server-sent events, a few characters each."""
+
+    def __init__(self, text):
+        self.status = 200
+        self.headers = {"content-type": "text/event-stream"}
+        events = [{"choices": [{"delta": {"role": "assistant", "content": ""}}]}]
+        events += [{"choices": [{"delta": {"content": text[i:i + 7]}}]} for i in range(0, len(text), 7)]
+        self._data = "".join("data: %s\n\n" % json.dumps(e) for e in events).encode() + b"data: [DONE]\n\n"
+        self.reads = 0
+
+    def read(self, most):
+        piece, self._data = self._data[:most], self._data[most:]
+        self.reads += 1
+        return piece
+
+    def read_all(self, most):
+        piece, self._data = self._data, b""
+        return piece
+
+    def close(self):
+        pass
+
+
 class Server:
     """Answers ``chat/completions`` from a list of replies, keeping every request.
 
@@ -123,6 +147,8 @@ class Server:
             raise r
         if isinstance(r, tuple):
             return Reply(r[0], {"error": {"message": r[1]}})
+        if body.get("stream"):
+            return Streamed(r)
         return Reply(200, {"choices": [{"message": {"role": "assistant", "content": r}}]})
 
 
@@ -198,6 +224,12 @@ def plant(name):
         from backline import box
 
         box.Box._save = lambda self, project: self.user_songs + "/nothing.json"
+    elif name == "whole-reply":
+        old_json = chatclient.Client.chat_json
+
+        def chat_json(self, messages, model, schema=None, name="answer", stream=False, **fields):
+            return old_json(self, messages, model, schema, name, **fields)
+        chatclient.Client.chat_json = chat_json
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -260,6 +292,8 @@ def check_asking():
           url == "http://stand-in/v1/chat/completions" and body["model"] == "song-model"
           and body["messages"][0]["role"] == "system" and body["response_format"]["type"] == "json_schema"
           and "Authorization" not in headers, json.dumps(body)[:200])
+    check("the answer is read as it streams in, so a slow model only has to keep talking, not finish in time",
+          body.get("stream") is True, json.dumps(body)[:200])
 
     # A bad answer goes back once with what was wrong.
     server = Server([json.dumps(blues(tempo=300)), json.dumps(blues())])
