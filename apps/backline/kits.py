@@ -366,6 +366,13 @@ class Bus:
         if old is not None and old is not kit:
             old.close()
 
+    def detach(self):
+        """Play nothing, and close the kit that played."""
+        old, self.kit = self.kit, None
+        if old is not None:
+            self.mixer.voice[0].stop()
+            old.close()
+
     def fill(self):
         if self.kit is not None:
             self.kit.fill()
