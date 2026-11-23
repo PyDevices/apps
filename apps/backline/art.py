@@ -11,12 +11,19 @@ and one hidden, never a redraw of the art. A piece with see-through parts is
 RGB565A8, three bytes a pixel; the panel covers the screen, so it is RGB565,
 two, and drawn in bands (`bands`) so no one picture needs a big block.
 
+Drawing is the slow part on a board, so with a cache (`use_cache`) each
+picture's pixels are kept in a file the first time it is drawn, named for
+its SVG, its size and its format, and read back from there the next time.
+
 The shapes keep to what every svgio draws the same way: paths, circles,
 rectangles, lines, and linear and radial gradients with their stops'
 opacity.
 """
 
 import math
+import os
+from binascii import crc32, hexlify
+from hashlib import sha256
 
 import lvgl as lv
 import svgio
@@ -69,6 +76,156 @@ def image(parent, x, y, w, h):
     return img
 
 
+#: Part of every cached picture's name: a change to how pixels are laid out
+#: in a file, or to what an SVG draws as, makes this one higher.
+CACHE_VERSION = 1
+#: The flash a cache leaves free for everything else, in bytes.
+CACHE_RESERVE = 1 << 20
+
+
+def log(message):
+    """Say ``message`` on the console. Tests replace it to hear what's said."""
+    print("backline: " + message)
+
+
+class Cache:
+    """Pictures' pixels in files in ``folder``, which must exist.
+
+    A file is named for what drew it: the SVG, the picture's size and
+    format, `CACHE_VERSION` and svgio's revision, so an SVG that changes is
+    a new file and the old one is never shown for it. It holds the pixels
+    as the picture keeps them and their CRC-32 after them. One that is too
+    short or too long, or whose pixels don't match their CRC, is said on
+    the console and the picture is drawn again.
+
+    Nothing is kept in memory but a short number for each file used since
+    the start: the pixels live in the pictures, which go when a view lets
+    go of its art.
+    """
+
+    def __init__(self, folder, reserve=CACHE_RESERVE):
+        os.stat(folder)       # raises where the folder isn't there
+        self.folder = folder
+        self.reserve = reserve
+        self.used = set()
+        self.hits = 0
+        self.misses = 0
+        self.rebuilt = 0
+        self.full = False
+        self._salt = ("%d|%s|" % (CACHE_VERSION, getattr(svgio, "__revision__", ""))).encode()
+
+    def path(self, svg, width, height, alpha):
+        """The file for ``svg`` drawn ``width`` by ``height``, with or without alpha."""
+        h = sha256(self._salt)
+        h.update(("%dx%d|%s|" % (width, height, "a8" if alpha else "565")).encode())
+        h.update(svg.encode())
+        name = hexlify(h.digest()[:12]).decode()
+        self.used.add(int(name[:6], 16))    # a small int: no heap a name
+        return self.folder + "/" + name + ".px"
+
+    def load(self, path, buf):
+        """Fill ``buf`` from ``path`` and say whether it holds the picture:
+        False where there's no file, or one that's wrong (said, and left to
+        be written again)."""
+        try:
+            f = open(path, "rb")
+        except OSError:
+            self.misses += 1
+            return False
+        try:
+            with f:
+                got = f.readinto(buf) or 0
+                tail = f.read(5)
+        except OSError as e:
+            got, tail = -1, "%s" % (e,)
+        if got < 0:
+            why = "it couldn't be read: " + tail
+        elif got != len(buf) or len(tail) != 4:
+            why = "%d bytes, not %d" % (got + len(tail), len(buf) + 4)
+        elif crc32(buf) != int.from_bytes(tail, "little"):
+            why = "its pixels don't match their CRC"
+        else:
+            self.hits += 1
+            return True
+        self.rebuilt += 1
+        log("the cached picture %s is wrong (%s): drawing it again" % (path, why))
+        _clear(buf)           # svgio draws over what's there
+        return False
+
+    def save(self, path, buf):
+        """Keep ``buf``'s pixels in ``path``, unless that would leave the
+        flash with less than ``reserve`` free after clearing out what this
+        start hasn't used (said once)."""
+        need = len(buf) + 4
+        if self.full or not self._room(need):
+            if not self.full:
+                log("no room on the flash to keep more pictures: the rest are drawn each time")
+            self.full = True
+            return False
+        part = path + ".new"
+        try:
+            with open(part, "wb") as f:
+                f.write(buf)
+                f.write(crc32(buf).to_bytes(4, "little"))
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            os.rename(part, path)
+            return True
+        except OSError as e:
+            log("couldn't keep the picture %s (%s): the rest are drawn each time" % (path, e))
+            self.full = True
+            try:
+                os.remove(part)
+            except OSError:
+                pass
+            return False
+
+    def _free(self):
+        """The bytes free where the folder is, or None where the system
+        can't say (Windows): there the reserve isn't kept."""
+        statvfs = getattr(os, "statvfs", None)
+        if statvfs is None:
+            return None
+        st = statvfs(self.folder)
+        return st[1] * st[4]
+
+    def _room(self, need):
+        free = self._free()
+        if free is None or free - need >= self.reserve:
+            return True
+        for name in os.listdir(self.folder):
+            try:
+                mine = int(name[:6], 16) in self.used
+            except ValueError:
+                mine = False
+            if not mine:
+                os.remove(self.folder + "/" + name)
+        return self._free() - need >= self.reserve
+
+
+def _clear(buf):
+    """Zero ``buf`` a few KB at a time, so no second buffer its size is needed."""
+    zero = bytes(4096)
+    mv = memoryview(buf)
+    for i in range(0, len(buf), 4096):
+        n = min(4096, len(buf) - i)
+        mv[i:i + n] = zero[:n]
+
+
+#: The cache pictures are kept in (`use_cache`), or None for none.
+cache = None
+
+
+def use_cache(folder):
+    """Keep pictures' pixels in files in ``folder`` from now on (None: stop).
+    Returns the `Cache`."""
+    global cache
+    cache = None if folder is None else Cache(folder)
+    return cache
+
+
 class Picture:
     """An SVG drawn into a buffer, and the LVGL image that shows it.
 
@@ -78,19 +235,15 @@ class Picture:
     """
 
     def __init__(self, parent, svg, width, height, x=0, y=0, alpha=True):
-        decoder = svgio.SvgDecoder()
-        w, h = decoder.open(svg.encode(), width=width)
-        if (w, h) != (width, height):
-            raise ValueError("art drew at %dx%d, not %dx%d" % (w, h, width, height))
+        w, h = width, height
         size = w * h * (3 if alpha else 2)
         self.data = bytearray(size)
-        if alpha:
-            planes = memoryview(self.data)
-            decoder.decode(planes[: w * h * 2], planes[w * h * 2:])
-        else:
-            decoder.decode(self.data)
-        if hasattr(decoder, "close"):
-            decoder.close()
+        kept = cache
+        path = None if kept is None else kept.path(svg, w, h, alpha)
+        if path is None or not kept.load(path, self.data):
+            self._draw(svg, w, h, alpha)
+            if path is not None:
+                kept.save(path, self.data)
         dsc = lv.image_dsc_t()
         dsc.header.magic = lv.IMAGE_HEADER_MAGIC
         dsc.header.cf = lv.COLOR_FORMAT.RGB565A8 if alpha else lv.COLOR_FORMAT.RGB565
@@ -105,6 +258,20 @@ class Picture:
         self.image = None
         if parent is not None:
             self.image = self.show(parent, x, y)
+
+    def _draw(self, svg, w, h, alpha):
+        """Draw ``svg`` into ``self.data``: RGB565, then the alpha plane."""
+        decoder = svgio.SvgDecoder()
+        got = decoder.open(svg.encode(), width=w)
+        if tuple(got) != (w, h):
+            raise ValueError("art drew at %dx%d, not %dx%d" % (got[0], got[1], w, h))
+        if alpha:
+            planes = memoryview(self.data)
+            decoder.decode(planes[: w * h * 2], planes[w * h * 2:])
+        else:
+            decoder.decode(self.data)
+        if hasattr(decoder, "close"):
+            decoder.close()
 
     def show(self, parent, x=0, y=0):
         """Another LVGL image of the same pixels, at ``(x, y)`` in ``parent``."""

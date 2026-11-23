@@ -19,6 +19,7 @@ import hmilink
 from hmilink import local, tcp
 from touchkit import ui
 
+from . import art
 from . import ask as askmod
 from . import box as boxmod
 from . import floor as floormod
@@ -87,6 +88,17 @@ def _save_config(scope, config):
             json.dump(config, f)
     except (OSError, AttributeError, ValueError, ImportError) as e:
         print("backline: couldn't save the settings:", e)
+
+
+def _art_cache(data):
+    """Keep the views' pictures in ``cache`` in the app's data folder, so a
+    view drawn before is read back instead of drawn again (`art.Cache`)."""
+    from appkit import data as datamod
+
+    try:
+        art.use_cache(datamod.makedirs(datamod.join(data, "cache")))
+    except OSError as e:
+        print("backline: no cache for the pictures, so each view is drawn every time it shows:", e)
 
 
 def _midi_in(box, prefs, config):
@@ -192,6 +204,8 @@ def start(scope):
         ask_settings = askmod.load_settings(data + "/settings.json")
     except (ValueError, AttributeError) as e:
         data, trouble = None, "settings: %s" % (e,)
+    if data:
+        _art_cache(data)
     try:
         box = boxmod.Box(_clock(out), song=prefs.get("song"), kit=prefs.get("kit"),
                          pedal_map=prefs.get("pedals") or config.get("pedals"), worker=getattr(scope, "worker", None),
