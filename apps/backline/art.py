@@ -79,7 +79,7 @@ def image(parent, x, y, w, h):
 #: Part of every cached picture's name: a change to how pixels are laid out
 #: in a file, or to what an SVG draws as, makes this one higher.
 CACHE_VERSION = 1
-#: The flash a cache leaves free for everything else, in bytes.
+#: What a cache leaves free for everything else on its flash or card, in bytes.
 CACHE_RESERVE = 1 << 20
 
 
@@ -154,12 +154,12 @@ class Cache:
 
     def save(self, path, buf):
         """Keep ``buf``'s pixels in ``path``, unless that would leave the
-        flash with less than ``reserve`` free after clearing out what this
+        flash or card with less than ``reserve`` free after clearing out what this
         start hasn't used (said once)."""
         need = len(buf) + 4
         if self.full or not self._room(need):
             if not self.full:
-                log("no room on the flash to keep more pictures: the rest are drawn each time")
+                log("no room on %s to keep more pictures: the rest are drawn each time" % (self.folder,))
             self.full = True
             return False
         part = path + ".new"
@@ -183,13 +183,7 @@ class Cache:
             return False
 
     def _free(self):
-        """The bytes free where the folder is, or None where the system
-        can't say (Windows): there the reserve isn't kept."""
-        statvfs = getattr(os, "statvfs", None)
-        if statvfs is None:
-            return None
-        st = statvfs(self.folder)
-        return st[1] * st[4]
+        return free(self.folder)
 
     def _room(self, need):
         free = self._free()
@@ -203,6 +197,17 @@ class Cache:
             if not mine:
                 os.remove(self.folder + "/" + name)
         return self._free() - need >= self.reserve
+
+
+def free(folder):
+    """The bytes free on the filesystem ``folder`` is on (the flash, or the
+    SD card), or None where the system can't say (Windows): there a cache's
+    reserve isn't kept."""
+    statvfs = getattr(os, "statvfs", None)
+    if statvfs is None:
+        return None
+    st = statvfs(folder)
+    return st[1] * st[4]
 
 
 def _clear(buf):

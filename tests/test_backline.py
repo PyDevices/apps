@@ -61,7 +61,8 @@ ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 MEMORY_PLANTS = ("keep-floor", "keep-face", "alpha-panel", "whole-panel", "all-digits", "stale-return", "keep-both",
                  "keep-nothing")
-CACHE_PLANTS = ("stale-key", "trust-short", "no-crc", "quiet-rebuild", "no-clear", "fill-flash")
+CACHE_PLANTS = ("stale-key", "trust-short", "no-crc", "quiet-rebuild", "no-clear", "fill-flash",
+                "ignore-card", "skip-card-room", "make-sd", "quiet-fallback")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 
 

@@ -10,7 +10,10 @@ from the old one's file. A file that is short, long or whose pixels don't
 match their CRC is said on the console, drawn again over a clean buffer,
 and written again, so the next read is right. Where the flash would be
 left with less than the cache's reserve, nothing is written, and that is
-said once. The app keeps its cache in ``cache`` in its data folder.
+said once. The app keeps its cache on the SD card when one is in, takes a
+file and has room, and otherwise in ``cache`` in its data folder, saying
+why when a card is in but not used; it never makes ``/sd`` with no card.
+A folder under ``--tmp`` stands in for the card.
 
     python tests/backline_cache_contract.py [--plant=NAME] [--tmp FOLDER]
 
@@ -29,7 +32,8 @@ sys.path[:0] = [_sep.join((_dir, "..", "apps")), _sep.join((_dir, "..", "lib")),
 import _headless  # noqa: E402
 from backline import art  # noqa: E402
 
-PLANTS = ("stale-key", "trust-short", "no-crc", "quiet-rebuild", "no-clear", "fill-flash")
+PLANTS = ("stale-key", "trust-short", "no-crc", "quiet-rebuild", "no-clear", "fill-flash",
+          "ignore-card", "skip-card-room", "make-sd", "quiet-fallback")
 RESULTS = [0, 0]
 SAID = []
 
@@ -79,6 +83,30 @@ def plant(name):
         art._clear = lambda buf: None
     elif name == "fill-flash":
         art.Cache._room = lambda self, need: True
+    elif name == "ignore-card":
+        from backline import app
+        app._card_cache = lambda scope: None
+    elif name == "skip-card-room":
+        from backline import app
+        app.CARD_ROOM = -(1 << 62)
+    elif name in ("make-sd", "quiet-fallback"):
+        from appkit import places
+        from backline import app
+        card_cache = app._card_cache
+
+        def wrapped(scope):
+            # make-sd: takes the card as in without asking, so with none in
+            # it makes /sd. quiet-fallback: says nothing when it isn't used.
+            hold, log = places.hold_card, art.log
+            if name == "make-sd":
+                places.hold_card = lambda scope, write=False: True
+            else:
+                art.log = lambda message: None
+            try:
+                return card_cache(scope)
+            finally:
+                places.hold_card, art.log = hold, log
+        app._card_cache = wrapped
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -196,6 +224,103 @@ def run(tmp):
     check("the app keeps its pictures in cache in its data folder",
           art.cache is not None and art.cache.folder.replace("\\", "/") == data + "/cache")
     art.use_cache(None)
+    card(tmp, glow)
+
+
+class Scope:
+    """An app's scope, as far as the cache uses it."""
+
+    def __init__(self):
+        self.closers = []
+
+    def on_close(self, fn):
+        self.closers.append(fn)
+
+    def close(self):
+        for fn in self.closers:
+            fn()
+
+
+def exists(path):
+    try:
+        os.stat(path)
+        return True
+    except OSError:
+        return False
+
+
+def card(tmp, glow):
+    """The SD card: a folder stands in for ``/sd``; it is "in" while it exists."""
+    from appkit import places
+    from backline import app
+
+    base = empty_folder(tmp + "/backline-cache-card")
+    sd = base + "/sd"
+    data = empty_folder(base + "/data")
+    kept_sd, kept_hold, kept_free = places.SD, places.hold_card, art.free
+    places.SD = sd
+    places.hold_card = lambda scope, write=False: exists(sd)
+    room = [None]                 # the card's free bytes, or None for what it has
+    art.free = lambda folder: room[0] if room[0] is not None and folder.startswith(sd) else kept_free(folder)
+    try:
+        # No card in: the data folder, and no /sd made.
+        scope = Scope()
+        app._art_cache(data, scope)
+        check("with no card in, the app keeps its pictures in its data folder",
+              art.cache is not None and art.cache.folder == data + "/cache", art.cache and art.cache.folder)
+        check("with no card in, no /sd folder is made", not exists(sd))
+        scope.close()
+        check("closing the app lets its cache go", art.cache is None)
+
+        # A card in with room: the pictures go on it, none on the flash.
+        os.mkdir(sd)
+        scope = Scope()
+        app._art_cache(data, scope)
+        folder = sd + "/" + app.CARD_CACHE
+        check("with a card in, the app keeps its pictures on the card",
+              art.cache is not None and art.cache.folder == folder, art.cache and art.cache.folder)
+        empty_folder(data + "/cache")
+        art.Picture(None, glow, 60, 60)
+        check("a picture drawn with a card in is written to the card, not the flash",
+              exists(folder) and len(os.listdir(folder)) == 1 and os.listdir(data + "/cache") == [],
+              "card %r, flash %r" % (os.listdir(folder) if exists(folder) else None, os.listdir(data + "/cache")))
+
+        # A cache on the card keeps its reserve on the card.
+        art.cache.reserve = 1 << 20
+        room[0] = (1 << 20) - 1
+        said = len(SAID)
+        art.Picture(None, art.glow_svg(30, 0x80FFDB), 60, 60)
+        check("a cache on the card keeps its reserve on the card, and says so",
+              len(os.listdir(folder)) == 1 and heard(said, "no room on " + folder), "%r" % (SAID[said:],))
+        scope.close()
+
+        # A card with too little room: the flash, said.
+        room[0] = art.CACHE_RESERVE + (1 << 20)   # 1 MB past the reserve
+        said = len(SAID)
+        scope = Scope()
+        app._art_cache(data, scope)
+        check("a card with too little room isn't used: the pictures go in the data folder",
+              art.cache is not None and art.cache.folder == data + "/cache", art.cache and art.cache.folder)
+        check("a card with too little room is said on the console", heard(said, "KB free"), "%r" % (SAID[said:],))
+        scope.close()
+        room[0] = None
+
+        # A card that won't take a file: the flash, said.
+        empty_folder(folder)
+        os.rmdir(folder)
+        with open(folder, "wb") as f:   # a file where the folder would be
+            f.write(b"x")
+        said = len(SAID)
+        scope = Scope()
+        app._art_cache(data, scope)
+        check("a card that won't take a file isn't used: the pictures go in the data folder",
+              art.cache is not None and art.cache.folder == data + "/cache", art.cache and art.cache.folder)
+        check("a card that won't take a file is said on the console", heard(said, "won't keep"), "%r" % (SAID[said:],))
+        scope.close()
+        os.remove(folder)
+    finally:
+        places.SD, places.hold_card, art.free = kept_sd, kept_hold, kept_free
+        art.use_cache(None)
 
 
 def main():

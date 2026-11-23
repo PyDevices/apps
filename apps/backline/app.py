@@ -8,6 +8,7 @@ songs import without LVGL or an audio output.
 """
 
 import gc
+import os
 import sys
 
 try:
@@ -90,15 +91,54 @@ def _save_config(scope, config):
         print("backline: couldn't save the settings:", e)
 
 
-def _art_cache(data):
-    """Keep the views' pictures in ``cache`` in the app's data folder, so a
-    view drawn before is read back instead of drawn again (`art.Cache`)."""
+#: The folder on the SD card the views' pictures are kept in.
+CARD_CACHE = "backline-cache"
+#: The free space the card needs, past the cache's reserve, to be used:
+#: about two screen sizes' floor and desk.
+CARD_ROOM = 4 << 20
+
+
+def _card_cache(scope):
+    """The folder on the SD card to keep the pictures in, or None to keep
+    them on the flash: there's no card, or it won't take a file, or it has
+    less than `CARD_ROOM` free past the cache's reserve (said)."""
+    from appkit import data as datamod
+    from appkit import places
+
+    if not places.hold_card(scope, write=True):
+        return None
+    folder = places.SD + "/" + CARD_CACHE
+    try:
+        datamod.makedirs(folder)
+        probe = folder + "/.write-test"
+        with open(probe, "wb") as f:
+            f.write(b"\n")
+        os.remove(probe)
+        room = art.free(folder)
+    except OSError as e:
+        art.log("the SD card won't keep the pictures (%s), so they go on the flash" % (e,))
+        return None
+    if room is not None and room - art.CACHE_RESERVE < CARD_ROOM:
+        art.log("the SD card has %d KB free, so the pictures go on the flash" % (room // 1024))
+        return None
+    return folder
+
+
+def _art_cache(data, scope=None):
+    """Keep the views' pictures in files, so a view drawn before is read back
+    instead of drawn again (`art.Cache`): on the SD card while the app is
+    open, when *scope* is given and a card is in with room (`_card_cache`),
+    else in ``cache`` in the app's data folder."""
     from appkit import data as datamod
 
     try:
-        art.use_cache(datamod.makedirs(datamod.join(data, "cache")))
+        folder = _card_cache(scope) if scope is not None else None
+        art.use_cache(folder or datamod.makedirs(datamod.join(data, "cache")))
     except OSError as e:
         print("backline: no cache for the pictures, so each view is drawn every time it shows:", e)
+        return
+    if scope is not None:
+        scope.on_close(lambda: art.use_cache(None))
 
 
 def _midi_in(box, prefs, config):
@@ -205,7 +245,7 @@ def start(scope):
     except (ValueError, AttributeError) as e:
         data, trouble = None, "settings: %s" % (e,)
     if data:
-        _art_cache(data)
+        _art_cache(data, scope)
     try:
         box = boxmod.Box(_clock(out), song=prefs.get("song"), kit=prefs.get("kit"),
                          pedal_map=prefs.get("pedals") or config.get("pedals"), worker=getattr(scope, "worker", None),
