@@ -23,6 +23,13 @@ comes back to it; a hold plays the transition and moves to the next main
 the outro, a double tap stops at once. The second pedal's tap plays the
 accent over whatever is playing, and its hold stops at once.
 
+A song with a ``"repeat"`` count plays itself: the intro, the mains in
+order that many times, then the outro. A tap still plays a fill, in the
+last bars of the main playing, so the form keeps its length; a hold or a
+double tap takes over from the plan. A ``"tempo_map"`` entry for the outro
+(``{"part": "outro", "tempo": 56}``) slows it smoothly from the song's
+tempo to that one by its last beat, whichever way the outro was reached.
+
 `Engine` plays the plan through a kit (see kits.py). The frame clock is
 given, as Vamp's engine takes it: the frame the output renders next, from
 ``audiopump.now()`` or a count of what a test pulled. Each `Engine.sequence`
@@ -34,6 +41,8 @@ reaches the song's track as its ``current`` and ``next``, so
 Imports on CPython and MicroPython with nothing but songmodel: the kit and
 the clock are given, so a check runs it with numbers alone.
 """
+
+import math
 
 try:
     from time import ticks_ms
@@ -121,6 +130,7 @@ class Form:
         self.transitions = list(trans) if isinstance(trans, list) else ([] if trans is None else [trans])
         self.outro = parts.get("outro")
         self.accent = parts.get("accent")
+        self.repeat = max(0, int(project.get("repeat") or 0))
         self.plan = []
         self.before = None        # the entry advance() dropped last: still sounding while the kit runs ahead
 
@@ -140,14 +150,47 @@ class Form:
         return self.transitions[n] if len(self.transitions) == len(self.mains) else self.transitions[0]
 
     def start(self, tick=0):
-        """The plan from a standing start at ``tick``: the intro, then main 1."""
+        """The plan from a standing start at ``tick``: the intro, then main 1.
+        With a repeat count, the whole song: the mains in order that many
+        times, then the outro and the end."""
         self.plan = []
         self.before = None
         at = tick
         if self.intro is not None:
             self.plan.append(("intro", None, self.intro, at))
             at += self.length(self.intro)
-        self.plan.append(("main", 0, self.mains[0], at))
+        if not self.repeat:
+            self.plan.append(("main", 0, self.mains[0], at))
+            return
+        for k in range(self.repeat):
+            for n, main in enumerate(self.mains):
+                trans = self.transition_into(n) if len(self.mains) > 1 and (k or n) else None
+                if trans is not None:
+                    self.plan.append(("transition", n, trans, at))
+                    at += self.length(trans)
+                self.plan.append(("main", n, main, at))
+                at += self.length(main)
+        if self.outro is not None:
+            self.plan.append(("outro", None, self.outro, at))
+            at += self.length(self.outro)
+        self.plan.append(("end", None, -1, at))
+
+    def _fill_in_plan(self, now, number, fill, tick):
+        """A tap while a planned song plays: the fill over the last bars of
+        the main playing (or the next main, when those have begun), so
+        what follows keeps its place."""
+        earliest = bar_after(tick)
+        for i, e in enumerate(self.plan):
+            if e[0] != "main" or i + 1 >= len(self.plan) or self.plan[i + 1][0] == "fill":
+                continue
+            fill = self.fill_for(e[1])
+            if fill is None:
+                continue
+            at = self.plan[i + 1][3] - self.length(fill)
+            if at >= earliest and at >= e[3]:
+                self.plan.insert(i + 1, ("fill", e[1], fill, at))
+                return "fill"
+        return None
 
     def stop(self):
         self.plan = []
@@ -212,6 +255,8 @@ class Form:
             fill = self.fill_for(number)
             if fill is None:
                 return None
+            if self.repeat and self.following(tick) is not None:
+                return self._fill_in_plan(now, number, fill, tick)
             self._cut(tick, now, at, [("fill", number, fill, at), ("main", number, self.mains[number],
                                                                    at + self.length(fill))])
             return "fill"
@@ -271,6 +316,7 @@ class Engine:
         self.transport = {"playing": False, "anchor_frame": 0, "anchor_tick": 0.0}
         self.sequenced_to = None
         self._tempo = project.get("tempo", 120.0)
+        self.ramp = None          # (from tick, to tick, to tempo): the outro slowing, once it's planned
         self.changes += 1
 
     def set_kit(self, kit):
@@ -292,13 +338,63 @@ class Engine:
     def ticks_per_frame(self):
         return self.project["tempo"] * model.PPQ / (60.0 * self.rate)
 
+    def tempo_at(self, tick):
+        """The tempo at ``tick``: the song's, or on the way to the outro's
+        end tempo across the outro (`ramp`)."""
+        base = self.project["tempo"]
+        r = self.ramp
+        if r is None or tick <= r[0]:
+            return base
+        if tick >= r[1]:
+            return r[2]
+        return base + (r[2] - base) * (tick - r[0]) / (r[1] - r[0])
+
+    def _seconds(self, tick):
+        """Seconds from tick 0 to ``tick`` at the song's tempo, slowing
+        across the ramp: the tempo changes evenly with the ticks there, so
+        the time is a logarithm."""
+        per = 60.0 / model.PPQ
+        base = self.project["tempo"]
+        r = self.ramp
+        if r is None or tick <= r[0]:
+            return tick * per / base
+        t0, t1, end = r
+        span = min(tick, t1) - t0
+        if end == base:
+            inside = span * per / base
+        else:
+            inside = per * (t1 - t0) / (end - base) * math.log((base + (end - base) * span / (t1 - t0)) / base)
+        after = (tick - t1) * per / end if tick > t1 else 0.0
+        return t0 * per / base + inside + after
+
+    def _tick(self, seconds):
+        """The tick `_seconds` puts at ``seconds``."""
+        per = 60.0 / model.PPQ
+        base = self.project["tempo"]
+        r = self.ramp
+        if r is None or seconds <= r[0] * per / base:
+            return seconds * base / per
+        t0, t1, end = r
+        s0 = t0 * per / base
+        s1 = self._seconds(t1)
+        if seconds >= s1:
+            return t1 + (seconds - s1) * end / per
+        if end == base:
+            return t0 + (seconds - s0) * base / per
+        bpm = base * math.exp((seconds - s0) * (end - base) / (per * (t1 - t0)))
+        return t0 + (bpm - base) * (t1 - t0) / (end - base)
+
     def tick_at(self, frame):
         tr = self.transport
-        return tr["anchor_tick"] + (frame - tr["anchor_frame"]) * self.ticks_per_frame()
+        if self.ramp is None:
+            return tr["anchor_tick"] + (frame - tr["anchor_frame"]) * self.ticks_per_frame()
+        return self._tick(self._seconds(tr["anchor_tick"]) + (frame - tr["anchor_frame"]) / float(self.rate))
 
     def frame_at(self, tick):
         tr = self.transport
-        return tr["anchor_frame"] + (tick - tr["anchor_tick"]) / self.ticks_per_frame()
+        if self.ramp is None:
+            return tr["anchor_frame"] + (tick - tr["anchor_tick"]) / self.ticks_per_frame()
+        return tr["anchor_frame"] + (self._seconds(tick) - self._seconds(tr["anchor_tick"])) * self.rate
 
     def retempo(self):
         """Keep the playhead where it is when the tempo changes; the project
@@ -379,9 +475,11 @@ class Engine:
         self._place()
 
     def _place(self):
-        """The plan as the track's ``current`` and ``next``, for songmodel."""
+        """The plan as the track's ``current`` and ``next``, for songmodel,
+        and the outro's ramp once the plan holds the outro."""
         t = self.track
         plan = self.form.plan
+        self._ramp()
         if not plan:
             t["current"], t["current_at"], t["next"] = self.form.mains[0], 0, None
             return
@@ -389,6 +487,20 @@ class Engine:
         t["current"] = first[2]
         t["current_at"] = int(first[3])
         t["next"] = {"pattern": plan[1][2], "at": int(plan[1][3])} if len(plan) > 1 else None
+
+    def _ramp(self):
+        if not self.transport["playing"]:
+            self.ramp = None
+            return
+        end = model.ramp_to(self.project, "outro")
+        if end is None or end <= 0:
+            self.ramp = None
+            return
+        for e in ([self.form.before] if self.form.before else []) + self.form.plan:
+            if e[0] == "outro":
+                self.ramp = (e[3], e[3] + self.form.length(e[2]), end)
+                return
+        self.ramp = None
 
     # -- what plays -------------------------------------------------------------
 
@@ -487,7 +599,7 @@ class Engine:
         return {
             "playing": playing,
             "song": self.project.get("name", ""),
-            "tempo": self.project.get("tempo", 120.0),
+            "tempo": self.tempo_at(tick) if playing else self.project.get("tempo", 120.0),
             "meter": self.project.get("meter", "4/4"),
             "kit": getattr(self.kit, "name", "") if self.kit is not None else "",
             "role": now[0] if now else "stopped",

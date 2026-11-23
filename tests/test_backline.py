@@ -43,7 +43,8 @@ from test_engine import _find, audio_checkout  # noqa: E402
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
           "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
-          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals")
+          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
+          "ramp-jumps", "fill-moves-form", "migrate-forgets")
 NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
                 "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")

@@ -13,6 +13,12 @@ sent to the other side, which applies the same op to its copy.
 
 Times are in ticks, PPQ to a quarter note. A step on the grid is a
 sixteenth, STEP ticks.
+
+A player that plays a song by its parts (Backline) reads two more keys:
+``repeat``, how many times it goes through the song's main parts before
+the outro (0 plays on until told otherwise), and ``tempo_map``, tempo
+changes across a part: ``{"part": "outro", "tempo": 56}`` slows the outro
+smoothly from the song's tempo to 56 by its last beat (`ramp_to`).
 """
 
 VERSION = 1
@@ -78,6 +84,8 @@ def new_project():
             track("melodic", "mono_synth", "Lead"),
         ],
         "bindings": {},                # "ch:cc" -> target path, from MIDI-learn
+        "repeat": 0,                   # times through the main parts before the outro; 0 = on and on
+        "tempo_map": [],               # [{"part": "outro", "tempo": bpm}]: a ramp across that part
     }
 
 
@@ -89,13 +97,25 @@ def swung(tick, swing):
 
 def migrate(project):
     """Bring an older project up to date in place: each track's own pattern
-    (they all played the one "loop_pattern" before) and no pending switch."""
+    (they all played the one "loop_pattern" before), no pending switch, and
+    no repeat count or tempo map (it plays on, at one tempo)."""
+    project.setdefault("repeat", 0)
+    project.setdefault("tempo_map", [])
     for t in project.get("tracks", []):
         if "current" not in t:
             t["current"] = min(project.get("loop_pattern", 0), len(t["patterns"]) - 1)
         t.setdefault("current_at", 0)
         t.setdefault("next", None)
     return project
+
+
+def ramp_to(project, part):
+    """The tempo the song's ``tempo_map`` slows or speeds ``part`` to by its
+    end, or None when it holds the tempo there."""
+    for change in project.get("tempo_map") or ():
+        if change.get("part") == part:
+            return float(change["tempo"])
+    return None
 
 
 def pattern_at(track, tick):
