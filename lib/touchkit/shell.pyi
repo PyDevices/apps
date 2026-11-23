@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """The board's chrome and launcher."""
 
-from typing import Any, Literal
+from typing import Any, Callable, Literal
 
 from appkit import Launcher, Shell
 from appkit.scope import AppScope
@@ -27,6 +27,8 @@ class TouchShell(Shell):
     boot_pin: Any
     def __init__(self, launcher: Launcher, *, data_root: str | None = None, bar: bool = True) -> None: ...
     def make_home_button(self) -> Any: ...
+    def lend_boot(self) -> Callable[[], None]:
+        """Hand the BOOT button to the running app until the returned function is called."""
     def make_root(self, scope: AppScope) -> Any: ...
 
 def go(name: str) -> None:

@@ -100,17 +100,32 @@ def _midi_in(box, prefs, config):
         return None
 
 
-def _switches(box, prefs, config):
-    """The switches on pins the settings name (`footswitch.open_switches`).
-    One that won't open says why on the box, and the box plays on."""
+def _switches(box, prefs, config, scope):
+    """The switches on pins the settings name (`footswitch.open_switches`),
+    and the function that gives BOOT back to the shell, or None.
+
+    BOOT goes home in the touch shell, so a box whose footswitch is BOOT
+    borrows it while it runs. A switch that won't open, or a shell that
+    can't lend BOOT, says why on the box, and the box plays on."""
     named = {}
     for key, _which in footswitch.KEYS:
         named[key] = prefs.get(key) or config.get(key)
+    give_back = None
+    if "boot_button" in named.values():
+        shell = getattr(getattr(scope, "launcher", None), "shell", None)
+        if getattr(shell, "boot_pin", None) is not None:
+            lend = getattr(shell, "lend_boot", None)
+            if lend is None:
+                box.error = "no footswitch: BOOT goes home in this shell, which can't lend it"
+                return [], None
+            give_back = lend()
     try:
-        return footswitch.open_switches(named, box.pedal)
+        return footswitch.open_switches(named, box.pedal), give_back
     except Exception as e:  # noqa: BLE001 - said on the screen
+        if give_back is not None:
+            give_back()
         box.error = "no footswitch: %s" % (e,)
-        return []
+        return [], None
 
 
 def start(scope):
@@ -170,7 +185,7 @@ def start(scope):
     panel.poll()
     caster = _cast(box, prefs)
     box.midi_in = _midi_in(box, prefs, config)
-    box.switches = _switches(box, prefs, config)
+    box.switches, give_boot_back = _switches(box, prefs, config, scope)
     kept = [box.midi.saved()]
     views = {"floor": None, "desk": None, "desk_panel": None, "shown": "floor"}
     can_desk = W >= DESK_SIZE[0] and H >= DESK_SIZE[1]
@@ -284,6 +299,8 @@ def start(scope):
         if views["desk_panel"] is not None:
             views["desk_panel"].close()
         box.close()  # after the output, so it never pulls a closed kit
+        if give_boot_back is not None:
+            give_boot_back()
         try:
             power = getattr(bp, "audio_power", None)
             if power is not None:

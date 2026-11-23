@@ -116,6 +116,27 @@ class TouchShell(Shell):
             print("touchkit: no BOOT button: %r" % (e,))
             self.boot_pin = None
 
+    def lend_boot(self):
+        """Hand the BOOT button to the app that's running, which reads it as
+        a button of its own (Backline's footswitch). BOOT stops going home
+        until the function this returns is called; Home on the screen still
+        works.
+
+        Returns:
+            A function that gives BOOT back to the shell. It does nothing
+            on a board with no BOOT role.
+        """
+        pin = self.boot_pin
+        if pin is None:
+            return lambda: None
+        pin.irq(handler=None)
+
+        def give_back():
+            from machine import Pin
+
+            pin.irq(trigger=Pin.IRQ_FALLING, handler=_boot_irq)
+        return give_back
+
     def make_root(self, scope):
         scr = scope.screen()
         scr.set_style_bg_color(ui.BG, 0)
