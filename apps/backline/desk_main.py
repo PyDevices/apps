@@ -35,6 +35,7 @@ from . import remote
 
 STEP_MS = 30
 RETRY_MS = 3000
+SILENT_MS = 3000     # a box sends telemetry many times a second: this long without any, it has gone
 JOIN_S = 3
 K_SPACE, K_B = 32, 98
 
@@ -108,6 +109,8 @@ class Remote:
         self.desk = Desk(screen, size, None)
         self.waited = RETRY_MS
         self.waiting = False
+        self.quiet = 0           # ms since the box last said anything
+        self._heard = None
         self._try()
 
     def _try(self):
@@ -126,6 +129,7 @@ class Remote:
         panel = self.desk.panel
         if panel is not None and not panel.closed:
             self.desk.poll()
+            self._listen(panel, ms)
             if self.waiting and panel.ready:
                 self.waiting = False
                 self.desk.message = ""
@@ -139,6 +143,22 @@ class Remote:
         if self.waited >= RETRY_MS:
             self.waited = 0
             self._try()
+
+    def _listen(self, panel, ms):
+        """Close a link the box has gone quiet on. A box that resets leaves
+        the desk's socket open with nothing behind it, and the box sends
+        telemetry many times a second, so `SILENT_MS` of nothing means it
+        has gone; the next pass says so and joins it again."""
+        heard = panel.stats["tele"] + panel.stats["ops_in"]
+        if heard != self._heard:
+            self._heard = heard
+            self.quiet = 0
+            return
+        self.quiet += ms
+        if self.quiet >= SILENT_MS:
+            self.quiet = 0
+            self._heard = None
+            panel.close()
 
     def close(self):
         if self.desk.panel is not None:

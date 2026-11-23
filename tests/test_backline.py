@@ -52,7 +52,7 @@ FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part",
                 "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
 DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
                "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
-               "wide-sheet")
+               "wide-sheet", "deaf-silence")
 ASK_PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-shift", "lost-plan", "quiet-failure",
               "keep-nowhere", "whole-reply", "old-song-shown")
 ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
