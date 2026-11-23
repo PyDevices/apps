@@ -11,7 +11,8 @@ change waits for the bar line, so the band never loses the one.
 
 On a computer the space bar is pedal A and B is pedal B; Left and Right
 choose the song while stopped, and K changes the kit. The two lamps on the
-screen are pedals too.
+screen are pedals too. While a song plays, the status bar shows its part
+and tempo; a tap there brings the floor view to the front.
 
 On a screen of 640x400 or more, D (or the button in the corner) swaps the
 floor view for the desk view (``desk/``): the same face larger with the

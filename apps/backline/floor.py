@@ -22,10 +22,9 @@ another, and nothing else is redrawn unless it changed.
 """
 
 import lvgl as lv
-from icons import lvgl as lvicons
 
-from . import art
-from .engine import meter
+from . import art, glyphs
+from .engine import BAR, meter
 
 PEDAL_COLORS = (0xFFB703, 0x4CC9F0)
 HINTS = {
@@ -37,6 +36,18 @@ HINTS = {
     "outro": "TAP TAP: STOP NOW",
 }
 ARROW = "  " + lv.SYMBOL.RIGHT + "  "
+PULSE_LEVELS = 3          # how many steps the beat's pulse fades in
+PULSE_SPAN = 0.34         # the share of a beat it lasts
+
+
+def pulse(tele, steps):
+    """How bright the beat's pulse is now, 0 to `PULSE_LEVELS`: brightest
+    as a beat lands, gone a third of the way through it. Read from where the
+    part is (``at``), so it keeps time with the song, not with the screen."""
+    beats = tele.get("beats") or steps
+    span = BAR * (steps // max(1, beats) or 1) / float(steps)
+    phase = (tele.get("at", 0) % BAR) % span / span
+    return max(0, PULSE_LEVELS - int(phase * PULSE_LEVELS / PULSE_SPAN))
 
 
 def _label(parent, font, color, text="", width=None):
@@ -175,7 +186,8 @@ class Floor:
         bpm = _label(base, tiny, 0x8792A5, "BPM")
         bpm.set_style_text_letter_space(2, 0)
         bpm.set_pos(tx + tw + gap, ty + (th - tiny.line_height) // 2)
-        self.kit = _label(base, small, 0xC8D0DC, "", cw)
+        # A size smaller than the song's, so on a big screen it clears the lamps.
+        self.kit = _label(base, tiny, 0xC8D0DC, "", cw)
         self.kit.set_pos(cx + 2, lay.kit_y)
         # What the pedal does now, between the lamps, where there's room.
         hint_font = lay.font(0.034)
@@ -220,7 +232,7 @@ class Floor:
             btn.set_style_border_width(1, 0)
             btn.add_flag(lv.obj.FLAG.CLICKABLE)
             btn.remove_flag(lv.obj.FLAG.SCROLLABLE)
-            icon = lvicons.image(btn, "grid_on", size * 2 // 3, lv.color_hex(0xC8D0DC))
+            icon = glyphs.show(btn, "desk", size * 2 // 3, lv.color_hex(0xC8D0DC))
             icon.center()
             btn.add_event_cb(lambda _e: on_switch(), lv.EVENT.CLICKED, None)
             self.switch = btn
@@ -304,6 +316,16 @@ class Floor:
         hint.remove_flag(lv.obj.FLAG.HIDDEN)
         hint.set_y(lay.pedal_y - h // 2)
 
+    def _pulse(self, level):
+        """Brighten the beat's digit and its lit segment by ``level`` (0 to
+        `PULSE_LEVELS`), more on the bar's first beat."""
+        accent = self.tele.get("beat") == 1
+        self.beat_digit.set_style_image_recolor(lv.color_hex(0xFFFFFF), 0)
+        self.beat_digit.set_style_image_recolor_opa(level * (36 if accent else 24), 0)
+        step = self.shown.get("beat", 0)
+        if 0 < step <= len(self.segments):
+            self.segments[step - 1].set_style_image_recolor_opa(120 - level * (30 if accent else 20), 0)
+
     def _tele(self, values):
         v = self.tele
         v.update(values)
@@ -335,6 +357,8 @@ class Floor:
                 seg.set_style_image_recolor(lv.color_hex(color) if now else deep, 0)
                 seg.set_style_image_recolor_opa(120 if now else 225, 0)
             self.beat_digit.set_src(self.big[str(beat) if 0 < beat < 10 else "-"].dsc)
+            self.shown.pop("pulse", None)
+        self._set("pulse", pulse(v, steps) if playing else 0, self._pulse)
         bar = ("BAR %d / %d" % (v.get("bar", 1), v.get("bars", 1))) if playing else "STOPPED"
         self._set("bar", bar, self.bar.set_text)
         self._set("part", (v.get("part") or "Ready").upper(), self.part.set_text)
@@ -344,7 +368,7 @@ class Floor:
                 up = nxt.upper()
                 choices = ["NEXT" + ARROW + up, lv.SYMBOL.RIGHT + " " + up, up]
             else:
-                choices = ["LOOPING"] if playing else ["TAP" + ARROW + "INTRO", "TAP " + lv.SYMBOL.RIGHT + " INTRO"]
+                choices = [lv.SYMBOL.LOOP + "  LOOPING", "LOOPING"] if playing else ["TAP" + ARROW + "INTRO", "TAP " + lv.SYMBOL.RIGHT + " INTRO"]
             fit(self.chip_text, choices, self.chip_text.get_width(), 1)
             ncolor = art.ROLE_COLORS.get(v.get("next_role") or "stopped", 0x3A4555)
             self.chip.set_style_border_color(lv.color_hex(ncolor if nxt else 0x3A4555), 0)

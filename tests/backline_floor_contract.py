@@ -6,7 +6,13 @@ and 800x480: it fits the screen, lights one more segment of the ring each
 beat and redraws little else, gives a 12/8 song twelve segments, shows the
 song's name and the part coming next in full, shows the part and the next
 one, lights a pedal's lamp while it is down, a touch on a lamp reaches the
-device, and the corner button asks for the desk view.
+device, the corner button asks for the desk view, and the beat's digit
+pulses as a beat lands and settles before the next.
+
+Then the app's item on appkit's status bar shows the part and the tempo
+while a song plays and nothing while it's stopped, and on a firmware whose
+icons font is older than Backline's newest icons, each icon falls back to
+one the font has, or to a glyph.
 
     python tests/backline_floor_contract.py [--plant=NAME]
 
@@ -29,10 +35,17 @@ import lvgl as lv  # noqa: E402
 from hmilink import local  # noqa: E402
 
 import _headless  # noqa: E402
-from backline import art, floor  # noqa: E402
+import icons  # noqa: E402
+from appkit import bar as appbar  # noqa: E402
+from backline import art, floor, glyphs  # noqa: E402
+from backline.engine import BAR  # noqa: E402
 
 PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
-          "dead-switch")
+          "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
+# Icons newer than some firmware's font: the fallback check hides them.
+NEW_ICONS = ("footprint", "steps", "sound_sampler", "music_cast", "cast_connected", "smartphone", "auto_awesome",
+             "keyboard_voice", "mic_external_on", "repeat_one", "loop", "playlist_play", "lyrics", "timeline",
+             "linear_scale", "waves", "spatial_audio", "settings_input_component", "view_module", "vibration")
 SIZES = ((320, 240), (480, 320), (800, 480))
 RESULTS = [0, 0]
 
@@ -101,6 +114,20 @@ def plant(name):
         def init(self, root, size, panel, on_switch=None):
             old(self, root, size, panel, (lambda: None) if on_switch is not None else None)
         floor.Floor.__init__ = init
+    elif name == "no-pulse":
+        floor.pulse = lambda tele, steps: 0
+    elif name == "mute-bar":
+        glyphs.bar_reading = lambda t: None
+    elif name == "bar-while-stopped":
+        old_reading = glyphs.bar_reading
+
+        def reading(t):
+            t = dict(t)
+            t["playing"] = True
+            return old_reading(t)
+        glyphs.bar_reading = reading
+    elif name == "no-fallback":
+        glyphs.pick = lambda role: glyphs.ICONS[role][0][0]
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -249,8 +276,52 @@ def run_size(w, h):
     _headless.touch((a.x1 + a.x2) // 2, (a.y1 + a.y2) // 2, True, 40)
     _headless.touch((a.x1 + a.x2) // 2, (a.y1 + a.y2) // 2, False, 40)
     check(tag + ": the corner button asks for the desk view", switched == [1], repr(switched))
+    beat = BAR // 4
+    show(beat=3, step=3, at=2 * beat)
+    landed = view.beat_digit.get_style_image_recolor_opa(0)
+    show(beat=3, step=3, at=2 * beat + beat // 2)
+    settled = view.beat_digit.get_style_image_recolor_opa(0)
+    check(tag + ": the beat's digit pulses as the beat lands and settles by mid-beat", landed > 0 and settled == 0,
+          "%d, then %d" % (landed, settled))
     scr.delete()
     device.close()
+
+
+def run_bar():
+    """The status bar's item, and the icons on an older font."""
+    w, h = 320, 240
+    _headless.display(w, h)
+    scr = lv.obj(None)
+    lv.screen_load(scr)
+    bar = appbar.Bar(registry=None, items=[], tick_ms=0)
+    state = {"t": tele(beat=2, part="Main 2", tempo=96.4)}
+    bar.add(appbar.Item("backline", lambda: glyphs.bar_reading(state["t"])))
+    bar.tick()
+    shown = dict((name, (icon, text)) for name, icon, text in bar.status())
+    got = shown.get("backline")
+    check("the status bar shows the part and the tempo while a song plays",
+          got is not None and "MAIN 2" in (got[1] or "") and "96" in (got[1] or ""), repr(got))
+    state["t"] = tele(playing=False)
+    bar.tick()
+    names = [name for name, _i, _t in bar.status()]
+    check("the status bar shows nothing of Backline while it's stopped", "backline" not in names, repr(bar.status()))
+    bar.close()
+
+    real_has = icons.has
+    icons.has = lambda name: name not in NEW_ICONS and real_has(name)
+    try:
+        picked = dict((role, glyphs.pick(role)) for role in glyphs.ICONS)
+        drawn = glyphs.show(scr, "form", 16, lv.color_hex(0xFFFFFF))
+        text = drawn.get_text() if hasattr(drawn, "get_text") else None
+        lost = [r for r, n in picked.items() if n is not None and n in NEW_ICONS]
+        reading = glyphs.bar_reading(tele(cast="Living room"))
+        ok = not lost and picked["desk"] == "grid_on" and text == glyphs.ICONS["form"][1] and \
+            reading[0] == "cast"
+        check("on an older icons font every icon falls back to one it has, or to a glyph", ok,
+              "%r, form drew %r, bar %r" % (picked, text, reading))
+    finally:
+        icons.has = real_has
+    scr.delete()
 
 
 def main():
@@ -262,6 +333,7 @@ def main():
     plant(p)
     for w, h in SIZES:
         run_size(w, h)
+    run_bar()
     print("%d passed, %d failed" % (RESULTS[0], RESULTS[1]))
     if RESULTS[1]:
         sys.exit(1)

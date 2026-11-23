@@ -45,8 +45,9 @@ PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-f
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard")
 NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
-                "dead-switch")
-DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader")
+                "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
+DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
+               "long-names", "tight-mixer", "no-joiners")
 CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 

@@ -286,20 +286,32 @@ jobs:
           path: omnipython
           sparse-checkout: packages/hmilink
 
+      # Backline draws icons newer than the omnipython-desktop on PyPI: the
+      # icons package from source, at the commit that added them, over it.
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/omnipython
+          ref: e21d9298a1805bc5fbc7b2a91bbe76b914bf7ca0
+          path: omnipython-icons
+          sparse-checkout: packages/icons
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
+      # iconkit: the floor check puts Backline's item on appkit's status bar,
+      # and appkit's shell draws its own icons with iconkit.
       - name: Install LVGL, svgio, icons and audiodsp for CPython
         run: |
           sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
-          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" omnipython-audiodsp numpy resvg_py pillow
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" "omnipython-iconkit>=0.1.0.dev3" omnipython-audiodsp numpy resvg_py pillow
 
       - name: Backline's tests
         env:
           SDL_VIDEODRIVER: dummy
           AUDIOINSTRUMENTS_DIR: ${{ github.workspace }}/audioinstruments
           HMILINK_PATH: ${{ github.workspace }}/omnipython/packages/hmilink
+          PYTHONPATH: ${{ github.workspace }}/omnipython-icons/packages/icons
           BACKLINE_REQUIRE: "1"
         run: python -m unittest tests.test_backline -v
 

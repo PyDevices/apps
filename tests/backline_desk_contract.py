@@ -11,7 +11,9 @@ uses or every grid shows, and no more; a finger's tap on a cell of the local
 desk lands in the box's song and on the remote desk's grid, a tap on the
 remote desk lands back on the local one, and the song plays on through both;
 a fader moved on one desk moves on the other; and the tempo button changes
-the box's tempo.
+the box's tempo. Every drum's name in the grid, from any General MIDI kit,
+fits its column without dots, the mixer's names keep apart, and the header
+shows that another screen has joined and that the desk is cast.
 
     python tests/backline_desk_contract.py [--plant=NAME]
 
@@ -35,10 +37,11 @@ from hmilink import local, tcp  # noqa: E402
 
 import _headless  # noqa: E402
 from backline import box as boxmod  # noqa: E402
-from backline import desk_main, parts  # noqa: E402
+from backline import desk_main, floor, kits, parts  # noqa: E402
 from backline.desk import Desk, editor, grid, perform, strip  # noqa: E402
 
-PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader")
+PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
+          "long-names", "tight-mixer", "no-joiners")
 SIZES = ((800, 480), (1280, 720))
 RESULTS = [0, 0]
 RATE = 48000
@@ -87,8 +90,31 @@ def plant(name):
         parts.rows = lambda voices, doc: [(int(p), n) for p, n in voices]
     elif name == "deaf-fader":
         editor.Editor._fader = lambda self, key, final=False: (lambda value: None)
+    elif name == "long-names":
+        grid.LABEL_SHARE = 18
+        grid.shorter = lambda name: [name]
+    elif name == "tight-mixer":
+        editor.FADER_NAMES = editor.FADER_NAMES[1:2]
+    elif name == "no-joiners":
+        old_tele = boxmod.Box.telemetry
+
+        def telemetry(self):
+            t = old_tele(self)
+            t["desks"] = 0
+            t["cast"] = ""
+            return t
+        boxmod.Box.telemetry = telemetry
     else:
         raise SystemExit("no such plant: %r" % name)
+
+
+def fits(label):
+    """How much wider a label's text is than the label (0 or less fits). LVGL
+    hands back a cut label's text with its dots, so dots count as too wide."""
+    font = label.get_style_text_font(0)
+    text = label.get_text()
+    over = floor.text_width(text, font, label.get_style_text_letter_space(0)) - label.get_width()
+    return max(1, over) if text.endswith("...") else over
 
 
 def coords(o):
@@ -229,6 +255,37 @@ def run_size(w, h):
     settle(lambda: fed.faders["kick"].get_value() == 40)
     check(tag + ": a fader moved on one desk moves on the other", box.model.doc["tracks"][0]["mix"]["kick"] == 40 and
           fed.faders["kick"].get_value() == 40, repr(fed.faders["kick"].get_value()))
+    names = [ed.grid.base.get_child(i) for i in range(ed.grid.base.get_child_count())]
+    names = [o for o in names if hasattr(o, "get_text")]
+    over = [(o.get_text(), fits(o)) for o in names if fits(o) > 0]
+    check(tag + ": the grid's drum names fit without dots", len(names) == len(ed.grid.rows) and not over, repr(over))
+    gm = [(p, n) for p, n in kits.GM_DRUMS]
+    ed.grid.build(gm, ed.cols, 4)
+    ed.grid.base.update_layout()
+    names = [ed.grid.base.get_child(i) for i in range(ed.grid.base.get_child_count())]
+    over = [(o.get_text(), fits(o)) for o in names if hasattr(o, "get_text") and fits(o) > 0]
+    check(tag + ": every General MIDI drum's name fits without dots", not over, repr(over))
+    ed.rebuild(box.model.doc, box.voices())
+    labels = ed.fader_labels
+    font = labels[0].get_style_text_font(0)
+    gaps = []
+    for a, b in zip(labels, labels[1:]):
+        wa = floor.text_width(a.get_text(), font)
+        wb = floor.text_width(b.get_text(), font)
+        # each name is centred in its label: the space between the two texts
+        gaps.append((b.get_x() + (b.get_width() - wb) // 2) - (a.get_x() + (a.get_width() + wa) // 2))
+    wide = [o.get_text() for o in labels if fits(o) > 0]
+    check(tag + ": the mixer's names keep apart and none is cut", min(gaps) >= 4 and not wide,
+          "%r, gaps %r" % ([o.get_text() for o in labels], gaps))
+    settle(lambda: not desk.remote_icon.has_flag(lv.obj.FLAG.HIDDEN), 1.0)
+    joined = not desk.remote_icon.has_flag(lv.obj.FLAG.HIDDEN)
+    uncast = desk.cast_icon.has_flag(lv.obj.FLAG.HIDDEN)
+    box.cast = "Living room"
+    settle(lambda: not desk.cast_icon.has_flag(lv.obj.FLAG.HIDDEN), 1.0)
+    cast = not desk.cast_icon.has_flag(lv.obj.FLAG.HIDDEN)
+    box.cast = ""
+    check(tag + ": the header shows another screen joined, and the cast while there is one",
+          joined and uncast and cast, "joined %r, no cast hidden %r, cast %r" % (joined, uncast, cast))
     desk.show_tab("perform")
     tempo = e.project["tempo"]
     b = desk.perform.base
