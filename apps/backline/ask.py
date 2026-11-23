@@ -182,7 +182,7 @@ def system_prompt(kits):
         "When the person names a song or an artist, take only its style, tempo and feel, and write an original "
         "groove in that style. Never transcribe or reproduce the drum part of a real recording.\n\n"
         "An example answer:\n%s"
-    ) % (", ".join(n for n, _p in VOICES), kit_lines, json.dumps(EXAMPLE))
+    ) % (", ".join(n for n, _p in VOICES), kit_lines, json.dumps(EXAMPLE, separators=(",", ":")))
 
 
 def _grid(text):
@@ -300,8 +300,8 @@ def check(spec, kits):
             n = len(g) // steps if g and len(g) % steps == 0 else 0
             if not n or n > bars[part] or bars[part] % n:
                 fits = [str(k * steps) for k in range(1, bars[part] + 1) if bars[part] % k == 0]
-                errors.append("%s has %d steps; for %d bars of %d steps it should have %s" % (
-                    where, len(g), bars[part], steps, " or ".join(fits)))
+                errors.append("%s has %d steps; for %d bar%s of %d steps it should have %s" % (
+                    where, len(g), bars[part], "" if bars[part] == 1 else "s", steps, " or ".join(fits)))
                 bad += 1
                 continue
             hits += len(g) - g.count(".")
