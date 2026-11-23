@@ -13,7 +13,7 @@ import unittest
 from _harness import TESTS, need_micropython, run
 
 CHECKS = TESTS / "connections_checks.py"
-PLANTS = ("no_wifi", "board_finds_rokus", "board_skips_audio", "noisy_absence", "starts_usb_host")
+PLANTS = ("no_wifi", "board_finds_rokus", "board_skips_audio", "noisy_absence", "starts_usb_host", "never_starts_usb_host")
 
 
 def _run(interpreter, plant=None):

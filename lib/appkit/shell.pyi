@@ -7,6 +7,7 @@ from typing import Any
 
 from . import data as data
 from .bar import Bar
+from .hostkeys import HostKeys
 from .launcher import Launcher
 from .picker import Picker
 from .scope import AppScope
@@ -25,9 +26,12 @@ class Shell:
     home_button: Any
     picker: Picker | None
     bar: Bar | None
+    host_keys: HostKeys | None
     def __init__(self, launcher: Launcher, *, data_root: str | None = None, bar: bool = False) -> None: ...
     def make_bar(self) -> Bar:
         """The status bar, made once, with Home on it when there's a home screen."""
+    def make_host_keys(self) -> HostKeys | None:
+        """What reads a keyboard on the board's USB host port, made once, or None without one."""
     def bar_mode(self, scope: AppScope) -> str:
         """What the app's `app.json` asks for: "shell", "own" or "none"."""
     def make_home_button(self) -> Any:

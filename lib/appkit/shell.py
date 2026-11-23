@@ -79,6 +79,9 @@ class Shell:
             self.bar._on_change = self._bar_moved
         elif launcher.home is not None:
             self.home_button = self.make_home_button()
+        #: Typing from a keyboard on the board's USB host port
+        #: (`appkit.hostkeys.HostKeys`), or None where there's no such port.
+        self.host_keys = self.make_host_keys()
 
     def make_bar(self):
         """The status bar, made once when the shell is, with Home on it when
@@ -92,6 +95,22 @@ class Shell:
         if launcher.home is not None:
             on_home = lambda: launcher.request(launcher.home)  # noqa: E731
         return Bar(on_home=on_home, on_picker=self.open_picker)
+
+    def make_host_keys(self):
+        """A keyboard on the board's USB host port types into the focused
+        field: the `appkit.hostkeys.HostKeys` that reads it, made once when
+        the shell is, or None on a device whose host port isn't registered
+        (`appkit.connections.usb_host`)."""
+        from . import connections
+
+        if not connections.usb_host():
+            return None
+        import endpointkit
+
+        from .hostkeys import HostKeys
+
+        # The bar polls endpointkit once a second; without it, this looks as often.
+        return HostKeys(endpointkit.registry, look_ms=None if self.bar is not None else 1000)
 
     def bar_mode(self, scope):
         """What the app's ``app.json`` asks for: ``"shell"`` (the default),

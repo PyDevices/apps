@@ -331,6 +331,13 @@ overlay of your own calls `keys.focus(group)` when it opens and
 `keys.release(group)` when it closes, so an encoder or a gamepad reaches its
 buttons and then comes back.
 
+On a board whose USB host port is apart from the REPL's port (an ESP32-P4,
+an ESP32-S31, the Arduino GIGA), plug a keyboard into it and type: the Shell
+starts the port and reads the keyboards in use for `keys`, which are the ones
+chosen in the picker, or every one plugged in while none is chosen. On an
+ESP32-S2 or S3 the host would take the REPL's port, so it's read only once
+something else has started it. `appkit.hostkeys` has the details.
+
 ## Plain scripts
 
 A script that builds its own `App` when it's imported, like a game, can sit
