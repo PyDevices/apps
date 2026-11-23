@@ -37,6 +37,7 @@ _dir = _here.rsplit(_sep, 1)[0] if _sep in _here else "."
 sys.path[:0] = [_sep.join((_dir, "..", "apps")), _sep.join((_dir, "..", "lib"))]
 
 from backline import engine as eng  # noqa: E402
+from backline import footswitch  # noqa: E402
 from backline import midipedal  # noqa: E402
 from backline import pedal as pedals  # noqa: E402
 from songmodel import model  # noqa: E402
@@ -45,7 +46,8 @@ PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-f
           "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
           "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
-          "ramp-jumps", "fill-moves-form", "migrate-forgets")
+          "ramp-jumps", "fill-moves-form", "migrate-forgets", "switch-bounces", "switch-inverted",
+          "switch-swapped")
 
 RESULTS = [0, 0]
 SKIPS = []
@@ -292,6 +294,16 @@ def plant(name):
             project.pop("tempo_map", None)
             return project
         model.migrate = migrate
+    elif name == "switch-bounces":
+        old = footswitch.Footswitch.__init__
+
+        def init(self, pin, which=0, on_pedal=None, active_low=True, settle_ms=footswitch.SETTLE_MS):
+            old(self, pin, which, on_pedal, active_low, 0)
+        footswitch.Footswitch.__init__ = init
+    elif name == "switch-inverted":
+        footswitch.Footswitch._pressed = lambda self: bool(self.pin.value())
+    elif name == "switch-swapped":
+        footswitch.KEYS = (("switch", 1), ("switch_b", 0))
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -926,6 +938,115 @@ def check_midi_pedal():
           repr(got))
 
 
+class FakePin:
+    """A pin whose level is set by the check: 1 is up (pulled up), 0 pressed."""
+
+    def __init__(self):
+        self.level = 1
+
+    def value(self):
+        return self.level
+
+
+def run_switch(project, script, until_bars):
+    """Play ``project`` from a switch on a pin: ``script`` is [(ms, level)],
+    the pin's level from then on, as a stomp switch with its bounces gives
+    it. Returns the parts, as `run_engine` does, the gestures, and the
+    switch's own [(ms, down)]."""
+    frames = [0]
+    kit = FakeKit(lambda: frames[0])
+    e = eng.Engine(project, kit, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE)
+    moves = []
+
+    def on_pedal(which, down):
+        moves.append((e.now_ms(), down))
+        if down:
+            e.press(which)
+        else:
+            e.release(which)
+    pin = FakePin()
+    sw = footswitch.open_switches({"switch": "pin:4"}, on_pedal, opener=lambda spec: (pin, True))[0]
+    gestures = []
+    old = e.gesture
+
+    def gesture(which, g):
+        gestures.append(g)
+        return old(which, g)
+    e.gesture = gesture
+    end_ms = int(until_bars * 4 * 60000.0 / project["tempo"])
+    script = list(script)
+    parts = []
+    ms = 0
+    while ms < end_ms:
+        frames[0] = ms * RATE // 1000
+        while script and script[0][0] <= ms:
+            pin.level = script.pop(0)[1]
+        sw.poll(ms)                 # as the box's service pass does, every few ms
+        if ms % 4 == 0:
+            e.poll()
+            e.sequence()
+            t = e.telemetry()
+            name = t["part"] if t["playing"] else None
+            if not parts or parts[-1][1] != name:
+                parts.append((ms, name))
+        ms += 1
+    return [p[1] for p in parts], gestures, moves
+
+
+def press(at, length, bounce=True):
+    """A stomp switch pressed at ``at`` for ``length`` ms, chattering for
+    3 ms each way when ``bounce``."""
+    out = [(at, 0)]
+    if bounce:
+        out += [(at + 1, 1), (at + 2, 0), (at + 3, 1), (at + 4, 0)]
+    up = at + length
+    out.append((up, 1))
+    if bounce:
+        out += [(up + 1, 0), (up + 2, 1), (up + 3, 0), (up + 4, 1)]
+    return out
+
+
+def check_footswitch():
+    """A switch on a pin plays the song as pedal A does: tap, hold, double tap."""
+    rock = load("rock")
+    beat = 60000.0 / rock["tempo"]
+    t1 = int(9.5 * beat)
+    t2 = int(30.5 * beat)
+    script = press(10, 90) + press(t1, 600) + press(t2, 80) + press(t2 + 250, 80)
+    names, gestures, moves = run_switch(rock, script, 48)
+    check("a bouncing switch on a pin goes down and up once a press",
+          [d for _t, d in moves] == [True, False] * 4, repr(moves))
+    check("it is heard within a few ms of the contact settling", moves and 10 <= moves[0][0] <= 10 + 4 + 10,
+          repr(moves[:1]))
+    check("a switch on a pin taps, holds and double-taps pedal A", gestures == ["tap", "hold", "tap", "double"],
+          repr(gestures))
+    want = [None, "Intro", "Main 1", "Transition 2", "Main 2", "Outro", None]
+    check("from the pin the tap starts the song, the hold moves to the next part and the double tap plays the outro",
+          names == want, repr(names))
+    # A switch that reads high when pressed, and the second setting is pedal B.
+    pins = {}
+
+    def opener(spec):
+        pins[spec] = FakePin()
+        pins[spec].level = 0
+        return pins[spec], not spec.endswith(":high")
+    got = []
+    sws = footswitch.open_switches({"switch": "", "switch_b": "pin:5:high"}, lambda w, d: got.append((w, d)),
+                                   opener=opener)
+    sws[0].poll(0)
+    pins["pin:5:high"].level = 1
+    for t in range(1, 20):
+        sws[0].poll(t)
+    check("an empty setting is no switch; switch_b is pedal B; pin:N:high is pressed when high",
+          len(sws) == 1 and got == [(1, True)], repr((len(sws), got)))
+    try:
+        footswitch.open_pin("gpio35")
+        bad = None
+    except ValueError as e:
+        bad = str(e)
+    check("a switch spec that isn't one of the forms says so", bad is not None and "pin:N" in bad, repr(bad))
+
+
 def check_midi_actions():
     got = []
     m = midipedal.MidiPedal(on_pedal=lambda w, d: got.append(("pedal", w, d)),
@@ -1052,6 +1173,7 @@ def main():
     check_live_edit()
     check_midi_learn()
     check_midi_pedal()
+    check_footswitch()
     check_midi_actions()
     check_midi_box()
     print("on %s" % sys.implementation.name)

@@ -23,7 +23,7 @@ from touchkit import ui
 from . import ask as askmod
 from . import box as boxmod
 from . import floor as floormod
-from . import glyphs, kits, midipedal, remote
+from . import footswitch, glyphs, kits, midipedal, remote
 from . import page_data
 
 SERVICE_MS = 4       # the pedals and the notes due
@@ -100,6 +100,19 @@ def _midi_in(box, prefs, config):
         return None
 
 
+def _switches(box, prefs, config):
+    """The switches on pins the settings name (`footswitch.open_switches`).
+    One that won't open says why on the box, and the box plays on."""
+    named = {}
+    for key, _which in footswitch.KEYS:
+        named[key] = prefs.get(key) or config.get(key)
+    try:
+        return footswitch.open_switches(named, box.pedal)
+    except Exception as e:  # noqa: BLE001 - said on the screen
+        box.error = "no footswitch: %s" % (e,)
+        return []
+
+
 def start(scope):
     global state
     W, H = scope.size
@@ -157,6 +170,7 @@ def start(scope):
     panel.poll()
     caster = _cast(box, prefs)
     box.midi_in = _midi_in(box, prefs, config)
+    box.switches = _switches(box, prefs, config)
     kept = [box.midi.saved()]
     views = {"floor": None, "desk": None, "desk_panel": None, "shown": "floor"}
     can_desk = W >= DESK_SIZE[0] and H >= DESK_SIZE[1]
