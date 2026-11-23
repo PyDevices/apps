@@ -26,9 +26,8 @@ pip install ./audiodsp numpy
 pip install --no-deps ./audioinstruments ./audioeffects/lib/audioeffects
 ```
 
-The libraries the apps share (`appkit`, `controlkit`, `deskkit`, `sayso`,
-`songmodel`, `soundmodule`, `spectrum` and `touchkit`) also install as a package, under
-their own names. Each is imported directly, as in `import controlkit`:
+The libraries the apps share, every folder in [`lib/`](lib), also install as
+one package. Each is imported directly, as in `import controlkit`:
 
 ```bash
 pip install omnipython-applibs

@@ -2,8 +2,7 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""The song both of this repo's groovebox applications edit, and what carries it
-to a front panel.
+"""The song a groovebox edits, and the link that carries it to a front panel.
 
 - `songmodel.model`: the project, plain JSON data changed only by ops that
   every side applies the same way. Imports on CPython, Pyodide and
@@ -14,7 +13,8 @@ to a front panel.
   and ``page_data``, the same page as a module (`page`); tools/songmodel_page.py
   writes the one from the other.
 
-Ostinato (``programs/ostinato``) and Vamp (``programs/vamp``) both use it.
+Both of this repo's grooveboxes, Ostinato (``programs/ostinato``) and Vamp
+(``programs/vamp``), edit it.
 """
 
 

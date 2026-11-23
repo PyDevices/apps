@@ -13,11 +13,7 @@
   ],
   "deps": [
     [
-      "appkit",
-      "latest"
-    ],
-    [
-      "deskkit",
+      "applibs",
       "latest"
     ],
     [
@@ -30,14 +26,6 @@
     ],
     [
       "pygraphics",
-      "latest"
-    ],
-    [
-      "spectrum",
-      "latest"
-    ],
-    [
-      "touchkit",
       "latest"
     ]
   ],

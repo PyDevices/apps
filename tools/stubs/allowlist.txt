@@ -1,6 +1,7 @@
 # Differences stubtest is told to accept, one regular expression a line.
 # Say why above each one.
-# Testing a package walks its submodules. appkit.manifest is a firmware build manifest and
-# songmodel.link needs hmilink, so neither imports under CPython here; mypy checks their stubs.
-appkit\.manifest
+# Testing a package walks its submodules. Each package's manifest.py is a firmware build
+# manifest and songmodel.link needs hmilink, so none of them imports under CPython here;
+# mypy checks the stubs they have.
+\w+\.manifest
 songmodel\.link

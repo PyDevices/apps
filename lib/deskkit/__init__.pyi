@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""deskkit: put a clock and the weather on a screen that sits on a desk."""
+"""A clock and the weather on a screen that sits on a desk."""
 from typing import Any
 
 APPS: tuple[str, ...]

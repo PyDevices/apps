@@ -1,6 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
+"""Lightweight Spotify Web API client for CPython, MicroPython and CircuitPython."""
 
 from . import objects as _objects
 from .auth import (

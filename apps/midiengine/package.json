@@ -29,7 +29,7 @@
   ],
   "deps": [
     [
-      "appkit",
+      "applibs",
       "latest"
     ],
     [
@@ -38,10 +38,6 @@
     ],
     [
       "audioinstruments",
-      "latest"
-    ],
-    [
-      "deskkit",
       "latest"
     ],
     [
@@ -54,14 +50,6 @@
     ],
     [
       "midiports",
-      "latest"
-    ],
-    [
-      "soundmodule",
-      "latest"
-    ],
-    [
-      "touchkit",
       "latest"
     ]
   ],

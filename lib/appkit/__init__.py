@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""appkit: apps you can switch between, and a launcher to run them.
+"""Apps you can switch between, and a launcher to run them.
 
 ::
 
