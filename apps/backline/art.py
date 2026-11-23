@@ -553,24 +553,29 @@ class Texts:
         return memoryview(self._buf)[ends[i - 1] if i else 0:ends[i]]
 
     def _keep(self, face, ring):
-        """Keep ``face``'s texts and then ``ring``'s, bytes each: one buffer
-        for them all in place of the one there was."""
-        old, self._buf = self._buf, None
-        if old is not None:
-            old.close()
+        """Keep ``face``'s texts and then ``ring``'s: one buffer for them all
+        in place of the one there was. A text is bytes-like, or a list of
+        pieces written end to end; a piece may be a view of the buffer there
+        was, which is read before it goes, so no text is copied on the heap."""
         texts = face + ring
-        buf = svgio.Buffer(sum(len(t) for t in texts))
+        sizes = [sum(len(p) for p in t) if isinstance(t, list) else len(t) for t in texts]
+        buf = svgio.Buffer(sum(sizes))
         view = memoryview(buf)
         ends = [0] * len(texts)
         at = 0
         for i, t in enumerate(texts):
-            view[at:at + len(t)] = t
-            at += len(t)
+            for p in t if isinstance(t, list) else (t,):
+                view[at:at + len(p)] = p
+                at += len(p)
             ends[i] = at
+        view = None
+        old = self._buf
         self._buf, self._ends, self._face = buf, ends, len(face)
+        if old is not None:
+            old.close()
 
     def _texts(self, first, end):
-        return [bytes(self._text(i)) for i in range(first, end)]
+        return [self._text(i) for i in range(first, end)]
 
     def face(self, glows):
         """The tempo's digits, ``{ch: text}`` for each of `TEMPO_DIGITS`,
@@ -590,25 +595,31 @@ class Texts:
         """The panel, as a view of a `panel_text`, and each lit segment's
         text, in a list, for a bar of ``steps``, ``group`` to a beat.
         Another meter lets go of the last one's, and keeps the panel's
-        parts that don't change with it."""
+        parts that don't change with it, and the beat's digits both show."""
         first = self._face
         if self.meter != (steps, group):
             lay = self.lay
             a, b = self._ring_at
+            digits = {}
             if self.meter is None:
                 top = _room_head(lay.w, lay.h, 0) + panel_top(lay).encode()
                 bottom = panel_bottom(lay).encode()
             else:
                 panel = self._text(first)
-                top, bottom = bytes(panel[:a]), bytes(panel[b:])
+                top, bottom = panel[:a], panel[b:]
                 panel = None
+                old_steps = self.meter[0]
+                for i, ch in enumerate(beat_digits(*self.meter)):
+                    digits[ch] = self._text(first + 1 + old_steps + i)
             self.meter = None
             mid = panel_ring(lay, steps, group).encode()
             self._ring_at = (len(top), len(top) + len(mid))
-            ring = [top + mid + bottom]
+            ring = [[top, mid, bottom]]
             top = mid = bottom = None
             ring += [segment_svg(lay, i, steps, group).encode() for i in range(steps)]
-            ring += [digit_svg(ch, lay.big_w, lay.big_h).encode() for ch in beat_digits(steps, group)]
+            ring += [digits[ch] if ch in digits else digit_svg(ch, lay.big_w, lay.big_h).encode()
+                     for ch in beat_digits(steps, group)]
+            digits = None
             self._keep(self._texts(0, first), ring)
             self.meter = (steps, group)
         return self._text(first), [self._text(first + 1 + i) for i in range(steps)]

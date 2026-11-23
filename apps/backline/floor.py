@@ -117,6 +117,7 @@ class Floor:
         self.tele = {}
         self.doc_name = ""
         self.hidden = False
+        self.drawing = False      # while `show` draws the art again
 
         base = lv.obj(root)
         base.remove_style_all()
@@ -303,10 +304,18 @@ class Floor:
         self.pictures = []
 
     def show(self):
-        """Draw the art again and show the view as the song is now."""
+        """Draw the art again and show the view as the song is now.
+
+        What the panel says while the art draws is kept, not shown, until
+        the art is there to show it: a timer that read the panel then would
+        draw the ring out of turn, or reach for a digit not drawn yet."""
         if self.hidden:
             self.hidden = False
-            self._draw()
+            self.drawing = True
+            try:
+                self._draw()
+            finally:
+                self.drawing = False
             self.shown = {}
             self._tele({})
         self.base.remove_flag(lv.obj.FLAG.HIDDEN)
@@ -371,6 +380,9 @@ class Floor:
 
     def _doc(self, doc, desc):
         self.doc_name = doc.get("name", "") if doc else ""
+        if self.drawing:
+            self.want_meter = _meter(doc)   # `_draw` draws the ring for it
+            return
         self._ring(*_meter(doc))
         if self.hidden:
             return
@@ -417,6 +429,8 @@ class Floor:
     def _tele(self, values):
         v = self.tele
         v.update(values)
+        if self.drawing:
+            return  # kept for `show`
         role = v.get("role", "stopped")
         color = art.ROLE_COLORS.get(role, art.ROLE_COLORS["stopped"])
         playing = v.get("playing", False)

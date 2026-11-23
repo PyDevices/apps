@@ -138,11 +138,18 @@ class Views:
     collected, so the one coming back draws into the room it left: the
     screen holds one view's pictures, not both. On an 8 MB board at 800x480
     both at once didn't fit.
+
+    While a switch draws, `switching` is True and `poll` does nothing, so
+    the app's timer can't read the panels into a view half drawn. A switch
+    made from a tap already runs inside a timer, which holds the others
+    off; one called from the console doesn't, and there a pass drew the
+    floor's ring out of turn and spent the switch's time on the panels.
     """
 
     def __init__(self, make_floor, make_desk=None, on_show=None):
         self.shown = "floor"
         self.desk = None
+        self.switching = False
         self._make_desk = make_desk
         self._on_show = on_show
         self.floor = make_floor(self._switch("desk") if make_desk is not None else None)
@@ -154,16 +161,31 @@ class Views:
         """Show ``"floor"`` or ``"desk"``."""
         if which == "desk" and self._make_desk is None:
             return
-        self.shown = which
-        hide = self.floor if which == "desk" else self.desk
-        if hide is not None:
-            hide.hide()
-        gc.collect()
-        if which == "desk" and self.desk is None:
-            self.desk = self._make_desk(self._switch("floor"))
-        (self.desk if which == "desk" else self.floor).show()
+        self.switching = True
+        try:
+            self.shown = which
+            hide = self.floor if which == "desk" else self.desk
+            if hide is not None:
+                hide.hide()
+            gc.collect()
+            if which == "desk" and self.desk is None:
+                self.desk = self._make_desk(self._switch("floor"))
+            (self.desk if which == "desk" else self.floor).show()
+        finally:
+            self.switching = False
         if self._on_show is not None:
             self._on_show()
+
+    def poll(self, box):
+        """One pass of the screen's work: the box's links, then each view's
+        panel. Returns False, having done nothing, while a switch draws."""
+        if self.switching:
+            return False
+        box.poll()
+        self.floor.poll()
+        if self.desk is not None:
+            self.desk.poll()
+        return True
 
 
 def start(scope):
@@ -261,10 +283,8 @@ def start(scope):
         box.service()
 
     def tick(_t):
-        box.poll()
-        floor.poll()
-        if views.desk is not None:
-            views.desk.poll()
+        if not views.poll(box):
+            return
         if caster is not None:
             caster.step()
         t = box.telemetry()

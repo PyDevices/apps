@@ -50,6 +50,7 @@ No LVGL and no audio output here: the app gives the box its clock and plays
 the box's ``bus``, so a check can run a box and pull the sound itself.
 """
 
+import gc
 import json
 import os
 
@@ -154,10 +155,26 @@ class Box:
 
     def use_kit(self, spec):
         """Play kit ``spec`` from now on. A kit that won't open leaves the one
-        before playing and says why in ``error``."""
+        before playing and says why in ``error``. The kit playing already
+        isn't built again.
+
+        While the song is stopped, the kit before goes first and the heap is
+        collected, so the new one is built in the room it left: on a heap in
+        pieces, a kit built beside the old one took nearly twice as long."""
+        if spec == self.kit_spec():
+            self.error = None
+            return True
+        before = None
+        if not self.engine.transport["playing"] and self.bus.kit is not None:
+            before = self.bus.kit.spec
+            self.engine.set_kit(None)
+            self.bus.detach()
+            gc.collect()
         try:
             kit = kits.open_kit(spec, self.rate)
         except Exception as e:  # noqa: BLE001 - said on the screen, the old kit plays on
+            if before is not None:
+                self.use_kit(before)
             self.error = "kit %s: %s" % (spec, e)
             return False
         self.bus.attach(kit)

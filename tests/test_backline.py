@@ -38,6 +38,7 @@ CAST = str(TESTS / "backline_cast_contract.py")
 ASK = str(TESTS / "backline_ask_contract.py")
 MEMORY = str(TESTS / "backline_memory_contract.py")
 TEXT = str(TESTS / "backline_text_contract.py")
+SWITCH = str(TESTS / "backline_switch_contract.py")
 PAGE = str(TESTS.parent / "tools" / "backline" / "desk_page.py")
 sys.path.insert(0, str(TESTS))
 
@@ -61,6 +62,8 @@ ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 MEMORY_PLANTS = ("keep-floor", "keep-face", "alpha-panel", "whole-panel", "all-digits", "stale-return")
 TEXT_PLANTS = ("rewrite-every-show", "stale-meter", "one-size", "keep-pixels", "keep-every-meter")
+SWITCH_PLANTS = ("poll-mid-switch", "tele-mid-draw", "rebuild-same-kit", "build-beside-old", "lose-kit",
+                 "rewrite-digits")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 
 
@@ -357,6 +360,45 @@ class ViewText(unittest.TestCase):
     def test_text_plants(self):
         cmd, env = _cmd("cpython", TEXT)
         for plant in TEXT_PLANTS:
+            with self.subTest(plant=plant):
+                result = _run(cmd, env, "--plant=" + plant)
+                self.assertIn("PLANTED " + plant, result.stdout, result.stdout + result.stderr)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
+
+
+class ViewSwitch(unittest.TestCase):
+    """Around a switch between the floor and desk views at 800x480: a timer
+    pass inside it reads no panel, telemetry while the floor draws waits for
+    the art, a song change builds only a kit that changed and only after the
+    old one goes, and a meter change keeps the beat's digits. Each switch
+    plant must fail it."""
+
+    def setUp(self):
+        DeskView.setUp(self)
+
+    def test_switch(self):
+        cmd, env = _cmd("cpython", SWITCH)
+        result = _run(cmd, env)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_switch_micropython(self):
+        cmd, env = _cmd("micropython", SWITCH)
+        if cmd is None:
+            self.skipTest("no micropython")
+        result = _run(cmd, env)
+        said = result.stdout + result.stderr
+        if any("no module named '%s'" % m in said for m in ("lvgl", "svgio", "icons", "audiocore")):
+            if REQUIRE:
+                self.fail("this micropython has no LVGL, svgio, icons or audiodsp")
+            self.skipTest("this micropython has no LVGL, svgio, icons or audiodsp")
+        self.assertEqual(result.returncode, 0, said)
+        self.assertIn(" 0 failed", result.stdout)
+
+    def test_switch_plants(self):
+        cmd, env = _cmd("cpython", SWITCH)
+        for plant in SWITCH_PLANTS:
             with self.subTest(plant=plant):
                 result = _run(cmd, env, "--plant=" + plant)
                 self.assertIn("PLANTED " + plant, result.stdout, result.stdout + result.stderr)
