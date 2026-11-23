@@ -38,5 +38,7 @@ class Shell:
         """Fill `scope` before the app's `main` runs: its `root`, `size` and `rect`."""
     def make_root(self, scope: AppScope) -> Any:
         """The LVGL object the app builds on: a screen, or with the bar showing, the area below it."""
+    def bar_area(self, screen: Any) -> Any:
+        """A plain area of `screen` below the bar, which grows to the whole screen while the bar hides."""
     def measure(self, scope: AppScope) -> None:
         """Set `scope.size` and `scope.rect` from `scope.root`."""

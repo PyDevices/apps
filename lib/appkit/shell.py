@@ -5,14 +5,15 @@
 
 This one is the plainest: an app gets the whole screen, and a Home button
 sits in the corner when there's a home screen to go back to. With
-``bar=True`` the Shell shows the status bar (`appkit.bar`) instead, with Home
-on it, and each app gets the screen below it unless its ``app.json`` says
-``"bar": "own"`` or ``"none"``. On a round
+``bar=True`` (what ``appkit.run`` makes) the Shell shows the status bar
+(`appkit.bar`) instead, with Home on it, and each app gets the screen below
+it unless its ``app.json`` says ``"bar": "own"`` or ``"none"``. Those apps,
+and every app under the compact cap, keep the corner Home button. On a round
 screen (`is_round`) the button is a circle with the Home icon, set in
 from the top right along the diagonal so all of it is inside the circle. A board that
 wants a header, its own look or its own buttons subclasses it: override
-`Shell.make_root` to give apps a smaller area,
-`Shell.make_home_button` for its own Home button, or
+`Shell.make_root` to give apps a smaller area (with the bar on, inside
+`Shell.bar_area`), `Shell.make_home_button` for its own Home button, or
 `Shell.prepare` to hand them other services.
 """
 
@@ -68,6 +69,7 @@ class Shell:
         #: The status bar (`appkit.bar.Bar`), or None without one.
         self.bar = None
         self._scope = None   # the app the bar's room was last given to
+        self._area = None    # the area below the bar that app was given
         if data_root is not None:
             data.set_root(data_root)
         hover.apply()
@@ -149,14 +151,31 @@ class Shell:
                 self.bar.hide()
             self.bar.set_home(scope.name != self.launcher.home)
             scope.bar = self.bar
+        self._area = None
         scope.root = self.make_root(scope)
         self.measure(scope)
         self._scope = scope
+        corner = self._corner_home(scope)
+        if corner and self.home_button is None:
+            # With the bar, made the first time an app has no Home on it.
+            from . import scope as scopes
+
+            self.home_button = self.make_home_button()
+            if self.home_button is not None:
+                scopes.keep(self.home_button)
         if self.home_button is not None:
-            if scope.name == self.launcher.home:
-                self.home_button.add_flag(lv.obj.FLAG.HIDDEN)
-            else:
+            if corner:
                 self.home_button.remove_flag(lv.obj.FLAG.HIDDEN)
+            else:
+                self.home_button.add_flag(lv.obj.FLAG.HIDDEN)
+
+    def _corner_home(self, scope):
+        """Whether *scope*'s app gets the corner Home button: away from the
+        home screen, when the bar isn't there to carry Home (no bar, an app
+        with ``"bar": "none"`` or ``"own"``, or the compact cap)."""
+        if self.launcher.home is None or scope.name == self.launcher.home:
+            return False
+        return self.bar is None or not self.bar.is_shown() or self.bar.home is None
 
     def make_root(self, scope):
         """The LVGL object the app builds on: a screen of its own, or with
@@ -164,6 +183,12 @@ class Shell:
         screen = scope.screen()
         if self.bar is None or self.bar_mode(scope) != "shell":
             return screen
+        return self.bar_area(screen)
+
+    def bar_area(self, screen):
+        """A plain area of *screen* below the bar, which grows to the whole
+        screen while the app hides the bar. A subclass's `make_root` builds
+        in it when the bar is on."""
         from .bar import HEIGHT
 
         area = lv.obj(screen)
@@ -172,6 +197,7 @@ class Shell:
         area.set_style_pad_all(0, 0)
         area.set_style_bg_opa(lv.OPA.TRANSP, 0)
         self._fit(area, self.bar.is_shown() and not self.bar.compact, HEIGHT)
+        self._area = area
         return area
 
     @staticmethod
@@ -187,9 +213,9 @@ class Shell:
             return
         from .bar import HEIGHT
 
-        root = scope.root
-        if root is not None and root.get_parent() is not None:
-            self._fit(root, shown, HEIGHT)
+        area = self._area
+        if area is not None and area.get_parent() is not None:
+            self._fit(area, shown, HEIGHT)
             self.measure(scope)
 
     def measure(self, scope):

@@ -8,7 +8,7 @@ from .launcher import Launcher as Launcher, host as host, run_pending_script as 
 from .scope import AppScope as AppScope
 from .shell import Shell as Shell
 
-def run(name: str | None = None, folder: str = 'apps', *, data_root: str | None = None, bar: bool = False) -> Launcher | None:
+def run(name: str | None = None, folder: str = 'apps', *, data_root: str | None = None, bar: bool = True) -> Launcher | None:
     """Run the apps in `folder`: a home screen listing them, or app `name` alone.
 
     Ends in the main-thread loop and returns the `Launcher` when the program

@@ -57,10 +57,14 @@ def plain(obj):
 
 def status(scope):
     """The app's status line: the right end of the shell's header, or a
-    label at the top right of ``scope.root`` without one."""
+    label at the top right of ``scope.root`` without one, kept clear of a
+    Home button at the top left."""
     lbl = getattr(scope, "status", None)
     if lbl is None:
         lbl = label(scope.root, "", small, MUTED)
+        lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
+        lbl.set_size(max(40, scope.size[0] - HOME_W - 28), small.line_height)
+        lbl.set_style_text_align(lv.TEXT_ALIGN.RIGHT, 0)
         lbl.align(lv.ALIGN.TOP_RIGHT, -16, 8)
     return lbl
 

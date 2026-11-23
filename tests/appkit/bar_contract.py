@@ -86,6 +86,8 @@ board = _Board()
 cell = _Battery()
 board.battery = lambda: cell
 sys.modules["board_peripherals"] = board
+# No display driver or BOOT button: only the display made here.
+sys.modules["board_config"] = _Board()
 
 _headless.display(SW, SH)
 _headless.pointer()
@@ -98,6 +100,13 @@ from appkit import connections  # noqa: E402
 
 # The fakes are this device: the Shell registers no real provider beside them.
 connections.register = lambda registry=None: []
+from touchkit import shell as touch  # noqa: E402
+from touchkit import ui  # noqa: E402
+
+# The board's theme goes on once, before any shell, as on a board, where
+# the one TouchShell sets it and hover wraps it.
+ui.apply_theme()
+ui.apply_theme = lambda: None
 from appdev import App  # noqa: E402
 from sample_bar import seen  # noqa: E402
 
@@ -128,12 +137,24 @@ def _plant_home_everywhere():
     B.Bar.set_home = lambda self, visible: None
 
 
+def _plant_no_way_home():
+    Shell._corner_home = lambda self, scope: False
+
+
+def _plant_touch_header_behind_bar():
+    from touchkit import shell as touch
+
+    touch.TouchShell.bar_area = lambda self, screen: screen
+
+
 PLANTS = {
     "redraws_all": _plant_redraws_all,
     "root_under_bar": _plant_root_under_bar,
     "items_stay": _plant_items_stay,
     "overlays_die": _plant_overlays_die,
     "home_everywhere": _plant_home_everywhere,
+    "no_way_home": _plant_no_way_home,
+    "touch_header_behind_bar": _plant_touch_header_behind_bar,
 }
 plant = os.getenv("BAR_PLANT")
 if plant:
@@ -313,6 +334,67 @@ check(w < SW // 2 and y >= 0, "the cap is small, at the top: %r" % ((x, y, w, h)
 tap(cap.root)
 check(opened == [None], "tapping the cap opens the picker: %r" % (opened,))
 cap.close()
+
+# An app that takes the whole screen, away from home, keeps a way home: the
+# corner button, since the bar and its Home are hidden.
+la.info["chooser"] = {"bar": "none"}
+la.switch("chooser")
+settle()
+corner = shell.home_button
+check(corner is not None and not corner.has_flag(lv.obj.FLAG.HIDDEN) and not bar.is_shown(),
+      '"bar": "none" away from home gets the corner Home button')
+la.info["chooser"] = {}
+la.switch("framed")
+settle()
+check(corner is None or corner.has_flag(lv.obj.FLAG.HIDDEN), "under the bar the corner button hides again")
+la.switch("whole")
+settle()
+
+# Under the compact cap the bar has no Home: every app away from home gets
+# the corner button, and the whole screen.
+la.shell = None
+bar.close()
+if corner is not None:
+    corner.add_flag(lv.obj.FLAG.HIDDEN)   # the old shell's, left alone
+real_min = B.FULL_MIN
+B.FULL_MIN = (SW + 1, SH)
+small = Shell(la, bar=True)
+la.shell = small
+B.FULL_MIN = real_min
+la.switch("framed")
+settle()
+scope = seen["framed"]
+check(small.bar.compact and small.bar.home is None, "a narrow screen gets the cap, with no Home on it")
+check(scope.rect == (0, 0, SW, SH), "under the cap the app gets the whole screen: %r" % (scope.rect,))
+check(small.home_button is not None and not small.home_button.has_flag(lv.obj.FLAG.HIDDEN),
+      "and the corner Home button")
+la.switch("whole")
+settle()
+check(small.home_button.has_flag(lv.obj.FLAG.HIDDEN), "which hides on the home screen")
+
+# touchkit's shell under the bar: the bar, then a shorter header, so the app's
+# area is where it was without the bar; hiding the bar moves both up.
+la.shell = None
+small.bar.close()
+small.home_button.add_flag(lv.obj.FLAG.HIDDEN)
+la.info["whole"] = {}   # Home under the bar, as a board's is
+board_shell = touch.TouchShell(la)
+la.shell = board_shell
+
+check(board_shell.bar is not None and board_shell.home_button is None, "TouchShell shows the bar by default")
+la.switch("framed")
+settle()
+scope = seen["framed"]
+check(scope.rect == (0, ui.HEADER, SW, SH - ui.HEADER), "TouchShell's app area is below the bar and header: %r" % (scope.rect,))
+check(coords(scope.header)[1] == B.HEIGHT, "its header sits below the bar: %r" % (coords(scope.header),))
+scope.bar.hide()
+check(scope.rect == (0, ui.HEADER - B.HEIGHT, SW, SH - ui.HEADER + B.HEIGHT) and coords(scope.header)[1] == 0,
+      "hiding the bar moves the header and the app up: %r" % (scope.rect,))
+scope.bar.show()
+la.switch("whole")
+settle()
+scope = seen["whole"]
+check(scope.rect == (0, B.HEIGHT, SW, SH - B.HEIGHT), "TouchShell's home screen is below the bar: %r" % (scope.rect,))
 
 print("%d checks, %d failed" % (checks[0], len(failures)))
 sys.exit(1 if failures else 0)

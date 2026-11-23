@@ -240,6 +240,11 @@ def _field_event(e):
     elif code == lv.EVENT.KEY:
         # A real keyboard is typing here: the screen's is in the way.
         hide()
+    elif code == lv.EVENT.DELETE and _kb["field"] is field:
+        # Going with its app: the keyboard lets go of it now, or the next
+        # show() has LVGL touch the freed field.
+        _kb["field"] = None
+        hide()
     elif code == lv.EVENT.DEFOCUSED and _kb["field"] is field:
         # LVGL says who has the focus only after this event, and can't move
         # it from inside one: look on the next tick.
