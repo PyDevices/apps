@@ -34,6 +34,8 @@ def bluetooth_item(registry: Any) -> Item:
     """Bluetooth, while something on the radio is connected or chosen."""
 def audio_item(registry: Any, on_click: Callable[[], object] | None = None) -> Item:
     """Where sound goes."""
+def cast_item(registry: Any, on_click: Callable[[], object] | None = None) -> Item:
+    """The cast icon while the screen goes somewhere, with "viewing" while someone watches."""
 def battery_item(source: Any) -> Item:
     """The battery from the board's `battery()`."""
 def board_battery() -> Any:

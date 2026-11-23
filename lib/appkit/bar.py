@@ -139,6 +139,21 @@ def audio_item(registry, on_click=None):
     return Item("audio", read, on_click=on_click)
 
 
+def cast_item(registry, on_click=None):
+    """The cast icon while the screen goes somewhere, a browser mirroring it
+    for one, with "viewing" while someone watches. Nothing otherwise, so a
+    mirror left on shows on every screen. A tap opens the picker at cast to,
+    which says the address to open."""
+
+    def read():
+        out = registry.selected("cast.target")
+        if not out or out[0].state != endpointkit.CONNECTED:
+            return None
+        return "cast", ("viewing" if out[0].caps.get("viewing") else None)
+
+    return Item("cast", read, on_click=on_click)
+
+
 def _battery_percent(source):
     """A percentage from a fuel gauge's ``percent()`` or, failing that, a
     single LiPo cell's ``voltage()`` (3.3 V empty, 4.2 V full). None with no battery."""
@@ -286,13 +301,15 @@ class Bar:
 
     def default_items(self):
         """The built-in items this device has: the clock, and with endpointkit
-        the network, Bluetooth and audio out, and the battery when the board has one."""
+        the network, Bluetooth, audio out and casting, and the battery when the
+        board has one."""
         out = [clock_item()]
         if self.registry is not None:
             out.append(net_item(self.registry))
             if not self.compact:
                 out.append(bluetooth_item(self.registry))
                 out.append(audio_item(self.registry, lambda: self._picker("audio.out")))
+                out.append(cast_item(self.registry, lambda: self._picker("cast.target")))
         source = board_battery()
         if source is not None:
             out.append(battery_item(source))

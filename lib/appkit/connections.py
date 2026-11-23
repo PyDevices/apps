@@ -15,9 +15,11 @@ On a board with Wi-Fi that's `wifinet`, the networks in range, joined from
 the picker. Every board also gets the sound outputs its firmware can drive:
 its own output (and its ``audio_out`` then plays wherever ``audio.out`` is
 chosen), the USB host port's devices, and Bluetooth speakers. What the
-firmware lacks is left out without a word. Looking for Rokus costs a board
-time on every screen, so the Cast app registers castdisplay itself when it
-opens.
+firmware lacks is left out without a word. A board whose screen is drawn in
+memory can be mirrored to a browser from "Cast to": it's off until chosen
+there, and the browser asks for the board's WebREPL password. Looking for
+Rokus costs a board time on every screen, so the Cast app registers
+castdisplay's Rokus itself when it opens.
 
 The USB host port's devices come from `usb_host`. On a board whose host
 port is its own, apart from the port the REPL uses (an ESP32-P4, an
@@ -126,6 +128,21 @@ def _bt_audio(registry):
     return True
 
 
+def _mirror(registry):
+    from castdisplay import endpoints
+
+    register = getattr(endpoints, "register_mirror", None)
+    if register is None:
+        return False  # a castdisplay from before the mirror
+    drv = getattr(sys.modules.get("board_config"), "display_drv", None)
+    if drv is None or not hasattr(drv, "framebuffers") or drv.framebuffers() is None:
+        return False  # no screen in memory to send
+    from appkit import keys
+
+    register(registry, push_key=keys.push)
+    return True
+
+
 #: A board's providers beside wifinet: the name `register` reports, and what
 #: registers it, returning False when the firmware can't drive it. The apps
 #: that need more register it when they open (Cast registers castdisplay).
@@ -133,6 +150,7 @@ BOARD_PROVIDERS = (
     ("audiodev", _board_audio),
     ("usb.host", _usb_host),
     ("btclassic", _bt_audio),
+    ("mirror", _mirror),
 )
 
 #: A computer's providers: the name `register` reports, and what registers it.

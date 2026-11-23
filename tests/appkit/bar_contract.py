@@ -109,6 +109,7 @@ ui.apply_theme()
 ui.apply_theme = lambda: None
 from appdev import App  # noqa: E402
 from sample_bar import seen  # noqa: E402
+import _mirror_standin  # noqa: E402
 
 # -- plants: each must make a check fail -------------------------------------
 
@@ -141,6 +142,11 @@ def _plant_no_way_home():
     Shell._corner_home = lambda self, scope: False
 
 
+def _plant_mirror_hidden():
+    # A mirror left running never shows on the bar.
+    B.cast_item = lambda registry, on_click=None: B.Item("cast", lambda: None)
+
+
 def _plant_touch_header_behind_bar():
     from touchkit import shell as touch
 
@@ -155,6 +161,7 @@ PLANTS = {
     "home_everywhere": _plant_home_everywhere,
     "no_way_home": _plant_no_way_home,
     "touch_header_behind_bar": _plant_touch_header_behind_bar,
+    "mirror_hidden": _plant_mirror_hidden,
 }
 plant = os.getenv("BAR_PLANT")
 if plant:
@@ -216,7 +223,7 @@ la.shell = shell
 bar = shell.bar
 check(bar is not None and shell.home_button is None, "bar=True makes the bar, with Home on it, not the corner button")
 check(coords(bar.root) == (0, 0, SW, B.HEIGHT), "the bar is the top strip: %r" % (coords(bar.root),))
-check([i.name for i in bar.items] == ["clock", "net", "bluetooth", "audio", "battery"],
+check([i.name for i in bar.items] == ["clock", "net", "bluetooth", "audio", "cast", "battery"],
       "the built-in items this device has: %r" % ([i.name for i in bar.items],))
 clock = text_of(bar, "clock")
 check(clock is not None and len(clock) == 5 and clock[2] == ":", "the clock: %r" % (clock,))
@@ -262,6 +269,25 @@ fakes["a2dp"].set_state("spk", endpointkit.CONNECTED)
 bar.tick()
 check(icon_of(bar, "bluetooth") == "bluetooth_connected", "and connected when it connects")
 endpointkit.select("audio.out", None)
+
+# A mirror left on shows on every screen, with "viewing" while someone watches.
+mirror = endpointkit.registry.register(_mirror_standin.Mirror())
+endpointkit.registry.poll()
+bar.tick()
+check(icon_of(bar, "cast") is None, "a mirror that isn't on shows nothing: %r" % (icon_of(bar, "cast"),))
+endpointkit.select("cast.target", "mirror:browser")
+endpointkit.registry.poll()
+bar.tick()
+check(icon_of(bar, "cast") == "cast" and text_of(bar, "cast") is None,
+      "a mirror on shows the cast icon: %r %r" % (icon_of(bar, "cast"), text_of(bar, "cast")))
+mirror.watch()
+endpointkit.registry.poll()
+bar.tick()
+check(text_of(bar, "cast") == "viewing", "and viewing while a browser watches: %r" % (text_of(bar, "cast"),))
+endpointkit.select("cast.target", None)
+endpointkit.registry.poll()
+bar.tick()
+check(icon_of(bar, "cast") is None, "letting it go takes the icon away")
 cell.volts = None
 for _ in range(30):
     bar.tick()

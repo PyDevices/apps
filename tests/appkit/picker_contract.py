@@ -126,6 +126,16 @@ def _plant_pairs_blind():
     P.Picker.choose = choose
 
 
+def _plant_no_address():
+    # The picker ignores what an endpoint's caps say.
+    real = P.rows
+
+    def rows(registry, kind):
+        return [(ep, chosen, P._STATES.get(ep.state, ep.state)) for ep, chosen, _ in real(registry, kind)]
+
+    P.rows = rows
+
+
 def _plant_secret_dropped():
     # The password typed never reaches the provider.
     real = P.Picker._pair
@@ -133,6 +143,7 @@ def _plant_secret_dropped():
 
 
 PLANTS = {
+    "no_address": _plant_no_address,
     "pairs_blind": _plant_pairs_blind,
     "secret_dropped": _plant_secret_dropped,
     "many_moves": _plant_many_moves,
@@ -388,6 +399,34 @@ _headless.advance(50)
 if p.asking is not None:
     p.choose("i2s:0", confirm=True)
 check(reg.chosen("audio.out") == ["i2s:0"], "a wheel turns to a row and chooses it: %r" % (reg.chosen("audio.out"),))
+
+# A mirror says why it can't run, and where to open it once it does.
+import _mirror_standin  # noqa: E402
+
+mirror = reg.register(_mirror_standin.Mirror(password=None))
+p.show("cast.target")
+detail = row(p, "Browser on this network")[2]
+check("WebREPL password" in detail, "an unavailable mirror says why: %r" % (detail,))
+mirror.password = "secret"
+reg.poll()
+p.show("cast.target")
+tap(row(p, "Browser on this network")[0])
+reg.poll()
+p.show("cast.target")
+detail = row(p, "Browser on this network")[2]
+check(detail == "Open http://192.0.2.7/", "a chosen mirror says where to open it: %r" % (detail,))
+mirror.watch()
+reg.poll()
+p.show("cast.target")
+detail = row(p, "Browser on this network")[2]
+check(detail.endswith("someone is viewing"), "and whether someone is: %r" % (detail,))
+tap(row(p, "Browser on this network")[0])   # tapping the chosen one keeps it
+check(reg.chosen("cast.target") == ["mirror:browser"], "tapping it again keeps it on")
+reg.select("cast.target", None)
+reg.poll()
+p.show("cast.target")
+detail = row(p, "Browser on this network")[2]
+check("http" not in detail, "let go, the address goes: %r" % (detail,))
 
 # Closing hides it and stops listening; the choices stay.
 p.close()

@@ -292,6 +292,45 @@ check(not UsbEndpoints.registered and not UsbCore.started and not reg.endpoints(
       "no USB host started, no sound output listed")
 check(not heard, "and nothing is printed: %r" % heard)
 
+# A board whose screen is drawn in memory gets the browser mirror, with the
+# Shell's keys; one without such a screen, or a castdisplay from before the
+# mirror, gets nothing and says nothing.
+class _Panel:
+    def __init__(self, frames):
+        self.frames = frames
+
+    def framebuffers(self):
+        return self.frames
+
+
+class _BoardConfig:
+    display_drv = _Panel(None)
+
+
+mirrors = []
+Rokus.register_mirror = staticmethod(lambda registry=None, **kw: mirrors.append((registry, kw)))
+sys.modules["board_config"] = _BoardConfig
+for frames, want in ((None, []), ([bytearray(4)], ["mirror"])):
+    _BoardConfig.display_drv = _Panel(frames)
+    del mirrors[:]
+    del heard[:]
+    del connections._done[:]
+    del connections._usb[:]
+    reg = endpointkit.Registry()
+    got = [n for n in connections.register(reg) if n == "mirror"]
+    check(got == want, "the mirror with frames %r: %r" % (frames, got))
+    check(len(mirrors) == len(want), "registered %d times: %r" % (len(want), mirrors))
+    check(not heard, "and nothing is printed: %r" % heard)
+from appkit import keys  # noqa: E402
+
+check(mirrors and mirrors[0][0] is reg and mirrors[0][1].get("push_key") is keys.push,
+      "the mirror types into the Shell's keys: %r" % (mirrors,))
+del Rokus.register_mirror
+del connections._done[:]
+del connections._usb[:]
+check("mirror" not in connections.register(endpointkit.Registry()), "an older castdisplay has no mirror")
+del sys.modules["board_config"]
+
 if FAILS:
     print("%d checks failed" % len(FAILS))
     sys.exit(1)
