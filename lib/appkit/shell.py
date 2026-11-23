@@ -20,7 +20,7 @@ wants a header, its own look or its own buttons subclasses it: override
 import sys
 
 import lvgl as lv
-from iconkit import lvicons
+from icons import lvgl as lvicons
 
 from . import data, hover
 

@@ -15,7 +15,7 @@ import time
 import unittest
 from unittest import mock
 
-# By its file: the appkit package brings LVGL and iconkit, which this needs neither of.
+# By its file: the appkit package brings LVGL and icons, which this needs neither of.
 _PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib", "appkit", "net.py")
 _spec = importlib.util.spec_from_file_location("appkit_net", _PATH)
 net = importlib.util.module_from_spec(_spec)

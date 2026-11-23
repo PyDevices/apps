@@ -6,8 +6,9 @@ each plant in its ``PLANTS`` failing it.
 
     python -m unittest discover -s tests/appkit -p test_picker.py
 
-It needs LVGL on the interpreter, and endpointkit and iconkit from the
-omnipython checkout `_harness` finds; without them it skips.
+It needs LVGL on the interpreter, endpointkit from the omnipython checkout
+`_harness` finds, and icons: from that checkout on CPython, frozen into the
+build on MicroPython. Without them it skips.
 """
 
 import sys

@@ -29,16 +29,13 @@ can. The functions above the class (`kinds`, `summary`,
 """
 
 import endpointkit
+import icons
 import lvgl as lv
-import iconkit
-from iconkit import lvicons
+from icons import lvgl as lvicons
 
 from . import keys, scope
 
-# The icons iconkit draws at the picker's size.
-_ICONS = set(iconkit.names(24))
-
-#: The icon a kind gets when iconkit hasn't the one endpointkit names.
+#: The icon a kind gets when icons hasn't the one endpointkit names.
 OTHER_ICON = "cable"
 
 #: How often, in milliseconds, the open picker asks endpointkit for news.
@@ -58,10 +55,10 @@ def title(kind):
 
 
 def icon(kind):
-    """The iconkit name of *kind*'s icon: endpointkit's, or `OTHER_ICON`
-    when iconkit hasn't that one."""
+    """The icon name of *kind*'s icon: endpointkit's, or `OTHER_ICON`
+    when icons hasn't that one."""
     name = endpointkit.icon(kind)
-    return name if name in _ICONS else OTHER_ICON
+    return name if icons.has(name) else OTHER_ICON
 
 
 def kinds(registry):

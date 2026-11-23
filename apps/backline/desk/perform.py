@@ -41,13 +41,13 @@ class Perform:
         self.floor = floormod.Floor(face, (lw, fh), desk.panel_proxy)
 
         sy = m + fh + m
-        look.heading(self.base, "Song form", f["small"], m, sy)
+        look.heading(self.base, "Song form", f["small"], m, sy, "form")
         hy = sy + f["small"].line_height + 2
         self.strip = Strip(self.base, m, hy, lw, h - hy - m, f["small"])
 
         rx = lw + 2 * m
         y = m
-        look.heading(self.base, "Songs", f["small"], rx, y)
+        look.heading(self.base, "Songs", f["small"], rx, y, "songs")
         y += f["small"].line_height + 4
         tempo_h = int(44 * s)
         kit_h = int(38 * s)

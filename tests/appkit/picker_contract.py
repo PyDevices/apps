@@ -12,8 +12,9 @@ screen shows.
     python tests/appkit/picker_contract.py
     micropython tests/appkit/picker_contract.py
 
-endpointkit and iconkit come from the omnipython checkout `_harness` finds
-(``OMNIPYTHON_LIB``, or one beside this repository). ``PICKER_SCREEN`` sets
+endpointkit and, on CPython, icons come from the omnipython checkout `_harness`
+finds (``OMNIPYTHON_LIB``, or one beside this repository); MicroPython needs a
+build with ttfio and icons frozen in. ``PICKER_SCREEN`` sets
 the display (``480x320`` unless set); ``PICKER_SHOTS=<folder>`` saves each
 page as a raw RGB565 frame (a ``w h`` line, then the pixels).
 ``PICKER_PLANT=<name>`` breaks the picker one way from `PLANTS`, and the
@@ -40,12 +41,14 @@ _LIB = os.getenv("OMNIPYTHON_LIB") or _join(_ROOT, "..", "omnipython", "lib")
 _OMNI = _up(_LIB)
 # lib first: tests/appkit would hide the real appkit.
 sys.path[:0] = [_join(_ROOT, "lib"), _TESTS,
-                _join(_OMNI, "packages", "endpointkit"),
-                _join(_OMNI, "packages", "iconkit", "lib"), _LIB]
+                _join(_OMNI, "packages", "endpointkit"), _LIB]
+# On MicroPython icons comes frozen, so its font stays in flash and off the heap.
+if sys.implementation.name != "micropython":
+    sys.path.insert(3, _join(_OMNI, "packages", "icons"))
 
 try:
     import endpointkit
-    import iconkit  # noqa: F401
+    import icons  # noqa: F401
     import lvgl as lv
     from endpointkit import fake
 except ImportError as e:
@@ -232,8 +235,9 @@ check(P.title("audio.out") == "Audio out" and P.title("espnow.peer") == "ESP-NOW
 endpointkit.add_kind("test.bare", endpointkit.MANY)
 check(P.title("test.bare") == "test.bare" and P.icon("test.bare") == P.OTHER_ICON,
       "a kind added with no title is its name, with the other icon")
-check(P.icon("audio.out") == "volume_up" and P.icon("thread.net") == P.OTHER_ICON,
-      "endpointkit's icon, or the other one when iconkit hasn't it")
+endpointkit.add_kind("test.odd", endpointkit.MANY, icon="no_such_icon")
+check(P.icon("audio.out") == "volume_up" and P.icon("test.odd") == P.OTHER_ICON,
+      "endpointkit's icon, or the other one when icons hasn't it")
 check(P.summary(reg, "audio.out") == "Nothing chosen", "nothing chosen yet")
 
 p = P.Picker(reg)

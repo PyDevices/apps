@@ -5,9 +5,9 @@
 """Low-allocation pixel-art sprite and alpha-mask bank for Bit World.
 
 Stores all multi-shade pixel-art grids and 8-bit radial alpha glow masks inside
-one contiguous bytes literal wrapped in a memoryview (following the iconkit
-frozen-flash pattern). At startup, unpacks scaled RGB565 sprites into a single
-shared atlas and renders antialiased glows directly from memoryview
+one contiguous bytes literal wrapped in a memoryview (the way the icons
+package keeps its font in frozen flash). At startup, unpacks scaled RGB565
+sprites into a single shared atlas and renders antialiased glows directly from memoryview
 slices via FrameBuffer.blit_alpha.
 
 Needs: pygraphics, bit_palette.

@@ -22,7 +22,7 @@ from touchkit import ui
 
 from . import box as boxmod
 from . import floor as floormod
-from . import kits, remote
+from . import glyphs, kits, remote
 from . import page_data
 
 SERVICE_MS = 4       # the pedals and the notes due
@@ -56,7 +56,9 @@ def _cast(box, prefs):
             return None
         from . import cast
 
-        return cast.start(box.device, target)
+        caster = cast.start(box.device, target)
+        box.cast = target.get("name") or target.get("host") or target["kind"]
+        return caster
     except Exception as e:  # noqa: BLE001 - said on the screen
         box.error = "no cast: %s" % (e,)
         return None
@@ -126,6 +128,13 @@ def start(scope):
     if own_status:
         status.move_foreground()
     state = {"box": box, "floor": floor, "out": out, "views": views, "show": show, "cast": caster}
+    # On the status bar while a song plays: the part and the tempo. A tap
+    # brings the floor view back to the front.
+    bar = getattr(scope, "bar", None)
+    if bar is not None:
+        from appkit.bar import Item
+
+        bar.add(Item("backline", lambda: glyphs.bar_reading(box.telemetry()), on_click=lambda: show("floor")), scope)
     held = set()
 
     def service(_t):

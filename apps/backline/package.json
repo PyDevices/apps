@@ -63,6 +63,10 @@
       "floor.py"
     ],
     [
+      "glyphs.py",
+      "glyphs.py"
+    ],
+    [
       "kits.py",
       "kits.py"
     ],
@@ -137,7 +141,7 @@
       "latest"
     ],
     [
-      "iconkit",
+      "icons",
       "latest"
     ],
     [

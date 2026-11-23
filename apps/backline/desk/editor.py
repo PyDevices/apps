@@ -22,12 +22,28 @@ except ImportError:
 
 from . import look
 from .. import parts as song
+from ..floor import text_width
 from .grid import Grid
 from .strip import Strip
 
 SEND_MS = 60                  # a moving fader sends at most this often
-FADERS = (("volume", "VOL"), ("kick", "KCK"), ("snare", "SNR"), ("hats", "HAT"), ("toms", "TOM"),
-          ("cymbals", "CYM"), ("perc", "PRC"))
+FADERS = ("volume", "kick", "snare", "hats", "toms", "cymbals", "perc")
+# The faders' names, longest first: the first set whose names all keep
+# FADER_GAP pixels apart under their faders is the one shown.
+FADER_NAMES = (("VOL", "KICK", "SNARE", "HATS", "TOMS", "CYM", "PERC"),
+               ("VOL", "KCK", "SNR", "HAT", "TOM", "CYM", "PRC"),
+               ("VOL", "BD", "SD", "HH", "TOM", "CY", "PRC"))
+FADER_GAP = 6
+
+
+def fader_names(slot, fnt):
+    """The first of `FADER_NAMES` whose names, each centred in a ``slot``
+    pixels wide, keep `FADER_GAP` apart in ``fnt``; else the shortest."""
+    for names in FADER_NAMES:
+        widths = [text_width(n, fnt) for n in names]
+        if max(widths) <= slot and all(slot - (a + b) // 2 >= FADER_GAP for a, b in zip(widths, widths[1:])):
+            return names
+    return FADER_NAMES[-1]
 
 
 class Editor:
@@ -81,7 +97,7 @@ class Editor:
         # -- right: songs, kits, mixer --
         rx = lw + 2 * m
         y = m
-        look.heading(self.base, "Song", f["small"], rx, y)
+        look.heading(self.base, "Song", f["small"], rx, y, "songs")
         y += f["small"].line_height + 4
         dh = int(38 * s)
         self.songs = look.dropdown(self.base, rx, y, rw, dh, f["body"], self._song)
@@ -100,17 +116,23 @@ class Editor:
         mh = int(h) - y - m
         mixer = look.box(self.base, rx, y, rw, mh, look.PANEL, 8, look.LINE)
         self.faders = {}
+        self.fader_labels = []
         n = len(FADERS)
         slot = (rw - 8) // n
-        fh = mh - f["small"].line_height - 22
-        for i, (key, name) in enumerate(FADERS):
-            fx = 4 + i * slot + (slot - int(12 * s)) // 2
+        self.fader_names = names = fader_names(slot, f["small"])
+        track = int(12 * s)
+        knob = track + 2 * max(2, track // 3)      # the knob stands out past the track
+        top = knob // 2 + 6
+        fh = mh - f["small"].line_height - 12 - knob // 2 - top
+        for i, key in enumerate(FADERS):
+            fx = 4 + i * slot + (slot - track) // 2
             lo, hi = (0, 127) if key == "volume" else (0, 100)
-            fd = look.slider(mixer, fx, 10, int(12 * s), fh, lo, hi, self._fader(key))
+            fd = look.slider(mixer, fx, top, track, fh, lo, hi, self._fader(key))
             fd.add_event_cb(self._fader(key, True), lv.EVENT.RELEASED, None)
-            lbl = look.text(mixer, name, f["small"], look.DIM, slot, lv.TEXT_ALIGN.CENTER)
+            lbl = look.text(mixer, names[i], f["small"], look.DIM, slot, lv.TEXT_ALIGN.CENTER)
             lbl.set_pos(4 + i * slot, mh - f["small"].line_height - 8)
             self.faders[key] = fd
+            self.fader_labels.append(lbl)
 
     # -- what the editor sends --
 
@@ -223,7 +245,7 @@ class Editor:
         y = 6
         bh = int(30 * s)
         for source, title in (("machine", "Drum machines"), ("soundfont", "SoundFont"), ("samples", "Sample kits")):
-            look.heading(box, title, f["small"], 6, y)
+            look.heading(box, title, f["small"], 6, y, "samples" if source == "samples" else None)
             y += f["small"].line_height + 4
             mine = [k for k in kit_list if k["source"] == source]
             if not mine:

@@ -11,7 +11,7 @@ remote screen.
 import lvgl as lv
 from icons import lvgl as lvicons
 
-from .. import art
+from .. import art, glyphs
 
 BG = 0x0A0D12
 PANEL = 0x121821
@@ -77,16 +77,23 @@ def text(parent, value, fnt, rgb=TEXT, width=None, align=None):
     return lbl
 
 
-def heading(parent, value, fnt, x, y):
-    """A small, spaced, dim heading over a group of controls."""
+def heading(parent, value, fnt, x, y, role=None):
+    """A small, spaced, dim heading over a group of controls, after the icon
+    for ``role`` (`glyphs.ICONS`) when one is given."""
     lbl = text(parent, value.upper(), fnt, DIM)
     lbl.set_style_text_letter_space(2, 0)
     lbl.set_pos(int(x), int(y))
+    if role is not None:
+        size = fnt.line_height + 4
+        icon = glyphs.show(parent, role, size, color(DIM))
+        icon.set_pos(int(x) - 2, int(y) - 2)
+        lbl.set_x(int(x) + size + 2)
     return lbl
 
 
-def button(parent, x, y, w, h, label=None, icon=None, fnt=None, on_click=None, radius=8):
-    """A flat button: ``label`` text, or an ``icon`` from the icons package.
+def button(parent, x, y, w, h, label=None, icon=None, fnt=None, on_click=None, radius=8, role=None):
+    """A flat button: ``label`` text, an ``icon`` from the icons package, or
+    the icon for ``role`` (`glyphs.ICONS`).
 
     Returns:
         The button; its child 0 is the label or the icon.
@@ -95,9 +102,12 @@ def button(parent, x, y, w, h, label=None, icon=None, fnt=None, on_click=None, r
     b.add_flag(lv.obj.FLAG.CLICKABLE)
     b.set_style_bg_color(color(LINE), lv.STATE.PRESSED)
     b.set_style_border_color(color(AMBER), lv.STATE.PRESSED)
-    if icon is not None:
+    if icon is not None or role is not None:
         size = int(min(w, h) * 0.62)
-        img = lvicons.image(b, icon, size, color(TEXT))
+        if role is not None:
+            img = glyphs.show(b, role, size, color(TEXT))
+        else:
+            img = lvicons.image(b, icon, size, color(TEXT))
         img.center()
     else:
         lbl = text(b, label or "", fnt or font(16))
