@@ -38,6 +38,7 @@ import json
 import os
 
 import hmilink
+from hmilink import local
 from songmodel.link import SongModel
 
 from . import engine as eng
@@ -99,6 +100,7 @@ class Box:
         kw = {} if now_ms is None else {"now_ms": now_ms}
         self.engine = eng.Engine(project, None, clock, rate, **kw)
         self.error = None
+        self.cast = ""            # where the desk view is cast, while it is
         self.model = BacklineModel(project, forward=self.forward, host=self)
         self.device = hmilink.Device(self.model, telemetry_hz=30)
         self.use_kit(kit or project["tracks"][0].get("instrument") or kits.MACHINES[0])
@@ -185,6 +187,9 @@ class Box:
         t["error"] = self.error or ""
         t["song_index"] = self.song_index
         t["songs"] = len(self.songs)
+        t["cast"] = self.cast
+        # Panels on another screen: a browser, another computer or board.
+        t["desks"] = sum(1 for link in self.device.links if not isinstance(link, local.Link))
         return t
 
     def pedal(self, which, down):

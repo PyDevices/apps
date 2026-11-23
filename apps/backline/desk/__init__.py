@@ -22,11 +22,11 @@ out for 800x480 and larger, from the ``size`` it is given.
 import lvgl as lv
 
 from . import look
-from .. import art
+from .. import art, glyphs
 from .editor import Editor
 from .perform import Perform
 
-TABS = (("perform", "PERFORM", "queue_music"), ("edit", "EDIT", "grid_on"))
+TABS = (("perform", "PERFORM"), ("edit", "EDIT"))
 
 
 class _Proxy:
@@ -92,7 +92,7 @@ class Desk:
         tx = m * 2 + int(118 * s)
         tw = int(124 * s)
         self.tab_buttons = {}
-        for i, (key, name, icon) in enumerate(TABS):
+        for i, (key, name) in enumerate(TABS):
             b = look.button(head, tx + i * (tw + m), m, tw, hh - 2 * m, name, fnt=f["small"],
                             on_click=self._tabber(key), radius=6)
             b.get_child(0).set_style_text_letter_space(2, 0)
@@ -100,17 +100,30 @@ class Desk:
         rx = tx + 2 * (tw + m) + m
         # The readout: the part, the bar and beat, and what comes next.
         sw = int(30 * s) + m if on_switch is not None else 0
-        self.readout_w = rw = w - rx - sw - 2 * m
+        # Where the desk is cast and how many other screens have joined, as
+        # small icons left of the switch; hidden while there are none.
+        isz = f["small"].line_height + 2
+        iw = 2 * isz + int(26 * s)
+        self.readout_w = rw = w - rx - sw - iw - 3 * m
         self.part = look.text(head, "", f["body"], look.DIM, int(rw * 0.34))
         self.part.set_pos(rx, (hh - f["body"].line_height) // 2)
         self.where = look.text(head, "", f["value"], look.TEXT, int(rw * 0.26), lv.TEXT_ALIGN.CENTER)
         self.where.set_pos(rx + int(rw * 0.34), (hh - f["value"].line_height) // 2)
         self.next = look.text(head, "", f["small"], look.DIM, int(rw * 0.40), lv.TEXT_ALIGN.RIGHT)
         self.next.set_pos(rx + int(rw * 0.60), (hh - f["small"].line_height) // 2)
+        ix = rx + rw + 2 * m
+        self.cast_icon = glyphs.show(head, "cast", isz, look.color(look.DIM))
+        self.cast_icon.set_pos(ix, (hh - isz) // 2)
+        self.cast_icon.add_flag(lv.obj.FLAG.HIDDEN)
+        self.remote_icon = glyphs.show(head, "remote", isz, look.color(look.DIM))
+        self.remote_icon.set_pos(ix + isz + 2, (hh - isz) // 2)
+        self.remote_icon.add_flag(lv.obj.FLAG.HIDDEN)
+        self.remote_count = look.text(head, "", f["small"], look.DIM)
+        self.remote_count.set_pos(ix + 2 * isz + 2, (hh - f["small"].line_height) // 2)
         self.switch = None
         if on_switch is not None:
             bs = int(34 * s)
-            self.switch = look.button(head, w - bs - m * 2, (hh - bs) // 2, bs, bs, icon="speed",
+            self.switch = look.button(head, w - bs - m * 2, (hh - bs) // 2, bs, bs, role="floor",
                                       on_click=on_switch, radius=6)
 
         body_h = h - hh
@@ -213,5 +226,18 @@ class Desk:
                 self.next.set_text(("NEXT  " + nxt.upper()) if nxt else ("LOOPING" if playing else "TAP A TO START"))
                 ncolor = look.ROLE_COLORS.get(t.get("next_role") or "", look.DIM) if nxt else look.DIM
                 self.next.set_style_text_color(look.color(art.mix(ncolor, look.TEXT, 0.15)), 0)
+        if self._changed("cast", bool(t.get("cast"))):
+            if t.get("cast"):
+                self.cast_icon.remove_flag(lv.obj.FLAG.HIDDEN)
+            else:
+                self.cast_icon.add_flag(lv.obj.FLAG.HIDDEN)
+        desks = t.get("desks", 0)
+        if self._changed("desks", desks):
+            for o in (self.remote_icon, self.remote_count):
+                if desks:
+                    o.remove_flag(lv.obj.FLAG.HIDDEN)
+                else:
+                    o.add_flag(lv.obj.FLAG.HIDDEN)
+            self.remote_count.set_text("%d" % desks if desks > 1 else "")
         self.perform.on_tele(t)
         self.editor.on_tele(t)

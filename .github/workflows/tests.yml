@@ -286,6 +286,15 @@ jobs:
           path: omnipython
           sparse-checkout: packages/hmilink
 
+      # Backline draws icons newer than the omnipython-desktop on PyPI: the
+      # icons package from source, at the commit that added them, over it.
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/omnipython
+          ref: e21d9298a1805bc5fbc7b2a91bbe76b914bf7ca0
+          path: omnipython-icons
+          sparse-checkout: packages/icons
+
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
@@ -300,6 +309,7 @@ jobs:
           SDL_VIDEODRIVER: dummy
           AUDIOINSTRUMENTS_DIR: ${{ github.workspace }}/audioinstruments
           HMILINK_PATH: ${{ github.workspace }}/omnipython/packages/hmilink
+          PYTHONPATH: ${{ github.workspace }}/omnipython-icons/packages/icons
           BACKLINE_REQUIRE: "1"
         run: python -m unittest tests.test_backline -v
 
