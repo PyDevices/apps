@@ -22,6 +22,9 @@ It casts with the ``castdisplay`` package, which installs with it.
 ``{"prefer": "Bedroom"}`` picks the receiver whose name holds that text
 when there's no last one to go back to. The receivers cast to before are
 kept in ``receivers.json`` there.
+
+A Roku chosen for ``cast.target`` in the connections picker is picked here
+too, and a cast that's running moves to it.
 """
 
 import sys
@@ -565,8 +568,26 @@ def main(scope):
         if st["sink"] is not None:
             stop()
 
+    def moved(endpoints):
+        # The receiver chosen for the whole device: listed, picked, and cast
+        # to now if a cast runs.
+        for ep in endpoints:
+            host = ep.caps.get("host")
+            if not host:
+                continue
+            kept["host"] = host
+            add([{"name": ep.label, "host": host, "kind": ep.caps.get("type") or "roku"}])
+            for i, r in enumerate(st["shown"]):
+                if r["host"] == host:
+                    dd.set_selected(i)
+            if st["sink"] is not None and not st["busy"]:
+                stop()
+                start()
+            return
+
     st["toggle"], st["key"], st["pick"] = toggle, key, dd.set_selected  # for the console
     scope.on_close(close)
+    moved(scope.follow("cast.target", moved))
     scope.every(1000, tick)
 
     def setup(t):

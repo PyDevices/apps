@@ -69,6 +69,13 @@ OPTIONAL = {
     "audioinstruments.panel_view": "controlkit",
 }
 
+#: This repository's library -> index packages it imports only where they're
+#: installed, which an app that uses the library doesn't install for it.
+#: appkit's connections lists a computer's MIDI ports where midiports is there.
+WHERE_INSTALLED = {
+    "appkit": {"midiports"},
+}
+
 #: Import name -> a package.json in another repository, at its main branch.
 ELSEWHERE = {
     "castdisplay": "github:PyDevices/omnipython/packages/castdisplay",
@@ -172,6 +179,8 @@ def lib_needs(name, seen):
     if not os.path.isdir(os.path.join(LIB, name)):
         return
     for other in imported(python_files(os.path.join(LIB, name))):
+        if other in WHERE_INSTALLED.get(name, ()):
+            continue
         if other in INDEX and INDEX[other] not in seen:
             seen.add(INDEX[other])
             lib_needs(other, seen)

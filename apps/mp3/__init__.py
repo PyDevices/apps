@@ -11,6 +11,10 @@ the archived pydevices-examples' mp3_from_sd, with buttons: play and stop, previ
 next, volume. A song that ends goes on to the next one. On a board the card is mounted
 read-only (its writes are unreliable on this board) and only while the app
 is open.
+
+It plays to the sound output chosen for the whole device (``audio.out`` in
+the connections picker), and choosing another while a song plays moves the
+song there: it starts again from the top on the new output.
 """
 
 import os
@@ -19,6 +23,7 @@ import lvgl as lv
 from multimer import ticks_diff, ticks_ms
 
 import spectrum
+from appkit import connections
 from appkit import data as appdata
 from appkit import places
 from touchkit import ui
@@ -76,7 +81,8 @@ def main(scope):
         folder = places.where_text(MUSIC)
         songs = places.files(MUSIC, (".mp3",))
     global state
-    st = state = {"i": 0, "out": None, "file": None, "song": None, "meter": None, "fmt": None, "vol": VOLUME, "playing": False}
+    st = state = {"i": 0, "out": None, "file": None, "song": None, "meter": None, "fmt": None, "vol": VOLUME,
+                  "playing": False, "device": None}
 
     title = ui.label(scr, "", ui.font, ui.WHITE)
     title.set_pos(16, 84)
@@ -94,15 +100,42 @@ def main(scope):
             st["file"] = None
         st["song"] = None
 
-    def close():
-        st["playing"] = False
-        release_song()
+    def close_out():
         if st["out"] is not None:
             st["out"].detach()
             st["out"].close()
             st["out"] = None
 
+    def close():
+        st["playing"] = False
+        release_song()
+        close_out()
+
     scope.on_close(close)
+
+    def open_out(fmt_out):
+        # A computer names the device chosen in the picker; a board's
+        # audio_out plays wherever its own choice routes it.
+        kwargs = {} if st["device"] is None else {"device": st["device"]}
+        try:
+            # A player can trade latency for fewer dropouts: a board
+            # with a choice buffers more.
+            return bp.audio_out(fmt_out, latency="buffered", **kwargs)
+        except TypeError:  # an audio_out that takes no latency
+            return bp.audio_out(fmt_out, **kwargs)
+
+    def moved(endpoints):
+        # Another output was chosen: what plays starts again there.
+        st["device"] = connections.device(endpoints)
+        if st["out"] is None:
+            return
+        playing = st["playing"]
+        release_song()
+        close_out()
+        if playing:
+            play()
+
+    st["device"] = connections.device(scope.follow("audio.out", moved))
 
     def play(i=None):
         if not songs:
@@ -118,17 +151,9 @@ def main(scope):
         st["song"] = song
         fmt = (song.sample_rate, song.channel_count)
         if st["out"] is not None and st["fmt"] != fmt:
-            st["out"].detach()
-            st["out"].close()
-            st["out"] = None
+            close_out()
         if st["out"] is None:
-            fmt_out = AudioFormat(song.sample_rate, song.channel_count, 16)
-            try:
-                # A player can trade latency for fewer dropouts: a board
-                # with a choice buffers more.
-                st["out"] = bp.audio_out(fmt_out, latency="buffered")
-            except TypeError:  # an audio_out that takes no latency
-                st["out"] = bp.audio_out(fmt_out)
+            st["out"] = open_out(AudioFormat(song.sample_rate, song.channel_count, 16))
             # service() refills the decoder's file buffer from this thread
             # (the pump on the other core can't read the card): on the app's
             # timer, so it stops when the app closes.

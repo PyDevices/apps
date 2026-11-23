@@ -57,7 +57,9 @@ def ids(reg):
 # A computer: the operating system's link, reported.
 reg = endpointkit.Registry()
 names = connections.register(reg)
-check(names == ["hostnet"], "a computer registers hostnet: %r" % (names,))
+host_names = [name for name, _ in connections.HOST_PROVIDERS]
+check(names[:1] == ["hostnet"], "a computer registers hostnet first: %r" % (names,))
+check(all(name in host_names for name in names), "and only a computer's own libraries: %r" % (names,))
 check(ids(reg) and ids(reg)[0] == "host-net:default", "the host's link is listed: %r" % ids(reg))
 check(connections.register(reg) is names and len(reg.providers("net")) == 1, "registering again does nothing")
 
@@ -99,7 +101,9 @@ sys.modules["network"] = Network
 del connections._done[:]
 reg = endpointkit.Registry()
 names = connections.register(reg)
-check(names == ["wifinet"], "a board with Wi-Fi registers wifinet: %r" % (names,))
+wifi_names = [name for name, _ in connections.WIFI_PROVIDERS]
+check(names[:1] == ["wifinet"], "a board with Wi-Fi registers wifinet: %r" % (names,))
+check(all(name in wifi_names for name in names[1:]), "and nothing of a computer's: %r" % (names,))
 check(reg.selection("net") == ["wifi:Home"], "the network the board is on is chosen: %r" % reg.selection("net"))
 reg.poll()
 check(ids(reg) == ["wifi:Home", "wifi:Cafe"], "the networks in range are listed after a scan: %r" % ids(reg))

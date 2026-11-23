@@ -28,6 +28,23 @@ Touch or click a tab to change scene, AUTO to stop or start the tour, and
 SND to mute. On a keyboard, 1, 2 and 3 change scene, A or Tab toggles the
 tour, M mutes, and Space and F are each scene's two actions.
 
+## Choose where the music plays
+
+At start Bit World prints every sound output it can find and plays to the
+one chosen for the whole device, from the connections picker on Home. Set
+`BIT_WORLD_AUDIO` to a word of an output's name to choose it from the
+script instead. On a Windows PC, `BIT_WORLD_AUDIO=realtek` prints:
+
+```text
+Bit World: audio out 'System default' (win_audio-out:default)
+Bit World: audio out 'Speakers (Realtek(R) Audio)' (win_audio-out:Speakers (Realtek(R) Audio))
+Bit World: playing to 'Speakers (Realtek(R) Audio)'
+```
+
+It lists and picks with endpointkit, the same calls any script uses;
+`pick_audio_out` in `bit_output.py` is the whole of it. A board lists the
+outputs its firmware registers with endpointkit.
+
 [Roadmap](../../ROADMAP.md)
 
 Made by [PyDevices](https://pydevices.com).

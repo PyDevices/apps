@@ -197,6 +197,15 @@ def resync_if_due():
     _looked = True
 
 
+def network_moved():
+    """Another network carries traffic now: the next `resync_if_due` sets
+    the clock and looks up the IP's place again, and `finding` is True
+    until it has."""
+    global _synced_at, _looked
+    _synced_at = None
+    _looked = False
+
+
 def finding():
     """Return True while a board hasn't yet tried to find where it is."""
     return net.sets_clock() and not _looked

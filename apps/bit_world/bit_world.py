@@ -73,6 +73,7 @@ from bit_palette import (
     make_fb,
 )
 from bit_sprites import SpriteBank
+from bit_output import pick_audio_out
 from bit_sound import SoundEngine
 from act_pet import WorkshopAct
 from act_game import SkyRuinsAct
@@ -127,7 +128,7 @@ class BitWorldDirector:
         backgrounds = [make_fb(WIDTH, HEIGHT, VOID) for _ in range(3)]
 
         self.sprites = SpriteBank(self.lay)
-        self.sound = SoundEngine(board_peripherals, app)
+        self.sound = SoundEngine(board_peripherals, app, pick_audio_out())
 
         self.act_pet = WorkshopAct(self.lay, self.sprites, self.sound, backgrounds[0])
         self.act_game = SkyRuinsAct(self.lay, self.sprites, self.sound, backgrounds[1])

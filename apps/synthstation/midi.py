@@ -8,7 +8,9 @@ merged by ``midiports.usb_host.all_ports()``; devices plugged in later are
 heard too. A board without one whose ``board_peripherals`` lists a
 ``usb_midi`` role becomes a USB MIDI device the computer plays. On Windows
 and Linux it's every MIDI input port the computer has, through
-``midiports.windows`` or ``midiports.linux``. In a browser it's every MIDI
+``midiports.windows`` or ``midiports.linux``, until inputs are chosen for
+``midi.in`` (the connections picker, or `endpointkit.select`): then it's
+those, read through ``midiports.endpoints``, which opened them. In a browser it's every MIDI
 input the browser offers, through ``midiports.webmidi``.
 
 Bluetooth MIDI is one more input, on a board whose firmware has Bluetooth LE:
@@ -141,7 +143,29 @@ class Inputs:
         self.kind = "device"
         return True
 
+    def _open_chosen(self):
+        """Read the computer's inputs chosen for ``midi.in`` as one port;
+        False when none is chosen, or endpointkit isn't installed."""
+        try:
+            import endpointkit
+            from midiports import endpoints
+        except ImportError:
+            return False
+        try:
+            port = endpoints.merged_in()
+        except KeyError:  # the computer's MIDI ports aren't registered
+            return False
+        chosen = [ep for ep in endpointkit.selected("midi.in") if ep.provider is port.provider]
+        if not chosen:
+            return False
+        self.ports = [port]
+        self._desktop_names = [ep.label for ep in chosen]
+        self.kind = "desktop"
+        return True
+
     def _open_desktop(self):
+        if self._open_chosen():
+            return
         platform = getattr(sys, "platform", "")
         try:
             import midiports

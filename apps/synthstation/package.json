@@ -41,11 +41,23 @@
   ],
   "deps": [
     [
+      "appkit",
+      "latest"
+    ],
+    [
       "audioinstruments",
       "latest"
     ],
     [
       "controlkit",
+      "latest"
+    ],
+    [
+      "endpointkit",
+      "latest"
+    ],
+    [
+      "icons",
       "latest"
     ],
     [

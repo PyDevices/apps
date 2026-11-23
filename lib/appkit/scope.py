@@ -135,6 +135,11 @@ def _error(what, exc):
     return "%s: %s: %s" % (what, type(exc).__name__, exc)
 
 
+def _in_use(endpoints):
+    """What `AppScope.follow` compares: each endpoint's id and state."""
+    return [(ep.id, ep.state) for ep in endpoints]
+
+
 def _same(a, b):
     try:
         return a is b or a == b
@@ -171,6 +176,7 @@ class AppScope:
         self._timers = []
         self._subs = []  # (event_type, callback)
         self._dev_subs = []  # (device, callback)
+        self._follows = []  # (endpointkit registry, its subscriber)
         self._devices = []
         self._adopted = []  # (obj, closer)
         self._screens = []
@@ -368,6 +374,44 @@ class AppScope:
         device.subscribe(callback, event_types)
         self._dev_subs.append((device, callback))
         return callback
+
+    def follow(self, kind, callback, registry=None):
+        """Call ``callback(endpoints)`` when what's in use for endpointkit
+        *kind* changes, until this app closes; returns what's in use now.
+
+        *endpoints* is the list ``endpointkit.selected(kind)`` gives: the
+        chosen endpoints that are found, or a pin's while one is in force.
+        The callback runs when that list, or the state of an endpoint in it,
+        is different from the last time, never for news about endpoints
+        nobody chose. An audio player reopens its output there, a MIDI app
+        its inputs, a networked app fetches again.
+
+        Where endpointkit isn't installed nothing is ever chosen: it
+        returns ``[]`` and the callback never runs. *registry* is another
+        ``endpointkit.Registry`` than the device's, for a test.
+        """
+        if not callable(callback):
+            raise ValueError("callback must be callable")
+        self._check_open()
+        if registry is None:
+            try:
+                import endpointkit
+            except ImportError:
+                return []
+            registry = endpointkit.registry
+        now = registry.selected(kind)
+        last = [_in_use(now)]
+
+        def heard(event, k):
+            eps = registry.selected(kind)
+            key = _in_use(eps)
+            if key != last[0]:
+                last[0] = key
+                callback(eps)
+
+        registry.subscribe(kind, heard)
+        self._follows.append((registry, heard))
+        return now
 
     # -- devices --------------------------------------------------------
 
@@ -589,6 +633,12 @@ class AppScope:
             except Exception as exc:
                 problems.append(_error("unsubscribe %r" % (dev,), exc))
         self._dev_subs = []
+        for registry, heard in self._follows:
+            try:
+                registry.unsubscribe(heard)
+            except Exception as exc:
+                problems.append(_error("unfollow", exc))
+        self._follows = []
         for dev in self._devices:
             try:
                 self.app.unregister(dev)
