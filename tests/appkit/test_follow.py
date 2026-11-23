@@ -22,6 +22,7 @@ PLANTS = (
     "pick_ignored",
     "mp3_deaf",
     "midiengine_deaf",
+    "midiengine_midi_deaf",
     "cast_deaf",
     "cast_finds_nothing",
     "cast_keeps_searching",
@@ -29,7 +30,7 @@ PLANTS = (
     "cast_drops_desktop",
 )
 #: The plants whose checks need LVGL and icons, which skip without them.
-SCREEN_PLANTS = ("mp3_deaf", "midiengine_deaf", "cast_deaf", "cast_finds_nothing",
+SCREEN_PLANTS = ("mp3_deaf", "midiengine_deaf", "midiengine_midi_deaf", "cast_deaf", "cast_finds_nothing",
                  "cast_keeps_searching", "cast_finds_once", "cast_drops_desktop")
 
 
