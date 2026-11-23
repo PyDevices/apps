@@ -4,9 +4,9 @@
 """Backline's contract, on any interpreter: the pedal's gestures, the song's
 plan, parts switching on the bar line, the ring following the meter, the
 mixer's groups, the desk's song form and step taps, the starter songs, each
-kind of kit sounding, a pedal pressed from an hmilink panel, and a step
+kind of kit sounding, a pedal pressed from an hmilink panel, a step
 edited from one panel while the song plays, heard in the sound and seen by
-another panel.
+another panel, and MIDI switches learned and played as pedals and actions.
 
     python tests/backline_contract.py [--plant=NAME] [--tmp FOLDER]
     micropython -X heapsize=64M tests/backline_contract.py
@@ -37,12 +37,14 @@ _dir = _here.rsplit(_sep, 1)[0] if _sep in _here else "."
 sys.path[:0] = [_sep.join((_dir, "..", "apps")), _sep.join((_dir, "..", "lib"))]
 
 from backline import engine as eng  # noqa: E402
+from backline import midipedal  # noqa: E402
 from backline import pedal as pedals  # noqa: E402
 from songmodel import model  # noqa: E402
 
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
           "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
-          "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard")
+          "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
+          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals")
 
 RESULTS = [0, 0]
 SKIPS = []
@@ -222,6 +224,40 @@ def plant(name):
         def load(self, project):
             old(self, json.loads(json.dumps(project)))
         eng.Engine.load = load
+    elif name == "learn-on-release":
+        old = midipedal.MidiPedal.handle
+
+        def handle(self, status, d1, d2):
+            if self.learning is not None:
+                msg, _press = midipedal.read(status, d1, d2)
+                return self._learn(msg) if msg is not None else None
+            return old(self, status, d1, d2)
+        midipedal.MidiPedal.handle = handle
+    elif name == "cc-no-release":
+        old = midipedal.MidiPedal._act
+
+        def act(self, i, slot, press):
+            if press:
+                old(self, i, slot, press)
+        midipedal.MidiPedal._act = act
+    elif name == "pc-as-pedal":
+        midipedal.can_pedal = lambda msg: True
+    elif name == "any-channel":
+        old = midipedal.read
+
+        def read(status, d1, d2):
+            return old(status & 0xF0, d1, d2)
+        midipedal.read = read
+    elif name == "tempo-no-reset":
+        old = midipedal.TapTempo.__init__
+
+        def init(self, reset_ms=2000, keep=4, lo=40.0, hi=240.0):
+            old(self, 1 << 29, keep, lo, hi)
+        midipedal.TapTempo.__init__ = init
+    elif name == "deaf-pedals":
+        from backline import box
+
+        box.Box._pedals_changed = lambda self: None
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -675,6 +711,200 @@ def check_live_edit():
     b.close()
 
 
+# -- MIDI switches ----------------------------------------------------------------
+
+
+def cc(num, value, ch=0):
+    return bytes((0xB0 | ch, num, value))
+
+
+def check_midi_learn():
+    got = []
+    m = midipedal.MidiPedal(on_pedal=lambda w, d: got.append(("pedal", w, d)),
+                            on_action=lambda a: got.append(("action", a)))
+    check("the default map is pedal A, pedal B, tap tempo and stop, waiting to be learned",
+          [s["bind"] for s in m.slots] == ["pedal_a", "pedal_b", "tap_tempo", "stop"] and
+          all(s["msg"] is None for s in m.slots), repr(m.slots))
+    m.learn(0)
+    m.feed(cc(80, 0))                  # a foot coming up from before the slot was armed
+    m.feed(cc(81, 127))
+    check("an armed slot learns the next switch pressed, not a release",
+          m.slots[0]["msg"] == ["cc", 0, 81] and m.learning is None and not got, repr((m.slots[0], got)))
+    m.learn(1)
+    m.feed(cc(81, 127))
+    check("a switch learned again leaves the slot that had it", m.slots[1]["msg"] == ["cc", 0, 81] and
+          m.slots[0]["msg"] is None and m.slots[1]["bind"] == "pedal_b", repr(m.slots[:2]))
+    m2 = midipedal.MidiPedal(m.saved())
+    check("the map saves as plain data and comes back the same", m2.saved() == m.saved() and
+          repr(m.saved()) == repr(eval(repr(m.saved()))), repr(m2.saved()))
+
+
+def run_midi(project, script, until_bars):
+    """Play ``project`` from MIDI: ``script`` is [(ms, bytes)], fed to a
+    `MidiPedal` whose switch 1 is learned as CC 80 on pedal A. Returns the
+    parts, as `run_engine` does, and the gestures the pedal made."""
+    frames = [0]
+    kit = FakeKit(lambda: frames[0])
+    e = eng.Engine(project, kit, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE)
+    m = midipedal.MidiPedal(on_pedal=lambda w, d: e.press(w) if d else e.release(w))
+    m.learn(0)
+    m.handle(0xB0, 80, 127)
+    gestures = []
+    old = e.gesture
+
+    def gesture(which, g):
+        gestures.append(g)
+        return old(which, g)
+    e.gesture = gesture
+    spb = RATE * 60.0 / project["tempo"]
+    end = int(until_bars * 4 * spb)
+    script = list(script)
+    parts = []
+    while frames[0] < end:
+        ms = frames[0] * 1000 // RATE
+        while script and script[0][0] <= ms:
+            m.feed(script.pop(0)[1])
+        e.poll()
+        e.sequence()
+        t = e.telemetry()
+        name = t["part"] if t["playing"] else None
+        if not parts or parts[-1][1] != name:
+            parts.append((frames[0], name))
+        frames[0] += 256
+    return [p[1] for p in parts], gestures
+
+
+def check_midi_pedal():
+    rock = load("rock")
+    beat = 60000.0 / rock["tempo"]
+    t1 = int(9.5 * beat)                # main 1's first bar: hold
+    t2 = int(30.5 * beat)               # main 2: tap, then tap again at once
+    script = [(0, cc(80, 127)), (90, cc(80, 0)),
+              (t1, cc(80, 127)), (t1 + 600, cc(80, 0)),
+              (t2, cc(80, 127)), (t2 + 80, cc(80, 0)), (t2 + 250, cc(80, 127)), (t2 + 330, cc(80, 0))]
+    names, gestures = run_midi(rock, script, 48)
+    check("a momentary switch's CC 127 and 0 tap, hold and double-tap pedal A",
+          gestures == ["tap", "hold", "tap", "double"], repr(gestures))
+    want = [None, "Intro", "Main 1", "Transition 2", "Main 2", "Outro", None]
+    check("from MIDI the tap starts the song, the hold moves to the next part and the double tap plays the outro",
+          names == want, repr(names))
+    # A note on and its note off are a pedal too, and a repeat isn't a second press.
+    got = []
+    m = midipedal.MidiPedal([{"msg": ["note", 9, 36], "bind": "pedal_b"}], on_pedal=lambda w, d: got.append((w, d)))
+    m.feed(bytes((0x99, 36, 100, 0x99, 36, 100, 0x89, 36, 0, 0x99, 36, 90, 0x99, 36, 0)))
+    check("a note on and its note off move the pedal once each", got == [(1, True), (1, False), (1, True), (1, False)],
+          repr(got))
+
+
+def check_midi_actions():
+    got = []
+    m = midipedal.MidiPedal(on_pedal=lambda w, d: got.append(("pedal", w, d)),
+                            on_action=lambda a: got.append(("action", a)))
+    m.learn(0)                          # bound to pedal A, but a program change can't be a pedal
+    m.feed(bytes((0xC0, 3)))
+    m.feed(bytes((0xC0, 3)))
+    check("a program change learned for a pedal becomes an action, and does it on every press",
+          m.slots[0]["bind"] == midipedal.ONE_SHOT and got == [("action", "fill")], repr((m.slots[0], got)))
+    refused = False
+    try:
+        m.bind(0, "pedal_a")
+    except ValueError:
+        refused = True
+    check("a program change can't be bound to a pedal", refused and m.slots[0]["bind"] == "fill", repr(m.slots[0]))
+    m.bind(0, "outro")
+    m.learn(3)
+    m.feed(cc(64, 127, ch=1))
+    del got[:]
+    m.feed(bytes((0xC0, 3)) + cc(64, 127, ch=1) + cc(64, 0, ch=1))
+    check("each press of an action switch does its action once", got == [("action", "outro"), ("action", "stop")],
+          repr(got))
+    del got[:]
+    m.feed(bytes((0xC1, 3, 0xC0, 4, 0xB0, 64, 127, 0x90, 60, 100, 0x80, 60, 0, 0xF8, 0xFA,
+                  0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7, 0xE0, 0, 64)))
+    check("messages no switch holds are ignored: another channel, program or controller, notes, clock, SysEx",
+          got == [], repr(got))
+    tt = midipedal.TapTempo()
+    bpm = [tt.tap(t) for t in (0, 500, 1000, 1500)]
+    later = [tt.tap(t) for t in (6000, 6600)]
+    check("tap tempo is the taps' pace, and a pause starts the count again",
+          bpm == [None, 120.0, 120.0, 120.0] and later == [None, 100.0], repr((bpm, later)))
+
+
+def check_midi_box():
+    """A box reading a MIDI input: a desk learns switches and binds them
+    through its panel, and sees the map; the switches start and stop the
+    song and tap its tempo."""
+    try:
+        import hmilink
+        from hmilink import local
+        from backline import box as boxmod
+        import audiocore  # noqa: F401
+    except ImportError as e:
+        skip("MIDI on the box", "no hmilink or audio modules here (%s)" % e)
+        return
+
+    class Port:
+        def __init__(self):
+            self.waiting = []
+
+        def any(self):
+            return len(self.waiting[0]) if self.waiting else 0
+
+        def readinto(self, buf, nbytes=None):
+            if not self.waiting:
+                return None
+            msg = self.waiting.pop(0)
+            buf[:len(msg)] = msg
+            return len(msg)
+
+    frames = [0]
+    ms = [0]
+    b = boxmod.Box(lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: ms[0])
+    port = Port()
+    b.midi_in = port
+    panel = hmilink.Panel(local.connect(b.device.add(local.serve())))
+    seen = []
+    panel.on_event = seen.append
+    b.poll()
+    panel.poll()
+
+    def step(*msgs):
+        port.waiting.extend(msgs)
+        b.service()
+        b.poll()
+        panel.poll()
+
+    check("a panel is told the switches' map", (panel.desc or {}).get("pedals", {}).get("learning") == -1,
+          repr((panel.desc or {}).get("pedals")))
+    panel.command("pedals", learn=2)
+    step()
+    step(bytes((0xC0, 9)))
+    last = [ev for ev in seen if ev.get("name") == "pedals"]
+    check("a slot armed from a panel learns the switch, and the panel hears the map",
+          len(last) >= 2 and last[-1]["slots"][2]["msg"] == ["pc", 0, 9] and last[-1]["learning"] == -1,
+          repr(last[-1:]))
+    panel.command("pedals", learn=0)
+    step()
+    step(cc(80, 127), cc(80, 0))
+    step(cc(80, 127))
+    ms[0] = 90
+    step(cc(80, 0))
+    check("the learned switch is pedal A: its tap starts the song", b.engine.transport["playing"] and
+          b.engine.last == "start", repr(b.engine.last))
+    tempo = b.engine.project["tempo"]
+    for t in (1000, 1400, 1800):
+        ms[0] = t
+        step(bytes((0xC0, 9)))
+    check("the tap tempo switch sets the song to its pace, and the panel's song follows",
+          b.engine.project["tempo"] == 150.0 and (panel.doc or {}).get("tempo") == 150.0,
+          "%r -> %r, panel %r" % (tempo, b.engine.project["tempo"], (panel.doc or {}).get("tempo")))
+    panel.command("pedals", slot=2, bind="stop")
+    step()
+    step(bytes((0xC0, 9)))
+    check("bound to stop from the panel, the switch stops the song", not b.engine.transport["playing"])
+    b.close()
+
+
 def main():
     p, tmp = args()
     plant(p)
@@ -688,6 +918,10 @@ def main():
     check_kits(tmp)
     check_panel()
     check_live_edit()
+    check_midi_learn()
+    check_midi_pedal()
+    check_midi_actions()
+    check_midi_box()
     print("on %s" % sys.implementation.name)
     print("%d passed, %d failed, %d skipped" % (RESULTS[0], RESULTS[1], len(SKIPS)))
     if RESULTS[1]:

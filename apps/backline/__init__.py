@@ -27,6 +27,15 @@ The desk view can also go to a TV or a PC across the room, drawn at
 ``roku:HOST`` (a Roku's Screen mirroring) or ``companion:HOST`` (the
 Companion channel on a Roku). The sound stays on the box (``cast.py``).
 
+A MIDI foot controller can be the pedals, over USB, Bluetooth LE, a 5-pin
+cable or a computer's MIDI ports: set ``midi_in`` in the app's settings, or
+``$BACKLINE_MIDI`` (``midipedal.open_input`` lists the choices). In the
+desk view's editor, the Pedals button shows the four switches: tap one's
+button and press the switch to learn it, then make it pedal A or B (it must
+send a release: a momentary controller change or a note) or one action:
+start, fill, next part, outro, stop or tap tempo. The map is kept in the
+app's ``config.json`` (``midipedal.py``).
+
 Songs are songmodel projects in the app's ``songs`` folder, eight styles
 to start with. Kits are audioinstruments' drum machines, the drum kit of a
 SoundFont (``kits.py`` says where it looks) and folders of WAV files.

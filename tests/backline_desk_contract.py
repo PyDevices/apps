@@ -10,8 +10,9 @@ as the song plays; the grid has a row for each of the kit's drums the song
 uses or every grid shows, and no more; a finger's tap on a cell of the local
 desk lands in the box's song and on the remote desk's grid, a tap on the
 remote desk lands back on the local one, and the song plays on through both;
-a fader moved on one desk moves on the other; and the tempo button changes
-the box's tempo. Every drum's name in the grid, from any General MIDI kit,
+a fader moved on one desk moves on the other; the tempo button changes
+the box's tempo; and a switch learned from the Pedals section shows on
+both desks, and a binding chosen on one shows on the other. Every drum's name in the grid, from any General MIDI kit,
 fits its column without dots, the mixer's names keep apart, and the header
 shows that another screen has joined and that the desk is cast.
 
@@ -38,10 +39,10 @@ from hmilink import local, tcp  # noqa: E402
 import _headless  # noqa: E402
 from backline import box as boxmod  # noqa: E402
 from backline import desk_main, floor, kits, parts  # noqa: E402
-from backline.desk import Desk, editor, grid, perform, strip  # noqa: E402
+from backline.desk import Desk, editor, grid, pedals, perform, strip  # noqa: E402
 
 PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
-          "long-names", "tight-mixer", "no-joiners")
+          "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals")
 SIZES = ((800, 480), (1280, 720))
 RESULTS = [0, 0]
 RATE = 48000
@@ -104,8 +105,34 @@ def plant(name):
             t["cast"] = ""
             return t
         boxmod.Box.telemetry = telemetry
+    elif name == "deaf-learn":
+        pedals.Pedals._learner = lambda self, i: (lambda: None)
+    elif name == "stale-pedals":
+        old_event = editor.Editor.on_event
+
+        def on_event(self, ev):
+            if ev.get("name") != "pedals":
+                old_event(self, ev)
+        editor.Editor.on_event = on_event
     else:
         raise SystemExit("no such plant: %r" % name)
+
+
+class Port:
+    """A MIDI input that hands out what a test puts in ``waiting``."""
+
+    def __init__(self):
+        self.waiting = []
+
+    def any(self):
+        return len(self.waiting[0]) if self.waiting else 0
+
+    def readinto(self, buf, nbytes=None):
+        if not self.waiting:
+            return None
+        msg = self.waiting.pop(0)
+        buf[:len(msg)] = msg
+        return len(msg)
 
 
 def fits(label):
@@ -277,6 +304,41 @@ def run_size(w, h):
     wide = [o.get_text() for o in labels if fits(o) > 0]
     check(tag + ": the mixer's names keep apart and none is cut", min(gaps) >= 4 and not wide,
           "%r, gaps %r" % ([o.get_text() for o in labels], gaps))
+    ped, fped = ed.pedals, fed.pedals
+    x1, y1, x2, y2 = coords(ed.pedals_btn)
+    _headless.touch((x1 + x2) // 2, (y1 + y2) // 2, True, 40)
+    _headless.touch((x1 + x2) // 2, (y1 + y2) // 2, False, 40)
+    _headless.refresh()
+    shown = not ped.base.has_flag(lv.obj.FLAG.HIDDEN) and ed.mixer.has_flag(lv.obj.FLAG.HIDDEN)
+    bad = outside(desk.base, w, h)
+    check(tag + ": the Pedals button shows the switches in the mixer's place, and they fit",
+          shown and not bad, "shown %r, outside: %r" % (shown, bad[:4]))
+    port = Port()
+    box.midi_in = port
+    x1, y1, x2, y2 = coords(ped.learn_buttons[1])
+    _headless.touch((x1 + x2) // 2, (y1 + y2) // 2, True, 40)
+    _headless.touch((x1 + x2) // 2, (y1 + y2) // 2, False, 40)
+    settle(lambda: box.midi.learning == 1 and ped.learn_buttons[1].get_child(0).get_text() == pedals.LEARNING, 1.0)
+    armed = box.midi.learning == 1 and ped.learn_buttons[1].get_child(0).get_text() == pedals.LEARNING
+    port.waiting.append(bytes((0xB0, 80, 127)))
+    run(0.1)
+    want = "2  CC 80 ch 1"
+    settle(lambda: fped.learn_buttons[1].get_child(0).get_text() == want, 1.0)
+    texts = [ped.learn_buttons[1].get_child(0).get_text(), fped.learn_buttons[1].get_child(0).get_text()]
+    ped.base.update_layout()
+    room = ped.learn_buttons[1].get_width() - floor.text_width(texts[0], ped.learn_buttons[1].get_child(0)
+                                                                .get_style_text_font(0))
+    check(tag + ": a switch's button arms it, and the switch it learns shows on both desks",
+          armed and texts == [want, want] and box.midi.slots[1]["msg"] == ["cc", 0, 80] and
+          room >= 8, "armed %r, %r, %d px to spare" % (armed, texts, room))
+    fill = [b for b, _l in fped.bindings].index("fill") if fped.bindings else -1
+    fped._binder(1)(fill)
+    settle(lambda: ped.menus[1].get_selected() == fill, 1.0)
+    check(tag + ": a binding chosen on one desk reaches the box and the other desk",
+          box.midi.slots[1]["bind"] == "fill" and ped.menus[1].get_selected() == fill >= 0,
+          "%r, %r" % (box.midi.slots[1]["bind"], ped.menus[1].get_selected()))
+    box.midi_in = None
+    ed._toggle_pedals()
     settle(lambda: not desk.remote_icon.has_flag(lv.obj.FLAG.HIDDEN), 1.0)
     joined = not desk.remote_icon.has_flag(lv.obj.FLAG.HIDDEN)
     uncast = desk.cast_icon.has_flag(lv.obj.FLAG.HIDDEN)
