@@ -23,9 +23,10 @@ PLANTS = (
     "mp3_deaf",
     "midiengine_deaf",
     "cast_deaf",
+    "cast_finds_nothing",
 )
 #: The plants whose checks need LVGL and icons, which skip without them.
-SCREEN_PLANTS = ("mp3_deaf", "midiengine_deaf", "cast_deaf")
+SCREEN_PLANTS = ("mp3_deaf", "midiengine_deaf", "cast_deaf", "cast_finds_nothing")
 
 
 def _run(case, interpreter, plant=None):

@@ -12,8 +12,9 @@ bar, so their lists show what the device really has::
     connections.register()
 
 On a board with Wi-Fi that's `wifinet`, the networks in range, joined from
-the picker, and castdisplay's Rokus where the firmware has castdisplay. A
-board without Wi-Fi gets nothing here.
+the picker, and nothing else: looking for Rokus costs a board time on every
+screen, so the Cast app registers castdisplay itself when it opens. A board
+without Wi-Fi gets nothing here.
 
 On a computer it's everything the computer's own libraries can list, each
 one only where it's installed: `hostnet` for the operating system's network
@@ -82,8 +83,9 @@ def _castdisplay(registry):
     endpoints.register(registry)
 
 
-#: A board with Wi-Fi's providers beside wifinet, each where it imports.
-WIFI_PROVIDERS = (("castdisplay", _castdisplay),)
+#: A board with Wi-Fi's providers beside wifinet: none, since the apps that
+#: need more register it when they open (Cast registers castdisplay).
+WIFI_PROVIDERS = ()
 
 #: A computer's providers: the name `register` reports, and what registers it.
 HOST_PROVIDERS = (

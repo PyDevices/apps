@@ -24,7 +24,8 @@ when there's no last one to go back to. The receivers cast to before are
 kept in ``receivers.json`` there.
 
 A Roku chosen for ``cast.target`` in the connections picker is picked here
-too, and a cast that's running moves to it.
+too, and a cast that's running moves to it. Opening Cast puts the Rokus in
+that picker on a board, which doesn't look for them until then.
 """
 
 import sys
@@ -51,6 +52,16 @@ TILES = (
 )
 
 state = None  # the open app's state, for the console
+
+
+def _find_rokus():
+    """Have castdisplay list the Rokus for ``cast.target``. A computer's
+    connections did already, and registering again does nothing."""
+    try:
+        from castdisplay import endpoints
+    except ImportError:
+        return  # an older castdisplay, or no endpointkit: Cast finds its own
+    endpoints.register()
 
 
 def _encoder_room():
@@ -587,6 +598,7 @@ def main(scope):
 
     st["toggle"], st["key"], st["pick"] = toggle, key, dd.set_selected  # for the console
     scope.on_close(close)
+    _find_rokus()
     moved(scope.follow("cast.target", moved))
     scope.every(1000, tick)
 

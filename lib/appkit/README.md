@@ -279,7 +279,9 @@ app's own group when it closes. The picker needs endpointkit installed
 
 The first time the Shell opens the picker or makes the bar, it registers
 what the device has to show (`appkit.connections.register()`): on a board
-with Wi-Fi, the networks in range, which the picker joins. On a computer
+with Wi-Fi, the networks in range, which the picker joins. The Cast app
+adds the Rokus on a board when it opens, so looking for them doesn't slow
+every other screen. On a computer
 it's the operating system's network link (reported only), and the sound
 outputs and inputs, MIDI ports, keyboard, mouse, gamepads and Rokus that
 the computer's own libraries find, each where that library is installed.

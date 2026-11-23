@@ -89,6 +89,7 @@ PLANTS = (
     "mp3_deaf",  # the MP3 player ignores a new audio.out
     "midiengine_deaf",  # midiEngine ignores a new audio.out
     "cast_deaf",  # Cast ignores the chosen receiver
+    "cast_finds_nothing",  # Cast leaves the Rokus unlisted on a board
 )
 
 failures = []
@@ -618,11 +619,29 @@ if lv is not None:
     from apps import cast  # noqa: E402
     from touchkit import net as touch_net  # noqa: E402
 
+    class FoundRokus:
+        """castdisplay's provider, counting its registrations."""
+
+        registered = []
+
+        @staticmethod
+        def register(registry=None):
+            FoundRokus.registered.append(registry)
+
+    class Castdisplay:
+        endpoints = FoundRokus
+
+    real_castdisplay = sys.modules.get("castdisplay")
+    sys.modules["castdisplay"] = Castdisplay
+    if PLANT == "cast_finds_nothing":
+        cast._find_rokus = lambda: None
     touch_net.up = lambda: False  # no looking round the network here
     cast._encoder_room = lambda: (0, 1)  # a cast that starts stops at once, saying why
     cast_scope = screen_scope("cast")
     cast.main(cast_scope)
     st = cast.state
+    # A board's connections leave the Rokus to Cast, so opening it lists them.
+    check(len(FoundRokus.registered) == 1, "opening Cast registers castdisplay: %r" % (FoundRokus.registered,))
 
     class Sink:
         closed = False
@@ -637,6 +656,10 @@ if lv is not None:
     check(cast_scope.store().get("host") == "10.0.0.7", "Cast picks the chosen Roku: %r" % (cast_scope.store(),))
     check(Sink.closed, "a running cast stops to move to it")
     cast_scope.close()
+    if real_castdisplay is None:
+        del sys.modules["castdisplay"]
+    else:
+        sys.modules["castdisplay"] = real_castdisplay
 
 if PLANT and PLANT not in PLANTS:
     print("unknown plant:", PLANT)
