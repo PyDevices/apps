@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Backline</title>
+<!--
+  Backline in a browser. ?role=box plays the songs here, ?role=desk is the
+  desk for a box somewhere else. page.js says how the two find a board.
+-->
+<style>
+:root { --bg:#06080c; --panel:#121821; --raised:#1a2230; --line:#2a3444; --fg:#dde3ec; --dim:#8792a5;
+  --amber:#ffb703; --blue:#4cc9f0; --bad:#ff4d6d; }
+* { box-sizing: border-box; }
+body { margin:0; background:var(--bg); color:var(--fg); font:15px/1.45 system-ui, sans-serif; }
+header { display:flex; flex-wrap:wrap; gap:16px; align-items:center; padding:10px 16px; background:var(--panel);
+  border-bottom:1px solid var(--line); }
+h1 { font-size:15px; letter-spacing:4px; color:var(--amber); margin:0 8px 0 0; font-weight:600; }
+nav a { color:var(--dim); text-decoration:none; padding:6px 12px; border:1px solid transparent; border-radius:8px; }
+nav a:hover { color:var(--fg); }
+body.box nav a[data-role=box], body.desk nav a[data-role=desk] { color:var(--fg); border-color:var(--amber);
+  background:#3b3115; }
+#status { margin-left:auto; color:var(--dim); font-size:13px; }
+#status.bad { color:var(--bad); }
+main { max-width:1060px; margin:0 auto; padding:16px; display:grid; gap:14px; }
+.stage { display:none; }
+body.running .stage { display:block; }
+canvas { display:block; width:100%; height:auto; border-radius:10px; border:1px solid var(--line);
+  background:#000; outline:none; touch-action:none; }
+body.box canvas { aspect-ratio:800/480; }
+body.desk canvas { aspect-ratio:1024/600; }
+.controls { display:none; flex-wrap:wrap; gap:14px; align-items:center; }
+body.running .controls { display:flex; }
+.pad { width:84px; height:84px; border-radius:50%; font:600 26px system-ui, sans-serif; color:var(--fg);
+  border:3px solid #4b5565; background:radial-gradient(circle at 40% 35%, #2b3443, #07090d);
+  touch-action:none; user-select:none; cursor:pointer; }
+.pad.down { box-shadow:0 0 24px 6px var(--glow); border-color:var(--glow); }
+#pad-a { --glow:var(--amber); } #pad-b { --glow:var(--blue); }
+.join { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-left:auto; }
+.join span { color:var(--dim); }
+button, input { background:var(--raised); color:var(--fg); border:1px solid var(--line); border-radius:8px;
+  padding:7px 12px; font:inherit; }
+button { cursor:pointer; }
+button:hover { border-color:var(--amber); }
+input { width:130px; }
+.desk-only { display:none; }
+body.desk .desk-only { display:inline-block; }
+.hint { color:var(--dim); font-size:13px; margin:0; }
+.choose { display:none; gap:14px; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
+body.choosing .choose { display:grid; }
+.choose a { display:block; padding:18px; border:1px solid var(--line); border-radius:10px; background:var(--panel);
+  color:var(--fg); text-decoration:none; }
+.choose a:hover { border-color:var(--amber); }
+.choose strong { display:block; color:var(--amber); letter-spacing:2px; margin-bottom:6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>BACKLINE</h1>
+  <nav><a data-role="box" href="?role=box">Play here</a> <a data-role="desk" href="?role=desk">Desk for a box</a></nav>
+  <span id="status"></span>
+</header>
+<main>
+  <div class="choose">
+    <a href="?role=box"><strong>PLAY HERE</strong>The songs and the drums run in this browser. Tap the space bar
+      for the pedal. A board can join as the desk, over USB or Bluetooth.</a>
+    <a href="?role=desk"><strong>DESK FOR A BOX</strong>This browser shows the desk of a Backline box: a board over
+      Bluetooth or USB, or a box on the network.</a>
+  </div>
+  <div class="stage"><canvas id="screen" tabindex="0"></canvas></div>
+  <div class="controls">
+    <button class="pad" id="pad-a" title="Pedal A (space)">A</button>
+    <button class="pad" id="pad-b" title="Pedal B (B)">B</button>
+    <div class="join">
+      <span id="join-label"></span>
+      <button id="join-usb">USB</button>
+      <button id="join-bt">Bluetooth</button>
+      <input id="bt-name" value="Backline" title="The board's Bluetooth name" aria-label="Bluetooth name">
+      <button id="join-ws" class="desk-only">Network</button>
+      <input id="ws-host" class="desk-only" placeholder="box:9300" aria-label="The box's address">
+    </div>
+  </div>
+  <p class="hint" id="hint"></p>
+</main>
+<script>
+  // The words that differ between the two roles.
+  const role = new URLSearchParams(location.search).get("role");
+  if (role === "box") {
+    document.getElementById("join-label").textContent = "Add a desk:";
+    document.getElementById("hint").textContent =
+      "Space is pedal A and B is pedal B. Tap to start, tap for a fill, hold for the next part, tap twice to end. " +
+      "Click the page once so the browser lets it play sound.";
+  } else if (role === "desk") {
+    document.getElementById("join-label").textContent = "Join a box:";
+    document.getElementById("hint").textContent =
+      "Space is pedal A and B is pedal B. A box on the network serves this page's desk on port 9300.";
+  }
+</script>
+<script type="module" src="./page.js"></script>
+</body>
+</html>
