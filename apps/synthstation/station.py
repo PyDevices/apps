@@ -16,6 +16,8 @@ instrument's picks another channel to show, and an instrument chosen while it
 shows becomes that channel's own. A channel without one plays channel 1's.
 """
 
+import sys
+
 import lvgl as lv
 
 from . import midi as _midi
@@ -191,6 +193,9 @@ class Station:
         # Opening the keyboards can take a moment (a USB host starting), so
         # it happens once the splash is on the screen.
         scope.after(50, self._open_midi)
+        follow = getattr(scope, "follow", None)
+        if follow is not None and sys.platform in _midi.DESKTOPS:
+            follow("midi.in", self._midi_moved)
 
     # ---- the splash and the menu -----------------------------------------------
 
@@ -382,6 +387,22 @@ class Station:
         self.inputs = _midi.Inputs().open()
         self._show_midi()
         self._first_instrument(KEYBOARD_WAIT_MS)
+
+    def _midi_moved(self, endpoints):
+        """Other MIDI inputs were chosen for the computer: read those, or
+        every input again when none is."""
+        if self.inputs is None:
+            return  # not open yet, or reopening below
+        self.inputs.close()
+        self.inputs = None
+        if any(ep.error for ep in endpoints):
+            # This app held a port the choice wanted, and a port has one
+            # reader at a time: now it's let go, ask for the choice again.
+            import endpointkit
+
+            endpointkit.select("midi.in", endpointkit.chosen("midi.in"))
+        self.inputs = _midi.Inputs().open()
+        self._show_midi()
 
     def _first_instrument(self, wait_ms):
         """Open the last instrument played, once a keyboard is seen or the wait is over."""

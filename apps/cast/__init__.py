@@ -22,6 +22,10 @@ It casts with the ``castdisplay`` package, which installs with it.
 ``{"prefer": "Bedroom"}`` picks the receiver whose name holds that text
 when there's no last one to go back to. The receivers cast to before are
 kept in ``receivers.json`` there.
+
+A Roku chosen for ``cast.target`` in the connections picker is picked here
+too, and a cast that's running moves to it. On a board the picker lists
+Rokus only while Cast is open, which is when the board looks for them.
 """
 
 import sys
@@ -48,6 +52,28 @@ TILES = (
 )
 
 state = None  # the open app's state, for the console
+
+
+def _find_rokus(scope):
+    """Have castdisplay list the Rokus for ``cast.target`` while Cast is open.
+
+    A computer's connections registered them already, and they stay. On a
+    board Cast registers them, and stops the search when it closes, since it
+    sends one every 10 s.
+    """
+    try:
+        import endpointkit
+        from castdisplay import endpoints
+    except ImportError:
+        return  # an older castdisplay, or no endpointkit: Cast finds its own
+    registry = endpointkit.registry
+    there = registry.providers("cast.target")
+    rokus = endpoints.register()  # the same finder every time Cast opens
+    if rokus in there:
+        return
+    if rokus not in registry.providers("cast.target"):
+        registry.register(rokus)  # back after an earlier close took it out
+    scope.on_close(lambda: registry.unregister(rokus))
 
 
 def _encoder_room():
@@ -565,8 +591,27 @@ def main(scope):
         if st["sink"] is not None:
             stop()
 
+    def moved(endpoints):
+        # The receiver chosen for the whole device: listed, picked, and cast
+        # to now if a cast runs.
+        for ep in endpoints:
+            host = ep.caps.get("host")
+            if not host:
+                continue
+            kept["host"] = host
+            add([{"name": ep.label, "host": host, "kind": ep.caps.get("type") or "roku"}])
+            for i, r in enumerate(st["shown"]):
+                if r["host"] == host:
+                    dd.set_selected(i)
+            if st["sink"] is not None and not st["busy"]:
+                stop()
+                start()
+            return
+
     st["toggle"], st["key"], st["pick"] = toggle, key, dd.set_selected  # for the console
     scope.on_close(close)
+    _find_rokus(scope)
+    moved(scope.follow("cast.target", moved))
     scope.every(1000, tick)
 
     def setup(t):

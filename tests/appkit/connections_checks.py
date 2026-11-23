@@ -6,8 +6,8 @@
     python connections_checks.py          # from tests/appkit, with the harness's paths
 
 Once as a computer, which gets hostnet, and once as a board with Wi-Fi,
-which gets wifinet: a stand-in ``network`` module with a station on "Home"
-and "Cafe" in range. Exit status 0 when every check passes.
+which gets wifinet alone: a stand-in ``network`` module with a station on
+"Home" and "Cafe" in range, and a stand-in castdisplay it must leave alone. Exit status 0 when every check passes.
 """
 
 import os
@@ -48,6 +48,8 @@ from appkit import connections  # noqa: E402
 PLANT = os.getenv("CONNECTIONS_PLANT")
 if PLANT == "no_wifi":
     connections._wifi = lambda: False
+elif PLANT == "board_finds_rokus":
+    connections.WIFI_PROVIDERS = (("castdisplay", connections._castdisplay),)
 
 
 def ids(reg):
@@ -57,7 +59,9 @@ def ids(reg):
 # A computer: the operating system's link, reported.
 reg = endpointkit.Registry()
 names = connections.register(reg)
-check(names == ["hostnet"], "a computer registers hostnet: %r" % (names,))
+host_names = [name for name, _ in connections.HOST_PROVIDERS]
+check(names[:1] == ["hostnet"], "a computer registers hostnet first: %r" % (names,))
+check(all(name in host_names for name in names), "and only a computer's own libraries: %r" % (names,))
 check(ids(reg) and ids(reg)[0] == "host-net:default", "the host's link is listed: %r" % ids(reg))
 check(connections.register(reg) is names and len(reg.providers("net")) == 1, "registering again does nothing")
 
@@ -94,12 +98,31 @@ class Network:
         return "board"
 
 
-# A board with Wi-Fi: its networks, joined from the picker.
+class Rokus:
+    """castdisplay's provider, counting its registrations."""
+
+    registered = []
+
+    @staticmethod
+    def register(registry=None):
+        Rokus.registered.append(registry)
+
+
+class Castdisplay:
+    endpoints = Rokus
+
+
+# A board with Wi-Fi: its networks, joined from the picker, and no looking
+# for Rokus, though castdisplay is there: Cast does that when it opens.
 sys.modules["network"] = Network
+sys.modules["castdisplay"] = Castdisplay
 del connections._done[:]
 reg = endpointkit.Registry()
 names = connections.register(reg)
-check(names == ["wifinet"], "a board with Wi-Fi registers wifinet: %r" % (names,))
+wifi_names = [name for name, _ in connections.WIFI_PROVIDERS]
+check(names[:1] == ["wifinet"], "a board with Wi-Fi registers wifinet: %r" % (names,))
+check(all(name in wifi_names for name in names[1:]), "and nothing of a computer's: %r" % (names,))
+check("castdisplay" not in names and not Rokus.registered, "a board doesn't look for Rokus: %r" % (names,))
 check(reg.selection("net") == ["wifi:Home"], "the network the board is on is chosen: %r" % reg.selection("net"))
 reg.poll()
 check(ids(reg) == ["wifi:Home", "wifi:Cafe"], "the networks in range are listed after a scan: %r" % ids(reg))

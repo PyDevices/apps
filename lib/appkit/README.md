@@ -66,6 +66,7 @@ modules from `sys.modules`.
 | `scope.data_dir` | A folder for the app's own files; `scope.data_dir_of("camera")` is another app's |
 | `scope.store()` | A dict that's still there the next time the app opens |
 | `scope.foreground(fn)` | The program's main loop calls `fn()` over and over, for work too heavy for a timer |
+| `scope.follow(kind, fn)` | `fn` hears when the sound output, MIDI inputs or network chosen for the device change ([Choosing connections](#choosing-connections)) |
 
 `scope.worker.submit(work, done)` runs `work()` in the background and then
 calls `done(value, error)` on the main thread, so the screen never waits on
@@ -278,8 +279,30 @@ app's own group when it closes. The picker needs endpointkit installed
 
 The first time the Shell opens the picker or makes the bar, it registers
 what the device has to show (`appkit.connections.register()`): on a board
-with Wi-Fi, the networks in range, which the picker joins; on a computer,
-the operating system's link, reported only.
+with Wi-Fi, the networks in range, which the picker joins. The Cast app
+adds the Rokus on a board when it opens, so looking for them doesn't slow
+every other screen. On a computer
+it's the operating system's network link (reported only), and the sound
+outputs and inputs, MIDI ports, keyboard, mouse, gamepads and Rokus that
+the computer's own libraries find, each where that library is installed.
+
+An app that plays, casts or connects follows its kind, so a choice made
+while it runs moves it there. `scope.follow(kind, callback)` calls
+`callback(endpoints)` whenever what's in use for that kind changes, and
+returns what's in use now; it stops when the app closes, and without
+endpointkit it returns `[]` and never calls. On a computer,
+`connections.device(endpoints)` is the name to open the chosen sound device
+by, or None for the default:
+
+```python
+from appkit import connections
+
+def main(scope):
+    def moved(endpoints):
+        reopen(connections.device(endpoints))   # close the old output, open this one
+
+    start(connections.device(scope.follow("audio.out", moved)))
+```
 
 ## Typing
 

@@ -39,7 +39,9 @@ parser it reads files with.
 
 The sound is audioinstruments' ``soundfont`` and ``soundfont_drums``,
 reading one .sf2, mixed through audioeffects' Chorus and Reverb and out
-of the 3.5 mm jack. The bank is ``$SOUNDFONT``, else a .sf2 in
+of the 3.5 mm jack. On a computer it's the sound device chosen for
+``audio.out`` (the connections picker), and choosing another while it plays
+moves the sound there. The bank is ``$SOUNDFONT``, else a .sf2 in
 ``~/soundfonts`` on a desktop, ``/sd/soundfonts``, ``/soundfonts`` or
 ``/data/soundfonts`` on a board; with more than one there, the app opens on a list of them, the
 last one chosen lit, and the sound starts with the one tapped (``banks.py``
@@ -55,7 +57,7 @@ import sys
 
 from multimer import ticks_diff, ticks_ms
 
-from appkit import places
+from appkit import connections, places
 from touchkit import ui
 
 try:
@@ -121,6 +123,7 @@ def main(scope):
         "seen": [0] * 16, "midi": None, "error": None, "short": None, "shown": None, "bank": None, "bank_name": "",
         "merged": False, "midi_told": False, "ticks": 0, "ble": None, "ble_shown": None, "ble_resumed": False,
         "since": ticks_ms(), "player": None, "player_shown": None, "browse": None, "marked": None, "widgets": {},
+        "device": None,
     }
     watch = midiin.Watch()  # names the hub's MIDI devices for the status line
     prefs = scope.store()
@@ -152,26 +155,58 @@ def main(scope):
 
     def start_audio(bank):
         try:
-            from audiodev import AudioFormat
             import board_peripherals as bp
             module = gm.Module(RATE, CHANNELS, bank=bank)
             module.prepare()  # the bank's presets read now, not in the first tap on a piece
             power = getattr(bp, "audio_power", None)
             if power is not None:
                 power(True, volume=CODEC_VOLUME)
-            # A computer's default output buffers for playback, too long for keys.
-            live = {"latency": "low"} if sys.platform in DESKTOPS else {}
-            out = bp.audio_out(AudioFormat(RATE, CHANNELS, 16), **live)
-            out.attach(scope)  # its service() on the app's timer: pumped here, stops with the app
-            module.on_master = out.set_volume
-            module.set_master(prefs["volume"])
-            out.play(module.output)
+            out = open_out(module)
         except Exception as e:
             st["error"] = "audio: %s" % (e,)
             return
         st["module"], st["out"], st["bank"] = module, out, bank
         st["bank_name"] = banks.name_of(bank)
         resume_ble()
+
+    def open_out(module):
+        """The output *module* plays through, opened and playing."""
+        from audiodev import AudioFormat
+        import board_peripherals as bp
+        # A computer's default output buffers for playback, too long for keys.
+        live = {"latency": "low"} if sys.platform in DESKTOPS else {}
+        if st["device"] is not None:
+            live["device"] = st["device"]
+        out = bp.audio_out(AudioFormat(RATE, CHANNELS, 16), **live)
+        out.attach(scope)  # its service() on the app's timer: pumped here, stops with the app
+        module.on_master = out.set_volume
+        module.set_master(prefs["volume"])
+        out.play(module.output)
+        return out
+
+    def close_out(out):
+        try:
+            out.stop()
+        except Exception:
+            pass
+        out.detach()
+        out.close()
+
+    def moved(endpoints):
+        # Another output was chosen: the module plays on there, its notes,
+        # bank and player as they were.
+        st["device"] = connections.device(endpoints)
+        out, module = st["out"], st["module"]
+        if out is None:
+            return
+        st["out"] = None
+        close_out(out)
+        try:
+            st["out"] = open_out(module)
+        except Exception as e:
+            st["error"] = "audio: %s" % (e,)
+
+    st["device"] = connections.device(scope.follow("audio.out", moved))
 
     def resume_ble():
         """Turn Bluetooth MIDI back on if it was left on, once: after the
@@ -186,12 +221,7 @@ def main(scope):
         out, module = st["out"], st["module"]
         st["out"] = st["module"] = None
         if out is not None:
-            try:
-                out.stop()
-            except Exception:
-                pass
-            out.detach()
-            out.close()
+            close_out(out)
         if module is not None:
             module.close()  # after the output, so it never pulls a deinitialised node
         try:

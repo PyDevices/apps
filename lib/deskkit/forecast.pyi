@@ -13,6 +13,7 @@ class _Worker(Protocol):
 class _AppScope(Protocol):
     worker: _Worker
     def every(self, ms: int, callback: Callable[..., None]) -> Any: ...
+    def follow(self, kind: str, callback: Callable[[list[Any]], Any]) -> list[Any]: ...
 
 MAX_AGE_S: int
 RETRY_S: int
@@ -36,5 +37,7 @@ def fetch() -> bool:
     """Get the forecast now, and keep the clock right. It blocks: call it from a worker."""
 def is_stale() -> bool:
     """Return True when a fetch is due: the data is old and no try was recent."""
+def network_moved() -> None:
+    """Another network carries traffic now: the next check fetches, sets the clock and finds the place again."""
 def keep_fresh(scope: _AppScope, on_update: Callable[[], None] | None = None) -> None:
     """Fetch whenever the forecast goes stale, for as long as `scope` is open."""

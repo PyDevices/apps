@@ -109,7 +109,7 @@ NOTE_POOL = 24
 class SoundEngine:
     """Manage synthio playback, 3-act procedural music, SFX, and visualizers."""
 
-    def __init__(self, board_peripherals_mod, app=None):
+    def __init__(self, board_peripherals_mod, app=None, device=None):
         self.muted = False
         self.ready = False
         self._warned = False
@@ -153,7 +153,10 @@ class SoundEngine:
             print("bit_world: no board_peripherals.audio_out on this board, running silent")
             return
         try:
-            self.audio_out = board_peripherals_mod.audio_out(latency="buffered")
+            # A computer's sound device by name (see bit_world.pick_audio_out),
+            # or None for where the board's audio out plays.
+            more = {} if device is None else {"device": device}
+            self.audio_out = board_peripherals_mod.audio_out(latency="buffered", **more)
             if app is not None and hasattr(self.audio_out, "attach"):
                 self.audio_out.attach(app)
             self.synth = synthio.Synthesizer(

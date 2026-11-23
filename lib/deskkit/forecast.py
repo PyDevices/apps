@@ -230,6 +230,16 @@ def is_stale():
     return _tried_at is None or time.time() - _tried_at >= RETRY_S
 
 
+def network_moved():
+    """Another network carries traffic now: make the next check fetch the
+    forecast, set the clock and look up where the board is again, since a
+    new network can be in another city or block what the last one let by."""
+    global _tried_at, _got_at
+    _tried_at = None
+    _got_at = None
+    localtime.network_moved()
+
+
 def keep_fresh(scope, on_update=None):
     """Fetch whenever the forecast goes stale, for as long as *scope* is open.
 
@@ -239,7 +249,8 @@ def keep_fresh(scope, on_update=None):
             each fetch, good or bad, while the app is open.
 
     Before a place is chosen, it first lets the board find where it is from
-    its IP address, if it hasn't tried yet.
+    its IP address, if it hasn't tried yet. When another network is chosen
+    for ``net`` and connects, it asks again at once (`network_moved`).
     """
 
     def done(_value, _error):
@@ -257,5 +268,13 @@ def keep_fresh(scope, on_update=None):
         elif is_stale():
             scope.worker.submit(fetch, done, key="forecast")
 
+    def moved(endpoints):
+        for ep in endpoints:
+            if ep.state == "connected":
+                network_moved()
+                check()
+                return
+
     scope.every(60_000, check)
+    scope.follow("net", moved)
     check()

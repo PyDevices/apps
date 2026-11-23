@@ -9,7 +9,9 @@ output goes to the pump, which pulls it on its own core and writes each
 block straight into I2S. The codec is powered through the board's
 ``audio_power`` when it has one. Anywhere else (a desktop) it plays through
 the board config's ``audio_out``, which uses the pump too where there is
-one.
+one. On a computer that's the sound device chosen for ``audio.out`` (the
+connections picker, or `endpointkit.select`), and the instrument moves
+there while it plays when the choice changes.
 
 `Output.load` reads the pump's status block: how long a block of
 audio took to render, as a share of how long it lasts, and how many times
@@ -106,6 +108,20 @@ class Output:
         else:
             self._audioif = None
             self._pump = audiopump
+        #: The computer's sound device chosen for ``audio.out``, or None for its default.
+        self.device = None
+        follow = getattr(scope, "follow", None)
+        if follow is not None and self._wire is None:
+            from appkit import connections
+
+            self._device_of = connections.device
+            self.device = connections.device(follow("audio.out", self._moved))
+
+    def _moved(self, endpoints):
+        """Another sound output was chosen: the instrument plays on there."""
+        self.device = self._device_of(endpoints)
+        if self.instrument is not None and self._out is not None:
+            self.start(self.instrument)
 
     @property
     def on_board(self):
@@ -144,6 +160,8 @@ class Output:
             kwargs = {}
             if sys.platform == "webassembly":
                 kwargs = {"lookahead_chunks": BROWSER_LOOKAHEAD, "max_catchup_chunks": BROWSER_CATCHUP}
+            if self.device is not None:
+                kwargs["device"] = self.device
             out = self._bp.audio_out(AudioFormat(self.rate, self.channels, 16), latency="low", **kwargs)
             out.attach(self.scope)  # its service() on the app's timer
             if self.volume is not None:

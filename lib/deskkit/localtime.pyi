@@ -25,6 +25,8 @@ def follow_ip_zone() -> bool:
     """Take the timezone, and Weather's place until one is chosen, from the board's public IP address."""
 def resync_if_due() -> None:
     """Set the clock, the timezone and the place from the IP when the clock is unset or a day has passed."""
+def network_moved() -> None:
+    """Another network carries traffic now: the next `resync_if_due` sets the clock and finds the place again."""
 def finding() -> bool:
     """Return True while a board hasn't yet tried to find where it is."""
 def now() -> tuple[int, ...]:

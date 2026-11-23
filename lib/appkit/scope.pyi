@@ -95,6 +95,8 @@ class AppScope:
         """Unsubscribe from App events."""
     def subscribe(self, device: Any, callback: _F, event_types: Any = None) -> _F:
         """`device.subscribe(callback)` on a shared device; unsubscribed at close."""
+    def follow(self, kind: str, callback: Callable[[list[Any]], Any], registry: Any = None) -> list[Any]:
+        """Call `callback(endpoints)` when what's in use for endpointkit `kind` changes, until close; returns what's in use now."""
     def register(self, dev: _T) -> _T:
         """Register a device with the App; unregistered at close."""
     def unregister(self, dev: Any) -> None:
