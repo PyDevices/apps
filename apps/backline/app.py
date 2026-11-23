@@ -216,7 +216,8 @@ def start(scope):
         # The shell's header has room for the song's place in the list; a
         # label of the app's own, over the view, says only what went wrong.
         status.set_text(t["error"] if own_status else
-                        t["error"] or "%s  •  %d of %d" % (t["song"], t["song_index"] + 1, t["songs"]))
+                        t["error"] or ("%s  •  %d of %d" % (t["song"], t["song_index"] + 1, t["songs"])
+                                       if t["song_index"] >= 0 else t["song"]))
 
     def key_down(e):
         k = getattr(e, "key", None)

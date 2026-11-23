@@ -148,6 +148,10 @@ def tick():
 def pedal(which, down):
     page.pedal(which, down)
 
+def key(name):
+    if hasattr(page, "key"):
+        page.key(name)
+
 def notes():
     return page.notes() if hasattr(page, "notes") else "[]"
 `);
@@ -155,6 +159,8 @@ def notes():
   globalThis.backlineNotes = () => notes();
   const tick = mp.globals.get("tick");
   const pedal = mp.globals.get("pedal");
+  const key = mp.globals.get("key");
+  globalThis.backlineKey = (name) => key(name);
   const timer = setInterval(() => {
     try {
       tick();
@@ -187,6 +193,14 @@ function pedals(pedal) {
     pedal(which, down ? 1 : 0);
   };
   document.addEventListener("keydown", (e) => {
+    // The desk's prompt sheet is open: keys type the request, not pedals.
+    if (globalThis.backlineState?.typing && e.target.tagName !== "INPUT") {
+      if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") {
+        e.preventDefault();
+        globalThis.backlineKey(e.key);
+      }
+      return;
+    }
     if (e.key in KEYS && !e.repeat && e.target.tagName !== "INPUT") {
       e.preventDefault();
       press(KEYS[e.key], true);

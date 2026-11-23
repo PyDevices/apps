@@ -53,8 +53,8 @@ DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip"
                "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
                "wide-sheet")
 ASK_PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-shift", "lost-plan", "quiet-failure",
-              "keep-nowhere", "whole-reply")
-ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere")
+              "keep-nowhere", "whole-reply", "old-song-shown")
+ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 

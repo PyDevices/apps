@@ -233,7 +233,8 @@ class Box:
     def telemetry(self):
         t = self.engine.telemetry()
         t["error"] = self.error or ""
-        t["song_index"] = self.song_index
+        # -1 while a song that came back from `ask` plays: it isn't one of the songs yet
+        t["song_index"] = -1 if self._before is not None else self.song_index
         t["songs"] = len(self.songs)
         t["cast"] = self.cast
         t["ask"] = self.ask_state

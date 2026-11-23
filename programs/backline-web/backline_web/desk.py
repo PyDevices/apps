@@ -82,6 +82,19 @@ class Page:
         if self.plant != "deaf-desk":
             self.desk.pedal(which, bool(down))
 
+    def key(self, name):
+        """A key typed on the page while the desk's prompt sheet is open: a
+        character, ``"Backspace"`` or ``"Enter"`` (which asks)."""
+        sheet = self.desk.prompt
+        if not sheet.shown():
+            return
+        if name == "Enter":
+            sheet.ask()
+        elif name == "Backspace":
+            sheet.field.delete_char()
+        elif len(name) == 1:
+            sheet.field.add_text(name)
+
     def state(self):
         """What the page shows around the canvas, and what its checks read."""
         t = self.desk.tele or {}
@@ -100,4 +113,5 @@ class Page:
             "desk_part": part[0] if part else "",
             "desk_where": self.desk.shown.get("where", ""),
             "message": self.desk.message,
+            "typing": self.desk.typing(),
         }

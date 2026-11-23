@@ -22,13 +22,12 @@ The settings are the server's address, a key file and the model, in
 ``settings.json`` in the app's data folder (`load_settings`): the same
 three Huey takes, so one lite-assistant or DeepInfra account serves both.
 
-Imports on CPython and MicroPython with chatclient and songmodel; the
+Imports on CPython and MicroPython with songmodel; asking imports chatclient. The
 calls block, so the box makes them from a worker.
 """
 
 import json
 
-import chatclient
 from songmodel import model
 
 #: Every setting and its value when ``settings.json`` doesn't give one.
@@ -565,6 +564,14 @@ def plan_text(p):
 # -- asking ------------------------------------------------------------------------
 
 
+def _chatclient():
+    # imported when a song is asked for, not before: a desk shows songs and
+    # never asks, and a browser's Python has no sockets for chatclient.web
+    import chatclient
+
+    return chatclient
+
+
 class Asker:
     """Asks the server in the settings for songs.
 
@@ -589,11 +596,11 @@ class Asker:
         if not base:
             raise AskError("no server to ask: set base_url in Backline's settings.json")
         try:
-            key = chatclient.read_key(self.settings["key_file"])
+            key = _chatclient().read_key(self.settings["key_file"])
         except OSError as e:
             raise AskError("no API key: %s (key_file in settings.json, or \"\" for a server that needs none)" % (e,))
         if self.client is None or self.client.base != base.rstrip("/"):
-            self.client = chatclient.Client(base, key, self.post, timeout=TIMEOUT)
+            self.client = _chatclient().Client(base, key, self.post, timeout=TIMEOUT)
         else:
             self.client._key = key
         return self.client
@@ -613,7 +620,7 @@ class Asker:
             try:
                 text = client.chat_json(messages, self.settings["chat_model"], schema(self.kits), "song", stream=True,
                                         max_tokens=MAX_TOKENS, temperature=0.6)
-            except chatclient.ServerError as e:
+            except _chatclient().ServerError as e:
                 raise AskError("the server refused: %s" % (e,))
             except OSError as e:
                 raise AskError("can't reach %s: %s" % (self.settings["base_url"], e))

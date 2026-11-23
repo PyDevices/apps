@@ -315,7 +315,7 @@ class Editor:
     def on_tele(self, t):
         self.strip.show(t)
         index = t.get("song_index")
-        if index is not None and index != self.songs.get_selected() and not self.songs.is_open():
+        if index is not None and index >= 0 and index != self.songs.get_selected() and not self.songs.is_open():
             self.songs.set_selected(index)
         playing = t.get("playing")
         if playing and self.follow:

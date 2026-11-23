@@ -323,7 +323,15 @@ function showTele() {
   document.getElementById("where").textContent = playing ? t.bar + " . " + t.beat : "- . -";
   document.getElementById("next").textContent = t.next ? "NEXT " + t.next.toUpperCase() : playing ? "LOOPING" : "TAP A TO START";
   const song = document.getElementById("song");
-  if (t.song_index != null && document.activeElement !== song) song.value = t.song_index;
+  if (t.song_index != null && document.activeElement !== song) {
+    // -1: a song that came back from asking plays; it has an entry of its own until it is kept
+    let asked = song.querySelector("option[value='-1']");
+    if (t.song_index < 0) {
+      if (!asked) { asked = document.createElement("option"); asked.value = "-1"; song.append(asked); }
+      asked.textContent = t.song || "Asked for";
+    } else if (asked) asked.remove();
+    song.value = t.song_index;
+  }
   for (const [i, el] of [document.getElementById("pa"), document.getElementById("pb")].entries())
     el.classList.toggle("down", (t.pedals || [])[i] && t.pedals[i] !== "up");
   const lit = playing ? find(t.role, t.number) : -1, nxt = playing ? find(t.next_role, t.next_number) : -1;
@@ -363,7 +371,7 @@ document.onkeyup = (e) => {
   if (which < 0 || !keys.has(e.key)) return;
   keys.delete(e.key); command("pedal", { pedal: which, down: false });
 };
-document.getElementById("song").onchange = (e) => command("song", { index: +e.target.value });
+document.getElementById("song").onchange = (e) => { if (+e.target.value >= 0) command("song", { index: +e.target.value }); };
 document.getElementById("kit").onchange = (e) => command("kit", { spec: e.target.value });
 document.getElementById("tempo").onchange = (e) => send("replace", "/tempo", +e.target.value);
 document.getElementById("slower").onclick = () => send("replace", "/tempo", Math.round(doc.tempo) - 1);

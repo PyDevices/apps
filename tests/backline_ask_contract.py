@@ -34,8 +34,8 @@ from backline import engine as eng  # noqa: E402
 from songmodel import model  # noqa: E402
 
 PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-shift", "lost-plan", "quiet-failure",
-          "keep-nowhere", "whole-reply")
-NEEDS_BOX = ("quiet-failure", "keep-nowhere")
+          "keep-nowhere", "whole-reply", "old-song-shown")
+NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 RESULTS = [0, 0]
 SKIPS = []
 RATE = 48000
@@ -224,6 +224,16 @@ def plant(name):
         from backline import box
 
         box.Box._save = lambda self, project: self.user_songs + "/nothing.json"
+    elif name == "old-song-shown":
+        from backline import box
+
+        old_tele = box.Box.telemetry
+
+        def telemetry(self):
+            t = old_tele(self)
+            t["song_index"] = self.song_index
+            return t
+        box.Box.telemetry = telemetry
     elif name == "whole-reply":
         old_json = chatclient.Client.chat_json
 
@@ -426,10 +436,13 @@ def check_box(tmp):
     b.command("proposal", {"do": "play"})
     check("Play starts the song that came back", b.engine.transport["playing"] and b.model.doc["name"] == "Slow Twelve"
           and b.engine.form.repeat == 4)
+    check("while it plays, no song in the list is shown as the one playing",
+          b.telemetry()["song_index"] == -1 and b.telemetry()["song"] == "Slow Twelve", repr(b.telemetry()["song_index"]))
     b.command("proposal", {"do": "keep"})
     kept = [n for n in os.listdir(folder)] if _exists(folder) else []
     check("Keep saves it among the songs, and it is the song chosen",
-          len(b.songs) == before + 1 and b.song_index == before and kept == ["slow_twelve.json"]
+          len(b.songs) == before + 1 and b.song_index == before and b.telemetry()["song_index"] == before
+          and kept == ["slow_twelve.json"]
           and b.proposal is None, "%r %r" % (kept, b.songs[-1:]))
     b.command("ask", {"text": "something else"})
     t = b.telemetry()
