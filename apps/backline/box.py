@@ -143,6 +143,8 @@ class Box:
                                         on_change=self._pedals_changed)
         self.midi_in = None
         self.taps = midipedal.TapTempo()
+        #: Switches on pins (`footswitch.Footswitch`), read each `service` pass.
+        self.switches = []
         self.model = BacklineModel(project, forward=self.forward, host=self)
         self.device = hmilink.Device(self.model, telemetry_hz=30)
         self.use_kit(kit or project["tracks"][0].get("instrument") or kits.MACHINES[0])
@@ -215,6 +217,10 @@ class Box:
     def service(self):
         """One pass: the pedals' timing, the notes due, the kit's fill, the panels."""
         e = self.engine
+        if self.switches:
+            now = e.now_ms()
+            for sw in self.switches:
+                sw.poll(now)
         if self.midi_in is not None:
             try:
                 self.midi.read_port(self.midi_in)

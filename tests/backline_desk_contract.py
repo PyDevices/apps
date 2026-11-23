@@ -47,7 +47,7 @@ from backline.desk import Desk, editor, grid, pedals, perform, prompt, strip  # 
 
 PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
           "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
-          "wide-sheet")
+          "wide-sheet", "deaf-silence")
 #: What the stand-in chat server answers: a 12-bar shuffle, 4 times through, the outro slowing.
 SONG = {
     "name": "Slow Twelve", "style": "blues", "tempo": 72, "meter": "4/4", "feel": "shuffle", "swing": 0,
@@ -146,6 +146,8 @@ def plant(name):
             t["cast"] = ""
             return t
         boxmod.Box.telemetry = telemetry
+    elif name == "deaf-silence":
+        desk_main.Remote._listen = lambda self, panel, ms: None
     elif name == "deaf-learn":
         pedals.Pedals._learner = lambda self, i: (lambda: None)
     elif name == "stale-pedals":
@@ -406,6 +408,11 @@ def run_size(w, h):
     check(tag + ": the tempo button changes the box's tempo", e.project["tempo"] == int(tempo + 0.5) + 1,
           "%r -> %r" % (tempo, e.project["tempo"]))
     check_prompt(tag, w, h, box, desk, far, run, settle)
+    # The box stops answering with its socket still open, as one that resets does.
+    for _ in range(desk_main.SILENT_MS // desk_main.STEP_MS + 2):
+        far.step()
+    check(tag + ": a remote desk whose box goes silent says the box went away", far.desk.panel is None and
+          "went away" in (far.desk.message or ""), repr((far.desk.panel, far.desk.message)))
     far.close()
     near.close()
     box.close()

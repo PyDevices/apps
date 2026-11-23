@@ -95,6 +95,30 @@ class BootButtonTest(unittest.TestCase):
         pin.irq.assert_called_once()
 
 
+class LendBootTest(unittest.TestCase):
+    """An app that reads BOOT itself borrows it, and BOOT goes home again after."""
+
+    def test_lent_boot_stops_going_home_until_given_back(self):
+        fakes = {"appkit": mock.MagicMock(), "lvgl": mock.MagicMock(), "multimer": mock.MagicMock(),
+                 "touchkit.ui": mock.MagicMock(), "machine": mock.MagicMock()}
+        fakes["appkit"].Shell = object
+        with mock.patch.dict(sys.modules, fakes):
+            sys.modules.pop("touchkit.shell", None)
+            sys.modules.pop("touchkit", None)
+            from touchkit import shell
+
+            pin = mock.MagicMock()
+            s = types.SimpleNamespace(boot_pin=pin)
+            give_back = shell.TouchShell.lend_boot(s)
+            pin.irq.assert_called_once_with(handler=None)
+            give_back()
+            self.assertIs(pin.irq.call_args.kwargs["handler"], shell._boot_irq)
+            none = types.SimpleNamespace(boot_pin=None)
+            shell.TouchShell.lend_boot(none)()
+            sys.modules.pop("touchkit.shell", None)
+            sys.modules.pop("touchkit", None)
+
+
 class ClockOnJoinTest(unittest.TestCase):
     """The clock is set when the board joins a network, not when an app asks."""
 

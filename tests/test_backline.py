@@ -45,13 +45,14 @@ PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-f
           "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
           "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
-          "ramp-jumps", "fill-moves-form", "migrate-forgets")
+          "ramp-jumps", "fill-moves-form", "migrate-forgets", "switch-bounces", "switch-inverted",
+          "switch-swapped")
 NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
                 "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
 DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
                "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
-               "wide-sheet")
+               "wide-sheet", "deaf-silence")
 ASK_PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-shift", "lost-plan", "quiet-failure",
               "keep-nowhere", "whole-reply", "old-song-shown")
 ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
