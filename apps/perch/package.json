@@ -47,11 +47,6 @@
       "vec.py"
     ]
   ],
-  "deps": [
-    [
-      "icons",
-      "latest"
-    ]
-  ],
+  "deps": [],
   "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
 }
