@@ -15,7 +15,9 @@ process over the same stand-ins and over a real WebSocket. Each case checks
 both ways: the desk follows the song's part and bar, and a pedal pressed on
 the desk reaches the box. The box case also records what the page played
 through Web Audio and finds the drum hits in it at the notes the engine
-played.
+played. That needs a computer with time to spare: when other work keeps the
+browser from rendering in real time, the sound runs out and the check fails,
+saying how often.
 
 A fault planted in the page (``?plant=``) must fail its case.
 
