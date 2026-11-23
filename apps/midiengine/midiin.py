@@ -89,13 +89,37 @@ class Merged:
             p.close()
 
 
+def open_chosen():
+    """``(port, names)`` of the inputs chosen for ``midi.in`` (the connections
+    picker, or ``endpointkit.select``), read as one port through
+    ``midiports.endpoints``, which opened them; None when none is chosen, or
+    endpointkit or the computer's MIDI ports aren't registered."""
+    try:
+        import endpointkit
+        from midiports import endpoints
+    except ImportError:
+        return None
+    try:
+        port = endpoints.merged_in()
+    except KeyError:  # the computer's MIDI ports aren't registered
+        return None
+    chosen = [ep for ep in endpointkit.selected("midi.in") if ep.provider is port.provider]
+    if not chosen:
+        return None
+    return port, " + ".join(ep.label for ep in chosen)
+
+
 def open_desktop():
-    """``(port, names)`` of a desktop's MIDI inputs, all of them, since the
-    first is as likely a software synth's as a keyboard's, or None when it has
-    none (or no ``midiports`` backend). The port reads like the merged hub
-    port: ``any()``, ``read()``, ``close()``."""
+    """``(port, names)`` of a desktop's MIDI inputs: the ones chosen for
+    ``midi.in`` when there are any (`open_chosen`), else all of them, since
+    the first is as likely a software synth's as a keyboard's; None when it
+    has none (or no ``midiports`` backend). The port reads like the merged
+    hub port: ``any()``, ``read()``, ``close()``."""
     import sys
 
+    found = open_chosen()
+    if found is not None:
+        return found
     if sys.platform.startswith("win"):
         from midiports import windows as mp
     elif sys.platform.startswith("linux"):

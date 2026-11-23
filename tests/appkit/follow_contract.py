@@ -88,6 +88,7 @@ PLANTS = (
     "pick_ignored",  # Bit World lists the outputs but picks none
     "mp3_deaf",  # the MP3 player ignores a new audio.out
     "midiengine_deaf",  # midiEngine ignores a new audio.out
+    "midiengine_midi_deaf",  # midiEngine keeps reading its own MIDI ports
     "cast_deaf",  # Cast ignores the chosen receiver
     "cast_finds_nothing",  # Cast leaves the Rokus unlisted on a board
     "cast_keeps_searching",  # Cast's close leaves the Roku search running on a board
@@ -340,6 +341,10 @@ class Port:
         self.waiting = self.waiting[n:]
         return n
 
+    def read(self, nbytes=None):
+        data, self.waiting = bytes(self.waiting), bytearray()
+        return data or None
+
     def close(self):
         self.closed = True
 
@@ -403,6 +408,9 @@ class Held:
     """Synth Station's own inputs, holding Keys the way its open of every port does."""
 
     kind = "desktop"
+
+    def any(self):
+        return 0
 
     def close(self):
         fakemidi.held[:] = []
@@ -612,6 +620,21 @@ if lv is not None:
         check(now_out is not first and now_out is not None and now_out.device == "USB Headset",
               "midiEngine reopens on the chosen device: %r" % (now_out and now_out.device,))
         check(now_out is not None and now_out.sample == "the module's output", "the same sound module plays on there")
+        # midiEngine's MIDI: on a computer the inputs chosen for midi.in are
+        # read through midiports.endpoints, once midiEngine lets go of them.
+        if sys.platform in midiengine.DESKTOPS:
+            if PLANT == "midiengine_midi_deaf":
+                midiengine.midiin.open_chosen = lambda: None
+            fakemidi.held[:] = ["Keys"]
+            midiengine.state["port"] = Held()
+            R.select("midi.in", "fakemidi-midi-in:Keys")
+            me_port = midiengine.state["port"]
+            check(midiengine.state["midi"] == "Keys", "midiEngine reads the chosen input: %r" % (midiengine.state["midi"],))
+            if "Keys" in fakemidi.ports and me_port is not None:
+                fakemidi.ports["Keys"].waiting = bytearray(b"\x90\x3c\x40")
+                got = me_port.read() if me_port.any() else None
+                check(got is not None and bytes(got) == b"\x90\x3c\x40", "a note on the chosen input reaches midiEngine: %r" % (got,))
+            R.select("midi.in", None)
         me_scope.close()
         R.select("audio.out", None)
 

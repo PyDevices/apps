@@ -4,7 +4,8 @@
 """midiEngine: a General MIDI sound module in the shape of MIDIPLUS's
 pocket miniEngine. Plug a USB MIDI keyboard into the board's hub, or a
 sequencer into a desktop's MIDI ports, and every one of the 16 channels
-plays: SoundFont instruments on 1-9 and 11-16, a drum kit on 10. Or play
+plays (on a desktop, the inputs chosen for ``midi.in`` in the connections
+picker when any are, and it moves to new ones as they're chosen): SoundFont instruments on 1-9 and 11-16, a drum kit on 10. Or play
 a folder of .mid files, and the keyboard on top of them.
 
 The panel is the module's face, four cards on one screen. The top one
@@ -261,6 +262,29 @@ def main(scope):
             return False
         st["port"], st["midi"] = found
         return True
+
+    def midi_moved(endpoints):
+        # Other MIDI inputs were chosen for the computer: read those, or
+        # every input again when none is.
+        port = st["port"]
+        if port is None:
+            return  # not open yet: the setup timer opens what's chosen
+        st["port"] = None
+        port.close()
+        if any(ep.error for ep in endpoints):
+            # This app held a port the choice wanted, and a port has one
+            # reader at a time: now it's let go, ask for the choice again.
+            import endpointkit
+
+            endpointkit.select("midi.in", endpointkit.chosen("midi.in"))
+        if open_desktop_midi():
+            status.set_text(st["midi"])
+        else:
+            st["midi"] = None
+            status.set_text("no MIDI in: plug a keyboard in")
+
+    if sys.platform in DESKTOPS:
+        scope.follow("midi.in", midi_moved)
 
     def midi(t):
         ble = st["ble"]
