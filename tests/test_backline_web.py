@@ -464,7 +464,10 @@ class BrowserIsTheBox(_Browser):
                 json.dump({"notes": notes, "rate": RATE, "heard": heard, "offset": offset, "share": share}, f)
         self.assertGreater(len(played), 20, "the engine played the song")
         self.assertGreater(len(heard), 20, "Web Audio played drum hits: %d onsets" % len(heard))
-        self.assertGreaterEqual(share, 0.85, "%.0f%% of the engine's hits heard where it played them" % (100 * share))
+        late = page.evaluate("globalThis.backlineState.late")
+        self.assertGreaterEqual(share, 0.85, "%.0f%% of the engine's hits heard where it played them; the sound "
+                                "ran out %d times (a machine too busy to keep the page in time does this)"
+                                % (100 * share, late))
 
     def test_desk_on_bluetooth(self):
         self.check_box("#join-bt")
