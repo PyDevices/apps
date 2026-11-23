@@ -63,11 +63,13 @@ with open(sys.argv[2], "wb") as f:
 
 
 def _install(target):
-    """What a mip install puts in a lib folder: songmodel's .py files, nothing else."""
+    """What a mip install puts in a lib folder: songmodel's .py files, nothing else.
+    Its manifest.py is a firmware build's, and the index leaves it out."""
     package = target / "songmodel"
     package.mkdir(parents=True)
     for source in (ROOT / "lib" / "songmodel").glob("*.py"):
-        shutil.copy(source, package / source.name)
+        if source.name != "manifest.py":
+            shutil.copy(source, package / source.name)
     return package
 
 
