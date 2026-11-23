@@ -230,8 +230,9 @@ leave its button lit.
 ## The status bar
 
 `appkit.run()` puts a bar along the top of the screen: Home, the clock, the
-network, Bluetooth, the audio output and the battery where the board reports
-one, with a button at the right that opens the picker. Each app gets the
+network, Bluetooth, the audio output, a cast icon while the screen is being
+mirrored, and the battery where the board reports one, with a button at the
+right that opens the picker. Each app gets the
 screen below it, `scope.root`, and should size itself from `scope.size`
 rather than the display. An app that wants the whole screen says so in its
 `app.json` with `"bar": "none"`, and one that draws its own bar says
@@ -282,7 +283,12 @@ The first time the Shell opens the picker or makes the bar, it registers
 what the device has to show (`appkit.connections.register()`): on a board
 with Wi-Fi, the networks in range, which the picker joins, and on any board
 the sound outputs its firmware can drive: its own, a USB speaker on the host
-port, and Bluetooth headphones or a speaker once Scan finds them. The Cast app
+port, and Bluetooth headphones or a speaker once Scan finds them. A board
+whose screen is drawn in memory can also be mirrored: choose "Browser on this
+network" under Cast to, and the picker shows the address to open. The browser
+asks for the board's WebREPL password before it shows the screen or takes
+taps and keys, and a board without one says to set it. The mirror is off
+again after a restart. The Cast app
 adds the Rokus on a board when it opens, so looking for them doesn't slow
 every other screen. On a computer
 it's the operating system's network link (reported only), and the sound

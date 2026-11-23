@@ -89,13 +89,21 @@ def rows(registry, kind):
 
     *chosen* is True for the device's choice (not a pin's), and *detail* is
     the state worth saying ("Connected", "Needs pairing") with the provider's
-    last error after it. A chosen endpoint that isn't found yet is left out:
-    `summary` says "Waiting for it".
+    last error after it. An endpoint can say more through its ``caps``: an
+    unavailable one's ``why`` replaces "Unavailable", and a connected one's
+    ``url`` (a mirror's address) is shown as the place to open. A chosen
+    endpoint that isn't found yet is left out: `summary` says "Waiting for it".
     """
     chosen = registry.chosen(kind)
     out = []
     for ep in registry.endpoints(kind):
         detail = _STATES.get(ep.state, ep.state)
+        why = ep.caps.get("why")
+        url = ep.caps.get("url")
+        if ep.state == endpointkit.UNAVAILABLE and why:
+            detail = why
+        elif ep.state == endpointkit.CONNECTED and url:
+            detail = "Open %s%s" % (url, ", someone is viewing" if ep.caps.get("viewing") else "")
         if ep.error:
             detail = ("%s: %s" % (detail, ep.error)) if detail else ep.error
         out.append((ep, ep.id in chosen, detail))
