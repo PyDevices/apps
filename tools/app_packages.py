@@ -42,6 +42,7 @@ INDEX = {
     "audioeffects": "audioeffects",
     "audioinstruments": "audioinstruments",
     "bledev": "bledev",
+    "chatclient": "chatclient",
     "controlkit": "controlkit",
     "deskkit": "deskkit",
     "endpointkit": "endpointkit",

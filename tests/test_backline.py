@@ -35,6 +35,7 @@ CONTRACT = str(TESTS / "backline_contract.py")
 FLOOR = str(TESTS / "backline_floor_contract.py")
 DESK = str(TESTS / "backline_desk_contract.py")
 CAST = str(TESTS / "backline_cast_contract.py")
+ASK = str(TESTS / "backline_ask_contract.py")
 PAGE = str(TESTS.parent / "tools" / "backline" / "desk_page.py")
 sys.path.insert(0, str(TESTS))
 
@@ -43,12 +44,17 @@ from test_engine import _find, audio_checkout  # noqa: E402
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
           "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
-          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals")
+          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
+          "ramp-jumps", "fill-moves-form", "migrate-forgets")
 NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
                 "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback")
 DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
-               "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals")
+               "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
+               "wide-sheet")
+ASK_PLANTS = ("no-retry", "lax", "no-fallback", "no-borrow", "copy-told", "grid-shift", "lost-plan", "quiet-failure",
+              "keep-nowhere", "whole-reply", "old-song-shown")
+ASK_NEEDS_BOX = ("quiet-failure", "keep-nowhere", "old-song-shown")
 CAST_PLANTS = ("no-show", "steal-default", "deaf-desk", "flood", "lost-kind", "no-close")
 REQUIRE = os.environ.get("BACKLINE_REQUIRE") == "1"
 
@@ -140,6 +146,44 @@ class PlantedFaults(unittest.TestCase):
 
     def test_micropython(self):
         self._plants("micropython")
+
+
+class AskForAGroove(unittest.TestCase):
+    """``backline_ask_contract.py`` against its stand-in server on each
+    interpreter, then once per planted fault."""
+
+    def _ask(self, kind, *extra):
+        cmd, env = _cmd(kind, ASK)
+        if cmd is None:
+            message = "no %s: the ask contract did NOT run on it" % kind
+            sys.stderr.write("\n*** " + message + " ***\n")
+            self.skipTest(message)
+        return _run(cmd, env, *extra)
+
+    def _clean(self, kind):
+        result = self._ask(kind)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn(" 0 failed", result.stdout)
+        if REQUIRE:
+            self.assertNotIn("\nskip ", "\n" + result.stdout, result.stdout)
+        return result
+
+    def test_cpython(self):
+        self._clean("cpython")
+
+    def test_micropython(self):
+        self.assertIn("on micropython", self._clean("micropython").stdout)
+
+    def test_plants(self):
+        clean = self._ask("cpython").stdout
+        for plant in ASK_PLANTS:
+            with self.subTest(plant=plant):
+                if plant in ASK_NEEDS_BOX and "\nskip " in "\n" + clean:
+                    continue
+                result = self._ask("cpython", "--plant=" + plant)
+                self.assertIn("PLANTED " + plant, result.stdout, result.stdout + result.stderr)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertIn("FAIL ", result.stdout, result.stdout + result.stderr)
 
 
 def _cpython_lacks():

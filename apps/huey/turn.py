@@ -12,7 +12,9 @@ worker, so the picture keeps moving, and each one's time is kept in `last`.
 import time
 from multimer import ticks_diff, ticks_ms
 
-from . import acting, servers, settings as settingsmod, web
+from chatclient import web
+
+from . import acting, servers, settings as settingsmod
 from .client import Client
 from .voice import Player, Recorder
 

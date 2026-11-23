@@ -19,6 +19,10 @@
       "art.py"
     ],
     [
+      "ask.py",
+      "ask.py"
+    ],
+    [
       "box.py",
       "box.py"
     ],
@@ -49,6 +53,10 @@
     [
       "desk/perform.py",
       "desk/perform.py"
+    ],
+    [
+      "desk/prompt.py",
+      "desk/prompt.py"
     ],
     [
       "desk/strip.py",
@@ -134,6 +142,10 @@
     ],
     [
       "audioinstruments",
+      "latest"
+    ],
+    [
+      "chatclient",
       "latest"
     ],
     [

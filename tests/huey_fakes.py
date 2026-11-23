@@ -9,7 +9,7 @@ with no network and no sound hardware.
 
 import json
 
-from apps.huey import web
+from chatclient import web
 from apps.huey.client import wav_header
 
 KEY = "not-a-real-key"

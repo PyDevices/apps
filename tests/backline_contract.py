@@ -44,7 +44,8 @@ from songmodel import model  # noqa: E402
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
           "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
-          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals")
+          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
+          "ramp-jumps", "fill-moves-form", "migrate-forgets")
 
 RESULTS = [0, 0]
 SKIPS = []
@@ -258,6 +259,39 @@ def plant(name):
         from backline import box
 
         box.Box._pedals_changed = lambda self: None
+    elif name == "no-repeat":
+        old = eng.Form.__init__
+
+        def init(self, project):
+            old(self, project)
+            self.repeat = 0
+        eng.Form.__init__ = init
+    elif name == "no-ramp":
+        model.ramp_to = lambda project, part: None
+    elif name == "ramp-jumps":
+        old = eng.Engine._ramp
+
+        def ramp(self):
+            old(self)
+            if self.ramp is not None:
+                self.ramp = (self.ramp[0], self.ramp[0] + 1, self.ramp[2])
+        eng.Engine._ramp = ramp
+    elif name == "fill-moves-form":
+        def fill_in_plan(self, now, number, fill, tick):
+            at = eng.bar_after(tick)
+            self._cut(tick, now, at, [("fill", number, fill, at), ("main", number, self.mains[number],
+                                                                   at + self.length(fill))])
+            return "fill"
+        eng.Form._fill_in_plan = fill_in_plan
+    elif name == "migrate-forgets":
+        old = model.migrate
+
+        def migrate(project):
+            old(project)
+            project.pop("repeat", None)
+            project.pop("tempo_map", None)
+            return project
+        model.migrate = migrate
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -412,6 +446,102 @@ def check_engine():
     check("a timed kit gets every note ahead, its delay landing it on its frame",
           exact and len(e.played) == len(kit.notes) > 0 and max(n[3] for n in kit.notes) > 0,
           "%d notes" % len(kit.notes))
+
+
+# -- the play plan: a repeat count and the outro slowing ---------------------------------
+
+
+def planned_song(repeat, outro_tempo=None, tempo=120.0):
+    """Intro, one main and its fill of a bar each, and a two-bar outro: a
+    closed hat on every eighth throughout, so the onsets show the tempo."""
+    hats = [[i * model.STEP * 2, 24, 42, 100] for i in range(8)]
+    p = model.new_project()
+    t = model.track("drums", "fake", "Drums")
+    t["id"] = 1
+    t["patterns"] = [{"bars": 1, "notes": hats}, {"bars": 4, "notes": [n[:] for n in hats * 1] +
+                                                  [[n[0] + k * eng.BAR, 24, 42, 100] for k in (1, 2, 3) for n in hats]},
+                     {"bars": 1, "notes": [[i * model.STEP, 24, 38, 90] for i in range(16)]},
+                     {"bars": 2, "notes": hats + [[n[0] + eng.BAR, 24, 42, 100] for n in hats]}]
+    p["tracks"] = [t]
+    p["tempo"] = tempo
+    p["parts"] = {"intro": 0, "mains": [1], "fills": [2], "outro": 3}
+    p["repeat"] = repeat
+    p["tempo_map"] = [{"part": "outro", "tempo": outro_tempo}] if outro_tempo else []
+    return p
+
+
+def check_plan():
+    old = {"tempo": 100.0, "tracks": [model.track("drums", "fake")], "parts": {"mains": [0]}}
+    model.migrate(old)
+    check("an older song loads with no repeat count and no tempo map",
+          old.get("repeat") == 0 and old.get("tempo_map") == [], repr(sorted(old)))
+    song = planned_song(3)
+    f = eng.Form(song)
+    f.start(0)
+    roles = [e[0] for e in f.plan]
+    check("three times through: the intro, the main three times, the outro, the end",
+          roles == ["intro", "main", "main", "main", "outro", "end"], repr(roles))
+    e, kit, parts = run_engine(song, [(0, 0, "tap")], 30)
+    names = [p[1] for p in parts]
+    end = (1 + 3 * 4 + 2) * 4 * RATE * 60.0 / song["tempo"]
+    stopped = parts[-1][0] if parts[-1][1] is None else -1
+    check("a song with a repeat count plays itself through and stops after the outro",
+          names == ["Intro", "Main 1", "Outro", None] and abs(stopped - end) < 512, "%r, stopped at %d of %d" %
+          (names, stopped, end))
+    loop = planned_song(0)
+    e, kit, parts = run_engine(loop, [(0, 0, "tap")], 30)
+    check("with no repeat count the main plays on until the pedal", [p[1] for p in parts] == ["Intro", "Main 1"],
+          repr(parts))
+    # A tap in a planned song: the fill takes the main's last bar, and the outro keeps its place.
+    spb = RATE * 60.0 / song["tempo"]
+    e, kit, parts = run_engine(song, [(0, 0, "tap"), (int(5.5 * spb), 0, "tap")], 30)
+    names = [p[1] for p in parts]
+    fill_at = [p[0] for p in parts if p[1] == "Fill 1"]
+    outro_at = [p[0] for p in parts if p[1] == "Outro"]
+    check("a tap in a planned song plays the fill over the main's last bar, and the form keeps its length",
+          names[:5] == ["Intro", "Main 1", "Fill 1", "Main 1", "Outro"] and fill_at and
+          abs(fill_at[0] - 4 * 4 * spb) < 512 and outro_at and abs(outro_at[0] - 13 * 4 * spb) < 512,
+          "%r" % parts)
+
+
+def onsets(e, pitch=42):
+    return [n[0] for n in e.played if n[1] == pitch]
+
+
+def check_ramp():
+    song = planned_song(1, outro_tempo=60.0)
+    e, kit, parts = run_engine(song, [(0, 0, "tap")], 16)
+    spb = RATE * 60.0 / song["tempo"]
+    hats = onsets(e)
+    outro_at = [p[0] for p in parts if p[1] == "Outro"][0]
+    before = [b - a for a, b in zip(hats, hats[1:]) if b <= outro_at]
+    inside = [b - a for a, b in zip(hats, hats[1:]) if a >= outro_at]
+    even = max(before) - min(before) <= 2
+    check("before the outro the tempo holds", even, "gaps %d to %d frames" % (min(before), max(before)))
+    widening = all(b > a for a, b in zip(inside, inside[1:]))
+    smooth = inside and inside[0] < 1.12 * before[-1] and all(b < 1.15 * a for a, b in zip(inside, inside[1:]))
+    check("across the outro the beats spread out smoothly", len(inside) == 15 and widening and smooth,
+          "%r" % inside)
+    # 120 to 60 over two bars: the last eighth is at nearly 62 BPM, almost twice as long as at 120.
+    check("and the outro ends near its end tempo", inside and inside[-1] > 1.8 * before[-1],
+          "last gap %d against %d" % (inside[-1] if inside else 0, before[-1]))
+    t_mid = None
+    frames = [0]
+    e2 = eng.Engine(song, None, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE)
+    e2.gesture(0, "tap")
+    while e2.transport["playing"] and frames[0] < outro_at + int(4 * spb):
+        e2.sequence()
+        frames[0] += 256
+    t_mid = e2.telemetry()["tempo"]
+    check("the box tells the panels the tempo as it slows", 60.0 < t_mid < 110.0, "%r" % t_mid)
+    # The outro reached by a double tap, in a song that loops: it slows the same way.
+    loop = planned_song(0, outro_tempo=60.0)
+    e, kit, parts = run_engine(loop, [(0, 0, "tap"), (int(6.5 * spb), 0, "double")], 20)
+    hats = onsets(e)
+    outro_at = [p[0] for p in parts if p[1] == "Outro"]
+    inside = [b - a for a, b in zip(hats, hats[1:]) if outro_at and a >= outro_at[0]]
+    check("a double tap's outro slows too", len(inside) == 15 and all(b > a for a, b in zip(inside, inside[1:])),
+          "%r" % inside)
 
 
 # -- the meter, the mixer, the desk's reading of a song -------------------------------
@@ -911,6 +1041,8 @@ def main():
     check_pedal()
     check_form()
     check_engine()
+    check_plan()
+    check_ramp()
     check_meter()
     check_mix()
     check_desk_reading()

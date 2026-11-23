@@ -175,7 +175,7 @@ class ClientOverHTTPTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls):
-        sys.path.insert(0, ROOT)
+        sys.path[:0] = [ROOT, os.path.join(ROOT, "lib")]
         from apps.huey import client, settings
 
         cls.client_module = client
@@ -245,7 +245,7 @@ class SessionTest(unittest.TestCase):
     tearDownClass = classmethod(ClientOverHTTPTest.tearDownClass.__func__)
 
     def setUp(self):
-        from apps.huey import web
+        from chatclient import web
 
         self.web = web
         self.server.hang_up = False

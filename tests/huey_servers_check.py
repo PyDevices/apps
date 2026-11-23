@@ -22,7 +22,7 @@ def _up(path):
 _HERE = _up(__file__)
 _ROOT = _up(_HERE)
 _OMNI = os.getenv("OMNIPYTHON_DIR") or _ROOT + "/../omnipython"
-sys.path[:0] = [_ROOT, _OMNI + "/packages/endpointkit"]
+sys.path[:0] = [_ROOT, _ROOT + "/lib", _OMNI + "/packages/endpointkit"]
 
 try:
     import endpointkit

@@ -41,13 +41,13 @@
     [
       "voice.py",
       "voice.py"
-    ],
-    [
-      "web.py",
-      "web.py"
     ]
   ],
   "deps": [
+    [
+      "chatclient",
+      "latest"
+    ],
     [
       "endpointkit",
       "latest"

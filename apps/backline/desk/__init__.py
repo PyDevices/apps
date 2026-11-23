@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: MIT
 """Backline's desk view: perform and edit a song from a bigger screen.
 
-Two tabs under one header. Perform (`perform.Perform`) is the floor view's
+Two tabs under one header, and a prompt sheet (`prompt.PromptSheet`) the
+header's sparkle button opens, to ask for a groove in words. Perform (`perform.Perform`) is the floor view's
 face, larger, with the song's form, the songs, the tempo and the kit.
 Edit (`editor.Editor`) is the step grid of a part, the song library, the
 kits and a mixer, every change landing while the song plays. The header
@@ -25,6 +26,7 @@ from . import look
 from .. import art, glyphs
 from .editor import Editor
 from .perform import Perform
+from .prompt import PromptSheet
 
 TABS = (("perform", "PERFORM"), ("edit", "EDIT"))
 
@@ -100,11 +102,12 @@ class Desk:
         rx = tx + 2 * (tw + m) + m
         # The readout: the part, the bar and beat, and what comes next.
         sw = int(30 * s) + m if on_switch is not None else 0
+        pw = int(34 * s) + m          # the prompt sheet's button
         # Where the desk is cast and how many other screens have joined, as
         # small icons left of the switch; hidden while there are none.
         isz = f["small"].line_height + 2
         iw = 2 * isz + int(26 * s)
-        self.readout_w = rw = w - rx - sw - iw - 3 * m
+        self.readout_w = rw = w - rx - sw - pw - iw - 3 * m
         self.part = look.text(head, "", f["body"], look.DIM, int(rw * 0.34))
         self.part.set_pos(rx, (hh - f["body"].line_height) // 2)
         self.where = look.text(head, "", f["value"], look.TEXT, int(rw * 0.26), lv.TEXT_ALIGN.CENTER)
@@ -121,14 +124,17 @@ class Desk:
         self.remote_count = look.text(head, "", f["small"], look.DIM)
         self.remote_count.set_pos(ix + 2 * isz + 2, (hh - f["small"].line_height) // 2)
         self.switch = None
+        bs = int(34 * s)
         if on_switch is not None:
-            bs = int(34 * s)
             self.switch = look.button(head, w - bs - m * 2, (hh - bs) // 2, bs, bs, role="floor",
                                       on_click=on_switch, radius=6)
+        self.prompt_button = look.button(head, w - bs - m * 2 - sw, (hh - bs) // 2, bs, bs, role="prompt",
+                                         on_click=self.toggle_prompt, radius=6)
 
         body_h = h - hh
         self.perform = Perform(base, 0, hh, w, body_h, self)
         self.editor = Editor(base, 0, hh, w, body_h, self)
+        self.prompt = PromptSheet(base, 0, hh, w, body_h, self)
         self.show_tab("perform")
         self.attach(panel)
 
@@ -155,6 +161,15 @@ class Desk:
         if self.panel is not None and not self.panel.closed:
             self.panel.command(name, **args)
 
+    def toggle_prompt(self):
+        """Open the prompt sheet over the tabs, or close it."""
+        self.prompt.toggle()
+        look.select(self.prompt_button, self.prompt.shown())
+
+    def typing(self):
+        """True while the prompt sheet is open, so the app's keys type words, not pedals."""
+        return self.prompt.shown()
+
     def pedal(self, which, down):
         """Pedal ``which`` went down or up: tell the device."""
         self.command("pedal", pedal=which, down=down)
@@ -169,6 +184,8 @@ class Desk:
 
     def show_tab(self, key):
         """Show tab ``"perform"`` or ``"edit"``."""
+        if self.tab is not None and self.prompt.shown():
+            self.toggle_prompt()
         if key == self.tab:
             return
         self.tab = key
@@ -186,6 +203,7 @@ class Desk:
     def _doc(self, doc, desc):
         self.perform.on_doc(doc, desc or {})
         self.editor.on_doc(doc, desc or {})
+        self.prompt.on_doc(desc or {})
 
     def _op(self, op):
         self.perform.on_op(op)
@@ -194,6 +212,7 @@ class Desk:
     def _event(self, ev):
         self.perform.on_event(ev)
         self.editor.on_event(ev)
+        self.prompt.on_event(ev)
 
     def _changed(self, key, value):
         if self.shown.get(key) == value:
@@ -241,3 +260,4 @@ class Desk:
             self.remote_count.set_text("%d" % desks if desks > 1 else "")
         self.perform.on_tele(t)
         self.editor.on_tele(t)
+        self.prompt.on_tele(t)

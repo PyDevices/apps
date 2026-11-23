@@ -14,7 +14,10 @@ a fader moved on one desk moves on the other; the tempo button changes
 the box's tempo; and a switch learned from the Pedals section shows on
 both desks, and a binding chosen on one shows on the other. Every drum's name in the grid, from any General MIDI kit,
 fits its column without dots, the mixer's names keep apart, and the header
-shows that another screen has joined and that the desk is cast.
+shows that another screen has joined and that the desk is cast. The prompt
+sheet opens from the header and fits; a groove asked for there (from a
+stand-in chat server) shows on both desks before it plays, and Play and
+Discard from the remote desk reach the box.
 
     python tests/backline_desk_contract.py [--plant=NAME]
 
@@ -23,6 +26,7 @@ Needs LVGL, svgio, icons, hmilink, audiodsp and audioinstruments.
 then fail.
 """
 
+import json
 import sys
 import time
 
@@ -39,10 +43,37 @@ from hmilink import local, tcp  # noqa: E402
 import _headless  # noqa: E402
 from backline import box as boxmod  # noqa: E402
 from backline import desk_main, floor, kits, parts  # noqa: E402
-from backline.desk import Desk, editor, grid, pedals, perform, strip  # noqa: E402
+from backline.desk import Desk, editor, grid, pedals, perform, prompt, strip  # noqa: E402
 
 PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
-          "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals")
+          "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
+          "wide-sheet")
+#: What the stand-in chat server answers: a 12-bar shuffle, 4 times through, the outro slowing.
+SONG = {
+    "name": "Slow Twelve", "style": "blues", "tempo": 72, "meter": "4/4", "feel": "shuffle", "swing": 0,
+    "kit": "rhythm808", "steps": 12,
+    "form": [{"part": "intro", "bars": 1}, {"part": "main1", "bars": 12}, {"part": "outro", "bars": 2}],
+    "patterns": {"intro": {"snare": "......xxXxxX", "kick": "X..........."},
+                 "main1": {"closed_hat": "x.ox.ox.ox.o", "snare": "...X.....X..", "kick": "X.....X..o.."},
+                 "outro": {"closed_hat": "x.ox.ox.ox.o|............", "kick": "X.....X.....|X..........."}},
+    "play": {"repeat": 4, "outro_tempo": 48},
+}
+
+
+class _Reply:
+    status = 200
+    headers = {"content-type": "application/json"}
+
+    def read_all(self, most):
+        return json.dumps({"choices": [{"message": {"content": json.dumps(SONG)}}]}).encode()
+
+    def close(self):
+        pass
+
+
+def stand_in(url, headers, pieces, timeout=30):
+    """A chat server that always answers with `SONG`."""
+    return _Reply()
 SIZES = ((800, 480), (1280, 720))
 RESULTS = [0, 0]
 RATE = 48000
@@ -96,6 +127,16 @@ def plant(name):
         grid.shorter = lambda name: [name]
     elif name == "tight-mixer":
         editor.FADER_NAMES = editor.FADER_NAMES[1:2]
+    elif name == "deaf-ask":
+        prompt.PromptSheet.ask = lambda self: None
+    elif name == "blind-preview":
+        prompt.PromptSheet.show_preview = lambda self, p: None
+    elif name == "wide-sheet":
+        old = prompt.PromptSheet.__init__
+
+        def init(self, parent, x, y, w, h, desk):
+            old(self, parent, x, y, w + 120, h, desk)
+        prompt.PromptSheet.__init__ = init
     elif name == "no-joiners":
         old_tele = boxmod.Box.telemetry
 
@@ -181,7 +222,8 @@ def run_size(w, h):
     lv.screen_load(scr)
     other = lv.obj(None)          # the remote desk's screen: drawn into, never shown
     frames = [0]
-    box = boxmod.Box(lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: frames[0] * 1000 // RATE)
+    box = boxmod.Box(lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: frames[0] * 1000 // RATE,
+                     ask_settings={"base_url": "http://stand-in/v1", "key_file": "", "chat_model": "m"}, post=stand_in)
     box.device._tele_ms = 0
     listener = box.device.add(local.serve())
     served = box.device.add(tcp.serve(0, bind="127.0.0.1"))
@@ -363,11 +405,58 @@ def run_size(w, h):
     run(0.2)
     check(tag + ": the tempo button changes the box's tempo", e.project["tempo"] == int(tempo + 0.5) + 1,
           "%r -> %r" % (tempo, e.project["tempo"]))
+    check_prompt(tag, w, h, box, desk, far, run, settle)
     far.close()
     near.close()
     box.close()
     scr.delete()
     other.delete()
+
+
+def press(o):
+    x1, y1, x2, y2 = coords(o)
+    _headless.touch((x1 + x2) // 2, (y1 + y2) // 2, True, 40)
+    _headless.touch((x1 + x2) // 2, (y1 + y2) // 2, False, 40)
+
+
+def check_prompt(tag, w, h, box, desk, far, run, settle):
+    """The prompt sheet: open, fits, asks, shows the song on both desks, plays and lets it go."""
+    e = box.engine
+    e.stop()
+    first = box.model.doc["name"]
+    press(desk.prompt_button)
+    _headless.advance(5)
+    _headless.refresh()
+    sheet = desk.prompt
+    check(tag + ": the header's button opens the prompt sheet, and the keys type into it",
+          sheet.shown() and desk.typing())
+    bad = outside(desk.base, w, h)
+    check(tag + ": the prompt sheet fits the screen", not bad, "outside: %r" % bad[:4])
+    sheet.field.set_text("a slow 12-bar blues at 72, 4 times through, slowing in the outro")
+    press(sheet.ask_button)
+    run(0.1)
+    fp = far.desk.prompt
+    settle(lambda: fp.preview is not None and sheet.preview is not None)
+    shown = not sheet.card.has_flag(lv.obj.FLAG.HIDDEN) and sheet.title.get_text() == "Slow Twelve"
+    check(tag + ": the song asked for shows on the desk before it plays: name, plan and form",
+          box.ask_state == "ready" and shown and "4 times through" in sheet.plan.get_text()
+          and len(sheet.strip.objs) == 3 and not e.transport["playing"],
+          "%r %r %d" % (box.ask_state, sheet.title.get_text(), len(sheet.strip.objs)))
+    check(tag + ": and on the remote desk", fp.preview is not None and fp.title.get_text() == "Slow Twelve")
+    _headless.refresh()
+    bad = outside(desk.base, w, h)
+    check(tag + ": the song's card fits the sheet", not bad, "outside: %r" % bad[:4])
+    fp._doer("play")()
+    settle(lambda: e.transport["playing"])
+    check(tag + ": Play on the remote desk starts it on the box", e.transport["playing"] and
+          box.model.doc["name"] == "Slow Twelve" and e.form.repeat == 4)
+    run(1.0)
+    fp._doer("discard")()
+    settle(lambda: box.model.doc["name"] == first and sheet.preview is None)
+    check(tag + ": Discard brings back the song from before, and the card goes",
+          box.model.doc["name"] == first and not e.transport["playing"] and sheet.card.has_flag(lv.obj.FLAG.HIDDEN))
+    desk.toggle_prompt()
+    check(tag + ": closed, the keys are the pedals again", not sheet.shown() and not desk.typing())
 
 
 def main():

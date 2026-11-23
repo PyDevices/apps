@@ -49,6 +49,17 @@ main { padding:12px 16px; display:grid; gap:14px; }
 .cell.beat { margin-left:6px; }
 .cell.l1 { background:#c89a1a; } .cell.l2 { background:var(--amber); } .cell.l3 { background:#6e5a2a; }
 .cell.head { border-color:#fff; }
+#ask { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px; display:grid; gap:10px; }
+#ask[hidden] { display:none; }
+#ask h2 { margin:0; font-size:13px; letter-spacing:2px; color:var(--dim); font-weight:600; }
+.askrow { display:flex; gap:8px; }
+#prompt { flex:1; min-width:0; }
+#askstatus { color:var(--dim); font-size:13px; }
+#askstatus.bad { color:#ff4d6d; }
+#proposal { border:1px solid var(--line); border-radius:8px; padding:10px; display:grid; gap:6px; background:var(--bg); }
+#proposal[hidden] { display:none; }
+#pname { font-size:20px; color:var(--amber); font-weight:600; }
+#pplan, #pfilled { color:var(--dim); font-size:13px; }
 </style>
 </head>
 <body>
@@ -60,9 +71,20 @@ main { padding:12px 16px; display:grid; gap:14px; }
   <span id="next"></span>
   <label>Tempo <button id="slower">-</button><input id="tempo" type="number" min="40" max="240" step="1"><button id="faster">+</button></label>
   <select id="kit" title="Kit"></select>
+  <button id="asker" title="Ask for a groove in words">&#10022; Ask</button>
   <span id="status">connecting</span>
 </header>
 <main>
+  <section id="ask" hidden>
+    <h2>ASK FOR A GROOVE</h2>
+    <div class="askrow"><input id="prompt" type="text" placeholder="A slow 12-bar blues at 72, 4 times through, slowing in the outro"><button id="askgo">Ask</button></div>
+    <div id="askstatus">Say a style, a tempo, a song to borrow the feel of, and how long to play.</div>
+    <div id="proposal" hidden>
+      <div id="pname"></div><div id="pfacts"></div><div id="pplan"></div>
+      <div class="strip" id="pstrip"></div><div id="pfilled"></div>
+      <div class="askrow"><button id="pplay" class="on">Play</button><button id="pkeep">Keep</button><button id="pdiscard">Discard</button></div>
+    </div>
+  </section>
   <div class="pedals"><button class="pedal" id="pa">A</button><button class="pedal" id="pb">B</button></div>
   <div class="strip" id="strip"></div>
   <div class="bar"><b id="editing"></b><button id="prev">&lt;</button><span id="page"></span><button id="nextbar">&gt;</button>
@@ -75,10 +97,10 @@ const BAR = 384, LEVELS = [0, 96, 124, 56], CORE = [36, 38, 42, 46, 49];
 const SHORT = { intro: "INTRO", main: "MAIN", fill: "FILL", transition: "TRANS", outro: "OUTRO" };
 const LABEL = { intro: "Intro", main: "Main", fill: "Fill", transition: "Transition", outro: "Outro" };
 let ws = null, doc = null, desc = {}, seq = 0, me = null, nextId = 1, syncing = false;
-let tele = {}, blocks = [], shown = -1, bar = 0, follow = true, voices = [];
+let tele = {}, blocks = [], shown = -1, bar = 0, follow = true, voices = [], proposal = null;
 const stats = { ops: 0, resyncs: 0 };
 window.backline = { stats, get doc() { return doc; }, get tele() { return tele; }, get ready() { return doc !== null && !syncing; },
-  send, command, get shown() { return shown >= 0 ? blocks[shown] : null; } };
+  send, command, get shown() { return shown >= 0 ? blocks[shown] : null; }, get proposal() { return proposal; } };
 
 function connect() {
   ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
@@ -91,7 +113,7 @@ function status(s) { document.getElementById("status").textContent = s; }
 function handle(m) {
   if (m.t === "doc") {
     doc = m.doc; desc = m.desc || {}; seq = m.seq; me = m.you; syncing = false; voices = desc.voices || [];
-    renderAll();
+    renderAll(); showProposal(desc.proposal || null);
   } else if (m.t === "op") {
     if (doc === null || syncing) return;
     if (m.seq !== seq + 1) { stats.resyncs++; syncing = true; ws.send(JSON.stringify({ t: "sync" })); return; }
@@ -103,7 +125,11 @@ function handle(m) {
   } else if (m.t === "tele") {
     tele = m.v || {}; showTele();
   } else if (m.t === "ev") {
-    if ((m.name === "kit" || m.name === "song") && m.voices) { voices = m.voices; desc.kit = m.spec || m.kit; renderKits(); renderGrid(); }
+    if ((m.name === "kit" || m.name === "song" || m.name === "proposal") && m.voices) { voices = m.voices; desc.kit = m.spec || m.kit; renderKits(); renderGrid(); }
+    if (m.name === "proposal") {
+      if ("preview" in m) { showProposal(m.preview); if (m.error) askStatus(m.error, true); }
+      else if (m.did === "keep" || m.did === "discard") { showProposal(null); askStatus(ASK_IDLE, false); }
+    }
   } else if (m.t === "err") {
     status("the box said: " + m.msg);
   }
@@ -244,17 +270,68 @@ function renderCells() {
     c.dataset.level = l;
   }
 }
+// -- asking for a groove in words: the box asks its chat server, and every panel hears the song --
+const ASK_IDLE = "Say a style, a tempo, a song to borrow the feel of, and how long to play.";
+function askStatus(text, bad) { const el = document.getElementById("askstatus"); el.textContent = text; el.classList.toggle("bad", !!bad); }
+function planText(p) {
+  let text = p.repeat ? (p.repeat === 1 ? "Once through" : p.repeat + " times through") : "Loops until you stop it";
+  if (p.outro_tempo) text += ", the outro slowing to " + Math.round(p.outro_tempo);
+  return text;
+}
+function showProposal(p) {
+  proposal = p;
+  const card = document.getElementById("proposal");
+  card.hidden = !p;
+  if (!p) return;
+  document.getElementById("pname").textContent = p.name || "Untitled";
+  const style = p.style ? p.style[0].toUpperCase() + p.style.slice(1) : "";
+  const bits = [style, Math.round(p.tempo) + " BPM", p.meter, p.swing ? "swing " + p.swing + "%" : p.feel !== "straight" ? p.feel : "", p.kit_name || p.kit];
+  document.getElementById("pfacts").textContent = bits.filter((b) => b).join("  \u2022  ");
+  document.getElementById("pplan").textContent = planText(p);
+  const filled = p.filled || [];
+  document.getElementById("pfilled").textContent = filled.length ? "Filled in: " + filled.join(", ") : "";
+  const strip = document.getElementById("pstrip");
+  strip.textContent = "";
+  for (const b of p.blocks || []) {
+    const el = document.createElement("div");
+    el.className = "block";
+    el.style.setProperty("--c", "var(--" + b.role + ")");
+    el.style.flexGrow = b.bars;
+    el.textContent = b.short + " \u00b7 " + b.bars;
+    strip.append(el);
+  }
+  askStatus(p.tries > 1 ? "Here it is. (The first answer didn't fit; the second did.)" : "Here it is.", false);
+}
+function ask() {
+  const text = document.getElementById("prompt").value.trim();
+  if (!text || tele.ask === "asking") return;
+  command("ask", { text });
+  askStatus("Asking for the song... a model on a computer with no GPU can take a few minutes.", false);
+}
+function showAsk(t) {
+  if (t.ask === "asking") askStatus("Asking for the song... a model on a computer with no GPU can take a few minutes.", false);
+  else if (t.ask === "failed") askStatus(t.ask_error || "the song didn't come", true);
+}
 function showFollow() { document.getElementById("follow").classList.toggle("on", follow); }
 function showTele() {
   if (!doc) return;
   const t = tele, playing = !!t.playing;
+  showAsk(t);
   const part = document.getElementById("part");
   part.textContent = (t.part || "Ready").toUpperCase();
   part.style.color = "var(--" + (t.role || "stopped") + ")";
   document.getElementById("where").textContent = playing ? t.bar + " . " + t.beat : "- . -";
   document.getElementById("next").textContent = t.next ? "NEXT " + t.next.toUpperCase() : playing ? "LOOPING" : "TAP A TO START";
   const song = document.getElementById("song");
-  if (t.song_index != null && document.activeElement !== song) song.value = t.song_index;
+  if (t.song_index != null && document.activeElement !== song) {
+    // -1: a song that came back from asking plays; it has an entry of its own until it is kept
+    let asked = song.querySelector("option[value='-1']");
+    if (t.song_index < 0) {
+      if (!asked) { asked = document.createElement("option"); asked.value = "-1"; song.append(asked); }
+      asked.textContent = t.song || "Asked for";
+    } else if (asked) asked.remove();
+    song.value = t.song_index;
+  }
   for (const [i, el] of [document.getElementById("pa"), document.getElementById("pb")].entries())
     el.classList.toggle("down", (t.pedals || [])[i] && t.pedals[i] !== "up");
   const lit = playing ? find(t.role, t.number) : -1, nxt = playing ? find(t.next_role, t.next_number) : -1;
@@ -294,7 +371,7 @@ document.onkeyup = (e) => {
   if (which < 0 || !keys.has(e.key)) return;
   keys.delete(e.key); command("pedal", { pedal: which, down: false });
 };
-document.getElementById("song").onchange = (e) => command("song", { index: +e.target.value });
+document.getElementById("song").onchange = (e) => { if (+e.target.value >= 0) command("song", { index: +e.target.value }); };
 document.getElementById("kit").onchange = (e) => command("kit", { spec: e.target.value });
 document.getElementById("tempo").onchange = (e) => send("replace", "/tempo", +e.target.value);
 document.getElementById("slower").onclick = () => send("replace", "/tempo", Math.round(doc.tempo) - 1);
@@ -302,6 +379,17 @@ document.getElementById("faster").onclick = () => send("replace", "/tempo", Math
 document.getElementById("prev").onclick = () => { follow = false; showFollow(); const b = blocks[shown]; bar = (bar + b.bars - 1) % b.bars; renderGrid(); };
 document.getElementById("nextbar").onclick = () => { follow = false; showFollow(); const b = blocks[shown]; bar = (bar + 1) % b.bars; renderGrid(); };
 document.getElementById("follow").onclick = () => { follow = !follow; showFollow(); };
+document.getElementById("asker").onclick = () => {
+  const box = document.getElementById("ask");
+  box.hidden = !box.hidden;
+  document.getElementById("asker").classList.toggle("on", !box.hidden);
+  if (!box.hidden) document.getElementById("prompt").focus();
+};
+document.getElementById("askgo").onclick = ask;
+document.getElementById("prompt").onkeydown = (e) => { if (e.key === "Enter") ask(); };
+document.getElementById("pplay").onclick = () => command("proposal", { do: "play" });
+document.getElementById("pkeep").onclick = () => command("proposal", { do: "keep" });
+document.getElementById("pdiscard").onclick = () => command("proposal", { do: "discard" });
 connect();
 </script>
 </body>

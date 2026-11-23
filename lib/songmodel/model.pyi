@@ -24,6 +24,8 @@ def swung(tick: int | float, swing: int | float) -> int | float:
     """Where a note at `tick` plays with `swing` percent applied."""
 def migrate(project: _Project) -> _Project:
     """Bring an older project up to date in place."""
+def ramp_to(project: _Project, part: str) -> float | None:
+    """The tempo the song's `tempo_map` takes `part` to by its end, or None."""
 def pattern_at(track: _Track, tick: int | float) -> tuple[int, int]:
     """The pattern a track plays at `tick` in pattern mode, and the tick its start falls on."""
 def segments(
