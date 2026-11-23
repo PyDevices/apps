@@ -125,7 +125,7 @@ function handle(m) {
   } else if (m.t === "tele") {
     tele = m.v || {}; showTele();
   } else if (m.t === "ev") {
-    if ((m.name === "kit" || m.name === "song") && m.voices) { voices = m.voices; desc.kit = m.spec || m.kit; renderKits(); renderGrid(); }
+    if ((m.name === "kit" || m.name === "song" || m.name === "proposal") && m.voices) { voices = m.voices; desc.kit = m.spec || m.kit; renderKits(); renderGrid(); }
     if (m.name === "proposal") {
       if ("preview" in m) { showProposal(m.preview); if (m.error) askStatus(m.error, true); }
       else if (m.did === "keep" || m.did === "discard") { showProposal(null); askStatus(ASK_IDLE, false); }
@@ -284,7 +284,8 @@ function showProposal(p) {
   card.hidden = !p;
   if (!p) return;
   document.getElementById("pname").textContent = p.name || "Untitled";
-  const bits = [p.style, Math.round(p.tempo) + " BPM", p.meter, p.swing ? "swing " + p.swing + "%" : p.feel !== "straight" ? p.feel : "", p.kit_name || p.kit];
+  const style = p.style ? p.style[0].toUpperCase() + p.style.slice(1) : "";
+  const bits = [style, Math.round(p.tempo) + " BPM", p.meter, p.swing ? "swing " + p.swing + "%" : p.feel !== "straight" ? p.feel : "", p.kit_name || p.kit];
   document.getElementById("pfacts").textContent = bits.filter((b) => b).join("  \u2022  ");
   document.getElementById("pplan").textContent = planText(p);
   const filled = p.filled || [];
@@ -299,7 +300,7 @@ function showProposal(p) {
     el.textContent = b.short + " \u00b7 " + b.bars;
     strip.append(el);
   }
-  if (tele.ask === "ready") askStatus(p.tries > 1 ? "Here it is. (The first answer didn't fit; the second did.)" : "Here it is.", false);
+  askStatus(p.tries > 1 ? "Here it is. (The first answer didn't fit; the second did.)" : "Here it is.", false);
 }
 function ask() {
   const text = document.getElementById("prompt").value.trim();
