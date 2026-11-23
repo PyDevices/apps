@@ -90,6 +90,9 @@ PLANTS = (
     "midiengine_deaf",  # midiEngine ignores a new audio.out
     "cast_deaf",  # Cast ignores the chosen receiver
     "cast_finds_nothing",  # Cast leaves the Rokus unlisted on a board
+    "cast_keeps_searching",  # Cast's close leaves the Roku search running on a board
+    "cast_finds_once",  # Cast's second open leaves the Rokus unlisted
+    "cast_drops_desktop",  # Cast's close takes a computer's Rokus off the picker
 )
 
 failures = []
@@ -620,28 +623,53 @@ if lv is not None:
     from touchkit import net as touch_net  # noqa: E402
 
     class FoundRokus:
-        """castdisplay's provider, counting its registrations."""
+        """castdisplay's endpoints: one Roku finder, registered on first use."""
 
-        registered = []
+        cached = []
 
         @staticmethod
         def register(registry=None):
-            FoundRokus.registered.append(registry)
+            if not FoundRokus.cached:
+                FoundRokus.cached.append((registry or R).register(Devices("cast.target", "rokus", [])))
+            return FoundRokus.cached[0]
 
     class Castdisplay:
         endpoints = FoundRokus
 
     real_castdisplay = sys.modules.get("castdisplay")
     sys.modules["castdisplay"] = Castdisplay
-    if PLANT == "cast_finds_nothing":
-        cast._find_rokus = lambda: None
+
+    def finds_rokus():
+        return [p for p in R.providers("cast.target") if p.name == "rokus"]
+
+    def keeps_searching(scope):
+        FoundRokus.register()
+
+    def finds_once(scope):
+        there = R.providers("cast.target")
+        rokus = FoundRokus.register()
+        if rokus not in there:
+            scope.on_close(lambda: R.unregister(rokus))
+
+    def drops_desktop(scope):
+        rokus = FoundRokus.register()
+        if rokus not in R.providers("cast.target"):
+            R.register(rokus)
+        scope.on_close(lambda: R.unregister(rokus))
+
+    cast._find_rokus = {
+        "cast_finds_nothing": lambda scope: None,
+        "cast_keeps_searching": keeps_searching,
+        "cast_finds_once": finds_once,
+        "cast_drops_desktop": drops_desktop,
+    }.get(PLANT, cast._find_rokus)
     touch_net.up = lambda: False  # no looking round the network here
     cast._encoder_room = lambda: (0, 1)  # a cast that starts stops at once, saying why
     cast_scope = screen_scope("cast")
     cast.main(cast_scope)
     st = cast.state
     # A board's connections leave the Rokus to Cast, so opening it lists them.
-    check(len(FoundRokus.registered) == 1, "opening Cast registers castdisplay: %r" % (FoundRokus.registered,))
+    check(finds_rokus(), "opening Cast registers castdisplay")
 
     class Sink:
         closed = False
@@ -656,6 +684,21 @@ if lv is not None:
     check(cast_scope.store().get("host") == "10.0.0.7", "Cast picks the chosen Roku: %r" % (cast_scope.store(),))
     check(Sink.closed, "a running cast stops to move to it")
     cast_scope.close()
+    check(not finds_rokus(), "closing Cast on a board stops the Roku search")
+    cast_scope = screen_scope("cast")
+    cast.main(cast_scope)
+    check(finds_rokus(), "opening Cast again finds the Rokus again")
+    cast_scope.close()
+    # A computer's connections registered the Rokus, and they outlive Cast.
+    rokus = FoundRokus.register()
+    if rokus not in R.providers("cast.target"):
+        R.register(rokus)
+    cast_scope = screen_scope("cast")
+    cast.main(cast_scope)
+    cast_scope.close()
+    check(finds_rokus(), "closing Cast on a computer leaves the Rokus listed")
+    for rokus in finds_rokus():
+        R.unregister(rokus)
     if real_castdisplay is None:
         del sys.modules["castdisplay"]
     else:

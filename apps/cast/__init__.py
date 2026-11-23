@@ -24,8 +24,8 @@ when there's no last one to go back to. The receivers cast to before are
 kept in ``receivers.json`` there.
 
 A Roku chosen for ``cast.target`` in the connections picker is picked here
-too, and a cast that's running moves to it. Opening Cast puts the Rokus in
-that picker on a board, which doesn't look for them until then.
+too, and a cast that's running moves to it. On a board the picker lists
+Rokus only while Cast is open, which is when the board looks for them.
 """
 
 import sys
@@ -54,14 +54,26 @@ TILES = (
 state = None  # the open app's state, for the console
 
 
-def _find_rokus():
-    """Have castdisplay list the Rokus for ``cast.target``. A computer's
-    connections did already, and registering again does nothing."""
+def _find_rokus(scope):
+    """Have castdisplay list the Rokus for ``cast.target`` while Cast is open.
+
+    A computer's connections registered them already, and they stay. On a
+    board Cast registers them, and stops the search when it closes, since it
+    sends one every 10 s.
+    """
     try:
+        import endpointkit
         from castdisplay import endpoints
     except ImportError:
         return  # an older castdisplay, or no endpointkit: Cast finds its own
-    endpoints.register()
+    registry = endpointkit.registry
+    there = registry.providers("cast.target")
+    rokus = endpoints.register()  # the same finder every time Cast opens
+    if rokus in there:
+        return
+    if rokus not in registry.providers("cast.target"):
+        registry.register(rokus)  # back after an earlier close took it out
+    scope.on_close(lambda: registry.unregister(rokus))
 
 
 def _encoder_room():
@@ -598,7 +610,7 @@ def main(scope):
 
     st["toggle"], st["key"], st["pick"] = toggle, key, dd.set_selected  # for the console
     scope.on_close(close)
-    _find_rokus()
+    _find_rokus(scope)
     moved(scope.follow("cast.target", moved))
     scope.every(1000, tick)
 
