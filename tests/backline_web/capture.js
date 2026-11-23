@@ -9,6 +9,21 @@
 // channel so far as 16-bit PCM in base64, with the context's rate.
 (() => {
   const real = Object.getOwnPropertyDescriptor(BaseAudioContext.prototype, "destination").get;
+  const WORKLET = `
+    class Capture extends AudioWorkletProcessor {
+      constructor() { super(); this.buf = new Float32Array(4096); this.n = 0; }
+      process(inputs) {
+        const ch = inputs[0] && inputs[0][0];
+        if (ch) {
+          for (let i = 0; i < ch.length; i++) {
+            this.buf[this.n++] = ch[i];
+            if (this.n === this.buf.length) { this.port.postMessage(this.buf); this.buf = new Float32Array(4096); this.n = 0; }
+          }
+        }
+        return true;
+      }
+    }
+    registerProcessor("backline-capture", Capture);`;
   const chunks = [];
   let rate = 0;
   Object.defineProperty(BaseAudioContext.prototype, "destination", {
@@ -17,12 +32,16 @@
       if (!this.__tap) {
         const dest = real.call(this);
         const tap = this.createGain();
-        const recorder = this.createScriptProcessor(4096, 1, 1);
-        recorder.onaudioprocess = (e) => chunks.push(new Float32Array(e.inputBuffer.getChannelData(0)));
         tap.connect(dest);
-        tap.connect(recorder);
-        recorder.connect(dest);
         rate = this.sampleRate;
+        // An AudioWorklet records on the audio thread: a ScriptProcessor
+        // waits on the page's busy main thread and stalls the graph.
+        const url = URL.createObjectURL(new Blob([WORKLET], { type: "text/javascript" }));
+        this.audioWorklet.addModule(url).then(() => {
+          const recorder = new AudioWorkletNode(this, "backline-capture", { numberOfOutputs: 0 });
+          recorder.port.onmessage = (e) => chunks.push(e.data);
+          tap.connect(recorder);
+        });
         this.__tap = tap;
       }
       return this.__tap;

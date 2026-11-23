@@ -80,7 +80,15 @@ def _setup():
     try:
         omni = page_tool.find_omnipython(None)
     except SystemExit as e:
-        return str(e)
+        hmilink = os.environ.get("HMILINK_PATH")
+        if not hmilink:
+            return str(e)
+        omni = None                       # hmilink alone: enough for the checks with no browser
+        for path in (REPO / "apps", REPO / "lib", Path(hmilink), TESTS):
+            if str(path) not in sys.path:
+                sys.path.insert(0, str(path))
+        _setup.omni = None
+        return None
     for path in (REPO / "apps", REPO / "lib", omni / "packages" / "hmilink", TESTS):
         if str(path) not in sys.path:
             sys.path.insert(0, str(path))
@@ -95,6 +103,8 @@ def _missing():
     reason = _setup()
     if reason:
         return reason
+    if _setup.omni is None:
+        return "no OmniPython checkout with hmilink's web gate ($OMNIPYTHON_DIR)"
     try:
         page_tool.find_wasm(None)
     except SystemExit as e:
@@ -271,6 +281,8 @@ def _save_rgb565(path, frame, w, h):
 def onsets(pcm, rate):
     """The times, in seconds, where a drum hit starts in ``pcm`` (16-bit mono)."""
     hop = rate // 200
+    if not hop or len(pcm) < 3 * hop:
+        return []
     env = [max(abs(v) for v in pcm[i:i + hop]) for i in range(0, len(pcm) - hop, hop)]
     if not env:
         return []
@@ -336,7 +348,10 @@ class _Browser(unittest.TestCase):
                        (TESTS / "backline_web" / "capture.js").read_text()]
         cls.pw = sync_playwright().start()
         try:
-            cls.browser = cls.pw.chromium.launch(args=["--autoplay-policy=no-user-gesture-required"])
+            # No sound server: Chromium plays to its own silent output,
+            # which keeps time steadily and keeps the drums off the speakers.
+            env = dict(os.environ, PULSE_SERVER="unix:/nonexistent", ALSA_CONFIG_PATH="/nonexistent")
+            cls.browser = cls.pw.chromium.launch(args=["--autoplay-policy=no-user-gesture-required"], env=env)
         except Exception as e:  # noqa: BLE001 - said in the skip
             cls.pw.stop()
             cls.server.shutdown()
@@ -385,6 +400,14 @@ class _Browser(unittest.TestCase):
 class BrowserIsTheBox(_Browser):
     """Phase (a): the page plays the song, and a board is its desk."""
 
+    @staticmethod
+    def tap(page, host):
+        """A tap of pedal A on the board's desk: down and up in one message
+        batch, so a page slow to read its port can't make it a hold."""
+        host.desk.pedal(0, True)
+        host.desk.pedal(0, False)
+        host.poll()
+
     def check_box(self, join="#join-bt", plant="", seconds=25, sound=True):
         host = DeskHost()
         page = self.open(host, "box", "song=rock&kit=rhythm909&record=1&plant=" + plant)
@@ -395,9 +418,7 @@ class BrowserIsTheBox(_Browser):
                        seconds, "the board's desk joined the page's box")
             self.assertEqual((desk.panel.doc or {}).get("name"), "Straight Rock")
             # Pedal A on the board's desk: a tap starts the song on the page.
-            desk.pedal(0, True)
-            self.until(page, host, lambda s: True, 0.1, "")
-            desk.pedal(0, False)
+            self.tap(page, host)
             self.until(page, host, lambda s: s["playing"] and s["part"] == "Main 1" and s["floor_part"] == "MAIN 1",
                        seconds, "the desk's pedal started the song on the page, into Main 1")
             self.until(page, host, lambda s: (desk.tele or {}).get("part") == "Main 1",
@@ -416,9 +437,7 @@ class BrowserIsTheBox(_Browser):
             if SHOTS:
                 host.save(os.path.join(SHOTS, "board-desk-of-the-page.png"))
             # A tap for a fill, from the board, heard on the page and back.
-            desk.pedal(0, True)
-            self.until(page, host, lambda s: True, 0.1, "")
-            desk.pedal(0, False)
+            self.tap(page, host)
             self.until(page, host, lambda s: s["part"] == "Fill 1" and (desk.tele or {}).get("part") == "Fill 1",
                        seconds, "a fill asked for on the board's desk played on the page, and the desk showed it")
             self.until(page, host, lambda s: s["part"] == "Main 1", seconds, "the fill went back to Main 1")
@@ -429,6 +448,7 @@ class BrowserIsTheBox(_Browser):
 
     def check_sound(self, page):
         got = page.evaluate("backlineCapture()")
+        self.assertGreater(got["rate"], 0, "the page made no sound at all")
         pcm = array.array("h", base64.b64decode(got["pcm"]))
         notes = json.loads(page.evaluate("backlineNotes()"))
         heard = onsets(pcm, got["rate"])
@@ -547,7 +567,7 @@ class DeskLinks(unittest.TestCase):
 
     def test_desk_on_bluetooth_over_fake_air(self):
         """A board's desk advertises; a box connects to it, as a browser does."""
-        for name in ("lvgl", "svgio", "icons", "audiocore", "audioinstruments", "bledev.fake"):
+        for name in ("lvgl", "svgio", "icons", "audiocore", "audioinstruments", "bledev.fake", "hmilink.ble"):
             try:
                 __import__(name)
             except ImportError as e:
