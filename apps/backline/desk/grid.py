@@ -14,8 +14,29 @@ import lvgl as lv
 from . import look
 from .. import parts as song
 from .. import art
+from ..floor import fit, text_width
+
+# Shorter words for a drum's name, tried in turn until the name fits.
+SHORTER = (
+    (("High", "Hi"), ("Low", "Lo")),
+    (("Floor", "Flr"), ("Closed", "Cl"), ("Open", "Op"), ("Tambourine", "Tamb"), ("Cowbell", "Cowbl"),
+     ("Maracas", "Mrcs"), ("Conga", "Cga"), ("Bongo", "Bgo"), ("Splash", "Spl"), ("Stick", "Stk")),
+)
+LABEL_SHARE = 22              # the most of the grid's width the names take, in percent
 
 ON = (look.RAISED, art.mix(look.AMBER, look.RAISED, 0.25), look.AMBER, art.mix(look.AMBER, look.RAISED, 0.62))
+
+
+def shorter(name):
+    """``name``, then shorter ways to write it (`SHORTER`), longest first."""
+    out = [name]
+    for table in SHORTER:
+        words = out[-1].split(" ")
+        swap = dict(table)
+        short = " ".join(swap.get(word, word) for word in words)
+        if short != out[-1]:
+            out.append(short)
+    return out
 
 
 class Grid:
@@ -48,7 +69,10 @@ class Grid:
         self.cells = {}
         gap = 3
         beat_gap = 5
-        self.label_w = lw = max(64, self.w * 18 // 100)
+        # The names' column is as wide as the longest name needs, up to
+        # LABEL_SHARE of the grid; a name still too long goes by shorter words.
+        widest = max([text_width(n, self.fnt) for _p, n in rows] or [0])
+        self.label_w = lw = max(64, min(self.w * LABEL_SHARE // 100, widest + 8))
         groups = cols // beat
         cw = (self.w - lw - gap * (cols - 1) - beat_gap * (groups - 1) - 2) // cols
         ch = max(22, min(cw + 6, (self.h - 2) // max(1, len(rows)) - gap))
@@ -64,6 +88,7 @@ class Grid:
         for r, (pitch, name) in enumerate(rows):
             y = r * (ch + gap)
             lbl = look.text(self.base, name, self.fnt, look.DIM, lw - 8)
+            fit(lbl, shorter(name), lw - 8, 0)
             lbl.set_pos(0, y + (ch - self.fnt.line_height) // 2)
             for c in range(cols):
                 o = look.box(self.base, self.xs[c], y, cw, ch, self._off(c), 4, None)
