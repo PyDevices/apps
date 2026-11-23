@@ -35,6 +35,7 @@ ROLE_COLORS = {
 }
 AMBER = 0xFFB703
 GLASS = 0x05070B
+TEMPO_DIGITS = "0123456789 "    # the tempo's digits: a blank where it has fewer than three
 
 # Which of the seven segments each digit lights: a top, b upper right,
 # c lower right, d bottom, e lower left, f upper left, g middle.
@@ -72,14 +73,20 @@ def image(parent, x, y, w, h):
 class Picture:
     """An SVG drawn into a buffer, and the LVGL image that shows it.
 
-    With ``alpha`` (the default) the buffer is RGB565A8, so what's behind
-    shows through; without, it is RGB565, a third smaller, for art that
-    covers its whole box.
+    ``svg`` is its text, as a str or bytes-like. With ``alpha`` (the default)
+    the buffer is RGB565A8, so what's behind shows through; without, it is
+    RGB565, a third smaller, for art that covers its whole box. Pictures
+    drawn together can share a ``decoder`` (`decoder`), which saves the heap
+    a parse's worth of small blocks each.
     """
 
-    def __init__(self, parent, svg, width, height, x=0, y=0, alpha=True):
-        decoder = svgio.SvgDecoder()
-        w, h = decoder.open(svg.encode(), width=width)
+    def __init__(self, parent, svg, width, height, x=0, y=0, alpha=True, decoder=None):
+        own = decoder is None
+        if own:
+            decoder = svgio.SvgDecoder()
+        if isinstance(svg, str):
+            svg = svg.encode()
+        w, h = decoder.open(svg, width=width)
         if (w, h) != (width, height):
             raise ValueError("art drew at %dx%d, not %dx%d" % (w, h, width, height))
         size = w * h * (3 if alpha else 2)
@@ -89,7 +96,7 @@ class Picture:
             decoder.decode(planes[: w * h * 2], planes[w * h * 2:])
         else:
             decoder.decode(self.data)
-        if hasattr(decoder, "close"):
+        if own and hasattr(decoder, "close"):
             decoder.close()
         dsc = lv.image_dsc_t()
         dsc.header.magic = lv.IMAGE_HEADER_MAGIC
@@ -100,15 +107,14 @@ class Picture:
         dsc.data_size = size
         dsc.data = self.data
         self.dsc = dsc
-        self.w = w
-        self.h = h
         self.image = None
         if parent is not None:
             self.image = self.show(parent, x, y)
 
     def show(self, parent, x=0, y=0):
         """Another LVGL image of the same pixels, at ``(x, y)`` in ``parent``."""
-        img = image(parent, x, y, self.w, self.h)
+        header = self.dsc.header
+        img = image(parent, x, y, header.w, header.h)
         img.set_src(self.dsc)
         return img
 
@@ -117,10 +123,52 @@ class Picture:
         return len(self.data)
 
 
+#: The working memory a shared decoder (`decoder`) is made with: room for
+#: the panel's parse, its thousands of small blocks. The few large ones a
+#: draw takes spill over. On an ESP32 with PSRAM, and on a desktop, the
+#: memory and what spills come from outside the heap.
+DECODER_MEMORY = 96 * 1024
+
+
+def decoder():
+    """An svgio decoder for many pictures in a row, one at a time.
+
+    A parse makes thousands of small blocks. On a board whose heap holds a
+    view's pictures, finding room for each one took longer than the drawing;
+    this decoder makes them in its own memory instead. `close` it when the
+    pictures are drawn.
+    """
+    return svgio.SvgDecoder(memory=DECODER_MEMORY)
+
+
 BAND = 65536  # the most bytes a band of a screen-sized picture holds (`bands`)
 
+_BAND_HEAD = '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 %d %d %d"'
+#: The bytes a head gets in a `panel_text`: room for any band's, so a band
+#: is drawn by writing its head over the whole picture's, in place.
+HEAD_ROOM = len(_BAND_HEAD % (99999, 99999, 99999, 99999, 99999)) + 1
 
-def bands(parent, svg, width, height):
+
+def _room_head(width, rows, y):
+    """The head of band ``rows`` high at ``y``, padded to `HEAD_ROOM` bytes."""
+    head = _BAND_HEAD % (width, rows, y, width, rows)
+    return (head + " " * (HEAD_ROOM - 1 - len(head)) + ">").encode()
+
+
+def panel_text(svg, width, height):
+    """``svg``, which starts with its own size (`_HEAD`), as a bytearray
+    whose head has room for a band's (`HEAD_ROOM`), for `bands`."""
+    head = _HEAD % (width, height, width, height)
+    svg = svg.encode() if isinstance(svg, str) else bytes(svg)
+    if not svg.startswith(head.encode()):
+        raise ValueError("bands() takes an SVG that starts with its own size")
+    out = bytearray(HEAD_ROOM + len(svg) - len(head))
+    out[:HEAD_ROOM] = _room_head(width, height, 0)
+    out[HEAD_ROOM:] = memoryview(svg)[len(head):]
+    return out
+
+
+def bands(parent, svg, width, height, decoder=None):
     """``svg``, which covers its whole box, drawn as RGB565 pictures of a
     band of rows each, top to bottom in ``parent``, none over `BAND` bytes.
 
@@ -129,18 +177,22 @@ def bands(parent, svg, width, height):
     such block. Each band is the same SVG with its view moved down, so the
     bands are the picture drawn whole, a few pixels a step of rounding
     apart.
+
+    ``svg`` is best a `panel_text`, or a writable view of one: each band's
+    head is then written over its head in place, and put back after, so the
+    bands copy no text.
     """
-    head = _HEAD % (width, height, width, height)
-    if not svg.startswith(head):
-        raise ValueError("bands() takes an SVG that starts with its own size")
-    body = svg[len(head):]
+    if not (isinstance(svg, (bytearray, memoryview)) and bytes(svg[:HEAD_ROOM]) == _room_head(width, height, 0)):
+        svg = panel_text(svg, width, height)
     step = max(1, BAND // (2 * width))
     out = []
-    for y in range(0, height, step):
-        rows = min(step, height - y)
-        band = ('<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 %d %d %d">'
-                % (width, rows, y, width, rows)) + body
-        out.append(Picture(parent, band, width, rows, 0, y, alpha=False))
+    try:
+        for y in range(0, height, step):
+            rows = min(step, height - y)
+            svg[:HEAD_ROOM] = _room_head(width, rows, y)
+            out.append(Picture(parent, svg, width, rows, 0, y, alpha=False, decoder=decoder))
+    finally:
+        svg[:HEAD_ROOM] = _room_head(width, height, 0)
     return out
 
 
@@ -228,10 +280,19 @@ class Layout:
 def panel_svg(lay, steps=4, group=1):
     """Everything that never moves: the panel, the ring's housing and its dim
     track of ``steps`` segments, the part window's glass, the tempo window
-    with its ghost digits, and the pedal lamps unlit."""
+    with its ghost digits, and the pedal lamps unlit.
+
+    It is three parts after the head: `panel_top` and `panel_bottom`, the
+    same for every meter, round `panel_ring`, the ticks and the track."""
+    return "".join((_HEAD % (lay.w, lay.h, lay.w, lay.h), panel_top(lay), panel_ring(lay, steps, group),
+                    panel_bottom(lay)))
+
+
+def panel_top(lay):
+    """The panel's gradients, its brushed face and the ring's housing."""
     w, h = lay.w, lay.h
     cx, cy, r = lay.cx, lay.cy, lay.r
-    out = [_HEAD % (w, h, w, h), "<defs>"]
+    out = ["<defs>"]
     out.append('<linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">'
                '<stop offset="0" stop-color="#1a212d"/><stop offset="0.55" stop-color="#0d1118"/>'
                '<stop offset="1" stop-color="#06080c"/></linearGradient>')
@@ -272,6 +333,13 @@ def panel_svg(lay, steps=4, group=1):
     out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#bezel2)"/>' % (cx, cy, r * 0.955))
     out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#face)"/>' % (cx, cy, r * 0.93))
     out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#hub)"/>' % (cx, cy, r * 0.62))
+    return "".join(out)
+
+
+def panel_ring(lay, steps=4, group=1):
+    """The ring's ticks and its dim track for a bar of ``steps``, ``group`` to a beat."""
+    cx, cy, r = lay.cx, lay.cy, lay.r
+    out = []
     # Ticks outside the track, a beat's longer: sixteenths where a beat is
     # one segment, else one tick a segment.
     per = 4 if group == 1 else 1
@@ -290,6 +358,13 @@ def panel_svg(lay, steps=4, group=1):
         a0, a1 = beat_span(b, steps, group)
         out.append('<path d="%s" fill="#1d2430" stroke="#3a4555" stroke-opacity="0.8" stroke-width="1"/>'
                    % _band(cx, cy, lay.beat_in, lay.beat_out, a0, a1))
+    return "".join(out)
+
+
+def panel_bottom(lay):
+    """The digit's hairline, the part and tempo windows and the pedal lamps unlit, and the end."""
+    cx, cy, r = lay.cx, lay.cy, lay.r
+    out = []
     # An inner hairline round the digit.
     out.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" stroke="#ffffff" stroke-opacity="0.08" '
                'stroke-width="1"/>' % (cx, cy, r * 0.60))
@@ -395,18 +470,18 @@ def _digit_paths(ch, x, y, w, h, color, glow):
         pts = [pt(a, b) for a, b in pts]
         return "M" + "L".join("%.2f %.2f" % p for p in pts) + "Z"
 
+    lit = SEGMENTS.get(ch, "")
+    if not lit:
+        return ""
     inner = w - t
     l, rr = t / 2, w - t / 2
     top, bot = t / 2, h - t / 2
     shapes = {
-        "a": seg(True, l, top, inner), "g": seg(True, l, half, inner), "d": seg(True, l, bot, inner),
-        "f": seg(False, l, top, half - top), "b": seg(False, rr, top, half - top),
-        "e": seg(False, l, half, bot - half), "c": seg(False, rr, half, bot - half),
+        "a": (True, l, top, inner), "g": (True, l, half, inner), "d": (True, l, bot, inner),
+        "f": (False, l, top, half - top), "b": (False, rr, top, half - top),
+        "e": (False, l, half, bot - half), "c": (False, rr, half, bot - half),
     }
-    lit = SEGMENTS.get(ch, "")
-    if not lit:
-        return ""
-    d = "".join(shapes[s] for s in lit)
+    d = "".join(seg(*shapes[s]) for s in lit)    # only the lit ones are written
     out = []
     if glow is not None:
         out.append('<path d="%s" fill="none" stroke="%s" stroke-opacity="0.22" stroke-width="%.1f" '
@@ -441,3 +516,112 @@ def glow_svg(r, color):
             '<stop offset="0.6" stop-color="%s" stop-opacity="0.35"/>'
             '<stop offset="1" stop-color="%s" stop-opacity="0"/></radialGradient></defs>'
             '<circle cx="%.1f" cy="%.1f" r="%.1f" fill="url(#g)"/></svg>' % (hot, hot, hot, c, c, c))
+
+
+def beat_digits(steps, group):
+    """The beat's digits a bar of ``steps``, ``group`` to a beat, shows: a
+    dash, and one to each of its beats."""
+    return "-123456789"[: 1 + min(9, steps // max(1, group))]
+
+
+class Texts:
+    """The SVG text of one screen size's art (a `Layout`), written the first
+    time it is wanted and kept until the view goes.
+
+    A view that hides lets go of its pictures, and draws them again when it
+    shows. On a board, writing the text took longer than drawing it, so the
+    text is kept instead: under 50 KB a view, where its pixels are a
+    megabyte or more. It is kept end to end in one `svgio.Buffer`, which on
+    an ESP32 with PSRAM, and on a desktop, is outside the heap, so the heap
+    holds next to nothing more than before and the collector doesn't read
+    it. First what every meter shows (`face`), then the ring for one meter
+    (`ring`); another meter writes only the parts of it that change. A view
+    of the text it gives is good until the next call that writes some.
+    """
+
+    def __init__(self, lay):
+        self.lay = lay
+        self.meter = None
+        self._buf = None        # the texts, end to end
+        self._ends = []         # where each ends: `face`'s, then `ring`'s
+        self._face = 0          # how many of them are `face`'s
+        self._ring_at = (0, 0)  # where `panel_ring`'s part of the panel is
+
+    def _text(self, i):
+        """A writable view of text ``i``."""
+        ends = self._ends
+        return memoryview(self._buf)[ends[i - 1] if i else 0:ends[i]]
+
+    def _keep(self, face, ring):
+        """Keep ``face``'s texts and then ``ring``'s, bytes each: one buffer
+        for them all in place of the one there was."""
+        old, self._buf = self._buf, None
+        if old is not None:
+            old.close()
+        texts = face + ring
+        buf = svgio.Buffer(sum(len(t) for t in texts))
+        view = memoryview(buf)
+        ends = [0] * len(texts)
+        at = 0
+        for i, t in enumerate(texts):
+            view[at:at + len(t)] = t
+            at += len(t)
+            ends[i] = at
+        self._buf, self._ends, self._face = buf, ends, len(face)
+
+    def _texts(self, first, end):
+        return [bytes(self._text(i)) for i in range(first, end)]
+
+    def face(self, glows):
+        """The tempo's digits, ``{ch: text}`` for each of `TEMPO_DIGITS`,
+        and a lit lamp's glow for each ``(radius, colour)`` of ``glows``
+        (`glow_svg`), in a list. They are written once: a view's lamps
+        don't change."""
+        glows = list(glows)
+        if not self._face:
+            lay = self.lay
+            face = [digit_svg(ch, lay.small_w, lay.small_h).encode() for ch in TEMPO_DIGITS]
+            face += [glow_svg(r, color).encode() for r, color in glows]
+            self._keep(face, self._texts(self._face, len(self._ends)))
+        n = len(TEMPO_DIGITS)
+        return {ch: self._text(i) for i, ch in enumerate(TEMPO_DIGITS)}, [self._text(n + i) for i in range(len(glows))]
+
+    def ring(self, steps, group):
+        """The panel, as a view of a `panel_text`, and each lit segment's
+        text, in a list, for a bar of ``steps``, ``group`` to a beat.
+        Another meter lets go of the last one's, and keeps the panel's
+        parts that don't change with it."""
+        first = self._face
+        if self.meter != (steps, group):
+            lay = self.lay
+            a, b = self._ring_at
+            if self.meter is None:
+                top = _room_head(lay.w, lay.h, 0) + panel_top(lay).encode()
+                bottom = panel_bottom(lay).encode()
+            else:
+                panel = self._text(first)
+                top, bottom = bytes(panel[:a]), bytes(panel[b:])
+                panel = None
+            self.meter = None
+            mid = panel_ring(lay, steps, group).encode()
+            self._ring_at = (len(top), len(top) + len(mid))
+            ring = [top + mid + bottom]
+            top = mid = bottom = None
+            ring += [segment_svg(lay, i, steps, group).encode() for i in range(steps)]
+            ring += [digit_svg(ch, lay.big_w, lay.big_h).encode() for ch in beat_digits(steps, group)]
+            self._keep(self._texts(0, first), ring)
+            self.meter = (steps, group)
+        return self._text(first), [self._text(first + 1 + i) for i in range(steps)]
+
+    def big(self, ch):
+        """The beat's digit ``ch``, lit (`digit_svg`): kept with the ring
+        where its meter shows it, else written now."""
+        at = beat_digits(*self.meter).find(ch) if self.meter is not None else -1
+        if at < 0:
+            lay = self.lay
+            return digit_svg(ch, lay.big_w, lay.big_h).encode()
+        return self._text(self._face + 1 + self.meter[0] + at)
+
+    def bytes(self):
+        """The bytes of text kept."""
+        return len(self._buf) if self._buf is not None else 0

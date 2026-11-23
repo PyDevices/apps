@@ -66,12 +66,12 @@ def plant(name):
     elif name == "keep-face":
         Desk.hide = lambda self: self.base.add_flag(lv.obj.FLAG.HIDDEN)
     elif name == "alpha-panel":
-        def bands(parent, svg, width, height):
-            return [art.Picture(parent, svg, width, height)]
+        def bands(parent, svg, width, height, decoder=None):
+            return [art.Picture(parent, svg, width, height, decoder=decoder)]
         art.bands = bands
     elif name == "whole-panel":
-        def bands(parent, svg, width, height):
-            return [art.Picture(parent, svg, width, height, alpha=False)]
+        def bands(parent, svg, width, height, decoder=None):
+            return [art.Picture(parent, svg, width, height, alpha=False, decoder=decoder)]
         art.bands = bands
     elif name == "all-digits":
         old = floor.Floor._draw
