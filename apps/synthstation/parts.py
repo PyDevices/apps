@@ -17,6 +17,8 @@ MIX_BUFFER = 2048
 #: it. Its effects run on while it's pulled, at a cost even in silence, and
 #: every instrument's sound has died away by the time its last voice sleeps.
 PARK_MS = 500
+#: A parked instrument's voice plays this many frames of silence on a loop.
+REST_FRAMES = 256
 
 
 class Part:
@@ -67,8 +69,16 @@ class Mix:
     """
 
     def __init__(self, instruments, rate, channels):
+        from array import array
+
+        import audiocore
         import audiomixer
 
+        # A parked voice plays silence rather than being stopped. Firmware
+        # whose mixer stops a voice without the audio pump's lock can hang
+        # when that lands mid-mix, and play() takes the lock.
+        self._rest = audiocore.RawSample(
+            array("h", bytes(2 * REST_FRAMES * channels)), channel_count=channels, sample_rate=rate)
         mixer = audiomixer.Mixer(
             voice_count=len(instruments), buffer_size=MIX_BUFFER, channel_count=channels,
             bits_per_sample=16, samples_signed=True, sample_rate=rate)
@@ -106,7 +116,7 @@ class Mix:
                 self._quiet[i] += ms
                 if self._quiet[i] >= PARK_MS:
                     self.parked[i] = True
-                    mixer.voice[i].stop()
+                    mixer.voice[i].play(self._rest, loop=True)
 
     def deinit(self):
         """Let go of the instruments. Call it once nothing pulls the output."""
