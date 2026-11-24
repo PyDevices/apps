@@ -19,7 +19,7 @@ dependencies = [
     "omnipython",
     "omnipython-audioeffects",
     "omnipython-audioinstruments",
-    "omnipython-desktop",
+    "omnipython-desktop>=0.8.1.dev9",
     "omnipython-palettes",
     "omnipython-pygraphics",
     "requests",

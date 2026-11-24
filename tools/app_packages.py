@@ -271,7 +271,8 @@ APPLIBS_URL = "omnipython-applibs[apps] @ git+https://github.com/PyDevices/apps"
 #: The omnipython packages pip users get inside omnipython-desktop. ``--check
 #: --omnipython <checkout>`` fails when that checkout's mip-split.toml doesn't
 #: mark one of them ``pypi-desktop``, so an app can't need one the wheel leaves out.
-DESKTOP = "omnipython-desktop"
+#: 0.8.1.dev9 is the first release with hmilink, mp4mux, castdisplay and vtterm.
+DESKTOP = "omnipython-desktop>=0.8.1.dev9"
 IN_DESKTOP = ("castdisplay", "endpointkit", "hmilink", "icons", "midiports", "mp4mux", "vtterm")
 
 #: What pip installs for each package an app needs on a board (its package.json
