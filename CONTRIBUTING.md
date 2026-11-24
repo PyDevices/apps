@@ -35,6 +35,19 @@ Applications live in `apps/` (Ostinato, Vamp). Libraries live in `lib/` (soundmo
 two of them share goes in `lib/` (`songmodel`). Ostinato's `tools/gen_boot.py`
 lists what its page loads from there, so run it after adding a shared file.
 
+## Every app imports everywhere
+
+An app must load on every Python, whether or not it can run there. Import
+what only some boards have (`machine`, a USB device port, a decoder) inside
+`main()`, and when it's missing call `touchkit.ui.missing`: it says why on
+the app's screen and offers to hide the app from Home. CI checks this by
+installing every app with pip and importing each module:
+
+```bash
+pip install ./apps
+python tools/import_every_app.py
+```
+
 ## The gates
 
 `tools/gate.py` drives Windows from WSL: REAPER, a loopback MIDI port and a
