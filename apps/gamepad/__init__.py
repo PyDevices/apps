@@ -25,7 +25,7 @@ from multimer import ticks_diff, ticks_ms
 from touchkit import ui
 
 from .pad import A, B, L, R, SELECT, START, X, Y, Pad, Sender, hat_at, stick_at
-from .watch import AXIS_NAMES, EXTRA_NAMES, Watch
+from .watch import AXIS_NAMES, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, Watch
 
 #: How often the screen catches up with the pad or the tester, in ms.
 TICK_MS = 20
@@ -319,6 +319,54 @@ def _pairs(axes):
     return out
 
 
+def _strip(parent, items, x, y, width, tall, numbers):
+    """Upright bars side by side from *x*, *y*: one for each (name, low, high)
+    in *items*, its name below and, with *numbers*, its value above. Returns
+    (bar, value label or None, name label) for each."""
+    cw = min(48, width // len(items) - 4)
+    out = []
+    for i, (text, lo, hi) in enumerate(items):
+        cx = x + i * (cw + 4)
+        value = None
+        by = y
+        if numbers:
+            value = ui.label(parent, "", ui.tiny, ui.WHITE)
+            value.set_width(cw)
+            value.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+            value.set_pos(cx, y)
+            by += CAPTION
+        bar = lv.bar(parent)
+        bar.set_range(lo, hi)
+        bar.set_value(lo, False)
+        bar.set_pos(cx + cw // 2 - 6, by)
+        bar.set_size(12, tall)
+        name = ui.label(parent, text, ui.tiny, ui.MUTED)
+        name.set_width(cw)
+        name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+        name.set_pos(cx, by + tall + 2)
+        out.append((bar, value, name))
+    return out
+
+
+def _strip_height(tall, numbers):
+    """How tall a `_strip` of bars *tall* high stands, names and all."""
+    return tall + (2 if numbers else 1) * CAPTION + 2
+
+
+def _fit_strip(room):
+    """The bars' height and whether their numbers fit, in *room* pixels."""
+    numbers = room >= _strip_height(32, True)
+    return max(10, min(48, room - _strip_height(0, numbers))), numbers
+
+
+def _show(column, v, held):
+    bar, value, name = column
+    bar.set_value(v, False)
+    if value is not None:
+        value.set_text(str(v))
+    name.set_style_text_color(ui.ACCENT if held else ui.MUTED, 0)
+
+
 def test_gamepad(scope):
     """The gamepad on the board's USB host port, live."""
     root = scope.root
@@ -362,58 +410,71 @@ def test_gamepad(scope):
         body.clean()
         buttons, axes, hats, extras = layout
         m = _margin(W)
-        view = {"lamps": {}, "dots": [], "bars": {}, "values": {}, "hat": None, "extras": []}
+        view = {"lamps": {}, "keys": {}, "pressure": {}, "dots": [], "bars": {}, "values": {}, "hat": None,
+                "extras": []}
         pairs = _pairs(axes)
-        # The buttons along the bottom, in rows of up to sixteen.
-        cols = min(16, len(buttons)) or 1
-        bw = min(56, (W - m) // cols - 6)
-        rows = (len(buttons) + cols - 1) // cols
-        lamps_y = H - m - rows * (bw + 6) + 6
-        lamp_font = ui.small if bw >= 32 else ui.tiny
-        for i, n in enumerate(buttons):
-            lamp = ui.box(body, m + (i % cols) * (bw + 6), lamps_y + (i // cols) * (bw + 6), bw, bw, ui.KEY)
-            lamp.set_style_pad_all(0, 0)
-            ui.label(lamp, str(n), lamp_font, ui.WHITE).center()
-            view["lamps"][n] = lamp
-        # Above them a strip of upright bars for the vendor values: how hard
-        # each control is pressed, and the motion sensors.
-        top = lamps_y - m
+        # Which vendor values are a button's pressure; the rest go in a strip.
+        pressure = {}
+        rest = []
+        for i, (usage, lo, hi) in enumerate(extras):
+            if PRESSURE_OF.get(usage) in buttons:
+                pressure[PRESSURE_OF[usage]] = i
+            else:
+                rest.append(i)
+        rest.sort(key=lambda i: EXTRA_ORDER.index(extras[i][0]) if extras[i][0] in EXTRA_ORDER else 99 + i)
         line = ui.small.line_height + 6  # an axis's row at its thinnest
         count = len(pairs) + (1 if hats else 0)
-        cols, rows = 1, len(axes)
-        if extras:
-            # What's left once the axes' rows and the smallest squares fit;
-            # where that's too little, the axes go two to a row.
-            room = top - m - rows * line - (2 * m + CAPTION + 48 if count else 0)
-            if room < 16 + CAPTION + m and rows > 1:
+        if pressure:
+            # A pad that says how hard its buttons are pressed: each button
+            # is an upright bar, 0 to 255, in its number's order. The bars
+            # and the strip of the other vendor values share their height.
+            # Side by side in one row where they fit, the buttons first.
+            one_row = bool(rest) and W - 3 * m >= (len(buttons) + len(rest)) * 36
+            strips = 2 if rest and not one_row else 1
+            need = len(axes) * line + (2 * m + CAPTION + 48 if count else 0)
+            cols, rows = 1, len(axes)
+            room = (H - m - need) // strips - m
+            if room < _strip_height(16, False) and rows > 1:
                 cols, rows = 2, (rows + 1) // 2
-                room += (len(axes) - rows) * line
-            # Each value above its bar where there's room, then shorter bars.
-            numbers = room >= 32 + 2 * CAPTION + m
-            tall = max(10, min(48, room - (2 if numbers else 1) * CAPTION - m))
-            n = len(extras)
-            cw = min(48, (W - m) // n - 4)
-            sy = top - tall - (2 if numbers else 1) * CAPTION
-            for i, (usage, lo, hi) in enumerate(extras):
-                cx = m + i * (cw + 4)
-                value = None
-                if numbers:
-                    value = ui.label(body, "", ui.tiny, ui.WHITE)
-                    value.set_width(cw)
-                    value.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-                    value.set_pos(cx, sy)
-                bar = lv.bar(body)
-                bar.set_range(lo, hi)
-                bar.set_value(lo, False)
-                by = sy + (CAPTION if numbers else 0)
-                bar.set_pos(cx + cw // 2 - 6, by)
-                bar.set_size(12, tall)
-                name = ui.label(body, EXTRA_NAMES.get(usage, str(i + 1)), ui.tiny, ui.MUTED)
-                name.set_width(cw)
-                name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-                name.set_pos(cx, by + tall + 2)
-                view["extras"].append((bar, value))
-            top = sy - m
+                room += (len(axes) - rows) * line // strips
+            tall, numbers = _fit_strip(room)
+            y = H - m - _strip_height(tall, numbers)
+            items = [(str(n), 0, 255) for n in buttons]
+            width = (W - 3 * m) * len(buttons) // (len(buttons) + len(rest)) if one_row else W - m
+            view["keys"] = dict(zip(buttons, _strip(body, items, m, y, width, tall, numbers)))
+            view["pressure"] = pressure
+            if one_row:
+                items = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
+                view["extras"] = list(zip(rest, _strip(body, items, 2 * m + width, y, W - 3 * m - width, tall, numbers)))
+                rest = []
+            top = y - m
+        else:
+            # The buttons along the bottom as lamps, in rows of up to sixteen.
+            n_cols = min(16, len(buttons)) or 1
+            bw = min(56, (W - m) // n_cols - 6)
+            n_rows = (len(buttons) + n_cols - 1) // n_cols
+            lamps_y = H - m - n_rows * (bw + 6) + 6
+            lamp_font = ui.small if bw >= 32 else ui.tiny
+            for i, n in enumerate(buttons):
+                lamp = ui.box(body, m + (i % n_cols) * (bw + 6), lamps_y + (i // n_cols) * (bw + 6), bw, bw, ui.KEY)
+                lamp.set_style_pad_all(0, 0)
+                ui.label(lamp, str(n), lamp_font, ui.WHITE).center()
+                view["lamps"][n] = lamp
+            top = lamps_y - m
+            cols, rows = 1, len(axes)
+            if rest:
+                room = top - m - rows * line - (2 * m + CAPTION + 48 if count else 0)
+                if room < _strip_height(16, False) and rows > 1:
+                    cols, rows = 2, (rows + 1) // 2
+                    room += (len(axes) - rows) * line
+                tall, numbers = _fit_strip(room)
+        # Above them a strip of upright bars for the other vendor values:
+        # the d-pad's pressure and the motion sensors.
+        if rest:
+            y = top - _strip_height(tall, numbers)
+            items = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
+            view["extras"] = list(zip(rest, _strip(body, items, m, y, W - m, tall, numbers)))
+            top = y - m
         # Above those the sticks and the hat as squares, then a bar for each axis.
         sq = max(0, min(top - rows * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
         x = (W - count * (sq + m) + m) // 2
@@ -472,11 +533,17 @@ def test_gamepad(scope):
             bar.set_value(int((v or 0) * 100), False)
             raw = watch.pad.axes.get(code) if watch.pad is not None else None
             view["values"][code].set_text("" if raw is None else str(raw))
-        for (bar, value), v in zip(view["extras"], watch.extras):
+        extras = watch.extras
+        for n, column in view["keys"].items():
+            i = view["pressure"].get(n)
+            v = extras[i] if i is not None and i < len(extras) else None
+            if v is None:
+                v = 255 if n in held else 0
+            _show(column, v, n in held)
+        for i, column in view["extras"]:
+            v = extras[i] if i < len(extras) else None
             if v is not None:
-                bar.set_value(v, False)
-                if value is not None:
-                    value.set_text(str(v))
+                _show(column, v, False)
         if view["hat"] is not None:
             d = watch.hats.get(0, -1)
             marks = view["hat"]

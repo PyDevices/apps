@@ -38,6 +38,16 @@ EXTRA_NAMES = {
     0xFF000028: "LB", 0xFF000029: "RB", 0xFF00002A: "LT", 0xFF00002B: "RT",
     0xFF00002C: "aX", 0xFF00002D: "aY", 0xFF00002E: "aZ", 0xFF00002F: "rot",
 }
+#: The order the vendor values that aren't a button's go in on the screen:
+#: the d-pad's pressure clockwise from up, then the motion sensors.
+EXTRA_ORDER = (0xFF000022, 0xFF000020, 0xFF000023, 0xFF000021, 0xFF00002C, 0xFF00002D, 0xFF00002E, 0xFF00002F)
+#: Which button each pressure value belongs to, on a pad in the PS3 layout:
+#: 1 is the left face button, 2 the bottom, 3 the right, 4 the top, then the
+#: shoulders and triggers, as that layout numbers them.
+PRESSURE_OF = {
+    0xFF000027: 1, 0xFF000026: 2, 0xFF000025: 3, 0xFF000024: 4,
+    0xFF000028: 5, 0xFF000029: 6, 0xFF00002A: 7, 0xFF00002B: 8,
+}
 #: Each field in hid_generic's ``Gamepad.fields`` starts with its kind.
 _BUTTON, _AXIS, _HAT = 0, 1, 2
 

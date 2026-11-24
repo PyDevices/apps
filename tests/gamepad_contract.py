@@ -512,20 +512,27 @@ _Host.pad = pad
 st["watch"]._looked = None
 scope.run()
 view = st["view"]
-check(view is not None and len(view["extras"]) == 16, "a PS3-layout pad shows its sixteen vendor values")
+check(view is not None and sorted(view["keys"]) == list(range(1, 14)) and not view["lamps"],
+      "a PS3-layout pad's thirteen buttons are bars, not lamps")
+check(sorted(view["pressure"]) == list(range(1, 9)), "buttons 1 to 8 read their pressure")
+names = [column[2].get_text() for _, column in view["extras"]]
+check(names == ["Up", "Rt", "Dn", "Lt", "aX", "aY", "aZ", "rot"], "the d-pad and motion values above: %r" % (names,))
 w = st["watch"]
 # A held, its pressure byte full, the pad at rest.
 pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f301ee00b4010302")]
 scope.run()
 check(w.extras[6] == 255 and w.extras[12] == 499, "the pressure and motion values are read: %r" % (w.extras,))
-check(view["extras"][6][0].get_value() == 255, "A's pressure bar is full")
+check(view["keys"][2][0].get_value() == 255, "A's bar (button 2) is full")
+check(view["keys"][1][0].get_value() == 0, "X's (button 1) is empty")
+check(same_color(view["keys"][2][2].get_style_text_color(0), ui.ACCENT), "and 2's name lights while it's held")
 # Tilted: only a motion value moves, and the screen follows with no event.
 events = w.events
 pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f402ee00b4010302")]
 scope.run()
 check(w.events == events and w.extras[12] == 756, "a tilt alone is read: %r" % (w.extras,))
-check(view["extras"][12][0].get_value() == 756, "and shown: %r" % (view["extras"][12][0].get_value(),))
-number = view["extras"][12][1]
+aX = view["extras"][4][1]
+check(aX[0].get_value() == 756, "and shown: %r" % (aX[0].get_value(),))
+number = aX[1]
 check(number is None or number.get_text() == "756", "with its number where one fits")
 shot("tester_ps3_layout")
 scope.close()
