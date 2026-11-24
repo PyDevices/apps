@@ -13,6 +13,10 @@ plays when more than one channel has an instrument.
 CHANNELS = 16
 #: The mix's buffer in bytes: 512 stereo frames, about 11 ms at 48 kHz.
 MIX_BUFFER = 2048
+#: How long an instrument has had no voice awake before the mix stops pulling
+#: it. Its effects run on while it's pulled, at a cost even in silence, and
+#: every instrument's sound has died away by the time its last voice sleeps.
+PARK_MS = 500
 
 
 class Part:
@@ -56,6 +60,10 @@ class Mix:
 
     Each plays at full level, so an instrument is as loud in a mix as it is
     alone, and a sum past full scale is held there rather than wrapping.
+
+    An instrument that has had no voice awake for `PARK_MS` is parked: the
+    mix stops pulling it, so it costs nothing until `wake` or a voice waking
+    brings it back. Call `tick` as time passes, and `wake` before a note.
     """
 
     def __init__(self, instruments, rate, channels):
@@ -68,6 +76,37 @@ class Mix:
             mixer.voice[i].play(inst.output, loop=True)
         self.output = mixer
         self._count = len(instruments)
+        self._instruments = list(instruments)
+        self._quiet = [0] * self._count
+        self.parked = [False] * self._count
+
+    def wake(self, inst):
+        """Pull *inst* again if it was parked, before it's played."""
+        for i, each in enumerate(self._instruments):
+            if each is inst:
+                self._quiet[i] = 0
+                if self.parked[i]:
+                    self.parked[i] = False
+                    self.output.voice[i].play(inst.output, loop=True)
+                return
+
+    def tick(self, ms):
+        """*ms* more have passed: park the instruments that have stayed
+        asleep `PARK_MS`, and bring back any whose voices woke by themselves."""
+        mixer = self.output
+        if mixer is None:
+            return
+        for i, inst in enumerate(self._instruments):
+            if inst.awake:
+                self._quiet[i] = 0
+                if self.parked[i]:
+                    self.parked[i] = False
+                    mixer.voice[i].play(inst.output, loop=True)
+            elif not self.parked[i]:
+                self._quiet[i] += ms
+                if self._quiet[i] >= PARK_MS:
+                    self.parked[i] = True
+                    mixer.voice[i].stop()
 
     def deinit(self):
         """Let go of the instruments. Call it once nothing pulls the output."""

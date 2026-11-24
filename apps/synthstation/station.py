@@ -472,6 +472,8 @@ class Station:
                 return  # a pad past the kit's last sound is silent
             # Kept for the release: a SoundFont's next kit lays out differently.
             part.struck[note] = note = part.pad_notes[pad]
+        if self._mix is not None:
+            self._mix.wake(part.adapter.instrument)
         part.adapter.note_on(note, velocity)
         self._played = 2
 
@@ -828,6 +830,8 @@ class Station:
         adapter = self.adapter
         if adapter is None:
             return
+        if self._mix is not None:
+            self._mix.wake(adapter.instrument)
         adapter.note_on(note, 100)
         self.scope.after(PAD_NOTE_MS, lambda t: self.adapter is adapter and adapter.note_off(note))
 
@@ -844,6 +848,8 @@ class Station:
         try:
             for part in playing:
                 part.adapter.instrument.fill()
+            if self._mix is not None:
+                self._mix.tick(FILL_MS)
         finally:
             self._filling = False
         self._fills += 1
