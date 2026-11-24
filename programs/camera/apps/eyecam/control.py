@@ -87,6 +87,7 @@ class Eye:
         self.item = 0
         self.cam_item = 0
         self.recording = False
+        self._preview_at = 0  # when the preview last redrew while recording
         self.rec_secs = 0
         self.usb_mounted = False
         self.sd_mounted = hw.storage.mounted()
@@ -206,6 +207,12 @@ class Eye:
     def _frame(self, t):
         if self.hw.sleep.sleeping or self.page in (ALBUM, USB):
             return
+        every = self.hw.recorder.preview_ms
+        if self.recording and every:
+            now = time.ticks_ms()
+            if time.ticks_diff(now, self._preview_at) < every:
+                return
+            self._preview_at = now
         t0 = time.ticks_us()
         buf = self.hw.preview.frame(self.mag)
         t1 = time.ticks_us()
