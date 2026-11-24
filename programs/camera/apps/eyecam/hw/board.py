@@ -277,6 +277,10 @@ class Recorder:
     """H.264 video with the microphone's sound in an MP4, from the frame the
     preview just showed. One ``tick()`` per preview frame."""
 
+    # While recording, the preview redraws at most this often: cutting and
+    # drawing it takes CPU time the recording thread needs to keep up.
+    preview_ms = 250
+
     def __init__(self, preview, storage, make_mic, work):
         self.preview = preview
         self.storage = storage

@@ -178,6 +178,8 @@ class Storage:
 class Recorder:
     """Writes the preview as MJPEG (one JPEG after another) at quality 80."""
 
+    preview_ms = 0  # tick() records each preview frame, so the preview keeps its pace
+
     def __init__(self, preview, storage):
         self.preview = preview
         self.storage = storage
