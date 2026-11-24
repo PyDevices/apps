@@ -15,4 +15,4 @@
 - Stompbox's meter check (`tests/stompbox_check.py`) needs no airwindows: a stand-in effect passes the audio through. To run the app itself on a computer, CPython with `omnipython-airwindows` installed works: `tools/stompbox/drive.py` plays a clip, prints the meter and saves the screen.
 - tests/ has an `appkit` folder, which hides the real `appkit` when `tests/` is first on the path: put `lib/` before it.
 - The MIDI Controller app's screen test runs `tests/midicontroller_contract.py` against `midiports` and `icons` from an omnipython checkout (`$OMNIPYTHON_DIR`, or one beside this one), and skips without it. CI sets `MIDICONTROLLER_REQUIRE=1`.
-- The Gamepad app's screen test runs `tests/gamepad_contract.py` against `usb-hid` and `usb-host-hid` from an omnipython checkout (`$OMNIPYTHON_DIR`, or one beside this one), and skips without them. CI sets `GAMEPAD_REQUIRE=1`.
+- The Gamepad app's screen test runs `tests/gamepad_contract.py` against `usb_hid` and `usb-host-hid` from an omnipython checkout (`$OMNIPYTHON_DIR`, or one beside this one), and skips without them. CI sets `GAMEPAD_REQUIRE=1`.

@@ -50,14 +50,10 @@ INDEX = {
     "audioinstruments": "audioinstruments",
     "bledev": "bledev",
     "endpointkit": "endpointkit",
-    "hmilink": "hmilink",
     "icons": "icons",
-    "medialink": "medialink",
     "midiports": "midiports",
-    "mp4mux": "mp4mux",
     "palettes": "palettes",
     "pygraphics": "pygraphics",
-    "usb_hid": "usb-hid",
 }
 
 #: A module of an index package -> an index package it needs that the package
@@ -87,6 +83,14 @@ UPSTREAM = {
     "requests": "requests",
 }
 
+#: A module of omnipython -> the micropython-lib package it runs over, which
+#: omnipython leaves to the firmware: usb_hid is CircuitPython's usb_hid over
+#: usb-device-hid. omip skips it where the firmware has it frozen in, and on
+#: CircuitPython, whose usb_hid is built in.
+BOARD_UPSTREAM = {
+    "usb_hid": "usb-device-hid",
+}
+
 #: A library here -> what it needs over HTTP (see appkit.net): requests from
 #: micropython-lib on MicroPython, and on CircuitPython adafruit_requests from
 #: Adafruit's library bundle, since CircuitPython's core has no HTTP client.
@@ -100,7 +104,8 @@ HTTP = {
 #: omnipython, which every board config installs, and the board config itself.
 BOARD = {
     "appdev", "audiodev", "backends", "board_config", "board_peripherals", "boarddev", "display_driver",
-    "displaydev", "events", "keys", "multimer", "orientation", "wifi", "wifi_manager",
+    "displaydev", "events", "hmilink", "keys", "medialink", "mp4mux", "multimer", "orientation", "usb_hid",
+    "wifi", "wifi_manager",
 }
 
 #: The interpreter's own modules and the firmware's C modules. An app that
@@ -193,6 +198,8 @@ def needs(folder):
     local = {path.split("/")[0].rpartition(".py")[0] or path.split("/")[0] for path in app_files(folder)}
     index, elsewhere, upstream, unknown = set(), set(), set(), set()
     for module in imported(python_files(folder)):
+        if module in BOARD_UPSTREAM:
+            upstream.add(BOARD_UPSTREAM[module])
         if module in local or module in BOARD or module in FIRMWARE:
             continue
         if module == "apps":
