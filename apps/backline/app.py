@@ -19,6 +19,7 @@ import hmilink
 from hmilink import local, tcp
 from touchkit import ui
 
+from . import art
 from . import ask as askmod
 from . import box as boxmod
 from . import floor as floormod
@@ -132,7 +133,8 @@ class Views:
     in its place the desk view, made the first time it's asked for by
     ``make_desk(on_switch)``, or never where that is None (a screen under
     `DESK_SIZE`). Each view's ``on_switch`` shows the other, and
-    ``on_show()``, when given, runs after either is shown.
+    ``on_show()``, when given, runs after either is shown. ``service()``,
+    when given, is the box's pass that sequences the song's notes.
 
     The view going away lets go of its art first (``hide``) and the heap is
     collected, so the one coming back draws into the room it left: the
@@ -144,14 +146,22 @@ class Views:
     made from a tap already runs inside a timer, which holds the others
     off; one called from the console doesn't, and there a pass drew the
     floor's ring out of turn and spent the switch's time on the panels.
+
+    A switch made from a tap holds off the app's other timers too, the
+    notes' among them, and on a board the floor took two seconds to draw:
+    the notes due in that time were skipped. So the switch runs `service`
+    itself between one picture and the next (`art.between`), and `poll`
+    between one panel and the next, and between the rows of a desk laid
+    out again for another song.
     """
 
-    def __init__(self, make_floor, make_desk=None, on_show=None):
+    def __init__(self, make_floor, make_desk=None, on_show=None, service=None):
         self.shown = "floor"
         self.desk = None
         self.switching = False
         self._make_desk = make_desk
         self._on_show = on_show
+        self._service = service
         self.floor = make_floor(self._switch("desk") if make_desk is not None else None)
 
     def _switch(self, which):
@@ -162,16 +172,20 @@ class Views:
         if which == "desk" and self._make_desk is None:
             return
         self.switching = True
+        before = art.between(self._service)
         try:
             self.shown = which
             hide = self.floor if which == "desk" else self.desk
             if hide is not None:
                 hide.hide()
+            art.pause()
             gc.collect()
+            art.pause()
             if which == "desk" and self.desk is None:
                 self.desk = self._make_desk(self._switch("floor"))
             (self.desk if which == "desk" else self.floor).show()
         finally:
+            art.between(before)
             self.switching = False
         if self._on_show is not None:
             self._on_show()
@@ -181,11 +195,22 @@ class Views:
         panel. Returns False, having done nothing, while a switch draws."""
         if self.switching:
             return False
+        step = self._service or _nothing
         box.poll()
-        self.floor.poll()
-        if self.desk is not None:
-            self.desk.poll()
+        step()
+        before = art.between(self._service)   # a song change lays the desk out again
+        try:
+            self.floor.poll()
+            if self.desk is not None:
+                step()
+                self.desk.poll()
+        finally:
+            art.between(before)
         return True
+
+
+def _nothing():
+    pass
 
 
 def start(scope):
@@ -262,8 +287,21 @@ def start(scope):
         if own_status:
             status.move_foreground()
 
+    servicing = [False]
+
+    def service(_t=None):
+        # Also run from inside a switch or a UI pass (`Views`), where called
+        # from the console a timer's pass can land in the middle of it.
+        if servicing[0]:
+            return
+        servicing[0] = True
+        try:
+            box.service()
+        finally:
+            servicing[0] = False
+
     views = Views(lambda on_switch: floormod.Floor(scope.root, (W, H), panel, on_switch=on_switch),
-                  make_desk if can_desk else None, on_show)
+                  make_desk if can_desk else None, on_show, service)
     floor = views.floor
     show = views.show
     own_status = getattr(scope, "status", None) is None
@@ -278,9 +316,6 @@ def start(scope):
 
         bar.add(Item("backline", lambda: glyphs.bar_reading(box.telemetry()), on_click=lambda: show("floor")), scope)
     held = set()
-
-    def service(_t):
-        box.service()
 
     def tick(_t):
         if not views.poll(box):

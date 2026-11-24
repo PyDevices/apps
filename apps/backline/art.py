@@ -59,6 +59,30 @@ def mix(a, b, t):
     return out
 
 
+#: What `pause` runs: set by `between` while a view switch draws.
+_between = [None]
+
+
+def between(fn):
+    """Run ``fn()`` at each `pause` from now on, or nothing with None.
+    Returns what ran before, to put back after.
+
+    A view switch made from a tap runs inside a timer callback, so the app's
+    other timers wait for it. The app passes the function that sequences
+    the song's notes here for the length of a switch, so the notes due
+    keep playing between one picture and the next."""
+    old = _between[0]
+    _between[0] = fn
+    return old
+
+
+def pause():
+    """A point between two steps of drawing where `between`'s function runs."""
+    fn = _between[0]
+    if fn is not None:
+        fn()
+
+
 def image(parent, x, y, w, h):
     """An LVGL image ``w`` by ``h`` at ``(x, y)`` in ``parent``, showing
     nothing until it is given a `Picture`'s ``dsc``."""
@@ -98,6 +122,7 @@ class Picture:
             decoder.decode(self.data)
         if own and hasattr(decoder, "close"):
             decoder.close()
+        pause()
         dsc = lv.image_dsc_t()
         dsc.header.magic = lv.IMAGE_HEADER_MAGIC
         dsc.header.cf = lv.COLOR_FORMAT.RGB565A8 if alpha else lv.COLOR_FORMAT.RGB565
