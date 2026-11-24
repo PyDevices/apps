@@ -164,7 +164,7 @@ class Keyboard:
 
 import audiocore  # noqa: E402
 
-from synthstation import midi, pads, station  # noqa: E402
+from synthstation import midi, pads, parts, station  # noqa: E402
 
 keyboard = Keyboard()
 with_keyboard = [True]
@@ -688,6 +688,18 @@ def check_channels(app, scope):
     keyboard.send(0x80, 60, 0, 0x81, 64, 0, 0x89, 36, 0)
     scope.run(4)
     check(got == {0: 1, 1: 1, 9: 1}, "three channels at once sound three instruments (%r)" % (got,))
+
+    # A silent instrument costs nothing: the mix stops pulling it, and its next note brings it back.
+    mix = app._mix
+    quiet()
+    for _ in range(parts.PARK_MS // 10 + 2):
+        scope.run(1)
+        peak_of(Peripherals.outs[-1].sample, 1)
+    check(mix.parked == [True, True, True], "the mix parks instruments with no voice awake (%r)" % (mix.parked,))
+    got, peak = held(0x91, 64)
+    check(mix.parked == [True, False, True] and got[1] == 1 and peak > 0,
+          "a note brings its own instrument back, heard in the mix (%r, peak %d)" % (mix.parked, peak))
+    print("ok  channels             parked when silent, back on a note: peak %5d" % peak)
 
     # A pad on channel 10 plays that channel's kit, one sound per pad.
     hit = []
