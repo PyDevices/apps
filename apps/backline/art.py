@@ -137,8 +137,26 @@ def decoder():
     view's pictures, finding room for each one took longer than the drawing;
     this decoder makes them in its own memory instead. `close` it when the
     pictures are drawn.
+
+    An svgio older than its ``memory`` argument, as in the WebAssembly
+    builds, gives a decoder that parses on the heap, with nothing to close.
     """
-    return svgio.SvgDecoder(memory=DECODER_MEMORY)
+    try:
+        return svgio.SvgDecoder(memory=DECODER_MEMORY)
+    except TypeError:
+        return _HeapDecoder()
+
+
+class _HeapDecoder:
+    """An svgio decoder with no memory of its own, and so a `close` that does nothing."""
+
+    def __init__(self):
+        dec = svgio.SvgDecoder()
+        self.open = dec.open
+        self.decode = dec.decode
+
+    def close(self):
+        pass
 
 
 BAND = 65536  # the most bytes a band of a screen-sized picture holds (`bands`)
@@ -559,7 +577,7 @@ class Texts:
         was, which is read before it goes, so no text is copied on the heap."""
         texts = face + ring
         sizes = [sum(len(p) for p in t) if isinstance(t, list) else len(t) for t in texts]
-        buf = svgio.Buffer(sum(sizes))
+        buf = svgio.Buffer(sum(sizes)) if hasattr(svgio, "Buffer") else bytearray(sum(sizes))
         view = memoryview(buf)
         ends = [0] * len(texts)
         at = 0
@@ -571,7 +589,7 @@ class Texts:
         view = None
         old = self._buf
         self._buf, self._ends, self._face = buf, ends, len(face)
-        if old is not None:
+        if hasattr(old, "close"):
             old.close()
 
     def _texts(self, first, end):

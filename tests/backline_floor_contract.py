@@ -13,7 +13,9 @@ pulses as a beat lands and settles before the next.
 Then the app's item on appkit's status bar shows the part and the tempo
 while a song plays and nothing while it's stopped, and on a firmware whose
 icons font is older than Backline's newest icons, each icon falls back to
-one the font has, or to a glyph.
+one the font has, or to a glyph. On an svgio older than a decoder's
+``memory`` and ``svgio.Buffer``, as in the WebAssembly builds, the view
+still draws.
 
     python tests/backline_floor_contract.py [--plant=NAME]
 
@@ -42,7 +44,8 @@ from backline import art, floor, glyphs  # noqa: E402
 from backline.engine import BAR  # noqa: E402
 
 PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
-          "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback", "screen-font", "wide-tempo")
+          "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback", "screen-font", "wide-tempo",
+          "new-svgio-only")
 # Icons newer than some firmware's font: the fallback check hides them.
 NEW_ICONS = ("footprint", "steps", "sound_sampler", "music_cast", "cast_connected", "smartphone", "auto_awesome",
              "keyboard_voice", "mic_external_on", "repeat_one", "loop", "playlist_play", "lyrics", "timeline",
@@ -139,6 +142,8 @@ def plant(name):
             self.small_h = max(14, self.tempo[3] - 8)
             self.small_w = int(self.small_h * 0.58)
         art.Layout.__init__ = init
+    elif name == "new-svgio-only":
+        art.decoder = lambda: art.svgio.SvgDecoder(memory=art.DECODER_MEMORY)
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -350,6 +355,54 @@ def run_bar():
     scr.delete()
 
 
+class _OldSvgio:
+    """svgio as it was before a decoder took ``memory`` and before
+    ``svgio.Buffer``: what the WebAssembly builds have."""
+
+    def __init__(self, real):
+        self.real = real
+
+        class SvgDecoder:
+            def __init__(self, *args, **kw):
+                if args or kw:
+                    raise TypeError("function doesn't take keyword arguments")
+                dec = real.SvgDecoder()
+                self.open = dec.open
+                self.decode = dec.decode
+
+        self.SvgDecoder = SvgDecoder
+
+
+def run_old_svgio():
+    """The view on an svgio with no decoder ``memory`` and no ``Buffer``."""
+    w, h = 320, 240
+    frame = _headless.display(w, h)
+    scr = lv.obj(None)
+    lv.screen_load(scr)
+    model = Stand()
+    device = hmilink.Device(model, telemetry_hz=0)
+    panel = hmilink.Panel(local.connect(device.add(local.serve())))
+    device.poll()
+    panel.poll()
+    real = art.svgio
+    art.svgio = _OldSvgio(real)
+    try:
+        view = floor.Floor(scr, (w, h), panel)
+        model.values = tele(beat=2)
+        device._telemetry()
+        view.poll()
+        _headless.advance(5)
+        _headless.refresh()
+        lit = sum(1 for y in range(0, h, 4) for x in range(0, w, 4) if bright(pixel(frame, w, x, y)) > 120)
+        check("on an svgio with no decoder memory and no Buffer the view still draws", lit > 50, "%d lit pixels" % lit)
+        view.hide()
+    except Exception as e:  # noqa: BLE001 - the failure is what the check reports
+        check("on an svgio with no decoder memory and no Buffer the view still draws", False, repr(e))
+    finally:
+        art.svgio = real
+    scr.delete()
+
+
 def main():
     argv = sys.argv[1:]
     p = None
@@ -360,6 +413,7 @@ def main():
     for w, h in SIZES:
         run_size(w, h)
     run_bar()
+    run_old_svgio()
     print("%d passed, %d failed" % (RESULTS[0], RESULTS[1]))
     if RESULTS[1]:
         sys.exit(1)

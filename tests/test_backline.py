@@ -52,7 +52,7 @@ PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-f
           "switch-swapped")
 NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
-                "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback", "screen-font", "wide-tempo")
+                "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback", "screen-font", "wide-tempo", "new-svgio-only")
 DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",
                "long-names", "tight-mixer", "no-joiners", "deaf-learn", "stale-pedals", "deaf-ask", "blind-preview",
                "wide-sheet", "deaf-silence")
