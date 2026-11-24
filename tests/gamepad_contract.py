@@ -515,8 +515,10 @@ view = st["view"]
 check(view is not None and sorted(view["keys"]) == list(range(1, 14)) and not view["lamps"],
       "a PS3-layout pad's thirteen buttons are bars, not lamps")
 check(sorted(view["pressure"]) == list(range(1, 9)), "buttons 1 to 8 read their pressure")
+names = [view["keys"][n][2].get_text() for n in range(1, 14)]
+check(names[:4] == ["X", "A", "B", "Y"] and names[-1] == lv.SYMBOL.HOME, "in number order, named: %r" % (names,))
 names = [column[2].get_text() for _, column in view["extras"]]
-check(names == ["Up", "Rt", "Dn", "Lt", "aX", "aY", "aZ", "rot"], "the d-pad and motion values above: %r" % (names,))
+check(names == ["Up", "Rt", "Dn", "Lt", "roll", "lift", "pitch", "yaw"], "the d-pad and motion values above: %r" % (names,))
 w = st["watch"]
 # A held, its pressure byte full, the pad at rest.
 pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f301ee00b4010302")]

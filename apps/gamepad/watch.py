@@ -31,12 +31,13 @@ AXIS_NAMES = {
 }
 #: Short names for the vendor values many gamepads send after their sticks,
 #: by usage: the PS3 layout's pressure for each control, then its motion
-#: sensors (acceleration across, up and forward, and turning).
+#: sensors: tilting left and right (roll), moving up and down (lift),
+#: tilting forward and back (pitch), and turning flat (yaw).
 EXTRA_NAMES = {
     0xFF000020: "Rt", 0xFF000021: "Lt", 0xFF000022: "Up", 0xFF000023: "Dn",
     0xFF000024: "Y", 0xFF000025: "B", 0xFF000026: "A", 0xFF000027: "X",
     0xFF000028: "LB", 0xFF000029: "RB", 0xFF00002A: "LT", 0xFF00002B: "RT",
-    0xFF00002C: "aX", 0xFF00002D: "aY", 0xFF00002E: "aZ", 0xFF00002F: "rot",
+    0xFF00002C: "roll", 0xFF00002D: "lift", 0xFF00002E: "pitch", 0xFF00002F: "yaw",
 }
 #: The order the vendor values that aren't a button's go in on the screen:
 #: the d-pad's pressure clockwise from up, then the motion sensors.
@@ -48,6 +49,8 @@ PRESSURE_OF = {
     0xFF000027: 1, 0xFF000026: 2, 0xFF000025: 3, 0xFF000024: 4,
     0xFF000028: 5, 0xFF000029: 6, 0xFF00002A: 7, 0xFF00002B: 8,
 }
+#: What a pad in the PS3 layout calls each button, by number.
+BUTTON_NAMES = ("X", "A", "B", "Y", "LB", "RB", "LT", "RT", "Back", "Start", "L3", "R3", "Home")
 #: Each field in hid_generic's ``Gamepad.fields`` starts with its kind.
 _BUTTON, _AXIS, _HAT = 0, 1, 2
 

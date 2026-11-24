@@ -25,7 +25,7 @@ from multimer import ticks_diff, ticks_ms
 from touchkit import ui
 
 from .pad import A, B, L, R, SELECT, START, X, Y, Pad, Sender, hat_at, stick_at
-from .watch import AXIS_NAMES, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, Watch
+from .watch import AXIS_NAMES, BUTTON_NAMES, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, Watch
 
 #: How often the screen catches up with the pad or the tester, in ms.
 TICK_MS = 20
@@ -319,14 +319,28 @@ def _pairs(axes):
     return out
 
 
+def _text_width(text):
+    size = lv.point_t()
+    lv.text_get_size(size, text, ui.tiny, 0, 0, 32767, lv.TEXT_FLAG.NONE)
+    return size.x
+
+
+def _widths(items):
+    """How wide each of a strip's columns must be: its name or its biggest
+    value, whichever is wider, and room for the bar."""
+    return [max(24, _text_width(text), _text_width(str(hi))) + 6 for text, lo, hi in items]
+
+
 def _strip(parent, items, x, y, width, tall, numbers):
     """Upright bars side by side from *x*, *y*: one for each (name, low, high)
-    in *items*, its name below and, with *numbers*, its value above. Returns
-    (bar, value label or None, name label) for each."""
-    cw = min(48, width // len(items) - 4)
+    in *items*, its name below and, with *numbers*, its value above, spread
+    over *width*. Returns (bar, value label or None, name label) for each."""
+    widths = _widths(items)
+    grow = max(0, min(54 - max(widths), (width - sum(widths)) // len(items)))
     out = []
-    for i, (text, lo, hi) in enumerate(items):
-        cx = x + i * (cw + 4)
+    cx = x
+    for (text, lo, hi), cw in zip(items, widths):
+        cw += grow
         value = None
         by = y
         if numbers:
@@ -345,6 +359,7 @@ def _strip(parent, items, x, y, width, tall, numbers):
         name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
         name.set_pos(cx, by + tall + 2)
         out.append((bar, value, name))
+        cx += cw
     return out
 
 
@@ -428,8 +443,15 @@ def test_gamepad(scope):
             # A pad that says how hard its buttons are pressed: each button
             # is an upright bar, 0 to 255, in its number's order. The bars
             # and the strip of the other vendor values share their height.
+            # A pad that names its pressures is in the PS3 layout, whose
+            # buttons have known names; Home, too long for its column, is
+            # the house.
+            names = [BUTTON_NAMES[n - 1] if n <= len(BUTTON_NAMES) else str(n) for n in buttons]
+            keys = [(lv.SYMBOL.HOME if t == "Home" else t, 0, 255) for t in names]
+            others = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
             # Side by side in one row where they fit, the buttons first.
-            one_row = bool(rest) and W - 3 * m >= (len(buttons) + len(rest)) * 36
+            key_w, other_w = sum(_widths(keys)), sum(_widths(others)) if others else 0
+            one_row = bool(rest) and key_w + other_w <= W - 3 * m
             strips = 2 if rest and not one_row else 1
             need = len(axes) * line + (2 * m + CAPTION + 48 if count else 0)
             cols, rows = 1, len(axes)
@@ -439,13 +461,12 @@ def test_gamepad(scope):
                 room += (len(axes) - rows) * line // strips
             tall, numbers = _fit_strip(room)
             y = H - m - _strip_height(tall, numbers)
-            items = [(str(n), 0, 255) for n in buttons]
-            width = (W - 3 * m) * len(buttons) // (len(buttons) + len(rest)) if one_row else W - m
-            view["keys"] = dict(zip(buttons, _strip(body, items, m, y, width, tall, numbers)))
+            width = (W - 3 * m) * key_w // (key_w + other_w) if one_row else W - 2 * m
+            view["keys"] = dict(zip(buttons, _strip(body, keys, m, y, width, tall, numbers)))
             view["pressure"] = pressure
             if one_row:
-                items = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
-                view["extras"] = list(zip(rest, _strip(body, items, 2 * m + width, y, W - 3 * m - width, tall, numbers)))
+                view["extras"] = list(zip(rest, _strip(body, others, 2 * m + width, y, W - 3 * m - width, tall,
+                                                       numbers)))
                 rest = []
             top = y - m
         else:
@@ -473,7 +494,7 @@ def test_gamepad(scope):
         if rest:
             y = top - _strip_height(tall, numbers)
             items = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
-            view["extras"] = list(zip(rest, _strip(body, items, m, y, W - m, tall, numbers)))
+            view["extras"] = list(zip(rest, _strip(body, items, m, y, W - 2 * m, tall, numbers)))
             top = y - m
         # Above those the sticks and the hat as squares, then a bar for each axis.
         sq = max(0, min(top - rows * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
