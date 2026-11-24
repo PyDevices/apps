@@ -25,7 +25,7 @@ from multimer import ticks_diff, ticks_ms
 from touchkit import ui
 
 from .pad import A, B, L, R, SELECT, START, X, Y, Pad, Sender, hat_at, stick_at
-from .watch import AXIS_NAMES, BUTTON_NAMES, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, Watch
+from .watch import AXIS_NAMES, BUTTON_NAMES, CENTRED, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, Watch
 
 #: How often the screen catches up with the pad or the tester, in ms.
 TICK_MS = 20
@@ -331,16 +331,19 @@ def _widths(items):
     return [max(24, _text_width(text), _text_width(str(hi))) + 6 for text, lo, hi in items]
 
 
-def _strip(parent, items, x, y, width, tall, numbers):
+def _strip(parent, items, x, y, width, tall, numbers, centred=()):
     """Upright bars side by side from *x*, *y*: one for each (name, low, high)
     in *items*, its name below and, with *numbers*, its value above, spread
-    over *width*. Returns (bar, value label or None, name label) for each."""
+    over *width*. A column whose index has a (middle, span) in *centred*
+    fills from the middle. Returns (bar, value label or None, name label,
+    (middle, span) or None) for each."""
     widths = _widths(items)
     grow = max(0, min(54 - max(widths), (width - sum(widths)) // len(items)))
     out = []
     cx = x
-    for (text, lo, hi), cw in zip(items, widths):
+    for i, ((text, lo, hi), cw) in enumerate(zip(items, widths)):
         cw += grow
+        middle = centred[i] if i < len(centred) else None
         value = None
         by = y
         if numbers:
@@ -350,15 +353,20 @@ def _strip(parent, items, x, y, width, tall, numbers):
             value.set_pos(cx, y)
             by += CAPTION
         bar = lv.bar(parent)
-        bar.set_range(lo, hi)
-        bar.set_value(lo, False)
+        if middle is None:
+            bar.set_range(lo, hi)
+            bar.set_value(lo, False)
+        else:
+            bar.set_mode(lv.bar.MODE.SYMMETRICAL)
+            bar.set_range(-middle[1], middle[1])
+            bar.set_value(0, False)
         bar.set_pos(cx + cw // 2 - 6, by)
         bar.set_size(12, tall)
         name = ui.label(parent, text, ui.tiny, ui.MUTED)
         name.set_width(cw)
         name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
         name.set_pos(cx, by + tall + 2)
-        out.append((bar, value, name))
+        out.append((bar, value, name, middle))
         cx += cw
     return out
 
@@ -375,8 +383,12 @@ def _fit_strip(room):
 
 
 def _show(column, v, held):
-    bar, value, name = column
-    bar.set_value(v, False)
+    bar, value, name, middle = column
+    if middle is None:
+        bar.set_value(v, False)
+    else:
+        span = middle[1]
+        bar.set_value(max(-span, min(span, v - middle[0])), False)
     if value is not None:
         value.set_text(str(v))
     name.set_style_text_color(ui.ACCENT if held else ui.MUTED, 0)
@@ -466,7 +478,7 @@ def test_gamepad(scope):
             view["pressure"] = pressure
             if one_row:
                 view["extras"] = list(zip(rest, _strip(body, others, 2 * m + width, y, W - 3 * m - width, tall,
-                                                       numbers)))
+                                                       numbers, [CENTRED.get(extras[i][0]) for i in rest])))
                 rest = []
             top = y - m
         else:
@@ -494,7 +506,8 @@ def test_gamepad(scope):
         if rest:
             y = top - _strip_height(tall, numbers)
             items = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
-            view["extras"] = list(zip(rest, _strip(body, items, m, y, W - 2 * m, tall, numbers)))
+            view["extras"] = list(zip(rest, _strip(body, items, m, y, W - 2 * m, tall, numbers,
+                                                   [CENTRED.get(extras[i][0]) for i in rest])))
             top = y - m
         # Above those the sticks and the hat as squares, then a bar for each axis.
         sq = max(0, min(top - rows * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0

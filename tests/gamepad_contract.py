@@ -535,6 +535,8 @@ check(w.events == events and w.extras[12] == 756, "a tilt alone is read: %r" % (
 aX = view["extras"][4][1]
 check(aX[0].get_value() == 756, "and shown: %r" % (aX[0].get_value(),))
 number = aX[1]
+yaw = view["extras"][7][1]
+check(yaw[0].get_value() == 3, "yaw fills from the middle: 515 is 3 past it: %r" % (yaw[0].get_value(),))
 check(number is None or number.get_text() == "756", "with its number where one fits")
 shot("tester_ps3_layout")
 scope.close()

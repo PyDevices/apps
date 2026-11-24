@@ -49,6 +49,11 @@ PRESSURE_OF = {
     0xFF000027: 1, 0xFF000026: 2, 0xFF000025: 3, 0xFF000024: 4,
     0xFF000028: 5, 0xFF000029: 6, 0xFF00002A: 7, 0xFF00002B: 8,
 }
+#: Vendor values that rest in the middle and move only a little either way,
+#: drawn as a bar from the middle: (middle, how far either way fills it). A
+#: PS3-layout pad's yaw sensor gives about 120 either side of 512 for a
+#: quick turn.
+CENTRED = {0xFF00002F: (512, 128)}
 #: What a pad in the PS3 layout calls each button, by number.
 BUTTON_NAMES = ("X", "A", "B", "Y", "LB", "RB", "LT", "RT", "Back", "Start", "L3", "R3", "Home")
 #: Each field in hid_generic's ``Gamepad.fields`` starts with its kind.
