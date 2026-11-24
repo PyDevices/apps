@@ -16,12 +16,12 @@ license = { text = "MIT" }
 # Everything the apps need, as on a board: tools/app_packages.py's PIP table.
 dependencies = [
     "numpy",
-    "omnipython",
     "omnipython-audioeffects",
     "omnipython-audioinstruments",
     "omnipython-desktop>=0.8.1.dev9",
     "omnipython-palettes",
     "omnipython-pygraphics",
+    "omnipython>=0.8.1.dev10",
     "requests",
     "scipy",
     "omnipython-applibs[apps] @ git+https://github.com/PyDevices/apps",

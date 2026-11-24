@@ -278,9 +278,14 @@ APPLIBS_URL = "omnipython-applibs[apps] @ git+https://github.com/PyDevices/apps"
 #: The omnipython packages pip users get inside omnipython-desktop. ``--check
 #: --omnipython <checkout>`` fails when that checkout's mip-split.toml doesn't
 #: mark one of them ``pypi-desktop``, so an app can't need one the wheel leaves out.
-#: 0.8.1.dev9 is the first release with hmilink, mp4mux, castdisplay and vtterm.
+#: 0.8.1.dev9 is the first release with castdisplay and vtterm.
 DESKTOP = "omnipython-desktop>=0.8.1.dev9"
-IN_DESKTOP = ("castdisplay", "endpointkit", "hmilink", "icons", "midiports", "mp4mux", "vtterm")
+IN_DESKTOP = ("castdisplay", "endpointkit", "icons", "midiports", "vtterm")
+
+#: The omnipython lib/ that a board's firmware has built in (`BOARD`), which
+#: every app imports from; 0.8.1.dev10 is the first with hmilink, medialink,
+#: mp4mux and usb_hid in it.
+OMNIPYTHON = "omnipython>=0.8.1.dev10"
 
 #: What pip installs for each package an app needs on a board (its package.json
 #: deps and upstream), so ``pip install omnipython-apps`` brings everything the
@@ -289,8 +294,7 @@ PIP = {
     APPLIBS: APPLIBS_URL,
     "audioeffects": "omnipython-audioeffects",
     "audioinstruments": "omnipython-audioinstruments",
-    "bledev": "omnipython",
-    "medialink": "omnipython",
+    "bledev": OMNIPYTHON,
     "palettes": "omnipython-palettes",
     "pygraphics": "omnipython-pygraphics",
     "requests": "requests",
@@ -308,8 +312,8 @@ FIRMWARE_PIP = {
 
 #: A package an app needs on a board that pip has no use for, and why.
 NOT_FOR_PIP = {
-    # CircuitPython has usb_hid built in; on a computer there is no USB device stack.
-    "usb-hid": "makes the board a USB keyboard or gamepad, through MicroPython's machine.USBDevice",
+    # usb_hid's upstream, from micropython-lib; a computer has no USB device stack.
+    "usb-device-hid": "makes the board a USB keyboard or gamepad, through MicroPython's machine.USBDevice",
 }
 
 
@@ -363,7 +367,8 @@ def pip_layout():
 def pip_requirements():
     """What ``omnipython-apps`` depends on: a pip requirement for each package
     any app needs on a board (see `PIP`), sorted, each once."""
-    wanted, unknown = set(), set()
+    # What a board has built in comes in the omnipython wheel.
+    wanted, unknown = {OMNIPYTHON}, set()
     for name in apps():
         deps, upstream, _ = needs(os.path.join(APPS, name))
         for package, _ in deps + upstream:
