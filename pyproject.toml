@@ -17,9 +17,13 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
 ]
 keywords = ["lvgl", "controls", "apps", "micropython"]
-# A program installs what the libraries it uses draw on: controlkit needs lvgl
-# and appkit needs omnipython-desktop, which has icons.
+# Most of the libraries draw with LVGL, and appkit also needs omnipython-desktop
+# (multimer, appdev, and icons from 0.8.1.dev4). Both are large and a board has
+# them in its firmware, so they come with the `apps` extra, not by default.
 dependencies = []
+
+[project.optional-dependencies]
+apps = ["omnipython-desktop>=0.8.1.dev4", "omnipython-lvgl"]
 
 [tool.setuptools.dynamic]
 version = { file = "VERSION" }

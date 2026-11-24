@@ -30,12 +30,13 @@ The libraries the apps share, every folder in [`lib/`](lib), also install as
 one package. Each is imported directly, as in `import controlkit`:
 
 ```bash
-pip install omnipython-applibs
+pip install "omnipython-applibs[apps]"
 ```
 
-On a board, use `mip.install("applibs", index="https://lib.omnipython.org")`.
-To freeze them into firmware, name this repository's folder as a module of the
-build: its [manifest.py](manifest.py) lists them.
+The `apps` extra brings LVGL and omnipython-desktop, which controlkit, appkit
+and the other libraries that draw need on a computer. On a board, use
+`mip.install("applibs", index="https://lib.omnipython.org")`. To freeze them
+into firmware, name this repository's folder as a module of the build: its [manifest.py](manifest.py) lists them.
 
 ## Try it
 
