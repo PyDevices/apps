@@ -151,6 +151,7 @@ class Rig(Station):
         self._raised = False
         self._read = None
         self._refused = None
+        self._mix = None
 
     def strike(self, part, notes, fills=0):
         """Play *notes* on *part*, as the MIDI timer does, with *fills* after each."""
