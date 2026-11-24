@@ -1,5 +1,17 @@
 # Install
 
+To use the apps on a computer, pip installs every one of them, with
+everything they need, from the main branch:
+
+```bash
+pip install "omnipython-apps @ git+https://github.com/PyDevices/apps#subdirectory=apps"
+```
+
+Then `import apps.home`, or start Home with appkit, which finds the installed
+apps. To work on the apps themselves, use a clone instead.
+
+## From a clone
+
 The apps repo is used from a clone, beside the libraries it builds on. The sound
 module and Vamp need audiodsp, which provides the audio nodes, and
 audioinstruments and audioeffects, which provide the instruments and effects:

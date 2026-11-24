@@ -6,25 +6,26 @@ The apps for PyDevices: things you run on a board or a desktop. A Home app lives
 
 ## Install
 
-On a Wi-Fi board, one line installs an app with what it needs, and another
-starts Home at boot ([install an app](docs/guides/install-an-app.md)):
+On a Wi-Fi board, one line installs every app with what each needs, and
+another starts Home at boot ([install an app](docs/guides/install-an-app.md)
+has the lines for one app at a time):
 
 ```python
 import omip
-omip.install("github:PyDevices/apps/apps/home")
+omip.install("github:PyDevices/apps/apps")
 omip.install("github:PyDevices/apps/apps/home/main.py", target="/")
 ```
 
-On a computer, the apps are used from a clone, beside the libraries they build on:
+On a computer, pip installs every app as the package `apps`, from the main
+branch, with the libraries they share and everything else they need:
 
 ```bash
-git clone https://github.com/PyDevices/apps
-git clone https://github.com/PyDevices/audioinstruments
-git clone https://github.com/PyDevices/audioeffects
-git clone https://github.com/PyDevices/audiodsp
-pip install ./audiodsp numpy
-pip install --no-deps ./audioinstruments ./audioeffects/lib/audioeffects
+pip install "omnipython-apps @ git+https://github.com/PyDevices/apps#subdirectory=apps"
 ```
+
+Every app installs, whether or not it can run there; one that can't says why
+when you start it. To build the apps into a firmware instead, see
+[freeze the apps](docs/guides/freeze-the-apps.md).
 
 The libraries the apps share, every folder in [`lib/`](lib), also install as
 one package. Each is imported directly, as in `import controlkit`:
@@ -37,6 +38,9 @@ The `apps` extra brings LVGL and omnipython-desktop, which controlkit, appkit
 and the other libraries that draw need on a computer. On a board, use
 `mip.install("applibs", index="https://lib.omnipython.org")`. To freeze them
 into firmware, name this repository's folder as a module of the build: its [manifest.py](manifest.py) lists them.
+
+To work on the apps, or run the sound module and Vamp from a clone, see
+[install](docs/get-started/install.md).
 
 ## Try it
 

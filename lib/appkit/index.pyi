@@ -33,6 +33,7 @@ def freeze_apps(
     package: Callable[..., Any],
     out_dir: str | None = None,
     names: str | list[str] | None = None,
+    native: bool = True,
 ) -> str:
     """From a MicroPython manifest: freeze the apps in `folder` (or those in `names`) and their index.
 

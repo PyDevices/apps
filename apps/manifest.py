@@ -20,7 +20,10 @@ modules: an app whose module is missing says so when it starts.
 Each app's ``app.json`` is checked here, and its icon against the icons
 package's names, which this finds in ``$OMNIPYTHON_LIBRARY`` (build_mp.py
 sets it) or on the build's import path. ``index_dir=`` says where the index is
-written (default: a temporary folder).
+written (default: a temporary folder). ``native=False`` takes the
+``@micropython.native`` decorators out of the frozen copies, for a port with
+no native code emitter; it's the default for the Windows and webassembly
+ports when build_mp.py names the target.
 """
 
 import importlib.util
@@ -39,13 +42,14 @@ if 0:
         pass
 
     class options:  # noqa: N801
-        apps = libs = index_dir = None
+        apps = libs = index_dir = native = None
 
         def defaults(**kwargs):
             pass
 
 
-options.defaults(apps=None, libs=True, index_dir=None)
+_target = os.environ.get("OMNIPYTHON_TARGET", "")
+options.defaults(apps=None, libs=True, index_dir=None, native=_target.split("/")[0] not in ("windows", "webassembly"))
 
 _here = os.getcwd()  # include() runs a manifest from its own folder
 if options.libs:
@@ -61,7 +65,7 @@ _icons = os.path.join(_tree, "icons") if _tree else None
 if _icons and os.path.isdir(_icons):
     sys.path.insert(0, _icons)
 try:
-    _index.freeze_apps(_here, module, package, options.index_dir, options.apps)
+    _index.freeze_apps(_here, module, package, options.index_dir, options.apps, options.native)
 finally:
     if _icons in sys.path:
         sys.path.remove(_icons)

@@ -289,6 +289,13 @@ PIP = {
     "github:PyDevices/omnipython/packages/vtterm": _OMNI % ("vtterm", "vtterm"),
 }
 
+#: A module a board's firmware has built in that pip installs on a computer:
+#: ulab's numpy and scipy are the real ones there.
+FIRMWARE_PIP = {
+    "numpy": "numpy",
+    "scipy": "scipy",
+}
+
 #: A package an app needs on a board that pip has no use for, and why.
 NOT_FOR_PIP = {
     "usb-hid": "makes the board a USB keyboard or gamepad, through MicroPython's machine.USBDevice",
@@ -345,6 +352,9 @@ def pip_requirements():
                 wanted.add(PIP[package])
             else:
                 unknown.add(package)
+        for module in imported(python_files(os.path.join(APPS, name))):
+            if module in FIRMWARE_PIP:
+                wanted.add(FIRMWARE_PIP[module])
     if unknown:
         raise SystemExit(
             "the apps need %s, which tools/app_packages.py has no pip requirement for: "

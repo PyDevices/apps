@@ -220,7 +220,18 @@ def render_files(files):
     return "\n".join(lines) + "\n"
 
 
-def freeze_apps(folder, module, package, out_dir=None, names=None):
+def _without_native(text):
+    """*text* with its ``@micropython.native`` and ``@micropython.viper`` lines
+    taken out, so a port with no native code emitter can freeze it."""
+    keep = []
+    for line in text.split("\n"):
+        if line.strip() in ("@micropython.native", "@micropython.viper"):
+            continue
+        keep.append(line)
+    return "\n".join(keep)
+
+
+def freeze_apps(folder, module, package, out_dir=None, names=None, native=True):
     """From a MicroPython manifest: freeze the apps in *folder* and their index.
 
     *module* and *package* are the manifest's own functions; *names* chooses
@@ -230,7 +241,10 @@ def freeze_apps(folder, module, package, out_dir=None, names=None):
     files are copied to ``<out_dir>/frozen_apps`` first, with an
     ``__init__.py`` made for the package. Folders a board has no use for
     (``tests``, ``docs``, ``tools`` and the like) are left out, and so is
-    ``main.py``. An app's other files go in ``_appkit_files``. A script
+    ``main.py``. An app's other files go in ``_appkit_files``. *native* False
+    takes the ``@micropython.native`` decorators out, for a port with no
+    native code emitter (the Windows and webassembly ports), where they don't
+    compile. A script
     entry's module is frozen on its own when it is a file in the app's folder
     (``<app>/<script>.py``); otherwise the build must freeze it elsewhere,
     like any library. The index is written to *out_dir* (default: a new
@@ -270,7 +284,13 @@ def freeze_apps(folder, module, package, out_dir=None, names=None):
             dest = os.path.join(stage, entry, rel)
             if not os.path.isdir(os.path.dirname(dest)):
                 os.makedirs(os.path.dirname(dest))
-            shutil.copy2(os.path.join(where, rel), dest)
+            if native:
+                shutil.copy2(os.path.join(where, rel), dest)
+            else:
+                with open(os.path.join(where, rel), encoding="utf-8") as f:
+                    text = _without_native(f.read())
+                with open(dest, "w", encoding="utf-8", newline="\n") as f:
+                    f.write(text)
             module(PACKAGE + "/" + entry + "/" + rel, base_path=out_dir)
         for rel in other:
             with open(os.path.join(where, rel), "rb") as f:
