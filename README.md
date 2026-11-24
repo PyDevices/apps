@@ -35,8 +35,8 @@ pip install "omnipython-applibs[apps]"
 
 The `apps` extra brings LVGL and omnipython-desktop, which controlkit, appkit
 and the other libraries that draw need on a computer. On a board, use
-`mip.install("applibs", index="https://lib.omnipython.org")`. To freeze them into firmware, name this repository's folder as a module of the
-build: its [manifest.py](manifest.py) lists them.
+`mip.install("applibs", index="https://lib.omnipython.org")`. To freeze them
+into firmware, name this repository's folder as a module of the build: its [manifest.py](manifest.py) lists them.
 
 ## Try it
 
