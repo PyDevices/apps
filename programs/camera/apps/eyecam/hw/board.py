@@ -55,6 +55,23 @@ def _aligned(n, align=64):
     return raw, memoryview(raw)[off:off + n]
 
 
+def _work_buffer(scope, n):
+    """The app's full-frame scratch buffer, as ``(owner, view)``: keep the
+    owner alive while the view is used.
+
+    From ``offheap`` where the firmware has it: 64-byte aligned PSRAM that
+    the collector doesn't scan and the Python heap doesn't have to grow
+    into, given back when the scope closes. As a ``bytearray`` the heap has
+    to grow by one 4 MB piece, and after Camera has closed once that piece
+    is often not found, so Camera failed to open again."""
+    try:
+        import offheap
+    except ImportError:
+        return _aligned(n)
+    buf = scope.adopt(offheap.Buffer(n))
+    return buf, memoryview(buf)
+
+
 class Preview:
     """The camera, cut square and scaled to the screen by the PPA.
 
@@ -817,8 +834,9 @@ def build(scope):
     # One full frame of scratch for photos and video frames, made once: a
     # 4 MB buffer per photo would grow the Python heap into the PSRAM the
     # encoder and the models need. The factory's largest picture is 1920x1080,
-    # whatever the camera sends.
-    work_raw, work = _aligned(max(preview.w * preview.h, SIZES["1080P"][0] * SIZES["1080P"][1]) * 2)
+    # whatever the camera sends. Adopted after the preview and before the
+    # recorder, so it closes after the recorder that writes into it.
+    work_raw, work = _work_buffer(scope, max(preview.w * preview.h, SIZES["1080P"][0] * SIZES["1080P"][1]) * 2)
     if hasattr(bc, "sdcard"):
         storage = Storage(lambda: bc.sdcard, bc.sdcard_present if hasattr(bc, "sdcard_present") else None)
     else:
