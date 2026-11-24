@@ -199,7 +199,7 @@ class WatchTest(unittest.TestCase):
         core.dev = _Dev()
         self.assertTrue(w.poll(LOOK_MS, _since))
         self.assertEqual(w.name, "Logitech Dual Action")
-        self.assertEqual(w.layout, ((1, 2, 3), (0x010030, 0x010031), 1))
+        self.assertEqual(w.layout, ((1, 2, 3), (0x010030, 0x010031), 1, ()))
 
     def test_events_become_what_is_held(self):
         core = _Core()
@@ -232,6 +232,59 @@ class WatchTest(unittest.TestCase):
         core.dev = _Dev()
         self.assertFalse(w.poll(20 + LOOK_MS - 1, _since))
         self.assertTrue(w.poll(20 + LOOK_MS, _since))
+
+
+class _ExtrasPad(_HidPad):
+    """A pad whose reports also carry vendor values, as a PS3-layout pad's do."""
+
+    def __init__(self, dev):
+        super().__init__(dev)
+        self.extra_info = [(0xFF00002A, 0, 255), (0xFF00002C, 0, 1023)]
+        self.extras = [None, None]
+        self.reports = 0
+
+    def read(self, timeout=1):
+        # Each queued entry is a report: its events, then its extras.
+        if not self.dev.events:
+            return None
+        if self.queue:
+            return self.queue.pop(0)
+        events, extras = self.dev.events.pop(0)
+        self.reports += 1
+        self.extras = list(extras)
+        self.queue = list(events)
+        return self.queue.pop(0) if self.queue else None
+
+    queue = []
+
+
+class ExtrasTest(unittest.TestCase):
+    def setUp(self):
+        self.core = _Core()
+        self.core.dev = _Dev()
+        self.hid = types.SimpleNamespace(Gamepad=_ExtrasPad, BUTTON_DOWN=6, BUTTON_UP=7, AXIS=8, HAT=9)
+
+    def test_the_layout_names_each_extra_and_its_range(self):
+        w = Watch(self.core, self.hid)
+        w.poll(0, _since)
+        self.assertEqual(w.layout[3], ((0xFF00002A, 0, 255), (0xFF00002C, 0, 1023)))
+
+    def test_a_report_that_only_moves_extras_is_a_change(self):
+        w = Watch(self.core, self.hid)
+        w.poll(0, _since)
+        self.core.dev.events = [([], [0, 514]), ([], [0, 520])]
+        self.assertTrue(w.poll(10, _since))
+        self.assertEqual(w.extras, [0, 520])
+        self.assertEqual(w.events, 0)
+        self.assertFalse(w.poll(20, _since))
+
+    def test_events_and_extras_come_together(self):
+        w = Watch(self.core, self.hid)
+        w.poll(0, _since)
+        self.core.dev.events = [([(6, 8, 0)], [200, 514])]
+        self.assertTrue(w.poll(10, _since))
+        self.assertEqual(w.buttons, {8})
+        self.assertEqual(w.extras, [200, 514])
 
 
 def _omnipython():

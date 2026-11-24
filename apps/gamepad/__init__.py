@@ -25,7 +25,7 @@ from multimer import ticks_diff, ticks_ms
 from touchkit import ui
 
 from .pad import A, B, L, R, SELECT, START, X, Y, Pad, Sender, hat_at, stick_at
-from .watch import AXIS_NAMES, Watch
+from .watch import AXIS_NAMES, EXTRA_NAMES, Watch
 
 #: How often the screen catches up with the pad or the tester, in ms.
 TICK_MS = 20
@@ -360,9 +360,9 @@ def test_gamepad(scope):
     def build(layout):
         """Widgets for this pad's buttons, sticks, hats and axes."""
         body.clean()
-        buttons, axes, hats = layout
+        buttons, axes, hats, extras = layout
         m = _margin(W)
-        view = {"lamps": {}, "dots": [], "bars": {}, "values": {}, "hat": None}
+        view = {"lamps": {}, "dots": [], "bars": {}, "values": {}, "hat": None, "extras": []}
         pairs = _pairs(axes)
         # The buttons along the bottom, in rows of up to sixteen.
         cols = min(16, len(buttons)) or 1
@@ -375,8 +375,32 @@ def test_gamepad(scope):
             lamp.set_style_pad_all(0, 0)
             ui.label(lamp, str(n), lamp_font, ui.WHITE).center()
             view["lamps"][n] = lamp
-        # Above them the sticks and the hat as squares, then a bar for each axis.
+        # Above them a strip of upright bars for the vendor values: how hard
+        # each control is pressed, and the motion sensors.
         top = lamps_y - m
+        if extras:
+            n = len(extras)
+            cw = min(48, (W - m) // n - 4)
+            tall = 48
+            sy = top - tall - 2 * CAPTION
+            for i, (usage, lo, hi) in enumerate(extras):
+                cx = m + i * (cw + 4)
+                value = ui.label(body, "", ui.tiny, ui.WHITE)
+                value.set_width(cw)
+                value.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+                value.set_pos(cx, sy)
+                bar = lv.bar(body)
+                bar.set_range(lo, hi)
+                bar.set_value(lo, False)
+                bar.set_pos(cx + cw // 2 - 6, sy + CAPTION)
+                bar.set_size(12, tall)
+                name = ui.label(body, EXTRA_NAMES.get(usage, str(i + 1)), ui.tiny, ui.MUTED)
+                name.set_width(cw)
+                name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+                name.set_pos(cx, sy + CAPTION + tall + 2)
+                view["extras"].append((bar, value))
+            top = sy - m
+        # Above those the sticks and the hat as squares, then a bar for each axis.
         line = ui.small.line_height + 6  # an axis's row at its thinnest
         count = len(pairs) + (1 if hats else 0)
         sq = max(0, min(top - len(axes) * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
@@ -436,6 +460,10 @@ def test_gamepad(scope):
             bar.set_value(int((v or 0) * 100), False)
             raw = watch.pad.axes.get(code) if watch.pad is not None else None
             view["values"][code].set_text("" if raw is None else str(raw))
+        for (bar, value), v in zip(view["extras"], watch.extras):
+            if v is not None:
+                bar.set_value(v, False)
+                value.set_text(str(v))
         if view["hat"] is not None:
             d = watch.hats.get(0, -1)
             marks = view["hat"]

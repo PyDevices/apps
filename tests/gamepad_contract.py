@@ -492,6 +492,42 @@ check(st["view"] is None and "went" in w.status, "unplugging it says so and wait
 scope.close()
 check(_Host.stopped == 1, "closing the tester stops the host")
 
+# -- A pad in the PS3 layout: pressure and motion after its sticks ----------------
+
+# A generic pad's own descriptor, with no report ID: thirteen buttons, a hat,
+# four axes, then a pressure byte for twelve controls and four 10-bit motion
+# values on the vendor page.
+PS3_LAYOUT = bytes.fromhex("""
+05 01 09 05 a1 01 15 00 25 01 35 00 45 01 75 01 95 0d 05 09 19 01 29 0d 81 02 95 03
+81 01 05 01 25 07 46 3b 01 75 04 95 01 65 14 09 39 81 42 65 00 95 01 81 01 26 ff 00
+46 ff 00 09 30 09 31 09 32 09 35 75 08 95 04 81 02 06 00 ff 09 20 09 21 09 22 09 23
+09 24 09 25 09 26 09 27 09 28 09 29 09 2a 09 2b 95 0c 81 02 0a 21 26 95 08 b1 02 0a
+21 26 91 02 26 ff 03 46 ff 03 09 2c 09 2d 09 2e 09 2f 75 10 95 04 81 02 c0
+""".replace("\n", " "))
+_Host.pad = None
+scope = Scope()
+st = gamepad.test_gamepad(scope)
+pad = FakePad(PS3_LAYOUT)
+_Host.pad = pad
+st["watch"]._looked = None
+scope.run()
+view = st["view"]
+check(view is not None and len(view["extras"]) == 16, "a PS3-layout pad shows its sixteen vendor values")
+w = st["watch"]
+# A held, its pressure byte full, the pad at rest.
+pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f301ee00b4010302")]
+scope.run()
+check(w.extras[6] == 255 and w.extras[12] == 499, "the pressure and motion values are read: %r" % (w.extras,))
+check(view["extras"][6][0].get_value() == 255, "A's pressure bar is full")
+# Tilted: only a motion value moves, and the screen follows with no event.
+events = w.events
+pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f402ee00b4010302")]
+scope.run()
+check(w.events == events and w.extras[12] == 756, "a tilt alone is read: %r" % (w.extras,))
+check(view["extras"][12][1].get_text() == "756", "and shown: %r" % (view["extras"][12][1].get_text(),))
+shot("tester_ps3_layout")
+scope.close()
+
 # -- On a board with one USB port, the gamepad takes it from the host ------------
 
 _Host.running = True

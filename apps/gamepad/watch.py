@@ -29,6 +29,15 @@ AXIS_NAMES = {
     0x0200C5: "Brake",
     0x0200C8: "Steer",
 }
+#: Short names for the vendor values many gamepads send after their sticks,
+#: by usage: the PS3 layout's pressure for each control, then its motion
+#: sensors (acceleration across, up and forward, and turning).
+EXTRA_NAMES = {
+    0xFF000020: "Rt", 0xFF000021: "Lt", 0xFF000022: "Up", 0xFF000023: "Dn",
+    0xFF000024: "Y", 0xFF000025: "B", 0xFF000026: "A", 0xFF000027: "X",
+    0xFF000028: "LB", 0xFF000029: "RB", 0xFF00002A: "LT", 0xFF00002B: "RT",
+    0xFF00002C: "aX", 0xFF00002D: "aY", 0xFF00002E: "aZ", 0xFF00002F: "turn",
+}
 #: Each field in hid_generic's ``Gamepad.fields`` starts with its kind.
 _BUTTON, _AXIS, _HAT = 0, 1, 2
 
@@ -44,8 +53,10 @@ class Watch:
 
     Read `buttons` (the numbers held), `axes` (axis code to -1.0 to 1.0) and
     `hats` (hat index to 0 up to 7 up-left, clockwise, or -1 centred) after
-    each `poll`. `layout` says which buttons, axes and hats the pad has, and
-    changes only when a different pad is found.
+    each `poll`, and `extras`, the pad's vendor values (pressure, motion) in
+    its report's order. `layout` says which buttons, axes and hats the pad
+    has, and the usage and range of each extra, and changes only when a
+    different pad is found.
     """
 
     def __init__(self, core, hid_generic):
@@ -57,6 +68,7 @@ class Watch:
         self.buttons = set()
         self.axes = {}
         self.hats = {}
+        self.extras = []
         self.events = 0
         self.status = "no gamepad yet: plug one into the USB host port"
         self._looked = None
@@ -68,6 +80,7 @@ class Watch:
         self.buttons = set()
         self.axes = {}
         self.hats = {}
+        self.extras = []
 
     def look(self):
         """Look for a gamepad now. Returns True when one was found."""
@@ -86,7 +99,10 @@ class Watch:
                 hats += 1
         self.pad = pad
         self.name = _name(dev)
-        self.layout = (tuple(sorted(buttons)), tuple(axes), hats)
+        # A library from before extras has none to give.
+        extras = tuple(getattr(pad, "extra_info", ()))
+        self.layout = (tuple(sorted(buttons)), tuple(axes), hats, extras)
+        self.extras = list(getattr(pad, "extras", ()))
         self.status = self.name
         return True
 
@@ -109,8 +125,13 @@ class Watch:
         changed = False
         try:
             for _ in range(MOST):
+                reports = getattr(pad, "reports", 0)
                 ev = pad.read(1)  # ms; 0 would wait forever, as in pyusb
                 if not ev:
+                    # A report that only moved the extras makes no event:
+                    # read on while reports still come.
+                    if getattr(pad, "reports", 0) != reports:
+                        continue
                     break
                 changed = True
                 self.events += 1
@@ -123,6 +144,10 @@ class Watch:
                     self.axes[ev[1]] = pad.scaled(ev[1])
                 elif kind == hid.HAT:
                     self.hats[ev[1]] = ev[2]
+            extras = getattr(pad, "extras", None)
+            if extras and extras != self.extras:
+                self.extras = list(extras)
+                changed = True
         except self.core.USBError:
             # Unplugged: drop it and look again.
             self.close()
