@@ -342,8 +342,9 @@ class Box:
             i = args["index"] if "index" in args else self.song_index + int(args.get("step", 1))
             self.song_index = i % n
             project = load_song(self.songs[self.song_index][1])
-            self.model.load(project)
+            # The kit first, so the document every panel gets says the kit it plays.
             self.use_kit(project["tracks"][0].get("instrument") or kits.MACHINES[0])
+            self.model.load(project)
             return {"name": "song", "index": self.song_index, "kit": self.kit_spec(), "voices": self.voices()}
         if name == "ask":
             return self.ask(args.get("text", ""))

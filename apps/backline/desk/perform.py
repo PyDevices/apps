@@ -74,6 +74,8 @@ class Perform:
         y += f["small"].line_height + 4
         self.kits = look.dropdown(self.base, rx, y, rw, kit_h, f["body"], self._kit)
         self.kit_specs = []
+        self.kits_listed = None    # the kit specs the list was set to
+        self.titles = None         # the songs the buttons were made for
 
     # -- what it sends --
 
@@ -103,21 +105,26 @@ class Perform:
         self.floor._doc(doc, desc)
         self.strip.set_blocks(song.blocks(doc))
         self.show_tempo(doc)
-        f = self.desk.fonts
-        s = self.desk.scale
-        self.songs.clean()
-        self.song_buttons = []
-        bh = int(34 * s)
-        w = self.songs_w - 14
-        for i, name in enumerate(desc.get("titles") or [doc.get("name", "")]):
-            b = look.button(self.songs, 6, 6 + i * (bh + 4), w, bh, name, fnt=f["body"], radius=6)
-            b.get_child(0).align(lv.ALIGN.LEFT_MID, 10, 0)
-            b.add_event_cb(self._song(i), lv.EVENT.CLICKED, None)
-            self.song_buttons.append(b)
-        self.song_index = -1
+        titles = desc.get("titles") or [doc.get("name", "")]
+        if titles != self.titles:      # a song change keeps the list
+            self.titles = titles
+            f = self.desk.fonts
+            s = self.desk.scale
+            self.songs.clean()
+            self.song_buttons = []
+            bh = int(34 * s)
+            w = self.songs_w - 14
+            for i, name in enumerate(titles):
+                b = look.button(self.songs, 6, 6 + i * (bh + 4), w, bh, name, fnt=f["body"], radius=6)
+                b.get_child(0).align(lv.ALIGN.LEFT_MID, 10, 0)
+                b.add_event_cb(self._song(i), lv.EVENT.CLICKED, None)
+                self.song_buttons.append(b)
+            self.song_index = -1
         kits = desc.get("kit_list") or []
-        self.kit_specs = [k["spec"] for k in kits]
-        self.kits.set_options("\n".join(k["name"] for k in kits))
+        specs = [k["spec"] for k in kits]
+        if specs != self.kits_listed:
+            self.kits_listed = self.kit_specs = specs
+            self.kits.set_options("\n".join(k["name"] for k in kits))
         self.show_kit(desc.get("kit"))
 
     def show_kit(self, spec):

@@ -75,6 +75,10 @@ class Desk:
         self.shown = {}
         self.message = ""
         self.tab = None
+        self.hidden = False
+        self._stale = False        # the document changed while hidden: `hide`
+        self._held = []            # the events that came while hidden
+        self._held_tele = None
 
         base = look.plain(lv.obj(root))
         base.set_pos(0, 0)
@@ -132,10 +136,14 @@ class Desk:
                                          on_click=self.toggle_prompt, radius=6)
 
         body_h = h - hh
+        art.pause()
         self.perform = Perform(base, 0, hh, w, body_h, self)
+        art.pause()
         self.editor = Editor(base, 0, hh, w, body_h, self)
+        art.pause()
         self.prompt = PromptSheet(base, 0, hh, w, body_h, self)
         self.show_tab("perform")
+        art.pause()
         self.attach(panel)
 
     # -- the panel --
@@ -163,12 +171,31 @@ class Desk:
 
     def hide(self):
         """Hide the desk, and let go of the art of the floor view's face on
-        the Perform tab (`floor.Floor.hide`) until `show`."""
+        the Perform tab (`floor.Floor.hide`) until `show`.
+
+        While it hides, what the panel says is kept, not shown: the last
+        telemetry, that the document changed, and the last event of each
+        kind. A song change laid the editor's grid and lists out again,
+        twice; on a board that held the song's notes off for over a second,
+        for a desk no one saw."""
         self.base.add_flag(lv.obj.FLAG.HIDDEN)
         self.perform.floor.hide()
+        self.hidden = True
 
     def show(self):
-        """Show the desk, the Perform tab's face drawn again."""
+        """Show the desk as the song is now, the Perform tab's face drawn again."""
+        if self.hidden:
+            self.hidden = False
+            stale, self._stale = self._stale, False
+            events, self._held = self._held, []
+            tele, self._held_tele = self._held_tele, None
+            if stale and self.panel is not None and self.panel.doc is not None:
+                self._doc(self.panel.doc, self.panel.desc)   # ops and all
+            for ev in events:
+                art.pause()
+                self._event(ev)
+            if tele is not None:
+                self._tele(tele)
         self.perform.floor.show()
         self.base.remove_flag(lv.obj.FLAG.HIDDEN)
 
@@ -212,15 +239,26 @@ class Desk:
     # -- what comes from the device --
 
     def _doc(self, doc, desc):
+        if self.hidden:
+            self._stale = True
+            return
         self.perform.on_doc(doc, desc or {})
         self.editor.on_doc(doc, desc or {})
         self.prompt.on_doc(desc or {})
 
     def _op(self, op):
+        if self.hidden:
+            self._stale = True      # the panel's document holds it
+            return
         self.perform.on_op(op)
         self.editor.on_op(op)
 
     def _event(self, ev):
+        if self.hidden:
+            # The last of each kind, in the order they came.
+            name = ev.get("name")
+            self._held = [e for e in self._held if e.get("name") != name] + [ev]
+            return
         self.perform.on_event(ev)
         self.editor.on_event(ev)
         self.prompt.on_event(ev)
@@ -239,6 +277,9 @@ class Desk:
             self.next.set_style_text_color(look.color(look.BAD), 0)
 
     def _tele(self, t):
+        if self.hidden:
+            self._held_tele = t
+            return
         self.tele = t
         playing = t.get("playing")
         role = t.get("role", "stopped")

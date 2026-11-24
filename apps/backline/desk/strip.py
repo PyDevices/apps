@@ -58,6 +58,7 @@ class Strip:
         rail = look.box(self.base, 0, top + bh // 2 - 1, self.w, 2, look.LINE, 1, None)
         rail.set_style_bg_opa(160, 0)
         for i, b in enumerate(blocks):
+            art.pause()
             bw = least + spare * b["bars"] // total if i < n - 1 else self.w - x
             color = look.ROLE_COLORS.get(b["role"], look.DIM)
             o = look.box(self.base, x, top, bw, bh, art.mix(color, look.BG, 0.8), 6, art.mix(color, look.BG, 0.45))

@@ -112,6 +112,7 @@ class Editor:
         self.kits.add_flag(lv.obj.FLAG.SCROLLABLE)
         self.kits.set_scroll_dir(lv.DIR.VER)
         self.kit_buttons = {}
+        self.kit_list = None
         y += kh + m
         self.mix_heading = look.heading(self.base, "Mixer", f["small"], rx, y)
         pw = int(70 * s)
@@ -237,8 +238,11 @@ class Editor:
         self.voices = voices
         self.cols, self.ticks = song.columns(doc)
         rows = song.rows(voices, doc)
-        self.grid.build(rows, self.cols, song.beat_columns(doc))
-        self.grid.bar = self.bar
+        beat = song.beat_columns(doc)
+        g = self.grid
+        if (rows, self.cols, beat) != (g.rows, g.cols, g.beat) or g.head is None:
+            g.build(rows, self.cols, beat)   # the same grid is only lit again
+        g.bar = self.bar
         self.show_cells()
 
     def on_doc(self, doc, desc):
@@ -254,6 +258,10 @@ class Editor:
         self.pedals.on_map(desc.get("pedals"))
 
     def set_kits(self, kit_list, current):
+        if kit_list == self.kit_list:
+            self.show_kit(current)
+            return
+        self.kit_list = kit_list
         box = self.kits
         box.clean()
         self.kit_buttons = {}

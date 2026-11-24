@@ -86,11 +86,14 @@ class Grid:
             self.xs.append(x)
             x += cw + gap
         for r, (pitch, name) in enumerate(rows):
+            art.pause()    # a grid is hundreds of objects: the song plays on between rows
             y = r * (ch + gap)
             lbl = look.text(self.base, name, self.fnt, look.DIM, lw - 8)
             fit(lbl, shorter(name), lw - 8, 0)
             lbl.set_pos(0, y + (ch - self.fnt.line_height) // 2)
             for c in range(cols):
+                if c and c % 8 == 0:
+                    art.pause()
                 o = look.box(self.base, self.xs[c], y, cw, ch, self._off(c), 4, None)
                 o.add_flag(lv.obj.FLAG.CLICKABLE)
                 o.set_style_border_color(look.color(look.AMBER), lv.STATE.PRESSED)

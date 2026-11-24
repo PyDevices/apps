@@ -12,6 +12,13 @@ on the kit playing builds no kit, another kit is built after the old one
 is closed, and a kit that won't open leaves the old one playing. A meter
 change keeps the beat's digits both meters show.
 
+Notes play through a switch: the box's pass that sequences them runs
+between one picture and the next, and between the rows of a desk laid out
+again for another song. A desk hidden behind the floor lays out nothing on
+a song change, and when it shows again it is the same, pixel for pixel, as
+a desk made fresh on that song. A document that changes nothing the desk
+shows lays nothing out again.
+
     python tests/backline_switch_contract.py [--plant=NAME]
 
 Needs LVGL, svgio, icons, hmilink, audiodsp and audioinstruments.
@@ -34,9 +41,12 @@ import _headless  # noqa: E402
 from backline import app, art, floor, kits  # noqa: E402
 from backline import box as boxmod  # noqa: E402
 from backline.desk import Desk  # noqa: E402
+from backline.desk import editor as editormod  # noqa: E402
+from backline.desk import grid as gridmod  # noqa: E402
+from backline.desk import perform as performmod  # noqa: E402
 
 PLANTS = ("poll-mid-switch", "tele-mid-draw", "rebuild-same-kit", "build-beside-old", "lose-kit",
-          "rewrite-digits")
+          "rewrite-digits", "hold-notes", "lay-out-hidden", "drop-held", "relay-same-song")
 W, H = 800, 480
 RESULTS = [0, 0]
 
@@ -116,6 +126,35 @@ def plant(name):
                 return old_ring(self, steps, group)
             return old_ring(self, steps, group)
         art.Texts.ring = ring
+    elif name == "hold-notes":
+        art.pause = lambda: None
+    elif name == "lay-out-hidden":
+        old_hide = Desk.hide
+
+        def hide(self):
+            old_hide(self)
+            self.hidden = False
+        Desk.hide = hide
+    elif name == "drop-held":
+        old_show = Desk.show
+
+        def show(self):
+            self._stale = False
+            old_show(self)
+        Desk.show = show
+    elif name == "relay-same-song":
+        old_doc = performmod.Perform.on_doc
+        old_rebuild = editormod.Editor.rebuild
+
+        def on_doc(self, doc, desc):
+            self.titles = self.kits_listed = None
+            old_doc(self, doc, desc)
+
+        def rebuild(self, *args):
+            self.grid.head = None
+            old_rebuild(self, *args)
+        performmod.Perform.on_doc = on_doc
+        editormod.Editor.rebuild = rebuild
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -127,6 +166,7 @@ class Hook:
     def __init__(self):
         self.fn = None
         self.error = None
+        self.trace = []     # "p" as each picture starts, "s" for each pass of the box's
         real = art.Picture
         hook = self
 
@@ -135,6 +175,7 @@ class Hook:
                 fn, hook.fn = hook.fn, None
                 if fn is not None:
                     fn()
+                hook.trace.append("p")
                 real.__init__(self, *args, **kwargs)
 
         art.Picture = Picture
@@ -174,7 +215,12 @@ def main():
         desk_panels[-1].poll()
         return Desk(scr, (W, H), desk_panels[-1], on_switch=on_switch)
 
-    views = app.Views(lambda on_switch: floor.Floor(scr, (W, H), panel, on_switch=on_switch), make_desk)
+    def service():
+        hook.trace.append("s")
+        box.service()
+
+    views = app.Views(lambda on_switch: floor.Floor(scr, (W, H), panel, on_switch=on_switch), make_desk,
+                      service=service)
 
     def settle():
         for _ in range(3):
@@ -212,6 +258,17 @@ def main():
         settle()
         check("a timer's pass while the %s draws reads no panel" % which, seen[1:] == [0],
               "it polled the panels %d times" % (seen[1] if len(seen) > 1 else -1))
+
+    # Notes play through a switch: a pass of the box's between each picture.
+    for which in ("desk", "floor"):
+        del hook.trace[:]
+        views.show(which)
+        trace = "".join(hook.trace)
+        run = max(len(r) for r in trace.split("s"))
+        check("the box's pass runs between the pictures of a switch to the %s" % which,
+              "p" in trace and run <= 1,
+              "%d pictures, %d passes, at most %d pictures in a row" % (trace.count("p"), trace.count("s"), run))
+        settle()
 
     # Telemetry that reaches the floor while it draws its art again, with a
     # tempo the floor hasn't shown: its digits aren't drawn yet.
@@ -267,7 +324,27 @@ def main():
         box.command("song", {"index": i})
         settle()
 
+    builds = [0]
+    real_build = gridmod.Grid.build
+
+    def counted_build(self, *args):
+        builds[0] += 1
+        return real_build(self, *args)
+
+    gridmod.Grid.build = counted_build
+    buttons = [0]
+    real_button = performmod.look.button
+
+    def counted_button(*args, **kwargs):
+        buttons[0] += 1
+        return real_button(*args, **kwargs)
+
+    performmod.look.button = counted_button
+
     song("funk")      # the same kit as rock's
+    check("a desk hidden behind the floor lays out nothing on a song change",
+          views.shown == "floor" and builds[0] == 0 and buttons[0] == 0,
+          "%d grids and %d song buttons laid out" % (builds[0], buttons[0]))
     check("a song on the kit playing builds no kit", opened == [] and box.kit_spec() == "rhythm909",
           "built %r" % (opened,))
     first = box.bus.kit
@@ -284,6 +361,65 @@ def main():
           "playing %r, error %r" % (box.kit_spec(), box.error))
     kits.open_kit = real_open
     box.error = None
+
+    # The hidden desk, shown again, is the desk made fresh on that song.
+    def shots(desk):
+        out = []
+        desk.perform.songs.scroll_to_y(0, False)   # where a list was scrolled to is the desk's own history
+        for tab in ("perform", "edit"):
+            desk.show_tab(tab)
+            for _ in range(3):
+                views.poll(box)
+                _headless.advance(30)
+            scr.invalidate()
+            _headless.refresh()
+            out.append(bytes(_headless._state["frame"]))
+        desk.show_tab("perform")
+        return out
+
+    views.show("desk")
+    settle()
+    kept = shots(views.desk)
+    views.desk.hide()
+    fresh = make_desk(lambda: None)
+    for _ in range(3):
+        box.device._telemetry()
+        box.poll()
+        desk_panels[-1].poll()
+    fresh.show()
+    made = shots(fresh)
+    fresh.base.delete()
+    desk_panels.pop().close()
+    views.desk.show()
+    settle()
+    differ = [sum(1 for i in range(0, len(a), 2) if a[i:i + 2] != b[i:i + 2]) for a, b in zip(kept, made)]
+    check("a desk shown again after song changes is the desk made fresh on that song, pixel for pixel",
+          differ == [0, 0], "%r pixels differ on the perform and edit tabs" % (differ,))
+
+    # A document that changes nothing the desk shows lays nothing out.
+    builds[0] = buttons[0] = 0
+    desk = views.desk
+    desk._doc(desk.panel.doc, desk.panel.desc)
+    check("a document with the same songs, kits and grid lays nothing out again",
+          builds[0] == 0 and buttons[0] == 0, "%d grids and %d song buttons laid out" % (builds[0], buttons[0]))
+
+    # A shown desk laid out for another song lets the box play between rows.
+    passes = []
+
+    def watched_build(self, rows, *args):
+        before = hook.trace.count("s")
+        counted_build(self, rows, *args)
+        passes.append((len(rows), hook.trace.count("s") - before))
+
+    gridmod.Grid.build = watched_build
+    del hook.trace[:]
+    song("rock")
+    gridmod.Grid.build = real_build
+    performmod.look.button = real_button
+    check("a desk laid out for another song lets the box's pass run between its rows",
+          passes and all(n >= rows for rows, n in passes), "rows and passes per grid: %r" % (passes,))
+    views.show("floor")
+    settle()
 
     # A meter change keeps the beat's digits both meters show.
     lay = fl.lay
