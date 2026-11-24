@@ -13,6 +13,8 @@ the screen builds a knob for each description:
 The audio path is the node, in C; the adapter only sets values on it.
 """
 
+from appkit import assets
+
 from . import CHANNELS, SAMPLE_RATE
 
 
@@ -89,16 +91,15 @@ def guitar_set(path=None):
     found = []
     group = ""
     try:
-        f = open(path)
+        text = assets.read(path)
     except OSError:
         return found
-    with f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("##"):
-                group = line[2:].strip()
-            elif line and not line.startswith("#"):
-                found.append((group, line))
+    for line in text.split("\n"):
+        line = line.strip()
+        if line.startswith("##"):
+            group = line[2:].strip()
+        elif line and not line.startswith("#"):
+            found.append((group, line))
     return found
 
 

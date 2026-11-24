@@ -1,12 +1,19 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Build the app index a frozen build reads in place of the apps folder.
+"""Build the app index a frozen build reads beside the apps folder.
 
 MicroPython can freeze ``.py`` files but not an ``app.json``, so at build
 time this turns every ``<apps>/<app>/app.json`` into one module,
-``_appkit_apps``, frozen with the apps in the package ``apps``. ``Launcher.scan("apps")`` reads it
-when the folder isn't there.
+``_appkit_apps``, frozen with the apps in the package ``frozen_apps``.
+``Launcher.scan("apps")`` reads it as well as the apps folder, so a board
+can have some apps frozen and others in ``/apps``. The package has a name of
+its own because ``/apps`` on the filesystem is the package ``apps``, and
+MicroPython looks for a package's modules in one place only.
+
+The other files an app reads beside its code (Backline's songs) are frozen
+too, as bytes in one more module, ``_appkit_files``; `appkit.assets` reads
+them where the files aren't on the filesystem.
 
 From a MicroPython ``manifest.py``, include appkit's own manifest with the
 apps folder, as an absolute path::
@@ -27,8 +34,15 @@ import os
 import sys
 
 MODULE = "_appkit_apps"
+#: The module holding the frozen apps' other files.
+FILES_MODULE = "_appkit_files"
 #: The package a frozen build's apps are in, whatever their folder's name.
-PACKAGE = "apps"
+PACKAGE = "frozen_apps"
+#: Folders an app keeps beside its code that a board has no use for.
+SKIP_DIRS = ("__pycache__", "docs", "examples", "studies", "tests", "tools")
+#: Files in an app's folder that aren't frozen: the board's ``main.py`` (Home's
+#: goes to the board's root), and what a person or an installer reads.
+SKIP_FILES = ("main.py", "package.json", "pyproject.toml")
 #: An apps folder's ``__init__.py``, when it has none of its own.
 INIT_TEXT = "# The apps folder is a package: appkit imports each app in it as %s.<app>.\n" % PACKAGE
 
@@ -137,18 +151,90 @@ def write(folder, out=None):
     return out
 
 
-def freeze_apps(folder, module, package, out_dir=None):
-    """From a MicroPython manifest: freeze every app in *folder* and its index.
+def sibling_apps(folder):
+    """The other apps the app in *folder* imports from, as
+    ``from ..perch import stage`` does, read from its top-level modules."""
+    import ast
 
-    *module* and *package* are the manifest's own functions. The apps are
-    frozen in the package ``apps`` (``apps.<app>``, as ``scan()`` imports
-    them), whatever their folder is called: they're copied to
-    ``<out_dir>/apps`` first, with an ``__init__.py`` made for the package
-    when the folder has none. A script entry's module is frozen on its own
-    when it is a file in the app's folder (``<app>/<script>.py``);
-    otherwise the build must freeze it elsewhere, like any library. The
-    index is written to *out_dir* (default: a new temporary folder) and
-    frozen as ``_appkit_apps``.
+    names = set()
+    for name in sorted(os.listdir(folder)):
+        if not name.endswith(".py"):
+            continue
+        with open(os.path.join(folder, name), encoding="utf-8") as f:
+            tree = ast.parse(f.read(), name)
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.level == 2:
+                names.update([node.module.split(".")[0]] if node.module else [alias.name for alias in node.names])
+    return names
+
+
+def choose(folder, names=None):
+    """The apps in *folder* to freeze: every one, or those in *names* (a list,
+    or a comma-separated string) and the apps they import from. ``ValueError``
+    names one that isn't there."""
+    apps = collect(folder)
+    if names is None:
+        return apps
+    if isinstance(names, str):
+        names = [n.strip() for n in names.split(",") if n.strip()]
+    have = dict(apps)
+    wanted = []
+    todo = list(names)
+    while todo:
+        name = todo.pop(0)
+        if name in wanted:
+            continue
+        if name not in have:
+            raise ValueError("no app %r in %s (have: %s)" % (name, folder, ", ".join(sorted(have))))
+        wanted.append(name)
+        todo.extend(sorted(sibling_apps(os.path.join(folder, name))))
+    return [(entry, info) for entry, info in apps if entry in wanted]
+
+
+def _walk(where):
+    """``(code, other)``: the paths inside app folder *where* a freeze takes,
+    ``.py`` files and the rest, sorted."""
+    code, other = [], []
+    for here, dirs, files in os.walk(where):
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS and not d.startswith("."))
+        for name in sorted(files):
+            rel = os.path.relpath(os.path.join(here, name), where).replace(os.sep, "/")
+            if name.startswith(".") or name in SKIP_FILES or name.endswith((".pyc", ".md")):
+                continue
+            if name == "app.json" and rel == name:
+                continue  # in the index
+            (code if name.endswith(".py") else other).append(rel)
+    return code, other
+
+
+def render_files(files):
+    """The ``_appkit_files`` module's text: *files* is ``{path: bytes}``."""
+    lines = [
+        "# Generated by appkit.index: do not edit.",
+        "# The frozen apps' other files, by path, as appkit.assets reads them.",
+        "FILES = {",
+    ]
+    for path in sorted(files):
+        lines.append("    %r: %r," % (path, files[path]))
+    lines.append("}")
+    return "\n".join(lines) + "\n"
+
+
+def freeze_apps(folder, module, package, out_dir=None, names=None):
+    """From a MicroPython manifest: freeze the apps in *folder* and their index.
+
+    *module* and *package* are the manifest's own functions; *names* chooses
+    some of the apps (see `choose`), and by default every one is frozen. The
+    apps are frozen in the package ``frozen_apps`` (``frozen_apps.<app>``, as
+    ``scan()`` imports them), whatever their folder is called: their ``.py``
+    files are copied to ``<out_dir>/frozen_apps`` first, with an
+    ``__init__.py`` made for the package. Folders a board has no use for
+    (``tests``, ``docs``, ``tools`` and the like) are left out, and so is
+    ``main.py``. An app's other files go in ``_appkit_files``. A script
+    entry's module is frozen on its own when it is a file in the app's folder
+    (``<app>/<script>.py``); otherwise the build must freeze it elsewhere,
+    like any library. The index is written to *out_dir* (default: a new
+    temporary folder) and frozen as ``_appkit_apps``.
     """
     import shutil
     import tempfile
@@ -158,40 +244,41 @@ def freeze_apps(folder, module, package, out_dir=None):
         out_dir = tempfile.mkdtemp(prefix="appkit-index-")
     elif not os.path.isdir(out_dir):
         os.makedirs(out_dir)
-    write(folder, out_dir)
+    apps = choose(folder, names)
+    with open(os.path.join(out_dir, MODULE + ".py"), "w", encoding="utf-8") as f:
+        f.write(render(apps, os.path.basename(os.path.normpath(folder)) + "/*/app.json"))
     module(MODULE + ".py", base_path=out_dir)
     stage = os.path.join(out_dir, PACKAGE)
     if os.path.isdir(stage):
         shutil.rmtree(stage)
     os.makedirs(stage)
-    init = os.path.join(folder, "__init__.py")
-    if os.path.isfile(init):
-        shutil.copy2(init, stage)
-    else:
-        with open(os.path.join(stage, "__init__.py"), "w", encoding="utf-8") as f:
-            f.write(INIT_TEXT)
+    with open(os.path.join(stage, "__init__.py"), "w", encoding="utf-8") as f:
+        f.write(INIT_TEXT)
     module(PACKAGE + "/__init__.py", base_path=out_dir)
-
-    def not_python(where, names):
-        return [
-            n
-            for n in names
-            if n.startswith(".")
-            or n == "__pycache__"
-            or (not n.endswith(".py") and not os.path.isdir(os.path.join(where, n)))
-        ]
-
-    for entry, info in collect(folder):
+    files = {}
+    for entry, info in apps:
         where = os.path.join(folder, entry)
         script = info.get("script")
         if script:
             if os.path.isfile(os.path.join(where, script + ".py")):
                 module(script + ".py", base_path=where)
-        elif os.path.isfile(os.path.join(where, "__init__.py")):
-            shutil.copytree(where, os.path.join(stage, entry), ignore=not_python)
-            package(PACKAGE + "/" + entry, base_path=out_dir)
-        else:
+            continue
+        if not os.path.isfile(os.path.join(where, "__init__.py")):
             raise ValueError("%s has an app.json but no __init__.py" % (where,))
+        code, other = _walk(where)
+        for rel in code:
+            dest = os.path.join(stage, entry, rel)
+            if not os.path.isdir(os.path.dirname(dest)):
+                os.makedirs(os.path.dirname(dest))
+            shutil.copy2(os.path.join(where, rel), dest)
+            module(PACKAGE + "/" + entry + "/" + rel, base_path=out_dir)
+        for rel in other:
+            with open(os.path.join(where, rel), "rb") as f:
+                files[PACKAGE + "/" + entry + "/" + rel] = f.read()
+    if files:
+        with open(os.path.join(out_dir, FILES_MODULE + ".py"), "w", encoding="utf-8") as f:
+            f.write(render_files(files))
+        module(FILES_MODULE + ".py", base_path=out_dir)
     return out_dir
 
 
