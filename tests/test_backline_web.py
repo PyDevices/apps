@@ -91,7 +91,7 @@ def _setup():
                 sys.path.insert(0, str(path))
         _setup.omni = None
         return None
-    for path in (REPO / "apps", REPO / "lib", omni / "packages" / "hmilink", TESTS):
+    for path in (REPO / "apps", REPO / "lib", omni / "lib", TESTS):
         if str(path) not in sys.path:
             sys.path.insert(0, str(path))
     for path in (omni / "packages" / "icons", omni / "lib", omni / "utils"):

@@ -43,7 +43,7 @@ def find_omnipython(given: str | None) -> Path:
     given = given or os.environ.get("OMNIPYTHON_DIR")
     candidates = [Path(given)] if given else [p / "omnipython" for p in REPO.parents]
     for path in candidates:
-        if (path / "packages" / "hmilink" / "web-page" / "hmilink.js").is_file():
+        if (path / "lib" / "hmilink" / "hmilink.js").is_file():
             return path.resolve()
     raise SystemExit(f"no OmniPython checkout with hmilink's web page at {', '.join(map(str, candidates[:2]))}: "
                      "pass --omnipython DIR or set OMNIPYTHON_DIR")
@@ -87,7 +87,7 @@ def files() -> list[list[str]]:
 
 def omnipython_files(omni: Path) -> list[list[str]]:
     """``[url, path]`` for hmilink and the icons, from the OmniPython checkout."""
-    out = _python(omni, "packages/hmilink/hmilink", "omnipython", "/lib/hmilink")
+    out = _python(omni, "lib/hmilink", "omnipython", "/lib/hmilink")
     for name in ("__init__.py", "lvgl.py", "_material.py"):
         out.append([f"omnipython/packages/icons/icons/{name}", f"/lib/icons/{name}"])
     return out
@@ -114,7 +114,7 @@ class Site:
         if url == "icons.ttf":
             return self.font
         if url == "hmilink/hmilink.js":
-            return self.omni / "packages" / "hmilink" / "web-page" / "hmilink.js"
+            return self.omni / "lib" / "hmilink" / "hmilink.js"
         for prefix, root in (("wasm/", self.wasm), ("repo/", REPO), ("omnipython/", self.omni)):
             if url.startswith(prefix):
                 return _inside(root, url[len(prefix):])

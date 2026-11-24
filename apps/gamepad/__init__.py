@@ -182,9 +182,10 @@ def be_gamepad(scope):
     W, H = scope.size
     try:
         import usb_hid
+        from usb.device.hid import HIDInterface  # noqa: F401  # what usb_hid runs over
     except ImportError as e:
         print("gamepad:", e)
-        _missing(scope, "missing: usb-hid", 'The gamepad needs usb-hid:\nomip.install("usb-hid")')
+        _missing(scope, "missing: usb-device-hid", 'The gamepad needs usb-device-hid:\nomip.install("usb-device-hid")')
         return None
     status, row = _status_row(scope)
     _free_port()

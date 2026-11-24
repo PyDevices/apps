@@ -4,7 +4,7 @@
 # songmodel's MicroPython manifest. From a board's manifest.py:
 #
 #   include("/path/to/apps/lib/songmodel")                  songmodel
-#   include("/path/to/apps/lib/songmodel", requires=True)   songmodel and hmilink
+#   include("/path/to/apps/lib/songmodel", requires=True)   songmodel and OmniPython, which holds hmilink
 #
 # The require() lines below are what songmodel needs that it doesn't carry: a
 # mip install of applibs, which holds songmodel, brings them along. A firmware
@@ -15,6 +15,6 @@
 options.defaults(requires=False)
 
 if options.requires:
-    require("hmilink")
+    require("omnipython")
 
 package("songmodel", base_path="..")  # this folder is songmodel itself; its parent holds the package

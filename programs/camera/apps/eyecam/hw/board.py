@@ -333,8 +333,8 @@ class Recorder:
         try:
             import mp4mux
         except ImportError:
-            print("eyecam: no mp4mux in /lib: no video (mip install mp4mux)")
-            self.why = "No video: mp4mux isn't installed"
+            print("eyecam: no mp4mux: no video (it comes with OmniPython 0.8.1 and later)")
+            self.why = "No video: this OmniPython has no mp4mux"
             return False
         self.why = None
         self.magnify = max(1, min(4, magnify))

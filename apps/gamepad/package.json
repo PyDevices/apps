@@ -31,15 +31,15 @@
     [
       "icons",
       "latest"
-    ],
-    [
-      "usb-hid",
-      "latest"
     ]
   ],
   "upstream": [
     [
       "requests",
+      "latest"
+    ],
+    [
+      "usb-device-hid",
       "latest"
     ]
   ],

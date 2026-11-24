@@ -47,10 +47,9 @@ def _hmilink():
     parent = ROOT
     for _ in range(3):
         parent = os.path.dirname(parent)
-        for inside in (("packages", "hmilink", "hmilink"), ("hmilink", "hmilink")):
-            p = os.path.join(parent, "omnipython", *inside)
-            if os.path.isfile(os.path.join(p, "__init__.py")):
-                return p
+        p = os.path.join(parent, "omnipython", "lib", "hmilink")
+        if os.path.isfile(os.path.join(p, "__init__.py")):
+            return p
     return os.path.join(OSTINATO, "vendor", "lib", "hmilink")
 
 
