@@ -33,6 +33,12 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 
 - [Synth Station's roadmap](apps/synthstation/ROADMAP.md).
 
+## Shell
+
+- A Shell app: a command line on the board's own screen, through vtterm, for
+  looking after a board (list, copy, remove and read files). Its first version
+  runs micropython-lib's upysh, all in Python.
+
 ## Stompbox
 
 - A tuner, and several effect slots with saved presets, so Stompbox is more
