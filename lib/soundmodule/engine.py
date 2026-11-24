@@ -981,14 +981,23 @@ class Module:
         """Let the parts' instruments move their notes and knobs on: call it
         before each pull of ``output``, or every 10 to 20 ms where something
         else pulls it. An audioinstruments instrument on MicroPython takes
-        notes and knobs into the sound in ``fill()``; on CPython, and for a
-        SoundFont part, it does nothing."""
+        notes and knobs into the sound in ``fill()``. A SoundFont part's
+        reads on into the samples its notes started before a slow card had
+        read them whole; the parts share one bank, so once one of them has
+        spent its read time on it, the rest wait for the next call."""
+        read = False
         for part in self.parts:
             inst = part.inst
-            if inst is not None and part.inst_name not in (MELODIC, DRUMS):
-                fill = getattr(inst, "fill", None)
-                if fill is not None:
-                    fill()
+            if inst is None:
+                continue
+            soundfont = part.inst_name in (MELODIC, DRUMS)
+            if soundfont and read:
+                continue
+            fill = getattr(inst, "fill", None)
+            if fill is not None:
+                more = fill()
+                if soundfont and more:
+                    read = True
 
     def close(self):
         for part in self.parts:

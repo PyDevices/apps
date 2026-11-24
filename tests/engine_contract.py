@@ -35,6 +35,7 @@ PLANTS = ("bank-ignored", "lsb-ignored", "eager-bank", "macro-shift", "level-lin
           "identity-any-device", "tally-final", "pipe-drops-peek", "frames-miscounted",
           "rpn-ignored", "rpn-null-ignored", "rpn-lsb-kept", "reset-keeps-bend", "reset-keeps-expression",
           "fixed-range-unscaled", "reset-keeps-rpn", "volume-as-macro", "sends-last-wins", "fill-skipped",
+          "soundfont-fill-skipped", "soundfont-fill-every-part",
           "expression-passthrough", "expression-forgotten", "expression-level-ignored", "ready-skipped",
           "ready-keeps-error")
 
@@ -125,6 +126,12 @@ class Tunable(Fake):
         self.bend_range = 2.0
         self.tuning = 0.0
 
+    reading = False
+
+    def fill(self):
+        self.fills += 1
+        return self.reading
+
     def reset(self):
         self.bend_range = 2.0
         self.tuning = 0.0
@@ -206,7 +213,23 @@ def check_fill():
     m.fill()
     synth = m.parts[0].inst
     check("fill() reaches a synth part's instrument, each time", synth.fills == 2, repr(synth.fills))
-    check("and leaves a SoundFont part's alone", m.parts[1].inst.fills == 0, repr(m.parts[1].inst.fills))
+    check("and a SoundFont part's, each time", m.parts[1].inst.fills == 2, repr(m.parts[1].inst.fills))
+
+
+def check_soundfont_fill():
+    m, made = module(tunable=True)
+    m.feed(bytes((0x90, 60, 100, 0x91, 62, 100, 0x99, 36, 100)))  # two melodic parts and the drums
+    first, second, drums = m.parts[0].inst, m.parts[1].inst, m.parts[9].inst
+    first.reading = True  # a sample is still being read: it spends this call's read time
+    m.fill()
+    check("a SoundFont part still reading has the call to itself",
+          (first.fills, second.fills, drums.fills) == (1, 0, 0),
+          repr((first.fills, second.fills, drums.fills)))
+    first.reading = False
+    m.fill()
+    check("once it has read everything, the other SoundFont parts are reached",
+          (first.fills, second.fills, drums.fills) == (2, 1, 1),
+          repr((first.fills, second.fills, drums.fills)))
 
 
 def check_lsb_patch():
@@ -657,6 +680,22 @@ def plant(name):
         engine.Part.reset = reset
     elif name == "fill-skipped":
         M.fill = lambda self: None
+    elif name == "soundfont-fill-skipped":
+
+        def fill(self):
+            for part in self.parts:
+                if part.inst is not None and part.inst_name not in (engine.MELODIC, engine.DRUMS):
+                    part.inst.fill()
+
+        M.fill = fill
+    elif name == "soundfont-fill-every-part":
+
+        def fill(self):
+            for part in self.parts:
+                if part.inst is not None:
+                    part.inst.fill()
+
+        M.fill = fill
     elif name == "frames-miscounted":
         run._frames = lambda data: len(data) // 8
     else:
@@ -676,6 +715,7 @@ def main(argv):
     check_ready()
     check_bank_instruments()
     check_fill()
+    check_soundfont_fill()
     check_lsb_patch()
     check_bank_waits_for_program()
     check_macro_ccs()
