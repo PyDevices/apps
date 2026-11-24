@@ -266,6 +266,34 @@ def render(folder, prefix=""):
 #: Where pip takes the libraries from: the same branch as the apps.
 APPLIBS_URL = "omnipython-applibs[apps] @ git+https://github.com/PyDevices/apps"
 
+#: What pip installs for each package an app needs on a board (its package.json
+#: deps and upstream), so ``pip install omnipython-apps`` brings everything the
+#: board install does. A package from the omnipython repository with no release
+#: on PyPI installs from its main branch.
+_OMNI = "omnipython-%s @ git+https://github.com/PyDevices/omnipython#subdirectory=packages/%s"
+PIP = {
+    APPLIBS: APPLIBS_URL,
+    "audioeffects": "omnipython-audioeffects",
+    "audioinstruments": "omnipython-audioinstruments",
+    "bledev": "omnipython",
+    "endpointkit": "omnipython-desktop",
+    "hmilink": _OMNI % ("hmilink", "hmilink"),
+    "icons": "omnipython-desktop",
+    "medialink": "omnipython",
+    "midiports": "omnipython-desktop",
+    "mp4mux": _OMNI % ("mp4mux", "mp4mux"),
+    "palettes": "omnipython-palettes",
+    "pygraphics": "omnipython-pygraphics",
+    "requests": "requests",
+    "github:PyDevices/omnipython/packages/castdisplay": _OMNI % ("castdisplay", "castdisplay"),
+    "github:PyDevices/omnipython/packages/vtterm": _OMNI % ("vtterm", "vtterm"),
+}
+
+#: A package an app needs on a board that pip has no use for, and why.
+NOT_FOR_PIP = {
+    "usb-hid": "makes the board a USB keyboard or gamepad, through MicroPython's machine.USBDevice",
+}
+
 
 def render_bundle():
     """The text of ``apps/package.json``: every app, each from its own package.json."""
@@ -304,6 +332,27 @@ def pip_layout():
     return sorted(packages), data
 
 
+def pip_requirements():
+    """What ``omnipython-apps`` depends on: a pip requirement for each package
+    any app needs on a board (see `PIP`), sorted, each once."""
+    wanted, unknown = set(), set()
+    for name in apps():
+        deps, upstream, _ = needs(os.path.join(APPS, name))
+        for package, _ in deps + upstream:
+            if package.startswith("github:PyDevices/apps/") or package in NOT_FOR_PIP:
+                continue
+            if package in PIP:
+                wanted.add(PIP[package])
+            else:
+                unknown.add(package)
+    if unknown:
+        raise SystemExit(
+            "the apps need %s, which tools/app_packages.py has no pip requirement for: "
+            "add each to PIP, or to NOT_FOR_PIP with the reason" % ", ".join(sorted(unknown))
+        )
+    return sorted(wanted, key=lambda r: (r.startswith("omnipython-applibs"), r))
+
+
 def render_pyproject():
     """The text of ``apps/pyproject.toml``."""
     packages, data = pip_layout()
@@ -323,7 +372,12 @@ def render_pyproject():
         'description = "Every app for Home, from the main branch"',
         'authors = [{ name = "Brad Barnett" }]',
         'license = { text = "MIT" }',
-        "dependencies = [%s]" % json.dumps(APPLIBS_URL),
+        "# Everything the apps need, as on a board: tools/app_packages.py's PIP table.",
+        "dependencies = [",
+    ]
+    lines += ["    %s," % json.dumps(r) for r in pip_requirements()]
+    lines += [
+        "]",
         "",
         "[tool.setuptools]",
         'package-dir = { "apps" = "." }',
