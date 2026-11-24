@@ -36,7 +36,7 @@ EXTRA_NAMES = {
     0xFF000020: "Rt", 0xFF000021: "Lt", 0xFF000022: "Up", 0xFF000023: "Dn",
     0xFF000024: "Y", 0xFF000025: "B", 0xFF000026: "A", 0xFF000027: "X",
     0xFF000028: "LB", 0xFF000029: "RB", 0xFF00002A: "LT", 0xFF00002B: "RT",
-    0xFF00002C: "aX", 0xFF00002D: "aY", 0xFF00002E: "aZ", 0xFF00002F: "turn",
+    0xFF00002C: "aX", 0xFF00002D: "aY", 0xFF00002E: "aZ", 0xFF00002F: "rot",
 }
 #: Each field in hid_generic's ``Gamepad.fields`` starts with its kind.
 _BUTTON, _AXIS, _HAT = 0, 1, 2

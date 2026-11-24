@@ -524,7 +524,9 @@ events = w.events
 pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f402ee00b4010302")]
 scope.run()
 check(w.events == events and w.extras[12] == 756, "a tilt alone is read: %r" % (w.extras,))
-check(view["extras"][12][1].get_text() == "756", "and shown: %r" % (view["extras"][12][1].get_text(),))
+check(view["extras"][12][0].get_value() == 756, "and shown: %r" % (view["extras"][12][0].get_value(),))
+number = view["extras"][12][1]
+check(number is None or number.get_text() == "756", "with its number where one fits")
 shot("tester_ps3_layout")
 scope.close()
 

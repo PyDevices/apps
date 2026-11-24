@@ -354,7 +354,7 @@ def test_gamepad(scope):
     body = ui.plain(lv.obj(root))
     body.set_pos(0, row)
     body.set_size(W, H)
-    hint = ui.label(body, "Plug a gamepad into the USB host port.", ui.font, ui.MUTED)
+    hint = ui.label(body, "Plug a gamepad into the USB host port.\nPlugged in? Press its Home button to wake it.", ui.font, ui.MUTED)
     hint.center()
 
     def build(layout):
@@ -378,32 +378,44 @@ def test_gamepad(scope):
         # Above them a strip of upright bars for the vendor values: how hard
         # each control is pressed, and the motion sensors.
         top = lamps_y - m
+        line = ui.small.line_height + 6  # an axis's row at its thinnest
+        count = len(pairs) + (1 if hats else 0)
+        cols, rows = 1, len(axes)
         if extras:
+            # What's left once the axes' rows and the smallest squares fit;
+            # where that's too little, the axes go two to a row.
+            room = top - m - rows * line - (2 * m + CAPTION + 48 if count else 0)
+            if room < 16 + CAPTION + m and rows > 1:
+                cols, rows = 2, (rows + 1) // 2
+                room += (len(axes) - rows) * line
+            # Each value above its bar where there's room, then shorter bars.
+            numbers = room >= 32 + 2 * CAPTION + m
+            tall = max(10, min(48, room - (2 if numbers else 1) * CAPTION - m))
             n = len(extras)
             cw = min(48, (W - m) // n - 4)
-            tall = 48
-            sy = top - tall - 2 * CAPTION
+            sy = top - tall - (2 if numbers else 1) * CAPTION
             for i, (usage, lo, hi) in enumerate(extras):
                 cx = m + i * (cw + 4)
-                value = ui.label(body, "", ui.tiny, ui.WHITE)
-                value.set_width(cw)
-                value.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-                value.set_pos(cx, sy)
+                value = None
+                if numbers:
+                    value = ui.label(body, "", ui.tiny, ui.WHITE)
+                    value.set_width(cw)
+                    value.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+                    value.set_pos(cx, sy)
                 bar = lv.bar(body)
                 bar.set_range(lo, hi)
                 bar.set_value(lo, False)
-                bar.set_pos(cx + cw // 2 - 6, sy + CAPTION)
+                by = sy + (CAPTION if numbers else 0)
+                bar.set_pos(cx + cw // 2 - 6, by)
                 bar.set_size(12, tall)
                 name = ui.label(body, EXTRA_NAMES.get(usage, str(i + 1)), ui.tiny, ui.MUTED)
                 name.set_width(cw)
                 name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-                name.set_pos(cx, sy + CAPTION + tall + 2)
+                name.set_pos(cx, by + tall + 2)
                 view["extras"].append((bar, value))
             top = sy - m
         # Above those the sticks and the hat as squares, then a bar for each axis.
-        line = ui.small.line_height + 6  # an axis's row at its thinnest
-        count = len(pairs) + (1 if hats else 0)
-        sq = max(0, min(top - len(axes) * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
+        sq = max(0, min(top - rows * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
         x = (W - count * (sq + m) + m) // 2
         sy = m + CAPTION
         for a, b in pairs:
@@ -426,10 +438,11 @@ def test_gamepad(scope):
                 marks.append(lbl)
             view["hat"] = marks
             x += sq + m
-        x = m
-        y = sy + sq + m if sq else m
-        bar_h = max(line, min(36, (top - y) // max(1, len(axes))))
-        for code in axes:
+        y0 = sy + sq + m if sq else m
+        bar_h = max(line, min(36, (top - y0) // max(1, rows)))
+        cw = (W - m) // cols
+        for i, code in enumerate(axes):
+            x, y = m + (i % cols) * cw, y0 + (i // cols) * bar_h
             name = ui.label(body, AXIS_NAMES.get(code, "%06x" % code), ui.small, ui.MUTED)
             name.set_pos(x, y + (bar_h - ui.small.line_height) // 2)
             bar = lv.bar(body)
@@ -437,12 +450,11 @@ def test_gamepad(scope):
             bar.set_range(-100, 100)
             bar.set_value(0, False)
             bar.set_pos(x + 70, y + bar_h // 4)
-            bar.set_size(W - x - m - 70 - 52, bar_h // 2)
+            bar.set_size(cw - m - 70 - 52, bar_h // 2)
             value = ui.label(body, "", ui.small, ui.WHITE)
-            value.set_pos(W - m - 46, y + (bar_h - ui.small.line_height) // 2)
+            value.set_pos(x + cw - m - 46, y + (bar_h - ui.small.line_height) // 2)
             view["bars"][code] = bar
             view["values"][code] = value
-            y += bar_h
         return view
 
     def draw():
@@ -463,7 +475,8 @@ def test_gamepad(scope):
         for (bar, value), v in zip(view["extras"], watch.extras):
             if v is not None:
                 bar.set_value(v, False)
-                value.set_text(str(v))
+                if value is not None:
+                    value.set_text(str(v))
         if view["hat"] is not None:
             d = watch.hats.get(0, -1)
             marks = view["hat"]
@@ -481,7 +494,7 @@ def test_gamepad(scope):
             if watch.layout is None:
                 body.clean()
                 st["view"] = None
-                ui.label(body, "Plug a gamepad into the USB host port.", ui.font, ui.MUTED).center()
+                ui.label(body, "Plug a gamepad into the USB host port.\nPlugged in? Press its Home button to wake it.", ui.font, ui.MUTED).center()
             else:
                 st["view"] = build(watch.layout)
             changed = True
