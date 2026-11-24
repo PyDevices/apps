@@ -25,7 +25,7 @@ from multimer import ticks_diff, ticks_ms
 from touchkit import ui
 
 from .pad import A, B, L, R, SELECT, START, X, Y, Pad, Sender, hat_at, stick_at
-from .watch import AXIS_NAMES, Watch
+from .watch import AXIS_NAMES, BUTTON_NAMES, CENTRED, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, Watch
 
 #: How often the screen catches up with the pad or the tester, in ms.
 TICK_MS = 20
@@ -38,6 +38,8 @@ FACE = (
 )
 #: The hat's eight directions as the d-pad arrows they light: up, right, down, left.
 LIT = ((1, 0, 0, 0), (1, 1, 0, 0), (0, 1, 0, 0), (0, 1, 1, 0), (0, 0, 1, 0), (0, 0, 1, 1), (0, 0, 0, 1), (1, 0, 0, 1))
+#: What the tester says while it has no gamepad.
+WAITING = "Plug a gamepad into the USB host port.\nPlugged in? Press its Home button to wake it."
 COMPASS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
 
@@ -319,6 +321,81 @@ def _pairs(axes):
     return out
 
 
+def _text_width(text):
+    size = lv.point_t()
+    lv.text_get_size(size, text, ui.tiny, 0, 0, 32767, lv.TEXT_FLAG.NONE)
+    return size.x
+
+
+def _widths(items):
+    """How wide each of a strip's columns must be: its name or its biggest
+    value, whichever is wider, and room for the bar."""
+    return [max(24, _text_width(text), _text_width(str(hi))) + 6 for text, lo, hi in items]
+
+
+def _strip(parent, items, x, y, width, tall, numbers, centred=()):
+    """Upright bars side by side from *x*, *y*: one for each (name, low, high)
+    in *items*, its name below and, with *numbers*, its value above, spread
+    over *width*. A column whose index has a (middle, span) in *centred*
+    fills from the middle. Returns (bar, value label or None, name label,
+    (middle, span) or None) for each."""
+    widths = _widths(items)
+    grow = max(0, min(54 - max(widths), (width - sum(widths)) // len(items)))
+    out = []
+    cx = x
+    for i, ((text, lo, hi), cw) in enumerate(zip(items, widths)):
+        cw += grow
+        middle = centred[i] if i < len(centred) else None
+        value = None
+        by = y
+        if numbers:
+            value = ui.label(parent, "", ui.tiny, ui.WHITE)
+            value.set_width(cw)
+            value.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+            value.set_pos(cx, y)
+            by += CAPTION
+        bar = lv.bar(parent)
+        if middle is None:
+            bar.set_range(lo, hi)
+            bar.set_value(lo, False)
+        else:
+            bar.set_mode(lv.bar.MODE.SYMMETRICAL)
+            bar.set_range(-middle[1], middle[1])
+            bar.set_value(0, False)
+        bar.set_pos(cx + cw // 2 - 6, by)
+        bar.set_size(12, tall)
+        name = ui.label(parent, text, ui.tiny, ui.MUTED)
+        name.set_width(cw)
+        name.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+        name.set_pos(cx, by + tall + 2)
+        out.append((bar, value, name, middle))
+        cx += cw
+    return out
+
+
+def _strip_height(tall, numbers):
+    """How tall a `_strip` of bars *tall* high stands, names and all."""
+    return tall + (2 if numbers else 1) * CAPTION + 2
+
+
+def _fit_strip(room):
+    """The bars' height and whether their numbers fit, in *room* pixels."""
+    numbers = room >= _strip_height(32, True)
+    return max(10, min(48, room - _strip_height(0, numbers))), numbers
+
+
+def _show(column, v, held):
+    bar, value, name, middle = column
+    if middle is None:
+        bar.set_value(v, False)
+    else:
+        span = middle[1]
+        bar.set_value(max(-span, min(span, v - middle[0])), False)
+    if value is not None:
+        value.set_text(str(v))
+    name.set_style_text_color(ui.ACCENT if held else ui.MUTED, 0)
+
+
 def test_gamepad(scope):
     """The gamepad on the board's USB host port, live."""
     root = scope.root
@@ -354,32 +431,88 @@ def test_gamepad(scope):
     body = ui.plain(lv.obj(root))
     body.set_pos(0, row)
     body.set_size(W, H)
-    hint = ui.label(body, "Plug a gamepad into the USB host port.", ui.font, ui.MUTED)
+    hint = ui.label(body, WAITING, ui.font, ui.MUTED)
     hint.center()
 
     def build(layout):
         """Widgets for this pad's buttons, sticks, hats and axes."""
         body.clean()
-        buttons, axes, hats = layout
+        buttons, axes, hats, extras = layout
         m = _margin(W)
-        view = {"lamps": {}, "dots": [], "bars": {}, "values": {}, "hat": None}
+        view = {"lamps": {}, "keys": {}, "pressure": {}, "dots": [], "bars": {}, "values": {}, "hat": None,
+                "extras": []}
         pairs = _pairs(axes)
-        # The buttons along the bottom, in rows of up to sixteen.
-        cols = min(16, len(buttons)) or 1
-        bw = min(56, (W - m) // cols - 6)
-        rows = (len(buttons) + cols - 1) // cols
-        lamps_y = H - m - rows * (bw + 6) + 6
-        lamp_font = ui.small if bw >= 32 else ui.tiny
-        for i, n in enumerate(buttons):
-            lamp = ui.box(body, m + (i % cols) * (bw + 6), lamps_y + (i // cols) * (bw + 6), bw, bw, ui.KEY)
-            lamp.set_style_pad_all(0, 0)
-            ui.label(lamp, str(n), lamp_font, ui.WHITE).center()
-            view["lamps"][n] = lamp
-        # Above them the sticks and the hat as squares, then a bar for each axis.
-        top = lamps_y - m
+        # Which vendor values are a button's pressure; the rest go in a strip.
+        pressure = {}
+        rest = []
+        for i, (usage, lo, hi) in enumerate(extras):
+            if PRESSURE_OF.get(usage) in buttons:
+                pressure[PRESSURE_OF[usage]] = i
+            else:
+                rest.append(i)
+        rest.sort(key=lambda i: EXTRA_ORDER.index(extras[i][0]) if extras[i][0] in EXTRA_ORDER else 99 + i)
         line = ui.small.line_height + 6  # an axis's row at its thinnest
         count = len(pairs) + (1 if hats else 0)
-        sq = max(0, min(top - len(axes) * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
+        if pressure:
+            # A pad that says how hard its buttons are pressed: each button
+            # is an upright bar, 0 to 255, in its number's order. The bars
+            # and the strip of the other vendor values share their height.
+            # A pad that names its pressures is in the PS3 layout, whose
+            # buttons have known names; Home, too long for its column, is
+            # the house.
+            names = [BUTTON_NAMES[n - 1] if n <= len(BUTTON_NAMES) else str(n) for n in buttons]
+            keys = [(lv.SYMBOL.HOME if t == "Home" else t, 0, 255) for t in names]
+            others = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
+            # Side by side in one row where they fit, the buttons first.
+            key_w, other_w = sum(_widths(keys)), sum(_widths(others)) if others else 0
+            one_row = bool(rest) and key_w + other_w <= W - 3 * m
+            strips = 2 if rest and not one_row else 1
+            need = len(axes) * line + (2 * m + CAPTION + 48 if count else 0)
+            cols, rows = 1, len(axes)
+            room = (H - m - need) // strips - m
+            if room < _strip_height(16, False) and rows > 1:
+                cols, rows = 2, (rows + 1) // 2
+                room += (len(axes) - rows) * line // strips
+            tall, numbers = _fit_strip(room)
+            y = H - m - _strip_height(tall, numbers)
+            width = (W - 3 * m) * key_w // (key_w + other_w) if one_row else W - 2 * m
+            view["keys"] = dict(zip(buttons, _strip(body, keys, m, y, width, tall, numbers)))
+            view["pressure"] = pressure
+            if one_row:
+                view["extras"] = list(zip(rest, _strip(body, others, 2 * m + width, y, W - 3 * m - width, tall,
+                                                       numbers, [CENTRED.get(extras[i][0]) for i in rest])))
+                rest = []
+            top = y - m
+        else:
+            # The buttons along the bottom as lamps, in rows of up to sixteen.
+            n_cols = min(16, len(buttons)) or 1
+            bw = min(56, (W - m) // n_cols - 6)
+            n_rows = (len(buttons) + n_cols - 1) // n_cols
+            lamps_y = H - m - n_rows * (bw + 6) + 6
+            lamp_font = ui.small if bw >= 32 else ui.tiny
+            for i, n in enumerate(buttons):
+                lamp = ui.box(body, m + (i % n_cols) * (bw + 6), lamps_y + (i // n_cols) * (bw + 6), bw, bw, ui.KEY)
+                lamp.set_style_pad_all(0, 0)
+                ui.label(lamp, str(n), lamp_font, ui.WHITE).center()
+                view["lamps"][n] = lamp
+            top = lamps_y - m
+            cols, rows = 1, len(axes)
+            if rest:
+                room = top - m - rows * line - (2 * m + CAPTION + 48 if count else 0)
+                if room < _strip_height(16, False) and rows > 1:
+                    cols, rows = 2, (rows + 1) // 2
+                    room += (len(axes) - rows) * line
+                tall, numbers = _fit_strip(room)
+        # Above them a strip of upright bars for the other vendor values:
+        # the d-pad's pressure and the motion sensors.
+        if rest:
+            y = top - _strip_height(tall, numbers)
+            items = [(EXTRA_NAMES.get(extras[i][0], str(i + 1)), extras[i][1], extras[i][2]) for i in rest]
+            view["extras"] = list(zip(rest, _strip(body, items, m, y, W - 2 * m, tall, numbers,
+                                                   [CENTRED.get(extras[i][0]) for i in rest])))
+            top = y - m
+        # Above those the sticks and the hat as squares, then a bar for each axis.
+        sq = max(0, min(top - rows * line - 2 * m - CAPTION, (W - m) // count - m)) if count else 0
         x = (W - count * (sq + m) + m) // 2
         sy = m + CAPTION
         for a, b in pairs:
@@ -402,10 +535,11 @@ def test_gamepad(scope):
                 marks.append(lbl)
             view["hat"] = marks
             x += sq + m
-        x = m
-        y = sy + sq + m if sq else m
-        bar_h = max(line, min(36, (top - y) // max(1, len(axes))))
-        for code in axes:
+        y0 = sy + sq + m if sq else m
+        bar_h = max(line, min(36, (top - y0) // max(1, rows)))
+        cw = (W - m) // cols
+        for i, code in enumerate(axes):
+            x, y = m + (i % cols) * cw, y0 + (i // cols) * bar_h
             name = ui.label(body, AXIS_NAMES.get(code, "%06x" % code), ui.small, ui.MUTED)
             name.set_pos(x, y + (bar_h - ui.small.line_height) // 2)
             bar = lv.bar(body)
@@ -413,12 +547,11 @@ def test_gamepad(scope):
             bar.set_range(-100, 100)
             bar.set_value(0, False)
             bar.set_pos(x + 70, y + bar_h // 4)
-            bar.set_size(W - x - m - 70 - 52, bar_h // 2)
+            bar.set_size(cw - m - 70 - 52, bar_h // 2)
             value = ui.label(body, "", ui.small, ui.WHITE)
-            value.set_pos(W - m - 46, y + (bar_h - ui.small.line_height) // 2)
+            value.set_pos(x + cw - m - 46, y + (bar_h - ui.small.line_height) // 2)
             view["bars"][code] = bar
             view["values"][code] = value
-            y += bar_h
         return view
 
     def draw():
@@ -436,6 +569,17 @@ def test_gamepad(scope):
             bar.set_value(int((v or 0) * 100), False)
             raw = watch.pad.axes.get(code) if watch.pad is not None else None
             view["values"][code].set_text("" if raw is None else str(raw))
+        extras = watch.extras
+        for n, column in view["keys"].items():
+            i = view["pressure"].get(n)
+            v = extras[i] if i is not None and i < len(extras) else None
+            if v is None:
+                v = 255 if n in held else 0
+            _show(column, v, n in held)
+        for i, column in view["extras"]:
+            v = extras[i] if i < len(extras) else None
+            if v is not None:
+                _show(column, v, False)
         if view["hat"] is not None:
             d = watch.hats.get(0, -1)
             marks = view["hat"]
@@ -453,7 +597,7 @@ def test_gamepad(scope):
             if watch.layout is None:
                 body.clean()
                 st["view"] = None
-                ui.label(body, "Plug a gamepad into the USB host port.", ui.font, ui.MUTED).center()
+                ui.label(body, WAITING, ui.font, ui.MUTED).center()
             else:
                 st["view"] = build(watch.layout)
             changed = True

@@ -492,6 +492,67 @@ check(st["view"] is None and "went" in w.status, "unplugging it says so and wait
 scope.close()
 check(_Host.stopped == 1, "closing the tester stops the host")
 
+# -- A pad in the PS3 layout: pressure and motion after its sticks ----------------
+
+# A generic pad's own descriptor, with no report ID: thirteen buttons, a hat,
+# four axes, then a pressure byte for twelve controls and four 10-bit motion
+# values on the vendor page.
+PS3_LAYOUT = bytes.fromhex("""
+05 01 09 05 a1 01 15 00 25 01 35 00 45 01 75 01 95 0d 05 09 19 01 29 0d 81 02 95 03
+81 01 05 01 25 07 46 3b 01 75 04 95 01 65 14 09 39 81 42 65 00 95 01 81 01 26 ff 00
+46 ff 00 09 30 09 31 09 32 09 35 75 08 95 04 81 02 06 00 ff 09 20 09 21 09 22 09 23
+09 24 09 25 09 26 09 27 09 28 09 29 09 2a 09 2b 95 0c 81 02 0a 21 26 95 08 b1 02 0a
+21 26 91 02 26 ff 03 46 ff 03 09 2c 09 2d 09 2e 09 2f 75 10 95 04 81 02 c0
+""".replace("\n", " "))
+_Host.pad = None
+scope = Scope()
+st = gamepad.test_gamepad(scope)
+pad = FakePad(PS3_LAYOUT)
+_Host.pad = pad
+st["watch"]._looked = None
+scope.run()
+
+
+def ps3_layout():
+    view = st["view"]
+    check(view is not None and sorted(view["keys"]) == list(range(1, 14)) and not view["lamps"],
+          "a PS3-layout pad's thirteen buttons are bars, not lamps")
+    check(sorted(view["pressure"]) == list(range(1, 9)), "buttons 1 to 8 read their pressure")
+    names = [view["keys"][n][2].get_text() for n in range(1, 14)]
+    check(names[:4] == ["X", "A", "B", "Y"] and names[-1] == lv.SYMBOL.HOME, "in number order, named: %r" % (names,))
+    names = [column[2].get_text() for _, column in view["extras"]]
+    check(names == ["Up", "Rt", "Dn", "Lt", "roll", "lift", "pitch", "yaw"],
+          "the d-pad and motion values beside them: %r" % (names,))
+    w = st["watch"]
+    # A held, its pressure byte full, the pad at rest.
+    pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f301ee00b4010302")]
+    scope.run()
+    check(w.extras[6] == 255 and w.extras[12] == 499, "the pressure and motion values are read: %r" % (w.extras,))
+    check(view["keys"][2][0].get_value() == 255, "A's bar (button 2) is full")
+    check(view["keys"][1][0].get_value() == 0, "X's (button 1) is empty")
+    check(same_color(view["keys"][2][2].get_style_text_color(0), ui.ACCENT), "and 2's name lights while it's held")
+    # Tilted: only a motion value moves, and the screen follows with no event.
+    events = w.events
+    pad.reports = [bytes.fromhex("02000f807f807f000000000000ff0000000000f402ee00b4010302")]
+    scope.run()
+    check(w.events == events and w.extras[12] == 756, "a tilt alone is read: %r" % (w.extras,))
+    aX = view["extras"][4][1]
+    check(aX[0].get_value() == 756, "and shown: %r" % (aX[0].get_value(),))
+    number = aX[1]
+    yaw = view["extras"][7][1]
+    check(yaw[0].get_value() == 3, "yaw fills from the middle: 515 is 3 past it: %r" % (yaw[0].get_value(),))
+    check(number is None or number.get_text() == "756", "with its number where one fits")
+    shot("tester_ps3_layout")
+
+
+# An omnipython from before hid_generic kept extras reads the pad without
+# them: those checks wait for a newer one, unless this run requires them.
+if hasattr(st["watch"].pad, "extra_info") or os.getenv("GAMEPAD_REQUIRE") == "1":
+    ps3_layout()
+else:
+    print("PS3 layout skipped: this omnipython's hid_generic keeps no extras")
+scope.close()
+
 # -- On a board with one USB port, the gamepad takes it from the host ------------
 
 _Host.running = True
