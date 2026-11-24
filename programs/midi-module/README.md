@@ -52,7 +52,9 @@ mpftp put programs/midi-module/midi_module.py /midi_module.py
 
 Put a General MIDI SoundFont (`.sf2`) in `/sd/soundfonts` on the SD card, or
 in `/soundfonts` or `/data/soundfonts` on the board, looked at in that order.
-The first by name is used. Then say which pin the optocoupler drives, in `/midi_module.json`:
+The first by name is used, unless `"bank"` in the settings names one, such as
+`{"bank": "/soundfonts/GeneralUser.sf2"}`. When there is more than one, the
+program says which it plays. Then say which pin the optocoupler drives, in `/midi_module.json`:
 
 ```json
 {"uart": 1, "rx": 32}
@@ -62,6 +64,13 @@ and make `main.py` say `import midi_module`. The other settings (`tx`, `rate`,
 `voices`, `effects`, `master`) are at the top of
 [`midi_module.py`](midi_module.py). Sixteen voices with no effects is what a
 classic ESP32 holds at 44.1 kHz.
+
+A sample is read from the bank the first time a note plays it, and the note
+waits until it's read. From a big bank on a slow card that can be seconds,
+and MIDI arriving in the meantime waits too. At start the program times a
+read of the bank and, when its largest sample would take 100 ms or more,
+says how long a note can wait. A smaller bank, or a faster card, plays
+without the wait.
 
 ## Check it without a MIDI cable
 

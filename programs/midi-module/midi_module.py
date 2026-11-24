@@ -9,13 +9,18 @@ engine (sixteen parts sharing one pool of sampler voices), out of the board's
 key, the touch screen or the Boot button silences every note, and a display,
 if the board has one, shows what's playing.
 
-The SoundFont is the first ``.sf2`` by name in ``/sd/soundfonts`` on the
-board's SD card, or else in ``/soundfonts`` on its flash, or else in
-``/data/soundfonts`` (``/flash/...`` on an STM32). Settings go in
-``/midi_module.json``; ``rx``, the pin the optocoupler drives, is the one
-you must give::
+The SoundFont is the one ``bank`` names in the settings, or else the first
+``.sf2`` by name in ``/sd/soundfonts`` on the board's SD card, or else in
+``/soundfonts`` on its flash, or else in ``/data/soundfonts`` (``/flash/...``
+on an STM32). Settings go in ``/midi_module.json``; ``rx``, the pin the
+optocoupler drives, is the one you must give::
 
     {"uart": 1, "rx": 13}
+
+Samples are read from the bank the first time a note needs them, so a note
+waits while its sample is read. At start the program times a read of the
+bank and says how long its largest sample would take, when that is long
+enough to hear.
 
 Put this on the board with its libraries and have ``main.py`` import it.
 """
@@ -37,6 +42,8 @@ RATE = 44100  # Hz
 VOICES = 16  # the sampler's voices; each costs about 4% of a classic ESP32's core at 44.1 kHz
 EFFECTS = False  # the reverb alone takes most of a classic ESP32's core
 MASTER = 80  # the output's volume, 0 to 100; MIDI's master volume changes it
+BANK = None  # a .sf2 path, to play it rather than the first one found
+SLOW_MS = 100  # a sample read this long is a note heard late
 STATUS_MS = 10000
 
 try:
@@ -49,6 +56,7 @@ try:
     VOICES = _settings.get("voices", VOICES)
     EFFECTS = _settings.get("effects", EFFECTS)
     MASTER = _settings.get("master", MASTER)
+    BANK = _settings.get("bank", BANK)
 except OSError:
     pass
 if MIDI_RX is None:
@@ -94,18 +102,28 @@ if board.has("sdcard"):
 from midiports import uart
 from soundmodule import engine
 
-bank = None
+found = []
 for folder in folders:
     try:
-        banks = sorted(n for n in os.listdir(folder) if n.lower().endswith(".sf2"))
+        found += [folder + "/" + n for n in sorted(os.listdir(folder)) if n.lower().endswith(".sf2")]
     except OSError:
-        continue
-    if banks:
-        bank = folder + "/" + banks[0]
-        break
-if bank is None:
+        pass
+if BANK is not None:
+    try:
+        os.stat(BANK)
+    except OSError:
+        show(1, "No SoundFont")
+        raise SystemExit("midi_module: the bank in /midi_module.json, %s, isn't there" % BANK)
+    bank = BANK
+elif found:
+    bank = found[0]
+else:
     show(1, "No SoundFont")
     raise SystemExit("midi_module: no SoundFont: put a .sf2 in %s" % " or ".join(folders))
+others = [b for b in found if b != bank]
+if others:
+    print('midi_module: playing %s; to play another, name it in /midi_module.json, as {"bank": "%s"}'
+          % (bank, others[0]))
 name = bank.rsplit("/", 1)[1]
 show(1, name)
 
@@ -127,6 +145,29 @@ if module.prepare() is None:
     raise SystemExit("midi_module: can't open %s: %s" % (bank, module.error))
 print("midi_module: %s open in %d ms, %d voices, %d KB free"
       % (name, time.ticks_diff(time.ticks_ms(), started), module.voice_count, gc.mem_free() // 1024))
+
+
+def read_speed(path, nbytes=32768):
+    """Bytes a second read from the middle of ``path``, where a big bank
+    keeps its samples."""
+    buf = bytearray(nbytes)
+    with open(path, "rb") as f:
+        f.seek(os.stat(path)[6] // 2)
+        t = time.ticks_ms()
+        got = f.readinto(buf)
+        ms = time.ticks_diff(time.ticks_ms(), t)
+    return got * 1000 // max(ms, 1)
+
+
+# A note waits while its sample is read from the bank the first time.
+speed = read_speed(bank)
+largest = max((s.end - s.start) * 2 for s in module.loaded.font.samples)
+wait_ms = largest * 1000 // speed
+if wait_ms >= SLOW_MS:
+    print("midi_module: %s reads at %d KB/s, so a note waits up to %.1f s the first time it plays a sample"
+          " (the largest is %d KB). A smaller bank, on flash or a faster card, plays without the wait."
+          % (name, speed // 1024, wait_ms / 1000, largest // 1024))
+    show(3, "Slow: notes wait %.1f s" % (wait_ms / 1000))
 
 # The output. The pump pulls the engine's mix from here on.
 if board.has("audio_power"):
