@@ -13,8 +13,6 @@ the screen builds a knob for each description:
 The audio path is the node, in C; the adapter only sets values on it.
 """
 
-from appkit import assets
-
 from . import CHANNELS, SAMPLE_RATE
 
 
@@ -88,6 +86,10 @@ def guitar_set(path=None):
     if path is None:
         here = __file__.replace("\\", "/")
         path = here[:here.rfind("/") + 1] + "guitar-set.txt"
+    # Imported here: appkit brings the screen with it, and the engine that
+    # imports this module runs without one in the audio checks.
+    from appkit import assets
+
     found = []
     group = ""
     try:
