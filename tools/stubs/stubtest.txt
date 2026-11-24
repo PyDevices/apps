@@ -1,5 +1,6 @@
 # Modules stubtest imports under CPython and checks. One a line.
 appkit
+appkit.assets
 appkit.data
 appkit.foreground
 appkit.home
