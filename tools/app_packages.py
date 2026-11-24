@@ -6,6 +6,8 @@
 
     python tools/app_packages.py           # write every package.json
     python tools/app_packages.py --check   # fail if one is out of date
+    python tools/app_packages.py --check --omnipython ../omnipython
+                                           # and if omnipython-desktop leaves out a package the apps need
 
 On the board, ``omip.install("github:PyDevices/apps/apps/<name>")`` then puts
 the app's files in ``/apps/<name>``, where Home finds them, and what it imports
@@ -266,28 +268,28 @@ def render(folder, prefix=""):
 #: Where pip takes the libraries from: the same branch as the apps.
 APPLIBS_URL = "omnipython-applibs[apps] @ git+https://github.com/PyDevices/apps"
 
+#: The omnipython packages pip users get inside omnipython-desktop. ``--check
+#: --omnipython <checkout>`` fails when that checkout's mip-split.toml doesn't
+#: mark one of them ``pypi-desktop``, so an app can't need one the wheel leaves out.
+DESKTOP = "omnipython-desktop"
+IN_DESKTOP = ("castdisplay", "endpointkit", "hmilink", "icons", "midiports", "mp4mux", "vtterm")
+
 #: What pip installs for each package an app needs on a board (its package.json
 #: deps and upstream), so ``pip install omnipython-apps`` brings everything the
-#: board install does. A package from the omnipython repository with no release
-#: on PyPI installs from its main branch.
-_OMNI = "omnipython-%s @ git+https://github.com/PyDevices/omnipython#subdirectory=packages/%s"
+#: board install does.
 PIP = {
     APPLIBS: APPLIBS_URL,
     "audioeffects": "omnipython-audioeffects",
     "audioinstruments": "omnipython-audioinstruments",
     "bledev": "omnipython",
-    "endpointkit": "omnipython-desktop",
-    "hmilink": _OMNI % ("hmilink", "hmilink"),
-    "icons": "omnipython-desktop",
     "medialink": "omnipython",
-    "midiports": "omnipython-desktop",
-    "mp4mux": _OMNI % ("mp4mux", "mp4mux"),
     "palettes": "omnipython-palettes",
     "pygraphics": "omnipython-pygraphics",
     "requests": "requests",
-    "github:PyDevices/omnipython/packages/castdisplay": _OMNI % ("castdisplay", "castdisplay"),
-    "github:PyDevices/omnipython/packages/vtterm": _OMNI % ("vtterm", "vtterm"),
 }
+for _name in IN_DESKTOP:
+    PIP[_name] = DESKTOP
+    PIP["github:PyDevices/omnipython/packages/" + _name] = DESKTOP
 
 #: A module a board's firmware has built in that pip installs on a computer:
 #: ulab's numpy and scipy are the real ones there.
@@ -298,8 +300,19 @@ FIRMWARE_PIP = {
 
 #: A package an app needs on a board that pip has no use for, and why.
 NOT_FOR_PIP = {
+    # CircuitPython has usb_hid built in; on a computer there is no USB device stack.
     "usb-hid": "makes the board a USB keyboard or gamepad, through MicroPython's machine.USBDevice",
 }
+
+
+def check_desktop_split(omnipython):
+    """The names in `IN_DESKTOP` that the omnipython checkout *omnipython*
+    doesn't put in omnipython-desktop, read from its mip-split.toml."""
+    import tomllib
+
+    with open(os.path.join(omnipython, "mip-split.toml"), "rb") as f:
+        split = tomllib.load(f)
+    return [name for name in IN_DESKTOP if not split.get(name, {}).get("pypi-desktop")]
 
 
 def render_bundle():
@@ -438,6 +451,16 @@ def packages():
 def main(argv):
     check = "--check" in argv
     stale = []
+    if "--omnipython" in argv:
+        i = argv.index("--omnipython")
+        if i + 1 >= len(argv):
+            sys.exit("--omnipython needs the path of an omnipython checkout")
+        left_out = check_desktop_split(argv[i + 1])
+        if left_out:
+            sys.exit(
+                "the apps need %s from omnipython-desktop, which %s/mip-split.toml doesn't mark "
+                "pypi-desktop = true" % (", ".join(left_out), argv[i + 1])
+            )
     wanted = packages()
     for path, text in wanted:
         try:

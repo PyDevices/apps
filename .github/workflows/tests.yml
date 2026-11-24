@@ -238,8 +238,17 @@ jobs:
         with:
           python-version: "3.12"
 
+      # pip users get the omnipython packages the apps need inside
+      # omnipython-desktop; its mip-split.toml says which.
+      - uses: actions/checkout@v7
+        with:
+          repository: PyDevices/omnipython
+          path: omnipython
+          sparse-checkout: mip-split.toml
+          sparse-checkout-cone-mode: false
+
       - name: The apps' package.json files are up to date
-        run: python tools/app_packages.py --check
+        run: python tools/app_packages.py --check --omnipython omnipython
 
   # Huey's Perch on CPython, on a display with no window, with svgio's
   # desktop stand-in. Its MicroPython half needs a unix build with LVGL and
