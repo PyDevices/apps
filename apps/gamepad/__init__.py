@@ -38,6 +38,8 @@ FACE = (
 )
 #: The hat's eight directions as the d-pad arrows they light: up, right, down, left.
 LIT = ((1, 0, 0, 0), (1, 1, 0, 0), (0, 1, 0, 0), (0, 1, 1, 0), (0, 0, 1, 0), (0, 0, 1, 1), (0, 0, 0, 1), (1, 0, 0, 1))
+#: What the tester says while it has no gamepad.
+WAITING = "Plug a gamepad into the USB host port.\nPlugged in? Press its Home button to wake it."
 COMPASS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
 
@@ -429,7 +431,7 @@ def test_gamepad(scope):
     body = ui.plain(lv.obj(root))
     body.set_pos(0, row)
     body.set_size(W, H)
-    hint = ui.label(body, "Plug a gamepad into the USB host port.\nPlugged in? Press its Home button to wake it.", ui.font, ui.MUTED)
+    hint = ui.label(body, WAITING, ui.font, ui.MUTED)
     hint.center()
 
     def build(layout):
@@ -595,7 +597,7 @@ def test_gamepad(scope):
             if watch.layout is None:
                 body.clean()
                 st["view"] = None
-                ui.label(body, "Plug a gamepad into the USB host port.\nPlugged in? Press its Home button to wake it.", ui.font, ui.MUTED).center()
+                ui.label(body, WAITING, ui.font, ui.MUTED).center()
             else:
                 st["view"] = build(watch.layout)
             changed = True
