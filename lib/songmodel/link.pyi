@@ -7,7 +7,7 @@ from typing import Any, Callable, Protocol
 
 from .model import _Op, _Project
 
-class Model:
+class _Model:
     """The hmilink model base class, as this module uses it."""
 
     doc: Any
@@ -17,7 +17,7 @@ class Model:
     def telemetry(self) -> dict[str, Any] | None: ...
     def command(self, name: str, args: Any) -> dict[str, Any] | None: ...
 
-class Host(Protocol):
+class _Host(Protocol):
     """What answers for the transport, the engines, the playhead and meters."""
 
     def command(self, name: str, args: Any) -> dict[str, Any] | None: ...
@@ -30,18 +30,18 @@ def to_pointer(project: _Project, op: _Op) -> tuple[str, str, Any]:
 def from_pointer(op: dict[str, Any]) -> _Op:
     """A JSON Patch op as the op `model.apply` takes."""
 
-class SongModel(Model):
+class SongModel(_Model):
     """The song a device holds."""
 
     forward: Callable[[_Op], Any] | None
-    host: Host | None
+    host: _Host | None
     samples: dict[int, dict[str, int]]
     loaded: Any
     def __init__(
         self,
         project: _Project | None = None,
         forward: Callable[[_Op], Any] | None = None,
-        host: Host | None = None,
+        host: _Host | None = None,
     ) -> None: ...
     def describe(self) -> dict[str, Any]: ...
     def sample_cost(self) -> dict[str, Any]:
