@@ -96,6 +96,11 @@ firmware has frozen in: an `--modules all` build already has most of it. Give
 the board 4 MB free to be safe. It leaves alone any app in `/apps` that isn't
 from this repository.
 
+Home draws its icons with `ttfio`, which is part of the firmware, not a file
+omip can install. A firmware built before `ttfio` was added can't start Home
+once the apps are current (`ImportError: no module named 'ttfio'`): flash a
+current build first.
+
 Run the same line again to update every app. It fetches each app's files
 afresh, so a changed file is replaced. It never deletes, so a file an app no
 longer has stays on the board, unused. To clear those out, remove the app's
