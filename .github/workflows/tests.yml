@@ -3,7 +3,7 @@ name: Tests
 # Documentation-only changes can't change these results, so they don't run them.
 # Past that, the scope job reads the diff and each job runs only for the paths it
 # checks: ostinato for programs/ostinato and lib/ (its page loads studio's lib/), and
-# engines for lib/, tests/ and this workflow (which holds its pins). A push to
+# engines for lib/, tests/, apps/synthstation/ and this workflow (which holds its pins). A push to
 # main is scoped to what that push changed. A manual run, or a push with no
 # earlier commit to compare with, runs both.
 on:
@@ -97,7 +97,7 @@ jobs:
           echo "$files"
           has() { grep -qE "$1" <<< "$files" && echo true || echo false; }
           echo "ostinato=$(has '^(programs/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "engines=$(has '^(lib/|tests/|apps/stompbox/|apps/backline/|programs/vamp/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "engines=$(has '^(lib/|tests/|apps/stompbox/|apps/backline/|apps/synthstation/|programs/vamp/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"

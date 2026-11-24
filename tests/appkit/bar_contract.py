@@ -69,13 +69,26 @@ def check(ok, what):
 SW, SH = 480, 320
 SHOTS = os.getenv("BAR_SHOTS")
 
-# A board config with a battery behind an ADC: 3.75 V is half full.
+# A board config with a battery behind an ADC: 3.75 V is half full. Setting
+# ``gauge`` makes it a fuel gauge instead. Like the battery drivers, it gives
+# ``voltage``, ``percent`` and ``charging`` as properties.
 class _Battery:
     def __init__(self):
         self.volts = 3.75
+        self.gauge = None
+        self.charge = False
 
+    @property
     def voltage(self):
         return self.volts
+
+    @property
+    def percent(self):
+        return self.gauge
+
+    @property
+    def charging(self):
+        return self.charge
 
 
 class _Board:
@@ -147,6 +160,11 @@ def _plant_mirror_hidden():
     B.cast_item = lambda registry, on_click=None: B.Item("cast", lambda: None)
 
 
+def _plant_gauge_ignored():
+    # The bar reads only the voltage, never a fuel gauge's percent.
+    B._battery_percent = lambda source: max(0, min(100, int((source.voltage - 3.3) * 100 / 0.9))) if source.voltage is not None else None
+
+
 def _plant_touch_header_behind_bar():
     from touchkit import shell as touch
 
@@ -162,6 +180,7 @@ PLANTS = {
     "no_way_home": _plant_no_way_home,
     "touch_header_behind_bar": _plant_touch_header_behind_bar,
     "mirror_hidden": _plant_mirror_hidden,
+    "gauge_ignored": _plant_gauge_ignored,
 }
 plant = os.getenv("BAR_PLANT")
 if plant:
@@ -293,6 +312,17 @@ for _ in range(30):
     bar.tick()
 check(icon_of(bar, "battery") is None, "a battery that reads nothing leaves the bar")
 cell.volts = 4.2
+cell.gauge = 80
+for _ in range(30):
+    bar.tick()
+check(icon_of(bar, "battery") == "battery_5_bar" and text_of(bar, "battery") == "80%",
+      "a fuel gauge's percent wins over the voltage: %r %r" % (icon_of(bar, "battery"), text_of(bar, "battery")))
+cell.charge = True
+for _ in range(30):
+    bar.tick()
+check(icon_of(bar, "battery") == "battery_charging_full", "and charging shows: %r" % (icon_of(bar, "battery"),))
+cell.gauge = None
+cell.charge = False
 
 # The connections button opens the picker.
 tap(bar.connections)

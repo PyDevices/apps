@@ -155,29 +155,27 @@ def cast_item(registry, on_click=None):
 
 
 def _battery_percent(source):
-    """A percentage from a fuel gauge's ``percent()`` or, failing that, a
-    single LiPo cell's ``voltage()`` (3.3 V empty, 4.2 V full). None with no battery."""
-    percent = getattr(source, "percent", None)
-    if percent is not None:
-        p = percent()
-        if p is not None:
-            return max(0, min(100, int(p)))
-    v = source.voltage()
+    """A percentage from a fuel gauge's ``percent`` or, failing that, a
+    single LiPo cell's ``voltage`` (3.3 V empty, 4.2 V full). None with no
+    battery. The battery drivers give both as properties."""
+    p = getattr(source, "percent", None)
+    if p is not None:
+        return max(0, min(100, int(p)))
+    v = source.voltage
     if v is None:
         return None
     return max(0, min(100, int((v - 3.3) * 100 / 0.9)))
 
 
 def battery_item(source):
-    """The battery from *source*, the board's ``battery()`` (a gauge with
-    ``percent()`` or an ADC with ``voltage()``); hidden while it reads none."""
+    """The battery from *source*, the board's ``battery()`` (a gauge with a
+    ``percent`` property or an ADC with ``voltage``); hidden while it reads none."""
 
     def read():
         p = _battery_percent(source)
         if p is None:
             return None
-        charging = getattr(source, "charging", None)
-        if charging is not None and charging():
+        if getattr(source, "charging", False):
             return "battery_charging_full", "%d%%" % p
         icon = "battery_full" if p >= 95 else "battery_%d_bar" % (p * 7 // 100)
         return icon, "%d%%" % p
