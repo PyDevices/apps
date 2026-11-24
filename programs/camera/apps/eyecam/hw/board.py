@@ -55,6 +55,23 @@ def _aligned(n, align=64):
     return raw, memoryview(raw)[off:off + n]
 
 
+def _work_buffer(scope, n):
+    """The app's full-frame scratch buffer, as ``(owner, view)``: keep the
+    owner alive while the view is used.
+
+    From ``offheap`` where the firmware has it: 64-byte aligned PSRAM that
+    the collector doesn't scan and the Python heap doesn't have to grow
+    into, given back when the scope closes. As a ``bytearray`` the heap has
+    to grow by one 4 MB piece, and after Camera has closed once that piece
+    is often not found, so Camera failed to open again."""
+    try:
+        import offheap
+    except ImportError:
+        return _aligned(n)
+    buf = scope.adopt(offheap.Buffer(n))
+    return buf, memoryview(buf)
+
+
 class Preview:
     """The camera, cut square and scaled to the screen by the PPA.
 
@@ -260,6 +277,10 @@ class Recorder:
     """H.264 video with the microphone's sound in an MP4, from the frame the
     preview just showed. One ``tick()`` per preview frame."""
 
+    # While recording, the preview redraws at most this often: cutting and
+    # drawing it takes CPU time the recording thread needs to keep up.
+    preview_ms = 250
+
     def __init__(self, preview, storage, make_mic, work):
         self.preview = preview
         self.storage = storage
@@ -316,8 +337,8 @@ class Recorder:
         try:
             import mp4mux
         except ImportError:
-            print("eyecam: no mp4mux in /lib: no video (mip install mp4mux)")
-            self.why = "No video: mp4mux isn't installed"
+            print("eyecam: no mp4mux: no video (it comes with OmniPython 0.8.1 and later)")
+            self.why = "No video: this OmniPython has no mp4mux"
             return False
         self.why = None
         self.magnify = max(1, min(4, magnify))
@@ -817,8 +838,9 @@ def build(scope):
     # One full frame of scratch for photos and video frames, made once: a
     # 4 MB buffer per photo would grow the Python heap into the PSRAM the
     # encoder and the models need. The factory's largest picture is 1920x1080,
-    # whatever the camera sends.
-    work_raw, work = _aligned(max(preview.w * preview.h, SIZES["1080P"][0] * SIZES["1080P"][1]) * 2)
+    # whatever the camera sends. Adopted after the preview and before the
+    # recorder, so it closes after the recorder that writes into it.
+    work_raw, work = _work_buffer(scope, max(preview.w * preview.h, SIZES["1080P"][0] * SIZES["1080P"][1]) * 2)
     if hasattr(bc, "sdcard"):
         storage = Storage(lambda: bc.sdcard, bc.sdcard_present if hasattr(bc, "sdcard_present") else None)
     else:

@@ -23,8 +23,12 @@ leaves them two fifths of its width. A driver says its panel is round with a
 ``round`` attribute; a GC9A01's is taken to be.
 
 On a screen 400 pixels or more on its short side, More has the last app
-switches, the restarts, the largest free block and a Wi-Fi button, which
-opens the connections picker at the networks in range. The heap line
+switches, the restarts, the largest free block, a Wi-Fi button, which
+opens the connections picker at the networks in range, and the Wi-Fi power
+saving switch. Power saving lets the radio sleep between the access point's
+beacons: it saves battery, and every reply to the board waits for the radio
+to wake. It starts on for a board with a battery fitted and off for one
+without, and the board remembers what you choose. The heap line
 there is the one to watch: switching back and forth all day should leave
 "in use" where it started, give or take a few KB.
 
@@ -68,6 +72,11 @@ try:
     import platform
 except ImportError:
     platform = None
+
+try:
+    import wifi_manager
+except ImportError:
+    wifi_manager = None  # no Wi-Fi here: More has no power saving switch
 
 _SIZES = tuple(range(12, 50, 2))  # the Montserrat sizes LVGL builds, from the smallest worth reading
 GC_MS = 10000  # how often the open screen times a collection
@@ -532,6 +541,24 @@ def _button(parent, text, pad, cb):
     return b, lbl
 
 
+def _power_save_switch(parent, pad):
+    """Wi-Fi power saving, a labelled switch that shows and sets what
+    `wifi_manager` remembers."""
+    box = _box(parent, lv.FLEX_FLOW.ROW, pad)
+    ui.label(box, "Wi-Fi power saving")
+    sw = lv.switch(box)
+    sw.set_size(pad * 5, pad * 5 // 2)
+    sw.set_ext_click_area(pad)
+    if wifi_manager.power_save():
+        sw.add_state(lv.STATE.CHECKED)
+
+    def flipped(e):
+        wifi_manager.set_power_save(sw.has_state(lv.STATE.CHECKED))
+
+    sw.add_event_cb(flipped, lv.EVENT.VALUE_CHANGED, None)
+    return sw
+
+
 def _fps_text(split):
     fps = getattr(display_drv, "fps", None)
     f = fps() if fps is not None else None
@@ -746,6 +773,8 @@ def main(scope):
         back.set_style_bg_color(ui.KEY, 0)
         _button(bar, "Largest block", pad, measure)
         _button(bar, "Wi-Fi", pad, wifi)
+        if hasattr(wifi_manager, "set_power_save"):
+            _power_save_switch(bar, pad)
 
     # -- the timers --
     # The arc steps at the display's refresh period, so it changes every frame

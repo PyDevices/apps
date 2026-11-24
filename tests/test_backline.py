@@ -72,7 +72,7 @@ def hmilink_path():
     if explicit:
         return explicit
     for parent in TESTS.parents:
-        candidate = parent / "omnipython" / "packages" / "hmilink"
+        candidate = parent / "omnipython" / "lib"
         if (candidate / "hmilink").is_dir():
             return str(candidate)
     return None

@@ -27,7 +27,7 @@ _ROOT = os.path.dirname(_HERE)
 _PYDEVICES = os.getenv("OMNIPYTHON_DIR") or os.path.join(_ROOT, "..", "omnipython")
 _USB = os.path.join(_PYDEVICES, "packages", "usb")
 # lib first: tests/appkit would hide the real appkit.
-sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE, os.path.join(_USB, "usb-hid")]
+sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE]
 # The shell's header draws through appkit, which wants icons.
 sys.path += [os.path.join(_PYDEVICES, "lib"), os.path.join(_PYDEVICES, "packages", "icons"),
              os.path.join(_PYDEVICES, "packages", "_boardname")]
@@ -137,7 +137,7 @@ try:
 
     usb_hid.Device.GAMEPAD
 except (ImportError, AttributeError) as e:
-    print("SKIP: omnipython's usb-hid and usb-host-hid aren't at %s (%s); set OMNIPYTHON_DIR" % (_PYDEVICES, e))
+    print("SKIP: omnipython's usb_hid and usb-host-hid aren't at %s (%s); set OMNIPYTHON_DIR" % (_PYDEVICES, e))
     sys.exit(2)
 
 usb_hid.time = types.SimpleNamespace(

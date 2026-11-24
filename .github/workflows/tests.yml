@@ -43,8 +43,8 @@ env:
   AUDIOEFFECTS_CATALOG_REF: 3a39612f4fc0057c7742e82f636188b6af47ce69
   # The instrument panel isn't in an audioinstruments release yet.
   AUDIOINSTRUMENTS_PANEL_REF: a32dc9891f9e2d8f12692e73fe835cdc6d54e069
-  # hmilink isn't in an omnipython release yet.
-  OMNIPYTHON_REF: 6b7937357865c4fbd320c889cc79473f0942fc83
+  # hmilink in lib/, where it moved, isn't in an omnipython release yet.
+  OMNIPYTHON_REF: 1b70b2246d32fc4a020b0d3946091f4fe52e1691
   MICROPYTHON_REF: v1.29.0
 
 jobs:
@@ -313,7 +313,8 @@ jobs:
           repository: PyDevices/omnipython
           ref: ${{ env.OMNIPYTHON_REF }}
           path: omnipython
-          sparse-checkout: packages/hmilink
+          sparse-checkout: lib/hmilink
+          sparse-checkout-cone-mode: false
 
       # Backline draws icons newer than the omnipython-desktop on PyPI: the
       # icons package from source, at the commit that added them, over it.
@@ -337,7 +338,7 @@ jobs:
         env:
           SDL_VIDEODRIVER: dummy
           AUDIOINSTRUMENTS_DIR: ${{ github.workspace }}/audioinstruments
-          HMILINK_PATH: ${{ github.workspace }}/omnipython/packages/hmilink
+          HMILINK_PATH: ${{ github.workspace }}/omnipython/lib
           PYTHONPATH: ${{ github.workspace }}/omnipython-icons/packages/icons
           BACKLINE_REQUIRE: "1"
         # The web page's browser checks skip here, loudly: they need
@@ -659,7 +660,7 @@ jobs:
           AUDIOEFFECTS_DIR: ${{ github.workspace }}/audioeffects
           AUDIOINSTRUMENTS_CATALOG: ${{ github.workspace }}/catalogs/audioinstruments/lib/audioinstruments/catalog.json
           AUDIOEFFECTS_CATALOG: ${{ github.workspace }}/catalogs/audioeffects/lib/audioeffects/catalog.json
-          HMILINK_PATH: ${{ github.workspace }}/omnipython/packages/hmilink
+          HMILINK_PATH: ${{ github.workspace }}/omnipython/lib
           VAMP_REQUIRE: "1"
           VTTERM_PATH: ${{ github.workspace }}/omnipython-main/packages
           REPL_REQUIRE: "1"
