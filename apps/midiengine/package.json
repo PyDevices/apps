@@ -53,6 +53,12 @@
       "latest"
     ]
   ],
+  "applibs": [
+    "appkit",
+    "deskkit",
+    "soundmodule",
+    "touchkit"
+  ],
   "upstream": [
     [
       "requests",

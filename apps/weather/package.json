@@ -33,6 +33,10 @@
       "latest"
     ]
   ],
+  "applibs": [
+    "appkit",
+    "deskkit"
+  ],
   "upstream": [
     [
       "requests",

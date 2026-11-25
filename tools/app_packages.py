@@ -32,6 +32,13 @@ puts every app in ``/apps``, and ``apps/pyproject.toml``, so
 ``pip install "omnipython-apps @ git+https://github.com/PyDevices/apps#subdirectory=apps"``
 installs them as the package ``apps``, with the libraries from the same branch.
 
+The OmniPython index publishes the same apps from each release, compiled to
+``.mpy``, as ``app-<name>`` (``omip.install("app-clock")``), and every one of
+them as ``apps``. It publishes each library in ``lib/`` as a package of its
+own, too, so an app there installs only the libraries it uses: each app's
+package.json lists them under ``applibs``, and ``lib/applibs.json`` says what
+each library needs.
+
 What an app needs is read from its imports, and from the imports of this
 repository's libraries it uses. Every name an app imports has to be known
 below: from an index, from the firmware or the board config, or one of the
@@ -81,6 +88,13 @@ OPTIONAL = {
 #: appkit's connections lists a computer's MIDI ports where midiports is there.
 WHERE_INSTALLED = {
     "appkit": {"midiports"},
+}
+
+#: This repository's library -> index packages it imports only inside the
+#: functions that make sound. Its own package leaves them out, so the libraries
+#: install without the instruments; an app that uses the library gets them.
+SOUND = {
+    "soundmodule": {"audioeffects", "audioinstruments"},
 }
 
 #: Import name -> a package.json in another repository, at its main branch.
@@ -206,8 +220,51 @@ def lib_needs(name, seen):
             seen.add(INDEX[other])
 
 
+def library_package(name):
+    """What the index's package for this repository's library *name* needs:
+    ``{"deps": [...], "upstream": [...], "circuitpython": [...]}``, each a
+    sorted list of package names. Its deps are the libraries here and the index
+    packages it imports, not what those need in turn."""
+    deps, upstream = set(), set(HTTP.get(name, ((), ()))[0])
+    for other in imported(python_files(os.path.join(LIB, name))):
+        if other == name or other in WHERE_INSTALLED.get(name, ()) or other in SOUND.get(name, ()):
+            continue
+        if other in LIBS:
+            deps.add(other)
+        elif other in INDEX:
+            deps.add(INDEX[other])
+        elif other in UPSTREAM:
+            upstream.add(UPSTREAM[other])
+        elif other in BOARD_UPSTREAM:
+            upstream.add(BOARD_UPSTREAM[other])
+    for module in imported(python_files(os.path.join(LIB, name)), dotted=True):
+        if module in OPTIONAL and OPTIONAL[module] != name:
+            deps.add(OPTIONAL[module])
+    return {
+        "deps": sorted(deps),
+        "upstream": sorted(upstream),
+        "circuitpython": sorted(HTTP.get(name, ((), ()))[1]),
+    }
+
+
+def render_libraries():
+    """The text of ``lib/applibs.json``: what each library here needs, for the
+    index, which publishes each one as a package of its own."""
+    body = {
+        "libraries": {name: library_package(name) for name in LIBS},
+        "generated": "by tools/app_packages.py from lib/; edit the libraries, not this",
+    }
+    return json.dumps(body, indent=2) + "\n"
+
+
 def needs(folder):
     """``(deps, upstream, circuitpython)`` for the app in *folder*, as package.json lists them."""
+    deps, upstream, circuitpython, _ = needs_and_libraries(folder)
+    return deps, upstream, circuitpython
+
+
+def needs_and_libraries(folder):
+    """`needs`, and the libraries here that the app uses, theirs included, sorted."""
     local = {path.split("/")[0].rpartition(".py")[0] or path.split("/")[0] for path in app_files(folder)}
     index, elsewhere, upstream, unknown = set(), set(), set(), set()
     for module in imported(python_files(folder)):
@@ -253,7 +310,8 @@ def needs(folder):
     for package in closure:
         upstream.update(HTTP.get(package, ((), ()))[0])
     bundle = sorted({name for package in closure for name in HTTP.get(package, ((), ()))[1]})
-    return deps, [[package, "latest"] for package in sorted(upstream)], [[name, "latest"] for name in bundle]
+    libraries = sorted(package for package in closure if package in LIBS)
+    return deps, [[package, "latest"] for package in sorted(upstream)], [[name, "latest"] for name in bundle], libraries
 
 
 def render(folder, prefix=""):
@@ -262,13 +320,18 @@ def render(folder, prefix=""):
     name = os.path.basename(folder)
     with open(os.path.join(folder, "app.json"), encoding="utf-8") as f:
         info = json.load(f)
-    deps, upstream, circuitpython = needs(folder)
+    deps, upstream, circuitpython, libraries = needs_and_libraries(folder)
     body = {
         "description": "%s, an app for Home" % info.get("title", name),
         "target": "apps/" + name,
         "urls": [[path, prefix + path] for path in app_files(folder)] + sorted(info.get("downloads", {}).items()),
         "deps": deps,
     }
+    # Which of applibs' libraries the app uses. omip and mip read only deps,
+    # which name applibs whole; the index publishes each library on its own
+    # and gives the app these in place of applibs.
+    if libraries:
+        body["applibs"] = libraries
     if upstream:
         body["upstream"] = upstream
     if circuitpython:
@@ -464,6 +527,7 @@ def packages():
             folder = os.path.join(PROGRAMS, program, "apps", name)
             out.append((os.path.join(PROGRAMS, program, "package.json"), render(folder, "apps/%s/" % name)))
     out.append((os.path.join(APPS, "package.json"), render_bundle()))
+    out.append((os.path.join(LIB, "applibs.json"), render_libraries()))
     out.append((os.path.join(APPS, "pyproject.toml"), render_pyproject()))
     return out
 

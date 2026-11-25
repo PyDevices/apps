@@ -1,0 +1,80 @@
+{
+  "libraries": {
+    "appkit": {
+      "deps": [
+        "endpointkit",
+        "icons"
+      ],
+      "upstream": [
+        "requests"
+      ],
+      "circuitpython": []
+    },
+    "chatclient": {
+      "deps": [],
+      "upstream": [],
+      "circuitpython": []
+    },
+    "controlkit": {
+      "deps": [],
+      "upstream": [],
+      "circuitpython": []
+    },
+    "deskkit": {
+      "deps": [
+        "appkit"
+      ],
+      "upstream": [
+        "requests"
+      ],
+      "circuitpython": [
+        "adafruit_requests"
+      ]
+    },
+    "programkit": {
+      "deps": [
+        "pygraphics"
+      ],
+      "upstream": [],
+      "circuitpython": []
+    },
+    "sayso": {
+      "deps": [],
+      "upstream": [
+        "requests"
+      ],
+      "circuitpython": [
+        "adafruit_requests"
+      ]
+    },
+    "songmodel": {
+      "deps": [],
+      "upstream": [],
+      "circuitpython": []
+    },
+    "soundmodule": {
+      "deps": [
+        "midiports"
+      ],
+      "upstream": [],
+      "circuitpython": []
+    },
+    "spectrum": {
+      "deps": [
+        "pygraphics",
+        "touchkit"
+      ],
+      "upstream": [],
+      "circuitpython": []
+    },
+    "touchkit": {
+      "deps": [
+        "appkit",
+        "deskkit"
+      ],
+      "upstream": [],
+      "circuitpython": []
+    }
+  },
+  "generated": "by tools/app_packages.py from lib/; edit the libraries, not this"
+}

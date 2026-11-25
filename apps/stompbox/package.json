@@ -61,6 +61,11 @@
       "latest"
     ]
   ],
+  "applibs": [
+    "appkit",
+    "deskkit",
+    "touchkit"
+  ],
   "upstream": [
     [
       "requests",
