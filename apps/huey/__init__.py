@@ -35,7 +35,7 @@ def _font(size):
         font = getattr(lv, "font_montserrat_%d" % wanted, None)
         if font is not None:
             return font
-    return lv.font_default()
+    return lv.font_get_default()
 
 
 class _Show:

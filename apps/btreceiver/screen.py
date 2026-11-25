@@ -56,7 +56,7 @@ def _font(*sizes):
         f = getattr(lv, "font_montserrat_%d" % s, None)
         if f is not None:
             return f
-    return lv.font_default()
+    return lv.font_get_default()
 
 
 F_HUGE = _font(40, 32, 28, 24)
