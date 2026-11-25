@@ -66,9 +66,9 @@ def main(scope):
     from audiodev import AudioFormat
 
     scr = scope.root
+    status = ui.status(scope)
     W, H = scope.size
     hdr = getattr(scope, "header", None) or scr
-    status = ui.status(scope)
     if appdata.desktop():
         folder = music_folder()
         try:

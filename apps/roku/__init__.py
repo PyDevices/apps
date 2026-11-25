@@ -29,8 +29,8 @@ def main(scope):
     global state
     conf = settings.config(scope, DEFAULTS)
     root = scope.root
-    W, H = scope.size
     status = ui.status(scope)
+    W, H = scope.size
     st = state = {"tvs": [], "host": None, "phase": "wifi", "last": None, "sent": 0, "errors": 0}
     kept = scope.store()  # the TV last picked, while the board stays up
     w = scope.worker

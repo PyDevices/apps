@@ -390,8 +390,8 @@ def main(scope):
     conf = settings.config(scope, DEFAULTS)
     folder = scope.data_dir
     root = scope.root
-    W, H = scope.size
     status = ui.status(scope)
+    W, H = scope.size
     st = state = {"targets": [], "sink": None, "screen": None, "busy": False, "looking": False}
     kept = scope.store()  # the receiver last cast to, while the board stays up
     w = scope.worker

@@ -66,9 +66,9 @@ def _model(scope):
 def main(scope):
     global state
     root = scope.root
+    status = ui.status(scope)
     W, H = scope.size
     RX, RY = scope.rect[:2]
-    status = ui.status(scope)
     st = state = {"cam": None, "det": None, "found": [], "ms": 0, "frames": 0, "t0": ticks_ms()}
 
     def missing(text):

@@ -198,13 +198,13 @@ class Knob:
 class Screen:
     def __init__(self, app, scope):
         self.app = app
+        self.status_label = kit.status(scope)   # first: on a narrow screen its row takes room from scope.size
         W, H = scope.size
         narrow = W < NARROW
         self.knob_size = 64 if narrow else 84
         self.btn_h = 36 if narrow else 40
         self.list_h = H * 2 // 3
         self.knobs = {}
-        self.status_label = kit.status(scope)
         scr = scope.root
         scr.set_style_bg_color(c(BG), 0)
         scr.set_style_bg_opa(255, 0)
