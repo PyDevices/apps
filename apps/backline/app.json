@@ -1,1 +1,1 @@
-{"name": "backline", "title": "Backline", "category": "Audio", "icon": "queue_music", "color": "#B8860B", "needs": ["svgio", "audiosampler", "icons"]}
+{"name": "backline", "title": "Backline", "category": "Audio", "icon": "queue_music", "color": "#B8860B", "needs": ["svgio", "icons"], "downloads": {"soundfonts/backline-drums.sf2": "https://github.com/PyDevices/lib/releases/download/backline-drums-1/backline-drums.sf2"}}

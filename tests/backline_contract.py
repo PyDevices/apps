@@ -4,7 +4,8 @@
 """Backline's contract, on any interpreter: the pedal's gestures, the song's
 plan, parts switching on the bar line, the ring following the meter, the
 mixer's groups, the desk's song form and step taps, the starter songs, each
-kind of kit sounding, a pedal pressed from an hmilink panel, a step
+kind of kit sounding, the SoundFont kit as the default and Backline's own
+bank fetched and checked, a pedal pressed from an hmilink panel, a step
 edited from one panel while the song plays, heard in the sound and seen by
 another panel, and MIDI switches learned and played as pedals and actions.
 
@@ -14,9 +15,9 @@ another panel, and MIDI switches learned and played as pedals and actions.
 The pedal, the plan, the engine and the songs need nothing but the
 interpreter: a stand-in kit counts what it is given. The kits need
 audioinstruments and audiodsp on the path, and the panel check hmilink;
-without them those checks say they skipped. The SoundFont kit needs a
-``.sf2`` (``$SOUNDFONT``, or one in ``~/soundfonts``) and skips, saying so,
-without one.
+without them those checks say they skipped. The SoundFont kit plays a tiny
+bank the test writes (``backline_bank.py``), never Backline's own or the
+network.
 
 ``--plant=NAME`` breaks Backline in one known way first (``PLANTS``), and a
 check must then fail: ``tests/test_backline.py`` runs every plant. It ends
@@ -24,7 +25,6 @@ with ``N passed, M failed`` and exits non-zero on a failure.
 """
 
 import json
-import math
 import os
 import sys
 
@@ -43,11 +43,12 @@ from backline import pedal as pedals  # noqa: E402
 from songmodel import model  # noqa: E402
 
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
-          "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
+          "late-notes", "drop-pad", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
           "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
           "ramp-jumps", "fill-moves-form", "migrate-forgets", "switch-bounces", "switch-inverted",
-          "switch-swapped")
+          "switch-swapped", "machine-default", "lost-machine", "unchecked-fetch", "keep-partial", "no-fetch",
+          "stale-url")
 
 RESULTS = [0, 0]
 SKIPS = []
@@ -158,26 +159,46 @@ def plant(name):
         from backline import kits
 
         old = kits.DrumMachineKit.note_on
-        olds = kits.SampleKit.note_on
 
         def note_on(self, pitch, velocity, delay=0):
             if pitch != 46:
                 old(self, pitch, velocity, delay)
-
-        def note_on_s(self, pitch, velocity, delay=0):
-            if pitch != 46:
-                olds(self, pitch, velocity, delay)
         kits.DrumMachineKit.note_on = note_on
-        kits.SampleKit.note_on = note_on_s
-    elif name == "no-choke":
+    elif name == "machine-default":
         from backline import kits
 
-        old = kits.SampleKit.__init__
+        kits.DEFAULT = kits.MACHINES[0]
+    elif name == "lost-machine":
+        from backline import kits
 
-        def init(self, folder, rate=kits.RATE, voices=kits.VOICES):
-            old(self, folder, rate, voices)
-            self.chokes = {}
-        kits.SampleKit.__init__ = init
+        old = kits.available
+        kits.available = lambda: [k for k in old() if k != "rhythm606"]
+    elif name == "unchecked-fetch":
+        from backline import kits
+
+        kits._verify = lambda got, sha256, url: None
+    elif name == "keep-partial":
+        from backline import kits
+
+        old_remove = kits.os.remove
+
+        class _Os:
+            def __getattr__(self, name):
+                return getattr(old_os, name)
+
+            def remove(self, path):
+                if not path.endswith(".part"):
+                    old_remove(path)
+        old_os = kits.os
+        kits.os = _Os()
+    elif name == "no-fetch":
+        from backline import box
+
+        box.Box._fetch_default = lambda self: None
+    elif name == "stale-url":
+        from backline import kits
+
+        kits.DEFAULT_URL = kits.DEFAULT_URL.replace("backline-drums-1", "backline-drums-0")
     elif name == "deaf-panel":
         from backline import box
 
@@ -687,30 +708,7 @@ def sounds(kit, pitch):
 
 
 PADS = (36, 38, 42, 46, 49)
-
-
-def write_kit(folder):
-    """A sample kit of decaying tones, one per pad, and its kit.json."""
-    from backline import kits
-
-    try:
-        os.mkdir(folder)
-    except OSError:
-        pass
-    pads = {}
-    for i, pitch in enumerate(PADS):
-        n = RATE // 5
-        data = bytearray(2 * n)
-        hz = 80.0 + 140.0 * i
-        for k in range(n):
-            v = int(20000 * math.exp(-k / 2400.0) * math.sin(2 * math.pi * hz * k / RATE))
-            data[2 * k] = v & 255
-            data[2 * k + 1] = (v >> 8) & 255
-        name = "pad%d.wav" % pitch
-        kits.write_wav(folder + "/" + name, bytes(data), RATE)
-        pads[str(pitch)] = name
-    with open(folder + "/kit.json", "w") as f:
-        json.dump({"name": "Test tones", "pads": pads, "choke": [[42, 46]]}, f)
+MACHINES = ("rhythm808", "rhythm909", "rhythm606", "rhythm78", "electronic_drums5")
 
 
 def check_kits(tmp):
@@ -718,30 +716,25 @@ def check_kits(tmp):
         from backline import kits
         import audiocore  # noqa: F401
         import audioinstruments  # noqa: F401
+        import backline_bank
     except ImportError as e:
         skip("the kits", "no audio modules here (%s)" % e)
         return
+    have = kits.available()
+    check("the SoundFont kit comes first, and every drum machine is still a kit",
+          have[0] == kits.SOUNDFONT and all(m in have for m in MACHINES), repr(have))
     for machine in kits.MACHINES:
         kit = kits.open_kit(machine)
         heard = [(p, sounds(kit, p)) for p in PADS]
         quiet = [p for p, v in heard if v < 500]
         check("%s sounds 36, 38, 42, 46 and 49" % machine, not quiet, repr(heard))
         kit.close()
-    bank = kits.find_bank()
-    if bank is None:
-        skip("the SoundFont kit", "no .sf2 here: set SOUNDFONT or put one in ~/soundfonts")
-    else:
-        kit = kits.open_kit("soundfont")
-        heard = [(p, sounds(kit, p)) for p in PADS]
-        quiet = [p for p, v in heard if v < 500]
-        check("the SoundFont kit (%s) sounds 36, 38, 42, 46 and 49" % kit.name, not quiet, repr(heard))
-        kit.close()
-    folder = tmp + "/backline-kit"
-    write_kit(folder)
-    kit = kits.open_kit("samples:" + folder)
+    backline_bank.use(tmp)
+    kit = kits.open_kit("soundfont")
     heard = [(p, sounds(kit, p)) for p in PADS]
     quiet = [p for p, v in heard if v < 500]
-    check("a sample kit sounds 36, 38, 42, 46 and 49", not quiet, repr(heard))
+    check("the SoundFont kit sounds 36, 38, 42, 46 and 49", not quiet and kit.spec == "soundfont",
+          repr((heard, kit.spec)))
     peaks(kit, RATE)
     kit.note_on(46, 120)
     peaks(kit, 1024)
@@ -750,6 +743,144 @@ def check_kits(tmp):
     tail = peaks(kit, 1024)
     check("a closed hat stops the open one", tail < 300, "still %d" % tail)
     kit.close()
+
+
+# -- Backline's own bank -------------------------------------------------------------
+
+
+def _sha256(data):
+    import hashlib
+
+    return "".join("%02x" % b for b in hashlib.sha256(data).digest())
+
+
+def _served(body, status=200):
+    """A stand-in for the network: ``get(url, write)`` that answers ``body``."""
+    asked = []
+
+    def get(url, write):
+        asked.append(url)
+        if status == 200:
+            for i in range(0, len(body), 1000):
+                write(body[i:i + 1000])
+        return status
+    return get, asked
+
+
+def _listing(folder):
+    try:
+        return sorted(os.listdir(folder))
+    except OSError:
+        return []
+
+
+def check_default_bank(tmp):
+    from backline import kits
+
+    check("the starter songs and a song naming no kit play the SoundFont kit",
+          kits.DEFAULT == kits.SOUNDFONT and
+          all(load(n[:-5])["tracks"][0].get("instrument") == kits.SOUNDFONT
+              for n in os.listdir(songs_dir()) if n.endswith(".json")))
+    folder = tmp + "/fetched"
+    try:
+        os.mkdir(folder)
+    except OSError:
+        pass
+    body = b"RIFF" + bytes(range(256)) * 40
+    get, asked = _served(body)
+    path = kits.fetch_default(folder, sha256=_sha256(body), get=get)
+    with open(path, "rb") as f:
+        got = f.read()
+    check("the bank is fetched from where the app says, whole, under its own name",
+          got == body and path == folder + "/" + kits.DEFAULT_BANK and _listing(folder) == [kits.DEFAULT_BANK] and
+          asked == [kits.DEFAULT_URL], repr((len(got), path, _listing(folder), asked)))
+    os.remove(path)
+    bad = body[:-1] + b"!"
+    get, _asked = _served(bad)
+    try:
+        kits.fetch_default(folder, sha256=_sha256(body), get=get)
+        refused = False
+    except OSError:
+        refused = True
+    check("a download with the wrong bytes is refused and leaves nothing", refused and not _listing(folder),
+          repr((refused, _listing(folder))))
+    get, _asked = _served(b"", status=404)
+    try:
+        kits.fetch_default(folder, sha256=_sha256(body), get=get)
+        refused = False
+    except OSError:
+        refused = True
+    check("a missing bank is an error, and leaves nothing", refused and not _listing(folder),
+          repr((refused, _listing(folder))))
+    url = None
+    try:
+        with open(songs_dir() + "/../app.json") as f:
+            url = json.load(f)["downloads"]["soundfonts/" + kits.DEFAULT_BANK]
+    except (OSError, KeyError, ValueError):
+        pass
+    check("omip installs the bank from where the app fetches it, into the folder it looks in",
+          url == kits.DEFAULT_URL and kits.default_folders()[0].endswith("backline/soundfonts"),
+          repr((url, kits.DEFAULT_URL, kits.default_folders()[:1])))
+
+
+class _Worker:
+    """Runs a job when told to, as the app's worker would on its thread."""
+
+    def __init__(self):
+        self.jobs = []
+
+    def submit(self, work, done=None, key=None, owner=None, release=None):
+        self.jobs.append((work, done))
+
+    def run(self):
+        while self.jobs:
+            work, done = self.jobs.pop(0)
+            try:
+                value, error = work(), None
+            except Exception as e:  # noqa: BLE001 - handed to done, as the worker does
+                value, error = None, e
+            if done is not None:
+                done(value, error)
+
+
+def check_first_start(tmp):
+    """A box that starts with no bank fetches it, then plays it."""
+    try:
+        from backline import box as boxmod
+        from backline import kits
+        import audiocore  # noqa: F401
+        import backline_bank
+        import hmilink  # noqa: F401
+    except ImportError as e:
+        skip("the first start", "no hmilink or audio modules here (%s)" % e)
+        return
+    folder = tmp + "/first"
+    try:
+        os.mkdir(folder)
+    except OSError:
+        pass
+    old = (kits.find_bank, kits.default_bank, kits.fetch_default)
+    landed = []
+
+    def fetch():
+        landed.append(backline_bank.write(folder + "/" + kits.DEFAULT_BANK))
+        return landed[-1]
+    kits.find_bank = lambda: landed[-1] if landed else None
+    kits.default_bank = kits.find_bank
+    kits.fetch_default = fetch
+    project = load("rock")
+    del project["tracks"][0]["instrument"]
+    worker = _Worker()
+    try:
+        b = boxmod.Box(lambda: 0, song=project, worker=worker, now_ms=lambda: 0)
+        before = (b.kit_spec(), b.error or "")
+        worker.run()
+        after = (b.kit_spec(), b.error)
+        b.close()
+    finally:
+        kits.find_bank, kits.default_bank, kits.fetch_default = old
+    check("a box with no bank yet says it's fetching it, then plays it",
+          before[0] is None and "fetching" in before[1] and after == (kits.SOUNDFONT, None), repr((before, after)))
 
 
 # -- a pedal from a panel ---------------------------------------------------------------
@@ -1169,6 +1300,8 @@ def main():
     check_desk_reading()
     check_songs()
     check_kits(tmp)
+    check_default_bank(tmp)
+    check_first_start(tmp)
     check_panel()
     check_live_edit()
     check_midi_learn()

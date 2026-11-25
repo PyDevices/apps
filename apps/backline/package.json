@@ -137,6 +137,10 @@
     [
       "songs/shuffle.json",
       "songs/shuffle.json"
+    ],
+    [
+      "soundfonts/backline-drums.sf2",
+      "https://github.com/PyDevices/lib/releases/download/backline-drums-1/backline-drums.sf2"
     ]
   ],
   "deps": [

@@ -22,6 +22,10 @@ lines of their own.
 An app that imports from another app (``from ..perch import stage``) installs
 that app as well.
 
+A file an app needs that isn't kept here, such as Backline's drum bank, goes in
+its app.json as ``"downloads": {"<path in the app>": "<https URL>"}``, and omip
+fetches it from there with the rest.
+
 Two more files install every app at once, both from the main branch:
 ``apps/package.json``, the bundle, so ``omip.install("github:PyDevices/apps/apps")``
 puts every app in ``/apps``, and ``apps/pyproject.toml``, so
@@ -122,7 +126,7 @@ BOARD = {
 FIRMWARE = {
     "__main__", "_audioif", "_thread", "_usbhost", "array", "asyncio", "audioairwindows", "audiobiquad", "audiobusio", "audiocore",
     "audiofeatures", "audiomixer", "btclassic", "audiomp3", "audiopump", "audiosampler", "audiospeed", "cameraif", "castif", "earful",
-    "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "icons", "image", "jpegio", "json", "lvgl", "machine",
+    "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "hashlib", "icons", "image", "jpegio", "json", "lvgl", "machine",
     "math", "mdns", "micropython", "microcontroller", "network", "numpy", "offheap", "os", "platform", "ppa", "random",
     "scipy", "select", "socket", "ssl", "struct", "svgio", "synthio", "sys", "tflite", "time", "uasyncio", "uctypes", "ulab",
     "usb",
@@ -262,7 +266,7 @@ def render(folder, prefix=""):
     body = {
         "description": "%s, an app for Home" % info.get("title", name),
         "target": "apps/" + name,
-        "urls": [[path, prefix + path] for path in app_files(folder)],
+        "urls": [[path, prefix + path] for path in app_files(folder)] + sorted(info.get("downloads", {}).items()),
         "deps": deps,
     }
     if upstream:

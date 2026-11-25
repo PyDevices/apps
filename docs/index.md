@@ -8,7 +8,8 @@ through the sound module.
 [freeze the apps into a firmware](guides/freeze-the-apps.md),
 [play the sound module from a DAW](guides/play-the-sound-module.md),
 [run Ostinato](guides/run-ostinato.md),
-[put Vamp on a board](guides/put-vamp-on-a-board.md), and
+[put Vamp on a board](guides/put-vamp-on-a-board.md),
+[give Backline its drums](guides/give-backline-its-drums.md), and
 [put a clock and the weather on your desk](guides/put-a-clock-on-your-desk.md).
 
 **Reference.** [The apps, and what each does](reference/apps.md). [What an appkit app must provide](reference/app-requirements.md). [The icons an app can use](reference/icons.md). [The model files](reference/models.md) that Wake word, Object detection and Camera need. [The sound module's MIDI](reference/sound-module-midi.md): banks,

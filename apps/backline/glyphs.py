@@ -24,7 +24,6 @@ ICONS = {
     "songs": (("playlist_play", "queue_music"), lv.SYMBOL.LIST),
     "form": (("timeline",), lv.SYMBOL.RIGHT),
     "grid": (("view_module", "grid_on"), lv.SYMBOL.LIST),
-    "samples": (("sound_sampler",), lv.SYMBOL.AUDIO),
     "record": (("mic_external_on", "mic"), lv.SYMBOL.AUDIO),
     "cast": (("cast_connected", "cast"), lv.SYMBOL.WIFI),
     "remote": (("smartphone", "devices"), lv.SYMBOL.WIFI),

@@ -270,16 +270,10 @@ class Editor:
         w = self.kits_w - 14
         y = 6
         bh = int(30 * s)
-        for source, title in (("machine", "Drum machines"), ("soundfont", "SoundFont"), ("samples", "Sample kits")):
-            look.heading(box, title, f["small"], 6, y, "samples" if source == "samples" else None)
+        for source, title in (("soundfont", "SoundFont"), ("machine", "Drum machines")):
+            look.heading(box, title, f["small"], 6, y)
             y += f["small"].line_height + 4
-            mine = [k for k in kit_list if k["source"] == source]
-            if not mine:
-                none = look.text(box, "none found" if source == "soundfont" else "no kit folders", f["small"], look.FAINT)
-                none.set_pos(10, y)
-                y += f["small"].line_height + 8
-                continue
-            for k in mine:
+            for k in [k for k in kit_list if k["source"] == source]:
                 b = look.button(box, 6, y, w, bh, k["name"], fnt=f["small"], radius=6)
                 b.add_event_cb(self._kit(k["spec"]), lv.EVENT.CLICKED, None)
                 self.kit_buttons[k["spec"]] = b

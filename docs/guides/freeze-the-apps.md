@@ -52,6 +52,8 @@ such as Backline's starter songs. An app reads those through
 [`appkit.assets`](../../lib/appkit/assets.py), which finds them frozen when
 they aren't on the filesystem. An app of your own that opens a file beside
 its code with `open()` needs the same change before it can be frozen.
+A file too large to freeze, such as Backline's drum bank, is fetched on the
+app's first start ([give Backline its drums](give-backline-its-drums.md)).
 
 A frozen app can't be changed on the board. To try a newer copy, install it
 into `/apps` ([install an app](install-an-app.md)): that copy runs instead,
