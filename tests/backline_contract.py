@@ -38,6 +38,7 @@ sys.path[:0] = [_sep.join((_dir, "..", "apps")), _sep.join((_dir, "..", "lib"))]
 
 from backline import engine as eng  # noqa: E402
 from backline import footswitch  # noqa: E402
+from backline import kits as _kits  # noqa: E402
 from backline import midipedal  # noqa: E402
 from backline import pedal as pedals  # noqa: E402
 from songmodel import model  # noqa: E402
@@ -48,8 +49,11 @@ PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-f
           "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
           "ramp-jumps", "fill-moves-form", "migrate-forgets", "switch-bounces", "switch-inverted",
           "switch-swapped", "machine-default", "lost-machine", "unchecked-fetch", "keep-partial", "no-fetch",
-          "stale-url")
+          "stale-url", "no-frozen")
 
+# The kit lookup as the app has it: backline_bank.use() replaces it for
+# the checks that play the test bank.
+FIND_BANK = _kits.find_bank
 RESULTS = [0, 0]
 SKIPS = []
 RATE = 48000
@@ -195,6 +199,10 @@ def plant(name):
         from backline import box
 
         box.Box._fetch_default = lambda self: None
+    elif name == "no-frozen":
+        from backline import kits
+
+        kits.frozen_bank = lambda: None
     elif name == "stale-url":
         from backline import kits
 
@@ -823,6 +831,68 @@ def check_default_bank(tmp):
           repr((url, kits.DEFAULT_URL, kits.default_folders()[:1])))
 
 
+def check_frozen_bank(tmp):
+    """A firmware with Backline's bank frozen in plays it, and fetches nothing."""
+    import backline_bank
+    from backline import kits
+
+    if kits.getenv("SOUNDFONT"):
+        skip("the frozen bank", "$SOUNDFONT names another bank")
+        return
+    folder = tmp + "/frozen"
+    try:
+        os.mkdir(folder)
+    except OSError:
+        pass
+    with open(backline_bank.write(folder + "/bank.sf2"), "rb") as f:
+        data = f.read()
+    with open(folder + "/" + kits.FROZEN_MODULE + ".py", "w") as f:
+        f.write("BANK = %r\n" % data)
+    old = (kits.find_bank, kits.default_bank)
+    kits.find_bank = FIND_BANK
+    kits.default_bank = lambda: None  # nothing downloaded on this machine
+    sys.path.insert(0, folder)
+    sys.modules.pop(kits.FROZEN_MODULE, None)
+    try:
+        found = kits.find_bank()
+        check("a bank frozen into the firmware is the one the soundfont kit plays, before any download",
+              found == data, repr(type(found)))
+        if found != data:
+            return
+        try:
+            import audioinstruments  # noqa: F401
+            import audiocore  # noqa: F401
+            from audioinstruments._rack import _sf2
+        except ImportError as e:
+            skip("the frozen bank plays", "no audio modules here (%s)" % e)
+            return
+        if not hasattr(_sf2.SoundFont, "sample_view"):
+            skip("the frozen bank plays", "this audioinstruments plays no bank from bytes")
+            return
+        kit = kits.open_kit(kits.SOUNDFONT)
+        heard = kit.name == kits.DEFAULT_TITLE and kit.bank is found
+        kit.close()
+        check("the frozen bank opens as Backline Drums", heard, repr(kit.name))
+        try:
+            from backline import box as boxmod
+            import hmilink  # noqa: F401
+        except ImportError as e:
+            skip("a box on the frozen bank", "no hmilink here (%s)" % e)
+            return
+        project = load("rock")
+        del project["tracks"][0]["instrument"]
+        worker = _Worker()
+        b = boxmod.Box(lambda: 0, song=project, worker=worker, now_ms=lambda: 0)
+        started = (b.kit_spec(), b.error, len(worker.jobs))
+        b.close()
+        check("a box on the frozen bank plays it at once and fetches nothing",
+              started == (kits.SOUNDFONT, None, 0), repr(started))
+    finally:
+        sys.path.remove(folder)
+        sys.modules.pop(kits.FROZEN_MODULE, None)
+        kits.find_bank, kits.default_bank = old
+
+
 class _Worker:
     """Runs a job when told to, as the app's worker would on its thread."""
 
@@ -1302,6 +1372,7 @@ def main():
     check_kits(tmp)
     check_default_bank(tmp)
     check_first_start(tmp)
+    check_frozen_bank(tmp)
     check_panel()
     check_live_edit()
     check_midi_learn()

@@ -7,9 +7,11 @@
   audioinstruments' ``soundfont_drums``. The ``soundfont`` kit, the one
   Backline starts on, plays ``$SOUNDFONT`` when that is set, and otherwise
   Backline's own bank, `DEFAULT_BANK`: a small General MIDI drum kit made from
-  the FreePats synthesizer percussion (CC0). Installing Backline on a board
-  with omip puts the bank in the app's ``soundfonts`` folder; with pip, or in a
-  frozen firmware, Backline fetches it on its first start (`fetch_default`).
+  the FreePats synthesizer percussion (CC0). A firmware can carry the bank
+  frozen in as `FROZEN_MODULE`, and Backline then plays it from flash.
+  Otherwise, installing Backline on a board with omip puts the bank in the
+  app's ``soundfonts`` folder; with pip, or in a frozen firmware, Backline
+  fetches it on its first start (`fetch_default`).
   Every other ``.sf2`` in a ``soundfonts`` folder is a kit of its own:
   ``~/soundfonts`` on a computer, or the card's, flash's or the data root's
   on a board.
@@ -47,6 +49,11 @@ DEFAULT_TITLE = "Backline Drums"
 DEFAULT_URL = "https://github.com/PyDevices/lib/releases/download/backline-drums-1/" + DEFAULT_BANK
 DEFAULT_SHA256 = "6f719656ecfa2b5ae8946402bb64c532086d682bad75816d7c6d58741b1ae095"
 DEFAULT_BYTES = 1657008
+#: The module a firmware freezes `DEFAULT_BANK` into, its ``BANK`` the bank's
+#: bytes (audioinstruments' ``tools/freeze_soundfont.py`` makes it). When it is
+#: there the ``soundfont`` kit plays the bank in place, from flash, and
+#: nothing is fetched.
+FROZEN_MODULE = "backline_drums"
 #: Backline's data folder, which the app sets from its scope; a computer keeps
 #: the fetched bank there. Leaving the import of appkit to the app keeps this
 #: module, and the box, free of LVGL.
@@ -114,6 +121,15 @@ def default_bank():
     return None
 
 
+def frozen_bank():
+    """Backline's bank frozen into the firmware, as bytes, or None."""
+    try:
+        module = __import__(FROZEN_MODULE)
+    except ImportError:
+        return None
+    return getattr(module, "BANK", None)
+
+
 def where():
     """Where to put `DEFAULT_BANK` by hand, for a message."""
     folders = default_folders()
@@ -121,8 +137,9 @@ def where():
 
 
 def find_bank():
-    """The bank the ``soundfont`` kit plays: ``$SOUNDFONT``, else `default_bank`."""
-    return getenv("SOUNDFONT") or default_bank()
+    """The bank the ``soundfont`` kit plays: ``$SOUNDFONT``, else the bank
+    frozen into the firmware (`frozen_bank`, as bytes), else `default_bank`."""
+    return getenv("SOUNDFONT") or frozen_bank() or default_bank()
 
 
 def other_banks():
@@ -320,14 +337,15 @@ class DrumMachineKit:
 
 
 class SoundFontKit(DrumMachineKit):
-    """The standard drum kit of a SoundFont bank."""
+    """The standard drum kit of a SoundFont bank: a path, or Backline's own
+    bank's bytes when the firmware carries it frozen in."""
 
     def __init__(self, bank, rate=RATE, spec=None):
         import audioinstruments
 
         self.spec = spec or SOUNDFONT + ":" + bank
         self.bank = bank
-        name = bank.replace("\\", "/").rsplit("/", 1)[-1]
+        name = bank.replace("\\", "/").rsplit("/", 1)[-1] if isinstance(bank, str) else DEFAULT_BANK
         if name == DEFAULT_BANK:
             self.name = DEFAULT_TITLE
         else:
