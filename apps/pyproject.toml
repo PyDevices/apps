@@ -57,6 +57,7 @@ packages = [
     "apps.repl",
     "apps.roku",
     "apps.security",
+    "apps.shell",
     "apps.spotify",
     "apps.stompbox",
     "apps.synthstation",
@@ -91,6 +92,7 @@ packages = [
 "apps.repl" = ["app.json"]
 "apps.roku" = ["app.json"]
 "apps.security" = ["app.json"]
+"apps.shell" = ["app.json"]
 "apps.spotify" = ["app.json"]
 "apps.stompbox" = ["app.json", "guitar-set.txt"]
 "apps.synthstation" = ["app.json"]

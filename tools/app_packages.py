@@ -89,6 +89,7 @@ ELSEWHERE = {
 #: has it frozen in, and on CircuitPython.
 UPSTREAM = {
     "requests": "requests",
+    "upysh": "upysh",
 }
 
 #: A module of omnipython -> the micropython-lib package it runs over, which
@@ -119,7 +120,7 @@ BOARD = {
 #: The interpreter's own modules and the firmware's C modules. An app that
 #: imports an optional one says so on the screen when it's missing.
 FIRMWARE = {
-    "_audioif", "_thread", "_usbhost", "array", "asyncio", "audioairwindows", "audiobiquad", "audiobusio", "audiocore",
+    "__main__", "_audioif", "_thread", "_usbhost", "array", "asyncio", "audioairwindows", "audiobiquad", "audiobusio", "audiocore",
     "audiofeatures", "audiomixer", "btclassic", "audiomp3", "audiopump", "audiosampler", "audiospeed", "cameraif", "castif", "earful",
     "errno", "esp32", "espdl", "framebuf", "gc", "h264enc", "icons", "image", "jpegio", "json", "lvgl", "machine",
     "math", "mdns", "micropython", "microcontroller", "network", "numpy", "offheap", "os", "platform", "ppa", "random",
@@ -314,6 +315,8 @@ FIRMWARE_PIP = {
 NOT_FOR_PIP = {
     # usb_hid's upstream, from micropython-lib; a computer has no USB device stack.
     "usb-device-hid": "makes the board a USB keyboard or gamepad, through MicroPython's machine.USBDevice",
+    # The Shell's commands, from micropython-lib; they run at MicroPython's own prompt.
+    "upysh": "the Shell runs it at MicroPython's own prompt, through os.dupterm, which CPython doesn't have",
 }
 
 
