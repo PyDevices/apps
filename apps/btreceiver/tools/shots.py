@@ -3,13 +3,14 @@
 # SPDX-License-Identifier: MIT
 """Save the receiver's screen in each of its states, from the demo, as PNGs.
 
-    python apps/btreceiver/tools/shots.py [OUT_DIR] [STATE ...] [--size WxH]
+    python apps/btreceiver/tools/shots.py [OUT_DIR] [STATE ...] [--size WxH] [--round]
 
 Run it from the repository's root with CPython, lvgl, svgio, jpegio and
 Pillow. The states are the demo's: pairing, idle, playing, paused,
-nocover, long, incoming and call. Each one opens the app under Home's shell, the way a board shows
+nocover, long, incoming and call. Each one opens the app under the status bar, the way a board shows
 it, waits for the demo to settle and saves ``OUT_DIR/<state>.png``. No
-window opens. With no OUT_DIR the pictures replace the README's, in the
+window opens. ``--round`` shows it as a round panel does (a square size).
+With no OUT_DIR the pictures replace the README's, in the
 app's ``docs/images``.
 """
 
@@ -26,7 +27,7 @@ WAIT_MS = 1500
 DOCS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "images")
 
 
-def one(out, state, size):
+def one(out, state, size, round_=False):
     """Open the app in *state* in this process and save the screen."""
     root = os.getcwd()
     sys.path.insert(0, os.path.join(root, "lib"))
@@ -44,13 +45,20 @@ def one(out, state, size):
     from PIL import Image
 
     import appkit
+    from appkit.launcher import Launcher
+    from appkit.shell import Shell
     from display_driver import app
-    from multimer import ticks_diff, ticks_ms
-    from touchkit import shell
+    if round_:
+        import board_config
 
-    launcher = shell.TouchLauncher(app, home="home")
+        board_config.display_drv.round = True
+    from multimer import ticks_diff, ticks_ms
+
+    # As appkit.run builds it: the status bar over the app.
+    launcher = Launcher(app)
     launcher.scan("apps")
-    launcher.shell = shell.TouchShell(launcher)
+    launcher.home = "home"
+    launcher.shell = Shell(launcher, bar=True)
     launcher.boot("btreceiver")
     t0 = ticks_ms()
 
@@ -75,12 +83,22 @@ def one(out, state, size):
         if ticks_diff(ticks_ms(), t0) < WAIT_MS:
             return
         img = grab(lv.screen_active()).convert("RGB")
+        # The status bar is on the top layer, over every app.
+        top = grab(lv.layer_top())
+        img.paste(top, (0, 0), top)
         # The Home button is on the system layer, over every app.
         b = launcher.shell.home_button
         if b is not None and not b.has_flag(lv.obj.FLAG.HIDDEN):
             area = lv.area_t()
             b.get_coords(area)
             img.paste(grab(b), (area.x1, area.y1), grab(b))
+        if round_:
+            # What a round panel shows: the circle, black outside it.
+            from PIL import ImageDraw
+
+            mask = Image.new("L", img.size, 0)
+            ImageDraw.Draw(mask).ellipse((0, 0, img.size[0] - 1, img.size[1] - 1), fill=255)
+            img = Image.composite(img, Image.new("RGB", img.size, 0), mask)
         path = os.path.join(out, state + ".png")
         img.save(path)
         print("saved", path, flush=True)
@@ -95,13 +113,16 @@ def one(out, state, size):
 def main():
     args = sys.argv[1:]
     size = "800x480"
+    round_ = "--round" in args
+    if round_:
+        args.remove("--round")
     if "--size" in args:
         i = args.index("--size")
         size = args[i + 1]
         del args[i : i + 2]
     if "--one" in args:
         args.remove("--one")
-        one(args[0], args[1], size)
+        one(args[0], args[1], size, round_)
         return
     out = DOCS
     if args and args[0] not in STATES:
@@ -109,7 +130,8 @@ def main():
     os.makedirs(out, exist_ok=True)
     for state in args or STATES:
         # One process per state: the display opens once per process.
-        subprocess.run([sys.executable, __file__, "--one", out, state, "--size", size], timeout=120, check=True)
+        cmd = [sys.executable, __file__, "--one", out, state, "--size", size] + (["--round"] if round_ else [])
+        subprocess.run(cmd, timeout=120, check=True)
 
 
 if __name__ == "__main__":

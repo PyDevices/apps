@@ -245,7 +245,7 @@ def volume_y():
 
 check("shuffle and repeat show when the phone reports them", shown(scr.shuffle) and shown(scr.repeat))
 check("shuffle on is lit in the accent, repeat off is not", lit(scr.shuffle_icon) and not lit(scr.repeat_icon))
-check("the volume moves under them", volume_y() == screenmod.MODES[2], str(volume_y()))
+check("the volume moves under them", volume_y() == scr.lay.volume[4], str(volume_y()))
 tap(scr.repeat)
 scope.run()
 check("repeat goes off to all on the phone, and lights", sink.repeat == "all" and lit(scr.repeat_icon), str(sink.repeat))
@@ -294,7 +294,7 @@ check("closing the app lets the phone go", not sink.connected)
 scope, sink, scr = opened("long")
 check("a phone that reports no modes shows no shuffle or repeat", not shown(scr.shuffle) and not shown(scr.repeat))
 check("and the volume stays beside the play button",
-      scr.vol.get_y() == screenmod.VOLUME[1], str(scr.vol.get_y()))
+      scr.vol.get_y() == scr.lay.volume[2], str(scr.vol.get_y()))
 scope.close()
 
 # ---- A track with no cover ----------------------------------------------------
