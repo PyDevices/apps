@@ -226,6 +226,7 @@ class Floor:
         # Where the screen can show the desk instead, a button for it in the
         # corner above the ring.
         self.switch = None
+        self.refused_until = None   # saying why the view stays (`refuse_switch`) until then
         if on_switch is not None:
             size = max(28, min(lay.m * 3, 48))
             btn = lv.obj(base)
@@ -403,6 +404,17 @@ class Floor:
             return True
         return False
 
+    def refuse_switch(self):
+        """Say, where the hint goes, that the view changes only while the
+        song is stopped: a tap on the switch while a song plays."""
+        self.refused_until = art.until(art.SAY_MS)
+        if not self.hidden:
+            self._set("hint", art.STOP_TO_SWITCH[0], self._hint)
+
+    def _dim_switch(self, playing):
+        """The switch greyed while a song plays: it says why when tapped."""
+        self.switch.set_style_opa(art.DIM_OPA if playing else 255, 0)
+
     def _hint(self, text):
         """The hint centred between the lamps, or none when it doesn't fit there."""
         hint = self.hint
@@ -483,7 +495,10 @@ class Floor:
             for img, ch in zip(self.tempo_digits, text):
                 img.set_src(self.small[ch if ch in self.small else " "].dsc)
         self._set("kit", v.get("kit", ""), self.kit.set_text)
-        self._set("hint", HINTS.get(role, ""), self._hint)
+        if self.switch is not None:
+            self._set("switch", playing, self._dim_switch)
+        hint = art.STOP_TO_SWITCH[0] if art.before(self.refused_until) else HINTS.get(role, "")
+        self._set("hint", hint, self._hint)
         pedals = v.get("pedals") or ["up", "up"]
         for i, state in enumerate(pedals[:2]):
             if self._set("pedal%d" % i, state, lambda s: None):

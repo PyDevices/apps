@@ -47,7 +47,8 @@ from backline.desk import perform as performmod  # noqa: E402
 
 PLANTS = ("poll-mid-switch", "tele-mid-draw", "rebuild-same-kit", "build-beside-old", "lose-kit",
           "rewrite-digits", "hold-notes", "lay-out-hidden", "drop-held", "relay-same-song",
-          "collect-playing", "no-redraw-pass", "keep-redraw-pass")
+          "no-redraw-pass", "keep-redraw-pass", "switch-while-playing", "refuse-stopped",
+          "silent-refusal", "bright-switch")
 W, H = 800, 480
 RESULTS = [0, 0]
 
@@ -156,13 +157,26 @@ def plant(name):
             old_rebuild(self, *args)
         performmod.Perform.on_doc = on_doc
         editormod.Editor.rebuild = rebuild
-    elif name == "collect-playing":
+    elif name == "switch-while-playing":
         old_init = app.Views.__init__
 
         def __init__(self, *args, **kwargs):
             kwargs.pop("playing", None)
             old_init(self, *args, **kwargs)
         app.Views.__init__ = __init__
+    elif name == "refuse-stopped":
+        old_show = app.Views.show
+
+        def show(self, which):
+            if which != self.shown:
+                return False
+            return old_show(self, which)
+        app.Views.show = show
+    elif name == "silent-refusal":
+        floor.Floor.refuse_switch = lambda self: None
+        Desk.refuse_switch = lambda self: None
+    elif name == "bright-switch":
+        art.DIM_OPA = 255
     elif name == "no-redraw-pass":
         art.redraws = lambda fn: (lambda: None)
     elif name == "keep-redraw-pass":
@@ -226,6 +240,10 @@ def main():
 
     hmilink.Panel.poll = counted_poll
 
+    # Off, the checks of what a switch does run as a switch with the song
+    # stopped would; on for the checks of switches while a song plays.
+    refusing = [False]
+
     def make_desk(on_switch):
         desk_panels.append(hmilink.Panel(local.connect(listener)))
         box.poll()
@@ -237,7 +255,7 @@ def main():
         box.service()
 
     views = app.Views(lambda on_switch: floor.Floor(scr, (W, H), panel, on_switch=on_switch), make_desk,
-                      service=service, playing=lambda: box.engine.transport["playing"])
+                      service=service, playing=lambda: refusing[0] and box.engine.transport["playing"])
 
     def settle():
         for _ in range(3):
@@ -287,37 +305,48 @@ def main():
               "%d pictures, %d passes, at most %d pictures in a row" % (trace.count("p"), trace.count("s"), run))
         settle()
 
-    # While a song plays, a switch leaves the heap to collect itself: a
-    # collection is one step it can't break up. Stopped, it collects first.
-    collected = [0]
-    real_gc = app.gc
-
-    class CountedGc:
-        @staticmethod
-        def collect():
-            collected[0] += 1
-            real_gc.collect()
-
-    app.gc = CountedGc
+    # The view changes only while the song is stopped. While a song plays a
+    # tap on the switch is refused, the view showing says why for a while,
+    # and its switch is greyed; stopped, the tap shows the other view.
+    refusing[0] = True
     try:
-        views.show("desk")
-        settle()
-        views.show("floor")
-        settle()
-        while_playing = collected[0]
-        box.engine.stop()
-        views.show("desk")
-        settle()
-        stopped = collected[0] - while_playing
-        play()
-        views.show("floor")
-        settle()
+        for start in ("floor", "desk"):
+            other = "desk" if start == "floor" else "floor"
+            box.engine.stop()
+            settle()
+            if views.shown != start:
+                views.show(start)
+                settle()
+            play()
+            settle()
+            view = views.floor if start == "floor" else views.desk
+            said = (lambda v=view: v.hint.get_text()) if start == "floor" else (lambda v=view: v.next.get_text())
+            greyed = view.switch.get_style_opa(0)
+            view.switch.send_event(lv.EVENT.CLICKED, None)
+            settle()
+            check("a tap on the %s's switch while a song plays leaves the %s showing" % (start, start),
+                  views.shown == start and box.engine.transport["playing"],
+                  "showing %s, playing %s" % (views.shown, box.engine.transport["playing"]))
+            check("the %s says why" % start, said() in art.STOP_TO_SWITCH, "it says %r" % said())
+            check("the %s's switch is greyed while the song plays" % start, greyed < 255,
+                  "opacity %d" % greyed)
+            view.refused_until = art.until(-1)
+            settle()
+            check("the %s stops saying it after a while" % start, said() not in art.STOP_TO_SWITCH,
+                  "it still says %r" % said())
+            box.engine.stop()
+            settle()
+            bright = view.switch.get_style_opa(0)
+            view.switch.send_event(lv.EVENT.CLICKED, None)
+            settle()
+            check("stopped, a tap on the %s's switch shows the %s" % (start, other), views.shown == other,
+                  "showing %s" % views.shown)
+            check("stopped, the %s's switch isn't greyed" % start, bright == 255, "opacity %d" % bright)
     finally:
-        app.gc = real_gc
-    check("a switch while a song plays doesn't collect the heap", while_playing == 0,
-          "collected %d times in two switches" % while_playing)
-    check("a switch while the song is stopped collects the heap first", stopped == 1,
-          "collected %d times" % stopped)
+        refusing[0] = False
+    play()
+    views.show("floor")
+    settle()
 
     # LVGL sends the screen to the display a piece at a time, and the box's
     # pass runs before each piece; after the app stops it, it doesn't.

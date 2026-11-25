@@ -21,6 +21,19 @@ import math
 import lvgl as lv
 import svgio
 
+try:
+    from time import ticks_add, ticks_diff, ticks_ms
+except ImportError:
+    from multimer import ticks_add, ticks_diff, ticks_ms
+
+#: What a view says when it's asked for the other view while a song plays,
+#: longest first: the views change only while the song is stopped.
+STOP_TO_SWITCH = ("STOP TO SWITCH VIEWS", "STOP TO SWITCH", "STOP FIRST")
+#: How long it says it.
+SAY_MS = 2000
+#: How bright a control that won't act while the song plays is.
+DIM_OPA = 90
+
 _HEAD = '<svg xmlns="http://www.w3.org/2000/svg" width="%d" height="%d" viewBox="0 0 %d %d">'
 
 #: The colour each part lights the face in.
@@ -111,6 +124,16 @@ def redraws(fn):
                 return
 
     return stop
+
+
+def until(ms):
+    """The time ``ms`` from now, for `before`."""
+    return ticks_add(ticks_ms(), ms)
+
+
+def before(t):
+    """True until time ``t`` (from `until`); False for None."""
+    return t is not None and ticks_diff(t, ticks_ms()) > 0
 
 
 def image(parent, x, y, w, h):
