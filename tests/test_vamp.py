@@ -11,7 +11,7 @@ planted fault, on a bank ``vamp_bank.py`` writes.
 The interpreters and the audio libraries are found as ``test_engine.py`` finds
 them. hmilink comes from ``$HMILINK_PATH`` (the folder holding the
 ``hmilink`` package), else an omnipython checkout beside this one
-(``omnipython/packages/hmilink``), else Ostinato's ``vendor/lib``. Whatever is missing
+(``omnipython/lib``), else Ostinato's ``vendor/lib``. Whatever is missing
 is skipped, loudly; with ``VAMP_REQUIRE=1`` set, as CI sets it, a missing
 piece fails instead.
 
@@ -43,8 +43,7 @@ def _hmilink():
     explicit = os.environ.get("HMILINK_PATH")
     candidates = [Path(explicit)] if explicit else []
     for parent in TESTS.parents:
-        candidates.append(parent / "omnipython" / "packages" / "hmilink")
-        candidates.append(parent / "omnipython" / "hmilink")
+        candidates.append(parent / "omnipython" / "lib")
     candidates.append(ROOT / "programs" / "ostinato" / "vendor" / "lib")
     for c in candidates:
         if (c / "hmilink" / "__init__.py").is_file():

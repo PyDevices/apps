@@ -198,8 +198,8 @@ class RoundTrip(ContractCase):
             shutil.copytree(os.path.join(base_path, path), os.path.join(frozen, path))
 
         index.freeze_apps(str(SET / "apps"), module, package, os.path.join(self.tmp.name, "index"))
-        self.assertEqual(sorted(os.listdir(frozen)), ["_appkit_apps.py", "apps", "blocks.py"])
-        self.assertEqual(sorted(os.listdir(os.path.join(frozen, "apps"))), ["__init__.py", "hello"])
+        self.assertEqual(sorted(os.listdir(frozen)), ["_appkit_apps.py", "blocks.py", "frozen_apps"])
+        self.assertEqual(sorted(os.listdir(os.path.join(frozen, "frozen_apps"))), ["__init__.py", "hello"])
         return work, frozen
 
     def test_micropython_frozen(self):
@@ -311,6 +311,93 @@ class Index(unittest.TestCase):
             self._one_app(tmp, {"name": "thing", "tile": False})
             self.assertEqual(index.collect(tmp), [("thing", {"name": "thing", "tile": False})])
 
+    def _two_apps(self, tmp):
+        """An apps folder: ``stage`` with a song beside it, and ``show``, which draws with stage's code."""
+        for name in ("stage", "show", "other"):
+            os.makedirs(os.path.join(tmp, name, "tests"))
+            with open(os.path.join(tmp, name, "app.json"), "w") as f:
+                json.dump({"name": name, "tile": False}, f)
+            with open(os.path.join(tmp, name, "__init__.py"), "w") as f:
+                f.write("from ..stage import song\n" if name == "show" else "")
+            with open(os.path.join(tmp, name, "tests", "test_it.py"), "w") as f:
+                f.write("")
+        with open(os.path.join(tmp, "stage", "song.py"), "w") as f:
+            f.write("")
+        with open(os.path.join(tmp, "stage", "main.py"), "w") as f:
+            f.write("")
+        os.makedirs(os.path.join(tmp, "stage", "songs"))
+        with open(os.path.join(tmp, "stage", "songs", "rock.json"), "w") as f:
+            f.write('{"name": "Rock"}')
+        with open(os.path.join(tmp, "stage", "README.md"), "w") as f:
+            f.write("")
+
+    def _freeze_into(self, folder, out, names=None):
+        frozen = []
+
+        def module(path, base_path="."):
+            frozen.append(path)
+
+        def package(path, base_path="."):
+            raise AssertionError("freeze_apps freezes files one by one, not %s" % path)
+
+        index.freeze_apps(folder, module, package, out, names)
+        return frozen
+
+    def test_freeze_chosen_apps_brings_the_apps_they_import(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apps = os.path.join(tmp, "apps")
+            self._two_apps(apps)
+            frozen = self._freeze_into(apps, os.path.join(tmp, "out"), "show")
+            self.assertEqual(
+                sorted(frozen),
+                [
+                    "_appkit_apps.py",
+                    "_appkit_files.py",
+                    "frozen_apps/__init__.py",
+                    "frozen_apps/show/__init__.py",
+                    "frozen_apps/stage/__init__.py",
+                    "frozen_apps/stage/song.py",
+                ],
+            )
+            ns = {}
+            with open(os.path.join(tmp, "out", "_appkit_apps.py")) as f:
+                exec(f.read(), ns)
+            self.assertEqual(ns["PACKAGE"], "frozen_apps")
+            self.assertEqual([entry for entry, _ in ns["APPS"]], ["show", "stage"])
+            with self.assertRaises(ValueError) as cm:
+                index.choose(apps, ["nothing"])
+            self.assertIn("'nothing'", str(cm.exception))
+
+    def test_frozen_files_read_through_assets(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            apps = os.path.join(tmp, "apps")
+            self._two_apps(apps)
+            out = os.path.join(tmp, "out")
+            self._freeze_into(apps, out)
+            ns = {}
+            with open(os.path.join(out, "_appkit_files.py")) as f:
+                exec(f.read(), ns)
+            self.assertEqual(ns["FILES"], {"frozen_apps/stage/songs/rock.json": b'{"name": "Rock"}'})
+            from appkit import assets
+
+            saved = assets._files
+            assets._files = ns["FILES"]
+            try:
+                # As a frozen module's __file__ has it, with no such file on disk.
+                folder = "frozen_apps/stage/songs"
+                self.assertEqual(assets.listdir(folder), ["rock.json"])
+                self.assertEqual(assets.listdir("frozen_apps/stage"), ["songs"])
+                self.assertEqual(assets.read(folder + "/rock.json"), '{"name": "Rock"}')
+                self.assertEqual(assets.read(".frozen/" + folder + "/rock.json", binary=True), b'{"name": "Rock"}')
+                with self.assertRaises(OSError):
+                    assets.read(folder + "/jazz.json")
+                with self.assertRaises(OSError):
+                    assets.listdir("not_frozen_apps/stage")
+                # On disk, the file on disk.
+                self.assertEqual(assets.listdir(os.path.join(apps, "stage", "songs")), ["rock.json"])
+            finally:
+                assets._files = saved
+
     def test_manifest_through_micropythons_reader(self):
         # appkit's manifest.py as a firmware build reads it.
         found = None
@@ -336,8 +423,8 @@ class Index(unittest.TestCase):
             for frozen_as in (
                 "_appkit_apps.py",
                 "blocks.py",
-                "apps/__init__.py",
-                "apps/hello/__init__.py",
+                "frozen_apps/__init__.py",
+                "frozen_apps/hello/__init__.py",
                 "appkit/launcher.py",
             ):
                 self.assertIn(frozen_as, listed, listed)

@@ -1,8 +1,12 @@
 # Differences stubtest is told to accept, one regular expression a line.
 # Say why above each one.
 # Testing a package walks its submodules. Each package's manifest.py is a firmware build
-# manifest, appkit.hostkeys needs a board's USB host (usb.core over _usbhost) and
-# songmodel.link needs hmilink, so none imports under CPython here; mypy checks their stubs.
+# manifest and appkit.hostkeys needs a board's USB host (usb.core over _usbhost), so
+# neither imports under CPython here; mypy checks their stubs.
 \w+\.manifest
 appkit\.hostkeys
+# songmodel.link imports where hmilink is installed, and not elsewhere. Its stub names
+# hmilink's Model base and the Host protocol for type checkers only; neither is a name
+# the module itself defines.
 songmodel\.link
+songmodel\.link\.(Host|Model)
