@@ -103,12 +103,10 @@ def main():
             front.poll()
 
     def settle(cond, seconds=3):
-        t = link.be.ticks_ms()
-        while not cond():
-            step()
-            if link.be.ticks_diff(link.be.ticks_ms(), t) > seconds * 1000:
-                return False
-        return True
+        try:
+            return rig.run(cond, "", seconds=seconds, step=step)
+        except RuntimeError:
+            return False
 
     def tap(x, y):
         _headless.touch(x, y, True, 40)
