@@ -83,6 +83,36 @@ def pause():
         fn()
 
 
+def redraws(fn):
+    """Run ``fn()`` each time LVGL starts sending a piece of the screen to
+    the display; returns a function that stops it.
+
+    LVGL draws the screen in one step of its timer, and the app's other
+    timers wait for it: a view drawn whole after a switch took a tenth of a
+    second on a 720x720 board. It sends the screen a piece at a time, so
+    the app passes the function that sequences the song's notes here, and
+    they keep their time between the pieces."""
+    disp = lv.display_get_default()
+    run = [fn]
+
+    def on_flush(_event):
+        if run[0] is not None:
+            run[0]()
+
+    dsc = disp.add_event_cb(on_flush, lv.EVENT.FLUSH_START, None)
+
+    def stop():
+        run[0] = None
+        # Where the binding hands back the same event, it comes off the
+        # display; where it doesn't (CPython's), it stays and runs nothing.
+        for i in range(disp.get_event_count() - 1, -1, -1):
+            if disp.get_event_dsc(i) == dsc:
+                disp.remove_event(i)
+                return
+
+    return stop
+
+
 def image(parent, x, y, w, h):
     """An LVGL image ``w`` by ``h`` at ``(x, y)`` in ``parent``, showing
     nothing until it is given a `Picture`'s ``dsc``."""
@@ -113,6 +143,7 @@ class Picture:
         w, h = decoder.open(svg, width=width)
         if (w, h) != (width, height):
             raise ValueError("art drew at %dx%d, not %dx%d" % (w, h, width, height))
+        pause()   # reading the text and drawing it are a step each
         size = w * h * (3 if alpha else 2)
         self.data = bytearray(size)
         if alpha:

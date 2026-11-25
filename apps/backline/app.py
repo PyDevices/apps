@@ -153,15 +153,21 @@ class Views:
     itself between one picture and the next (`art.between`), and `poll`
     between one panel and the next, and between the rows of a desk laid
     out again for another song.
+
+    While a song plays (``playing()`` is True), the switch leaves the heap
+    to collect itself when it runs out of room. A collection is one step a
+    switch can't break up, and on a board it took a quarter of a second,
+    as long as a note may be late before the engine skips it.
     """
 
-    def __init__(self, make_floor, make_desk=None, on_show=None, service=None):
+    def __init__(self, make_floor, make_desk=None, on_show=None, service=None, playing=None):
         self.shown = "floor"
         self.desk = None
         self.switching = False
         self._make_desk = make_desk
         self._on_show = on_show
         self._service = service
+        self._playing = playing
         self.floor = make_floor(self._switch("desk") if make_desk is not None else None)
 
     def _switch(self, which):
@@ -178,9 +184,10 @@ class Views:
             hide = self.floor if which == "desk" else self.desk
             if hide is not None:
                 hide.hide()
-            art.pause()
-            gc.collect()
-            art.pause()
+            if self._playing is None or not self._playing():
+                art.pause()
+                gc.collect()
+                art.pause()
             if which == "desk" and self.desk is None:
                 self.desk = self._make_desk(self._switch("floor"))
             (self.desk if which == "desk" else self.floor).show()
@@ -274,13 +281,16 @@ def start(scope):
     kept = [box.midi.saved()]
     can_desk = W >= DESK_SIZE[0] and H >= DESK_SIZE[1]
     desk_panel = []
-
-    def make_desk(on_switch):
+    if can_desk:
+        # Read now, before a song can play: on a board, reading the desk's
+        # code took over a second the first switch to it couldn't break up.
         from .desk import Desk
 
+    def make_desk(on_switch):
         desk_panel.append(hmilink.Panel(local.connect(listener)))
         box.poll()
         desk_panel[0].poll()
+        art.pause()
         return Desk(scope.root, (W, H), desk_panel[0], on_switch=on_switch)
 
     def on_show():
@@ -300,8 +310,10 @@ def start(scope):
         finally:
             servicing[0] = False
 
+    stop_redraws = art.redraws(service)
     views = Views(lambda on_switch: floormod.Floor(scope.root, (W, H), panel, on_switch=on_switch),
-                  make_desk if can_desk else None, on_show, service)
+                  make_desk if can_desk else None, on_show, service,
+                  lambda: box.engine.transport["playing"])
     floor = views.floor
     show = views.show
     own_status = getattr(scope, "status", None) is None
@@ -375,6 +387,7 @@ def start(scope):
     def close():
         global state
         state = None
+        stop_redraws()
         try:
             out.stop()
         except Exception:  # noqa: BLE001
