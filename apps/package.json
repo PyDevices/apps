@@ -109,6 +109,10 @@
       "main"
     ],
     [
+      "github:PyDevices/apps/apps/shell",
+      "main"
+    ],
+    [
       "github:PyDevices/apps/apps/spotify",
       "main"
     ],
