@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.3rc4
+
+- Bluetooth Receiver, System, Huey, Backline and the status bar fall back to LVGL's default font on a firmware without the larger Montserrat sizes, such as the ESP32 Audio Kit's, where Bluetooth Receiver failed to start.
+- The status bar's clock shows local time, the same as Clock, once deskkit has found the time zone.
+- Closing an app that held an SPI SD card unmounts it cleanly, where before the close failed and Home restarted.
+
 ## 0.1.3rc3
 
 - Home and Wake word fit a 170 px wide screen, such as the T-Display-S3 and T-Embed. Home starts its own row below the status bar's cap when the cap would cover its title and buttons, and Wake word lays itself out from the app's area: the ring beside the text on a wide screen and above it on a tall or square one. A missing model's message also shows under the ring, where it wraps.
