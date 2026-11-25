@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.3rc2
+
+- Each app and each shared library is its own package on the library index. An app's package.json lists, under `applibs`, the libraries it imports, and `lib/applibs.json` says what each library needs, so `omip.install("app-btreceiver")` brings only appkit, controlkit, deskkit, spectrum and touchkit. The libraries no longer pull in the instruments; MIDI Engine still names audioinstruments and audioeffects in its own package.
+- Bluetooth Receiver: the now-playing screen fits any display size. From 600 x 360 up it looks as before; on 480 x 320 and 320 x 240 a smaller cover sits beside the track and the controls run along the bottom; on square and round screens everything stacks down the middle, clear of the Home button.
+
 ## 0.1.3rc1
 
 - appkit: one bar along the top instead of two. The status bar carries Home, the app's title and its status line, then the clock and the icons, so apps get up to 32 px more of the screen. On a narrow screen the status line takes a row under the bar only once the app asks for it, and the app's area makes room before the app lays out, so nothing is cut off at the bottom. Home's settings and hidden-apps buttons are on the bar too, and the tiles take the row they used.
