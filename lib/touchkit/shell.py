@@ -3,11 +3,12 @@
 # SPDX-License-Identifier: MIT
 """touchkit.shell -- the board's chrome and launcher.
 
-* `TouchShell` shows appkit's status bar along the top, with Home on it,
-  and gives every app but Home a header below it: its title, and a status
-  line at the right (``scope.status``, see ``touchkit.ui.status``).
-  ``scope.root`` is the area below that. The bar and the header together
-  are ``ui.HEADER`` tall. An app whose ``app.json`` says ``"bar": "none"``
+* `TouchShell` shows appkit's status bar along the top: Home, the app's
+  title, its status line (``scope.status``, see ``touchkit.ui.status``),
+  then the clock and the icons. ``scope.header`` is the bar's stretch that
+  holds the title, and ``scope.root`` is everything below the bar. Under
+  the compact cap, which has no room for a title, the app gets a short
+  header of its own below the cap instead. An app whose ``app.json`` says ``"bar": "none"``
   gets the whole screen, with a Home button on LVGL's system layer, where it
   never presses the app's own widgets. Without the bar (``bar=False``) every
   app gets the header with that Home button at its left. The board's BOOT
@@ -32,6 +33,10 @@ from . import ui
 
 #: How often LVGL reads the touch panel, in ms, unless an app asks otherwise.
 TOUCH_MS = 33
+#: Under the compact cap: the cap's row (the cap and the Home button beside
+#: it) and the Home button's width, in pixels.
+CAP_ROW = 30
+CAP_HOME_W = 44
 
 launcher = None  # the running launcher, once a TouchShell has been made for it
 boot_presses = 0
@@ -73,8 +78,8 @@ def _under_cap(shell):
 
 
 class TouchShell(Shell):
-    """The board's look: the status bar, a header with the app's title and
-    a status line, and BOOT going home. *bar* False leaves the bar off and
+    """The board's look: the status bar with the app's title and status
+    line on it, and BOOT going home. *bar* False leaves the bar off and
     puts a Home button in the header."""
 
     def __init__(self, launcher, *, data_root=None, bar=True):
@@ -87,8 +92,14 @@ class TouchShell(Shell):
 
     def make_home_button(self):
         b = lv.button(lv.layer_sys())
-        b.set_size(ui.HEADER - 12 if _under_cap(self) else ui.HOME_W, ui.HEADER - 12)
-        b.set_pos(6, 6)
+        if _under_cap(self):
+            # Beside the cap, in its row: the icon alone.
+            b.set_size(CAP_HOME_W, CAP_ROW - 4)
+            b.set_pos(4, 2)
+            b.set_ext_click_area(4)
+        else:
+            b.set_size(ui.HOME_W, ui.HEADER - 12)
+            b.set_pos(6, 6)
         b.set_style_bg_color(lv.color_hex(0x2A3550), 0)
         b.set_style_radius(12, 0)
         lbl = lv.label(b)
@@ -150,22 +161,26 @@ class TouchShell(Shell):
             # Home draws its own top bar, below the status bar when there is one.
             return self.bar_area(scr) if bar else scr
         w, h = scr.get_width(), scr.get_height()
+        if bar and not self.bar.compact:
+            # The title and the status line are on the bar (appkit's Shell
+            # put them there): the app has everything below it, as a plain
+            # area that doesn't scroll.
+            body = ui.plain(lv.obj(self.bar_area(scr)))
+            body.set_size(lv.pct(100), lv.pct(100))
+            return body
         if bar:
-            # Header and body share the area below the bar, which grows to
-            # the whole screen while the app hides the bar.
-            from appkit.bar import HEIGHT
-
+            # The cap floats at the top middle with Home beside it; the
+            # title and status line get a row of their own below.
             parent = self.bar_area(scr)
             parent.set_flex_flow(lv.FLEX_FLOW.COLUMN)
             parent.set_style_pad_row(0, 0)
-            if self.bar.compact:  # the cap floats over the header; Home is at its left
-                hdr_h, left = ui.HEADER, ui.HEADER - 12 + 24
-            else:
-                hdr_h, left = ui.HEADER - HEIGHT, 16
+            hdr_h = CAP_ROW + ui.small.line_height + 6
+            top, left, f = CAP_ROW, 8, ui.small
         else:
             parent = scr
             hdr_h = ui.HEADER
-            left = ui.HOME_W + 24
+            top, left = 0, ui.HOME_W + 24
+            f = ui.big if w >= 480 else ui.font
         hdr = ui.plain(lv.obj(parent))
         hdr.set_size(w, hdr_h)
         hdr.set_style_bg_color(ui.PANEL, 0)
@@ -173,13 +188,22 @@ class TouchShell(Shell):
         title = self.launcher.info.get(scope.name, {}).get("title", scope.name)
         # A narrow screen gets the smaller font, and a title that still
         # doesn't fit ends in dots rather than running off the edge.
-        f = ui.big if w >= 480 else ui.font
         t = ui.label(hdr, title, f, ui.ACCENT)
         t.set_long_mode(lv.label.LONG_MODE.DOTS)
         t.set_size(w - left - 16, f.line_height)
-        t.align(lv.ALIGN.LEFT_MID, left, 0)
-        status = ui.label(hdr, "", ui.small, ui.MUTED)
-        status.align(lv.ALIGN.RIGHT_MID, -16, 0)
+        t.align(lv.ALIGN.LEFT_MID, left, top // 2)
+        status = ui.label(hdr, "", ui.tiny if bar else ui.small, ui.MUTED)
+        status.set_long_mode(lv.label.LONG_MODE.DOTS)
+        status.set_style_max_width(w // 2, 0)
+        status.set_height(status.get_style_text_font(0).line_height)  # dots, never a second line
+        status.align(lv.ALIGN.RIGHT_MID, -8 if bar else -16, top // 2)
+
+        def fit(e=None):
+            # The title gives way first: it takes what the status line leaves.
+            sw = status.get_width() + 8 if status.get_text() else 0
+            t.set_width(max(40, w - left - 16 - sw))
+
+        status.add_event_cb(fit, lv.EVENT.SIZE_CHANGED, None)
         scope.header = hdr
         scope.status = status
         body = ui.plain(lv.obj(parent))

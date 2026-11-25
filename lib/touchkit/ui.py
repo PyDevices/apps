@@ -9,7 +9,7 @@ The colours and fonts are here so an app can use them without the shell;
 
 import lvgl as lv
 
-HEADER = 64  # the top bar every app but Home has
+HEADER = 64  # the header an app gets with no status bar; the corner Home button is sized from it
 HOME_W = 128  # the Home button, at the header's left
 
 

@@ -14,6 +14,17 @@ TICK_MS: int
 BACKGROUND: int
 FOREGROUND: int
 FULL_MIN: tuple[int, int]
+SHORT: int
+TALL: int
+TALL_FROM: int
+FULL_ICON: int
+TITLE_MIN: int
+STATUS_ROW_UNDER: int
+TITLE: int
+MUTED: int
+
+def height_for(w: int, h: int) -> int:
+    """The full bar's height on a `w` x `h` screen."""
 
 _Read = Callable[[], tuple[str | None, str | None] | None]
 
@@ -47,10 +58,17 @@ class Bar:
     registry: Any
     on_picker: Callable[[str | None], object] | None
     compact: bool
+    height: int
+    icon: int
+    status_below: bool
+    header: Any
+    title: Any
+    status_line: Any
+    under: Any
     group: Any
     root: Any
     home: Any
-    left: Any
+    left: Any | None
     right: Any
     connections: Any
     items: list[Item]
@@ -63,6 +81,10 @@ class Bar:
         items: list[Item] | None = None,
         tick_ms: int = ...,
     ) -> None: ...
+    def open(self, title: str, status: bool = True) -> tuple[Any, Any]:
+        """Set the bar up for the app being opened: its title, and a fresh status line."""
+    def chrome_height(self) -> int:
+        """How much of the screen's top the bar takes while it shows."""
     def default_items(self) -> list[Item]:
         """The built-in items this device has."""
     def add(self, item: Item, owner: AppScope | None = None) -> Item:

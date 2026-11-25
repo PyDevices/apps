@@ -6,8 +6,8 @@
 This one is the plainest: an app gets the whole screen, and a Home button
 sits in the corner when there's a home screen to go back to. With
 ``bar=True`` (what ``appkit.run`` makes) the Shell shows the status bar
-(`appkit.bar`) instead, with Home on it, and each app gets the screen below
-it unless its ``app.json`` says ``"bar": "own"`` or ``"none"``. Those apps,
+(`appkit.bar`) instead, with Home and the app's title on it, and each app
+gets the screen below it unless its ``app.json`` says ``"bar": "own"`` or ``"none"``. Those apps,
 and every app under the compact cap, keep the corner Home button. On a round
 screen (`is_round`) the button is a circle with the Home icon, set in
 from the top right along the diagonal so all of it is inside the circle. A board that
@@ -170,6 +170,7 @@ class Shell:
                 self.bar.hide()
             self.bar.set_home(scope.name != self.launcher.home)
             scope.bar = self.bar
+            self._title(scope)
         self._area = None
         scope.root = self.make_root(scope)
         self.measure(scope)
@@ -187,6 +188,33 @@ class Shell:
                 self.home_button.remove_flag(lv.obj.FLAG.HIDDEN)
             else:
                 self.home_button.add_flag(lv.obj.FLAG.HIDDEN)
+
+    def _title(self, scope):
+        """Put *scope*'s title on the bar, and give an app under it the
+        bar's header and a fresh status line (``scope.header``,
+        ``scope.status``). The home screen gets `home_title` and no status
+        line; an app with its own bar or none gets an empty title."""
+        bar = self.bar
+        if bar.header is None:   # the compact cap has no room for one
+            return
+        if scope.name == self.launcher.home:
+            bar.open(self.home_title(), status=False)
+        elif self.bar_mode(scope) == "shell":
+            title = getattr(self.launcher, "info", {}).get(scope.name, {}).get("title", scope.name)
+            scope.header, scope.status = bar.open(title)
+        else:
+            bar.open("", status=False)
+
+    def home_title(self):
+        """What the bar says on the home screen, which has no title of its
+        own: the board's name, as the network knows it, so a bench of boards
+        tells apart at a glance. Empty where there's no ``boarddev``."""
+        try:
+            import boarddev
+
+            return boarddev.name() or ""
+        except Exception:  # noqa: BLE001 - no boarddev, or no name yet
+            return ""
 
     def _corner_home(self, scope):
         """Whether *scope*'s app gets the corner Home button: away from the
@@ -208,33 +236,29 @@ class Shell:
         """A plain area of *screen* below the bar, which grows to the whole
         screen while the app hides the bar. A subclass's `make_root` builds
         in it when the bar is on."""
-        from .bar import HEIGHT
-
         area = lv.obj(screen)
         area.set_style_radius(0, 0)
         area.set_style_border_width(0, 0)
         area.set_style_pad_all(0, 0)
         area.set_style_bg_opa(lv.OPA.TRANSP, 0)
-        self._fit(area, self.bar.is_shown() and not self.bar.compact, HEIGHT)
+        self._fit(area, self.bar.chrome_height())
         self._area = area
         return area
 
     @staticmethod
-    def _fit(area, below_bar, height):
+    def _fit(area, top):
         h = lv.display_get_default().get_vertical_resolution()
-        area.set_size(lv.pct(100), h - height if below_bar else h)
-        area.set_pos(0, height if below_bar else 0)
+        area.set_size(lv.pct(100), h - top)
+        area.set_pos(0, top)
 
     def _bar_moved(self, shown):
         """The running app hid or showed the bar: its area follows."""
         scope = self._scope
         if scope is None or self.bar_mode(scope) != "shell" or self.bar.compact:
             return
-        from .bar import HEIGHT
-
         area = self._area
         if area is not None and area.get_parent() is not None:
-            self._fit(area, shown, HEIGHT)
+            self._fit(area, self.bar.chrome_height())
             self.measure(scope)
 
     def measure(self, scope):
