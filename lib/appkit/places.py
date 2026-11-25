@@ -178,11 +178,22 @@ def mount_card(write=False):
     except Exception as e:  # noqa: BLE001
         print("SD card didn't mount:", e)
         try:
-            card.deinit()
+            _release(card)
         except Exception:  # noqa: BLE001
             pass
         return False
     return card
+
+
+def _release(card):
+    # machine.SDCard (ESP32) and the USB drive a board config may hand back
+    # free their host with deinit. micropython-lib's SPI sdcard.SDCard has
+    # none: it holds only an SPI bus and a chip select, which the board
+    # config made and may share with the display, so there's nothing of its
+    # own to free.
+    deinit = getattr(card, "deinit", None)
+    if deinit is not None:
+        deinit()
 
 
 def unmount_card(card):
@@ -192,7 +203,7 @@ def unmount_card(card):
     try:
         os.umount(SD)
     finally:
-        card.deinit()
+        _release(card)
 
 
 def hold_card(scope, write=False):
