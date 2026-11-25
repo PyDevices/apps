@@ -23,6 +23,10 @@ import audiocore
 import audiomixer
 import audiopump
 
+# lib/ goes ahead of this folder, whose appkit tests would hide the real
+# appkit that Stompbox reads its guitar set through.
+sys.path.insert(0, __file__.rsplit("/", 2)[0] + "/lib")
+
 from apps.stompbox import BLOCK_FRAMES, CHANNELS, SAMPLE_RATE, effects, engine, meter, wavfile
 
 #: Each fault a check here has to catch.

@@ -15,7 +15,6 @@ It needs micropython-lib's ``usb-device`` and omnipython's ``usb-device-audio`` 
 """
 
 import lvgl as lv
-import machine
 
 import spectrum
 from touchkit import ui
@@ -32,6 +31,13 @@ def _percent(spk):
 
 def main(scope):
     status = ui.status(scope)
+    # machine is imported here, not at the top, so the app imports on any
+    # Python and says why it can't run instead of failing to load.
+    try:
+        import machine
+    except ImportError:
+        ui.missing(scope, "no machine", "Sound card needs a board: this Python has no machine module.")
+        return
     try:
         import audiopump
         import usb.device
@@ -39,10 +45,7 @@ def main(scope):
         from boarddev import pcm_out
         from usb.device.audio import SpeakerInterface
     except ImportError as e:
-        status.set_text("missing: %s" % e)
-        ui.label(scope.root, "This needs usb-device and usb-device-audio in /lib.", ui.font, ui.WHITE).align(
-            lv.ALIGN.CENTER, 0, 0
-        )
+        ui.missing(scope, "missing: %s" % e, "Sound card needs usb-device and usb-device-audio in /lib: %s." % (e,))
         return
 
     if not hasattr(machine, "USBDevice"):

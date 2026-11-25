@@ -6,6 +6,8 @@
 
     python tools/app_packages.py           # write every package.json
     python tools/app_packages.py --check   # fail if one is out of date
+    python tools/app_packages.py --check --omnipython ../omnipython
+                                           # and if omnipython-desktop leaves out a package the apps need
 
 On the board, ``omip.install("github:PyDevices/apps/apps/<name>")`` then puts
 the app's files in ``/apps/<name>``, where Home finds them, and what it imports
@@ -19,6 +21,12 @@ lines of their own.
 
 An app that imports from another app (``from ..perch import stage``) installs
 that app as well.
+
+Two more files install every app at once, both from the main branch:
+``apps/package.json``, the bundle, so ``omip.install("github:PyDevices/apps/apps")``
+puts every app in ``/apps``, and ``apps/pyproject.toml``, so
+``pip install "omnipython-apps @ git+https://github.com/PyDevices/apps#subdirectory=apps"``
+installs them as the package ``apps``, with the libraries from the same branch.
 
 What an app needs is read from its imports, and from the imports of this
 repository's libraries it uses. Every name an app imports has to be known
@@ -264,6 +272,160 @@ def render(folder, prefix=""):
     return json.dumps(body, indent=2) + "\n"
 
 
+#: Where pip takes the libraries from: the same branch as the apps.
+APPLIBS_URL = "omnipython-applibs[apps] @ git+https://github.com/PyDevices/apps"
+
+#: The omnipython packages pip users get inside omnipython-desktop. ``--check
+#: --omnipython <checkout>`` fails when that checkout's mip-split.toml doesn't
+#: mark one of them ``pypi-desktop``, so an app can't need one the wheel leaves out.
+#: 0.8.1.dev9 is the first release with castdisplay and vtterm.
+DESKTOP = "omnipython-desktop>=0.8.1.dev9"
+IN_DESKTOP = ("castdisplay", "endpointkit", "icons", "midiports", "vtterm")
+
+#: The omnipython lib/ that a board's firmware has built in (`BOARD`), which
+#: every app imports from; 0.8.1.dev10 is the first with hmilink, medialink,
+#: mp4mux and usb_hid in it.
+OMNIPYTHON = "omnipython>=0.8.1.dev10"
+
+#: What pip installs for each package an app needs on a board (its package.json
+#: deps and upstream), so ``pip install omnipython-apps`` brings everything the
+#: board install does.
+PIP = {
+    APPLIBS: APPLIBS_URL,
+    "audioeffects": "omnipython-audioeffects",
+    "audioinstruments": "omnipython-audioinstruments",
+    "bledev": OMNIPYTHON,
+    "palettes": "omnipython-palettes",
+    "pygraphics": "omnipython-pygraphics",
+    "requests": "requests",
+}
+for _name in IN_DESKTOP:
+    PIP[_name] = DESKTOP
+    PIP["github:PyDevices/omnipython/packages/" + _name] = DESKTOP
+
+#: A module a board's firmware has built in that pip installs on a computer:
+#: ulab's numpy and scipy are the real ones there.
+FIRMWARE_PIP = {
+    "numpy": "numpy",
+    "scipy": "scipy",
+}
+
+#: A package an app needs on a board that pip has no use for, and why.
+NOT_FOR_PIP = {
+    # usb_hid's upstream, from micropython-lib; a computer has no USB device stack.
+    "usb-device-hid": "makes the board a USB keyboard or gamepad, through MicroPython's machine.USBDevice",
+}
+
+
+def check_desktop_split(omnipython):
+    """The names in `IN_DESKTOP` that the omnipython checkout *omnipython*
+    doesn't put in omnipython-desktop, read from its mip-split.toml."""
+    import tomllib
+
+    with open(os.path.join(omnipython, "mip-split.toml"), "rb") as f:
+        split = tomllib.load(f)
+    return [name for name in IN_DESKTOP if not split.get(name, {}).get("pypi-desktop")]
+
+
+def render_bundle():
+    """The text of ``apps/package.json``: every app, each from its own package.json."""
+    body = {
+        "description": "Every app for Home",
+        "target": "apps",
+        "urls": [["__init__.py", "__init__.py"]],
+        "deps": [["github:PyDevices/apps/apps/" + name, "main"] for name in apps()],
+        "generated": "by tools/app_packages.py from the apps folder; edit the apps, not this",
+    }
+    return json.dumps(body, indent=2) + "\n"
+
+
+def pip_layout():
+    """``(packages, package_data)`` for pip: each folder of an app that holds
+    Python is a package, ``apps.<app>...``, and the app's other files are data
+    of the package nearest them. What a board leaves out, pip leaves out too."""
+    packages, data = ["apps"], {}
+    for name in apps():
+        folder = os.path.join(APPS, name)
+        files = app_files(folder)
+        dirs = {""}
+        for path in files:
+            if path.endswith(".py"):
+                dirs.add(path.rpartition("/")[0])
+        for d in sorted(dirs):
+            packages.append("apps." + name + ("." + d.replace("/", ".") if d else ""))
+        for path in files:
+            if path.endswith(".py"):
+                continue
+            home = path.rpartition("/")[0]
+            while home not in dirs:
+                home = home.rpartition("/")[0]
+            pkg = "apps." + name + ("." + home.replace("/", ".") if home else "")
+            data.setdefault(pkg, []).append(path[len(home) + 1 :] if home else path)
+    return sorted(packages), data
+
+
+def pip_requirements():
+    """What ``omnipython-apps`` depends on: a pip requirement for each package
+    any app needs on a board (see `PIP`), sorted, each once."""
+    # What a board has built in comes in the omnipython wheel.
+    wanted, unknown = {OMNIPYTHON}, set()
+    for name in apps():
+        deps, upstream, _ = needs(os.path.join(APPS, name))
+        for package, _ in deps + upstream:
+            if package.startswith("github:PyDevices/apps/") or package in NOT_FOR_PIP:
+                continue
+            if package in PIP:
+                wanted.add(PIP[package])
+            else:
+                unknown.add(package)
+        for module in imported(python_files(os.path.join(APPS, name))):
+            if module in FIRMWARE_PIP:
+                wanted.add(FIRMWARE_PIP[module])
+    if unknown:
+        raise SystemExit(
+            "the apps need %s, which tools/app_packages.py has no pip requirement for: "
+            "add each to PIP, or to NOT_FOR_PIP with the reason" % ", ".join(sorted(unknown))
+        )
+    return sorted(wanted, key=lambda r: (r.startswith("omnipython-applibs"), r))
+
+
+def render_pyproject():
+    """The text of ``apps/pyproject.toml``."""
+    packages, data = pip_layout()
+    lines = [
+        "# Generated by tools/app_packages.py from the apps folder; edit the apps, not this.",
+        "#",
+        "# pip install \"omnipython-apps @ git+https://github.com/PyDevices/apps#subdirectory=apps\"",
+        "",
+        "[build-system]",
+        'requires = ["setuptools>=69.0"]',
+        'build-backend = "setuptools.build_meta"',
+        "",
+        "[project]",
+        'name = "omnipython-apps"',
+        "# The apps install from the main branch, so the version never changes.",
+        'version = "0"',
+        'description = "Every app for Home, from the main branch"',
+        'authors = [{ name = "Brad Barnett" }]',
+        'license = { text = "MIT" }',
+        "# Everything the apps need, as on a board: tools/app_packages.py's PIP table.",
+        "dependencies = [",
+    ]
+    lines += ["    %s," % json.dumps(r) for r in pip_requirements()]
+    lines += [
+        "]",
+        "",
+        "[tool.setuptools]",
+        'package-dir = { "apps" = "." }',
+        "packages = [",
+    ]
+    lines += ["    %s," % json.dumps(p) for p in packages]
+    lines += ["]", "", "[tool.setuptools.package-data]"]
+    for pkg in sorted(data):
+        lines.append("%s = [%s]" % (json.dumps(pkg), ", ".join(json.dumps(f) for f in sorted(data[pkg]))))
+    return "\n".join(lines) + "\n"
+
+
 def apps():
     return sorted(e for e in os.listdir(APPS) if os.path.isfile(os.path.join(APPS, e, "app.json")))
 
@@ -284,7 +446,8 @@ def program_app(program):
 
 
 def packages():
-    """``(package.json path, its text)`` for each app here and each program that holds one."""
+    """``(path, text)`` for each app's package.json, each program's that holds one,
+    the bundle and the pyproject."""
     out = []
     for name in apps():
         out.append((os.path.join(APPS, name, "package.json"), render(os.path.join(APPS, name))))
@@ -293,12 +456,24 @@ def packages():
         if name is not None:
             folder = os.path.join(PROGRAMS, program, "apps", name)
             out.append((os.path.join(PROGRAMS, program, "package.json"), render(folder, "apps/%s/" % name)))
+    out.append((os.path.join(APPS, "package.json"), render_bundle()))
+    out.append((os.path.join(APPS, "pyproject.toml"), render_pyproject()))
     return out
 
 
 def main(argv):
     check = "--check" in argv
     stale = []
+    if "--omnipython" in argv:
+        i = argv.index("--omnipython")
+        if i + 1 >= len(argv):
+            sys.exit("--omnipython needs the path of an omnipython checkout")
+        left_out = check_desktop_split(argv[i + 1])
+        if left_out:
+            sys.exit(
+                "the apps need %s from omnipython-desktop, which %s/mip-split.toml doesn't mark "
+                "pypi-desktop = true" % (", ".join(left_out), argv[i + 1])
+            )
     wanted = packages()
     for path, text in wanted:
         try:

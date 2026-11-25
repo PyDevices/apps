@@ -142,11 +142,41 @@ def scan_reads_the_index_without_the_folder():
         expect(la.names == ("blocks", "hello"), "names from the index %r" % (la.names,))
         expect(la.is_script("blocks") and not la.is_script("hello"), "the index lost the script entry")
         expect(la._scripts["blocks"] == ("blocks", None), "script %r" % (la._scripts["blocks"],))
-        expect(la._apps["hello"] == "apps.hello", "an app from the index is %r, not apps.hello" % (la._apps["hello"],))
+        expect(
+            la._apps["hello"] == "frozen_apps.hello",
+            "an app from the index is %r, not frozen_apps.hello" % (la._apps["hello"],),
+        )
         expect(found["hello"]["title"] == "Hello", "info %r" % (found,))
         expect("no/such/folder" not in sys.path, "a missing folder went on sys.path")
     finally:
         sys.path.remove(where)
+        sys.modules.pop("_appkit_apps", None)
+
+
+@check
+def scan_reads_the_folder_and_the_index():
+    # Frozen apps and apps in the folder together; the folder's copy wins.
+    with open(_index_dir() + "/_appkit_apps.py") as f:
+        text = f.read()
+    where = os.getenv("APPKIT_TEST_DIR") + "/merged"
+    try:
+        os.mkdir(where)
+    except OSError:
+        pass
+    _write(where + "/_appkit_apps.py", text.replace("APPS = (", "APPS = (\n    ('extra', {'name': 'extra', 'title': 'Extra'}),"))
+    sys.modules.pop("_appkit_apps", None)
+    sys.path.insert(0, where)
+    try:
+        la = L.Launcher(_app())
+        found = la.scan(APPS_FOLDER)
+        expect(sorted(la.names) == ["blocks", "extra", "hello"], "names %r" % (la.names,))
+        expect(la._apps["hello"] == "apps.hello", "the frozen hello hid the folder's: %r" % (la._apps["hello"],))
+        expect(la._apps["extra"] == "frozen_apps.extra", "a frozen-only app is %r" % (la._apps["extra"],))
+        expect(found["extra"]["title"] == "Extra", "info %r" % (found,))
+    finally:
+        sys.path.remove(where)
+        while APPS_PARENT in sys.path:
+            sys.path.remove(APPS_PARENT)
         sys.modules.pop("_appkit_apps", None)
 
 

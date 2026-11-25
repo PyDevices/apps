@@ -251,6 +251,23 @@ def _read_folder(folder):
     return out
 
 
+def _installed(package):
+    """``[(entry, app.json contents, entry's folder), ...]`` for the apps in
+    the installed package *package* (CPython), or None when there is none."""
+    import importlib.util
+
+    try:
+        spec = importlib.util.find_spec(package)
+    except (ImportError, ValueError):
+        return None
+    if spec is None or not spec.submodule_search_locations:
+        return None
+    out = []
+    for where in spec.submodule_search_locations:
+        out.extend(_read_folder(where) or ())
+    return out or None
+
+
 # -- where the next app's name is kept, per host ------------------------------
 
 
@@ -700,55 +717,80 @@ class Launcher:
         return name in self._scripts
 
     def scan(self, folder="apps"):
-        """Register every app in *folder*: each subfolder holding an ``app.json``.
+        """Register every app in *folder*, and every app frozen into the firmware.
 
-        The folder is a package, named for it, and each app is a module in
-        it: ``apps/clock`` is imported as ``apps.clock``, so an app can have
-        the name of any library without either hiding the other. The folder
+        In *folder*, each subfolder holding an ``app.json`` is an app. The
+        folder is a package, named for it, and each app is a module in it:
+        ``apps/clock`` is imported as ``apps.clock``, so an app can have the
+        name of any library without either hiding the other. The folder
         needs an ``__init__.py``: when it has none, scan() makes one, or
         raises ``OSError`` saying so where it can't (a read-only
         filesystem). The folder's parent goes on the end of ``sys.path``.
+
+        Apps frozen into the firmware come from the generated module
+        ``_appkit_apps``, frozen as the package ``frozen_apps`` (see
+        ``appkit.index``). An app in *folder* and frozen too is the one in
+        *folder*, so an install there updates a frozen app. On CPython, where
+        *folder* doesn't exist, the apps come from the installed package of
+        its name (``pip install omnipython-apps`` puts them in ``apps``).
 
         An ``app.json`` with ``"script": "<module>"`` is a plain script (see
         `add_script`), looked for in its own folder first. An app whose
         ``"needs"`` names something this interpreter lacks (see `lacks`) is
         left out, with a line saying why, so a home screen never offers an
         app that can't start: the REPL, which needs ``os.dupterm``, isn't on
-        CircuitPython's home screen. Where
-        *folder* doesn't exist (a build with the apps frozen in), the same
-        entries come from the generated module ``_appkit_apps``, with the
-        apps frozen as the package ``apps`` (see ``appkit.index``). Returns
-        the apps' ``app.json`` contents, by name.
+        CircuitPython's home screen. Returns the apps' ``app.json`` contents,
+        by name.
+
+        Raises:
+            OSError: There is no *folder*, no frozen app and, on CPython, no
+                installed package of the folder's name.
         """
+        parent, package = _split_folder(folder)
+        sources = []
         entries = _read_folder(folder)
-        if entries is None:
-            try:
-                index = _import("_appkit_apps")
-            except ImportError:
-                raise OSError("no apps: there is no folder %r and no _appkit_apps module" % (folder,))
-            package = getattr(index, "PACKAGE", "apps")
-            entries = [(entry, info, None) for entry, info in index.APPS]
-        else:
-            parent, package = _split_folder(folder)
+        if entries is not None:
             if not _identifier(package):
                 raise ValueError("the apps folder %r can't be a package: name it like a module, as in apps" % (folder,))
             if any(not info.get("script") for _, info, _ in entries):
                 _ensure_init(folder, package)
             if parent not in sys.path:
                 sys.path.append(parent)
-        found = {}
-        for entry, info, path in entries:
-            name = info.get("name", entry)
-            missing = lacks(info.get("needs"))
-            if missing is not None:
-                _say("%s is left out: it needs %s, which %s doesn't have" % (name, missing, sys.implementation.name))
-                continue
-            script = info.get("script")
-            if script:
-                self.add_script(name, script, path)
+            sources.append((package, entries))
+        elif sys.implementation.name == "cpython" and _identifier(package):
+            installed = _installed(package)
+            if installed:
+                sources.append((package, installed))
+        try:
+            index = _import("_appkit_apps")
+        except ImportError:
+            index = None
+        if index is not None:
+            frozen = getattr(index, "PACKAGE", "apps")
+            if sources and frozen == sources[0][0]:
+                # An index from before frozen apps had a package of their own:
+                # the folder's package hides it.
+                _say("the frozen apps are left out: their package %s is the folder %r" % (frozen, folder))
             else:
-                self.add(name, package + "." + entry)
-            found[name] = info
+                sources.append((frozen, [(entry, info, None) for entry, info in index.APPS]))
+        if not sources:
+            raise OSError("no apps: there is no folder %r and no _appkit_apps module" % (folder,))
+        found = {}
+        for package, entries in sources:
+            for entry, info, path in entries:
+                name = info.get("name", entry)
+                if name in found:
+                    continue  # the folder's copy comes first
+                missing = lacks(info.get("needs"))
+                if missing is not None:
+                    _say("%s is left out: it needs %s, which %s doesn't have" % (name, missing, sys.implementation.name))
+                    continue
+                script = info.get("script")
+                if script:
+                    self.add_script(name, script, path)
+                else:
+                    self.add(name, package + "." + entry)
+                found[name] = info
         self.info.update(found)
         return found
 

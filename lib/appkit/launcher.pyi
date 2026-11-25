@@ -73,7 +73,7 @@ class Launcher:
     def is_script(self, name: str) -> bool:
         """True when `name` is a plain script rather than an app."""
     def scan(self, folder: str = 'apps') -> dict[str, dict[str, Any]]:
-        """Register every app in `folder`; returns the apps' `app.json` contents, by name."""
+        """Register every app in `folder` and every frozen app; returns the apps' `app.json` contents, by name."""
     @property
     def names(self) -> tuple[str, ...]:
         """Every app's and script's name, in the order they were added."""

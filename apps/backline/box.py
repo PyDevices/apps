@@ -55,6 +55,7 @@ import json
 import os
 
 import hmilink
+from appkit import assets
 from hmilink import local
 from songmodel.link import SongModel
 
@@ -72,15 +73,14 @@ SONGS = here[: here.rfind("/")] + "/songs"
 def song_files(folder=SONGS):
     """The starter songs, ``[(name, path)]``, in name order."""
     try:
-        names = sorted(n for n in os.listdir(folder) if n.endswith(".json"))
+        names = [n for n in assets.listdir(folder) if n.endswith(".json")]
     except OSError:
         return []
     return [(n[:-5], folder + "/" + n) for n in names]
 
 
 def load_song(path):
-    with open(path) as f:
-        return json.load(f)
+    return json.loads(assets.read(path))
 
 
 class BacklineModel(SongModel):

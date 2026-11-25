@@ -392,9 +392,12 @@ restart for memory carries on in-process instead.
 
 A firmware build can freeze the apps with appkit. MicroPython can't freeze
 an `app.json`, so appkit's manifest turns them into one module,
-`_appkit_apps`, and `scan()` reads that when the `apps` folder isn't there.
-The apps are frozen as the package `apps`, whatever their folder is
-called.
+`_appkit_apps`, and `scan()` reads it as well as the `apps` folder: a board
+can have some apps frozen and others in `/apps`, and an app in `/apps` takes
+the place of a frozen one of the same name. The apps are frozen as the
+package `frozen_apps`, whatever their folder is called, since `/apps` is
+already the package `apps`. The files an app reads beside its code are frozen
+as bytes, and [`appkit.assets`](assets.py) reads them from there.
 In the board's `manifest.py`:
 
 ```python
@@ -402,8 +405,9 @@ import os
 include("/path/to/appkit", apps=os.path.abspath("apps"))
 ```
 
-`python -m appkit.index apps -o _appkit_apps.py` writes the same module
-from a shell.
+`python -m appkit.index apps -o _appkit_apps.py` writes the index alone
+from a shell. To freeze this repository's apps, see
+[Freeze the apps into a firmware](../../docs/guides/freeze-the-apps.md).
 
 ## Memory
 

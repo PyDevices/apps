@@ -86,19 +86,22 @@ def guitar_set(path=None):
     if path is None:
         here = __file__.replace("\\", "/")
         path = here[:here.rfind("/") + 1] + "guitar-set.txt"
+    # Imported here: appkit brings the screen with it, and the engine that
+    # imports this module runs without one in the audio checks.
+    from appkit import assets
+
     found = []
     group = ""
     try:
-        f = open(path)
+        text = assets.read(path)
     except OSError:
         return found
-    with f:
-        for line in f:
-            line = line.strip()
-            if line.startswith("##"):
-                group = line[2:].strip()
-            elif line and not line.startswith("#"):
-                found.append((group, line))
+    for line in text.split("\n"):
+        line = line.strip()
+        if line.startswith("##"):
+            group = line[2:].strip()
+        elif line and not line.startswith("#"):
+            found.append((group, line))
     return found
 
 

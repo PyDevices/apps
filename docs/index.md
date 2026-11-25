@@ -5,6 +5,7 @@ libraries they use, then [render a MIDI file](get-started/first-program.md)
 through the sound module.
 
 **Guides.** [Install an app on a board](guides/install-an-app.md),
+[freeze the apps into a firmware](guides/freeze-the-apps.md),
 [play the sound module from a DAW](guides/play-the-sound-module.md),
 [run Ostinato](guides/run-ostinato.md),
 [put Vamp on a board](guides/put-vamp-on-a-board.md), and

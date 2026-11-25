@@ -79,6 +79,33 @@ button, or with `import microcontroller; microcontroller.reset()`, and run the
 line that failed again. What was already installed stays, so you carry on from
 that app.
 
+## Install every app
+
+One line puts every app in this repository on the board, each in its own
+folder under `/apps`, with what each needs:
+
+```python
+import omip
+omip.install("github:PyDevices/apps/apps")
+```
+
+Every app installs, whether or not the board can run it. One that can't says
+why when you start it, and Home can hide it. The apps take about 1.5 MB.
+What they need from the index takes up to 1.9 MB more, less whatever your
+firmware has frozen in: an `--modules all` build already has most of it. Give
+the board 4 MB free to be safe. It leaves alone any app in `/apps` that isn't
+from this repository.
+
+Home draws its icons with `ttfio`, which is part of the firmware, not a file
+omip can install. A firmware built before `ttfio` was added can't start Home
+once the apps are current (`ImportError: no module named 'ttfio'`): flash a
+current build first.
+
+Run the same line again to update every app. It fetches each app's files
+afresh, so a changed file is replaced. It never deletes, so a file an app no
+longer has stays on the board, unused. To clear those out, remove the app's
+folder and run the line again.
+
 ## Install a program that is an app
 
 Camera, the ESP32-P4 camera program, is an app too. Its line names the
@@ -120,8 +147,13 @@ picture is up. A board with no `secrets.py` starts Camera offline.
 
 Running the same line again fetches the app's files afresh. Without
 `version=` you get the default branch; `version=` takes another branch or a
-tag of this repository, for the app's own files. What it needs from the index
-is that index's latest release.
+tag of this repository, for the app's own files. What it needs from the index,
+the shared libraries (`applibs`) among them, is that index's latest release,
+which can be a pre-release. So the libraries on a board follow the latest
+pre-release, while the apps follow the default branch.
+
+A file an app no longer has stays on the board: `omip` replaces files, and
+never deletes one. Remove the app's folder first for a clean copy.
 
 What each app does, and what it needs from the board, is in
 [the apps](../reference/apps.md). How `omip` finds packages is in omnipython'
