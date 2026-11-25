@@ -50,7 +50,7 @@ PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-f
           "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
           "ramp-jumps", "fill-moves-form", "migrate-forgets", "switch-bounces", "switch-inverted",
           "switch-swapped", "machine-default", "lost-machine", "unchecked-fetch", "keep-partial", "no-fetch",
-          "stale-url")
+          "stale-url", "no-frozen")
 NEEDS_AUDIO = ("drop-pad", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals", "lost-machine",
                "no-fetch")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
@@ -122,8 +122,11 @@ class Contract(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(" 0 failed", result.stdout)
         if REQUIRE:
+            # The frozen bank plays only on an audioinstruments that opens a
+            # bank from bytes, which the pinned release doesn't yet.
             skipped = [line for line in result.stdout.splitlines()
-                       if line.startswith("skip ") and not line.startswith("skip the SoundFont kit")]
+                       if line.startswith("skip ") and not line.startswith("skip the SoundFont kit")
+                       and not line.startswith("skip the frozen bank plays: this audioinstruments")]
             self.assertEqual(skipped, [], result.stdout)
         return result
 

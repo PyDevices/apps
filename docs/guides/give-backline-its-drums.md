@@ -19,6 +19,23 @@ While the bank downloads, the screen says so and nothing plays. Backline
 checks the download's SHA-256 before it keeps it, so a broken download leaves
 nothing behind and Backline tries again on its next start.
 
+## Freeze the bank into the firmware
+
+A firmware can carry the bank itself, as a module named `backline_drums` that
+holds it. Backline then plays the bank straight from flash: nothing is
+downloaded, and the samples take no RAM and no card. audioinstruments'
+`tools/freeze_soundfont.py` makes the module from `backline-drums.sf2`:
+
+```sh
+python tools/freeze_soundfont.py backline-drums.sf2 frozen/backline_drums.py --license CC0-1.0 \
+    --mpy-cross micropython/mpy-cross/build/mpy-cross
+```
+
+Freeze `backline_drums.mpy` with the firmware's other modules (a manifest
+beside it with `freeze_mpy(".", "backline_drums.mpy")`). The firmware grows by
+the bank's 1.6 MB, which comes out of the board's filesystem. `$SOUNDFONT`,
+when it's set, still comes first.
+
 ## With no network
 
 Download `backline-drums.sf2` from the link above on a computer and copy it to
