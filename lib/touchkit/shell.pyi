@@ -15,6 +15,7 @@ launcher: Launcher | None
 boot_presses: int
 CAP_ROW: int
 CAP_HOME_W: int
+TITLE_MIN: int
 
 class TouchLauncher(Launcher):
     """appkit's launcher, keeping the last switches."""

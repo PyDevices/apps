@@ -39,6 +39,8 @@ TOUCH_MS = 33
 #: it) and the Home button's width, in pixels.
 CAP_ROW = 30
 CAP_HOME_W = 44
+#: Under the compact cap a long title ends in dots down to this width, in pixels, before the status line does.
+TITLE_MIN = 40
 
 launcher = None  # the running launcher, once a TouchShell has been made for it
 boot_presses = 0
@@ -224,14 +226,15 @@ class TouchShell(Shell):
         t.align(lv.ALIGN.LEFT_MID, left, top // 2)
         status = ui.label(hdr, "", ui.tiny if bar else ui.small, ui.MUTED)
         status.set_long_mode(lv.label.LONG_MODE.DOTS)
-        status.set_style_max_width(w // 2, 0)
+        # The title keeps TITLE_MIN of the row; the status line ends in dots past the rest.
+        status.set_style_max_width(max(0, min(w // 2, w - left - right - TITLE_MIN - 8)), 0)
         status.set_height(status.get_style_text_font(0).line_height)  # dots, never a second line
         status.align(lv.ALIGN.RIGHT_MID, -right, top // 2)
 
         def fit(e=None):
             # The title gives way first: it takes what the status line leaves.
             sw = status.get_width() + 8 if status.get_text() else 0
-            t.set_width(max(40, w - left - right - sw))
+            t.set_width(max(TITLE_MIN, w - left - right - sw))
 
         status.add_event_cb(fit, lv.EVENT.SIZE_CHANGED, None)
         scope.header = hdr
