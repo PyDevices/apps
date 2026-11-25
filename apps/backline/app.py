@@ -154,10 +154,10 @@ class Views:
     between one panel and the next, and between the rows of a desk laid
     out again for another song.
 
-    While a song plays (``playing()`` is True), the switch leaves the heap
-    to collect itself when it runs out of room. A collection is one step a
-    switch can't break up, and on a board it took a quarter of a second,
-    as long as a note may be late before the engine skips it.
+    The view changes only while the song is stopped (``playing()`` is
+    False). Even with those passes, a switch on an ESP32-S31 still held the
+    notes up for half a second or more: a heap collection there takes a
+    third of a second, and a switch can't break one up.
     """
 
     def __init__(self, make_floor, make_desk=None, on_show=None, service=None, playing=None):
@@ -174,9 +174,20 @@ class Views:
         return lambda: self.show(which)
 
     def show(self, which):
-        """Show ``"floor"`` or ``"desk"``."""
+        """Show ``"floor"`` or ``"desk"``; returns False, having shown
+        nothing, where it can't.
+
+        The view changes only while the song is stopped. A switch drew for
+        a second or more on a board, and the notes due while it drew were
+        skipped, so while a song plays the view showing says why it stays
+        (``refuse_switch``) instead."""
         if which == "desk" and self._make_desk is None:
-            return
+            return False
+        if which != self.shown and self._playing is not None and self._playing():
+            view = self.desk if self.shown == "desk" else self.floor
+            if view is not None:
+                view.refuse_switch()
+            return False
         self.switching = True
         before = art.between(self._service)
         try:
@@ -184,10 +195,9 @@ class Views:
             hide = self.floor if which == "desk" else self.desk
             if hide is not None:
                 hide.hide()
-            if self._playing is None or not self._playing():
-                art.pause()
-                gc.collect()
-                art.pause()
+            art.pause()
+            gc.collect()
+            art.pause()
             if which == "desk" and self.desk is None:
                 self.desk = self._make_desk(self._switch("floor"))
             (self.desk if which == "desk" else self.floor).show()
@@ -196,6 +206,7 @@ class Views:
             self.switching = False
         if self._on_show is not None:
             self._on_show()
+        return True
 
     def poll(self, box):
         """One pass of the screen's work: the box's links, then each view's

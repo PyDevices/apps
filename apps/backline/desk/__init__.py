@@ -24,6 +24,7 @@ import lvgl as lv
 
 from . import look
 from .. import art, glyphs
+from .. import floor as floormod
 from .editor import Editor
 from .perform import Perform
 from .prompt import PromptSheet
@@ -74,6 +75,7 @@ class Desk:
         self.tele = {}
         self.shown = {}
         self.message = ""
+        self.refused_until = None  # saying why the view stays (`refuse_switch`) until then
         self.tab = None
         self.hidden = False
         self._stale = False        # the document changed while hidden: `hide`
@@ -276,6 +278,14 @@ class Desk:
             self.next.set_text(self.message.upper())
             self.next.set_style_text_color(look.color(look.BAD), 0)
 
+    def refuse_switch(self):
+        """Say, where the next part goes, that the view changes only while
+        the song is stopped: a tap on the switch while a song plays."""
+        self.refused_until = art.until(art.SAY_MS)
+        self.shown.pop("next", None)
+        floormod.fit(self.next, art.STOP_TO_SWITCH, self.next.get_width(), 0)
+        self.next.set_style_text_color(look.color(look.BAD), 0)
+
     def _tele(self, t):
         if self.hidden:
             self._held_tele = t
@@ -290,7 +300,11 @@ class Desk:
         where = "%d . %d" % (t.get("bar", 1), t.get("beat", 1)) if playing else "- . -"
         if self._changed("where", where):
             self.where.set_text(where)
-        if not (self.message and not playing):  # what the device refused stays until the song plays
+        if self.switch is not None and self._changed("switch", bool(playing)):
+            self.switch.set_style_opa(art.DIM_OPA if playing else 255, 0)   # it says why when tapped
+        if art.before(self.refused_until):
+            pass                   # `refuse_switch` says why the view stays
+        elif not (self.message and not playing):  # what the device refused stays until the song plays
             self.message = ""
             nxt = t.get("next") or ""
             if self._changed("next", (nxt, playing, t.get("next_role"))):
