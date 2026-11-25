@@ -230,7 +230,7 @@ jobs:
     needs: scope
     if: needs.scope.outputs.app_packages == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
 

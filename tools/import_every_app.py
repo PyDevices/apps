@@ -23,6 +23,7 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -76,7 +77,10 @@ def main() -> None:
     failures = import_all(root, args.package)
     for line in failures:
         print("FAIL", line)
-    sys.exit(1 if failures else 0)
+    # Some apps start threads when they're imported, and Python would wait on
+    # them at exit, so this leaves at once.
+    sys.stdout.flush()
+    os._exit(1 if failures else 0)
 
 
 if __name__ == "__main__":
