@@ -1,21 +1,21 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""A USB microphone's audio, brought to what the wake-word model takes:
+"""A microphone's audio, brought to what the wake-word model takes:
 16 kHz mono 16-bit.
 
-``open_mic`` asks the mic for the model's own rate first. 16 kHz goes
-straight in, and a mic that only offers stereo (a webcam's, often) is
-downmixed in C as the packets land: usb-host-audio's ``Microphone`` does
-that for ``channels=1``. A mic without 16 kHz is opened at 48, 32 or
-24 kHz, and ``Feed`` brings it down through a 6th-order elliptic low-pass
-at 7 kHz: every third sample of 48 kHz, every second of 32 kHz, and
-24 kHz with a zero after each sample (48 kHz) and then every third. A mic
-with none of those (44.1 kHz, 8 kHz, 24-bit only) raises ``Unsupported``,
-which names what it does offer.
+``open_input`` asks the input it's given for the model's own rate first.
+16 kHz goes straight in; a board's microphones and most USB mics have it,
+and a stereo-only USB mic (a webcam's, often) is downmixed in C as the
+packets land. An input without 16 kHz is opened at 48, 32 or 24 kHz, and
+``Feed`` brings it down through a 6th-order elliptic low-pass at 7 kHz:
+every third sample of 48 kHz, every second of 32 kHz, and 24 kHz with a
+zero after each sample (48 kHz) and then every third. An input with none
+of those (44.1 kHz, 8 kHz, 24-bit only) raises ``Unsupported``, which
+names what it does offer when it says.
 
 No LVGL or USB here, so a test drives it on CPython or MicroPython with a
-stand-in microphone.
+stand-in input.
 """
 
 try:
@@ -83,21 +83,22 @@ def offers(text):
     return ", ".join(seen)
 
 
-def open_mic(Microphone, dev, ring_ms=500):
-    """``(mic, feed)``: the mic opened at the first rate of ``PLANS`` it
-    offers, 16-bit mono, and the ``Feed`` for that rate. Raises
-    ``Unsupported`` when it offers none of them."""
+def open_input(pcm_in, format_of):
+    """``(mic, feed)``: the input ``pcm_in(format)`` opens at the first rate
+    of ``PLANS`` it takes, 16-bit mono, and the ``Feed`` for that rate.
+    ``format_of(rate)`` makes the format (audiodev's ``AudioFormat(rate, 1,
+    16)``). Raises ``Unsupported`` when it takes none of them."""
     last = ""
     for rate, _, _ in PLANS:
         try:
-            mic = Microphone(dev, rate=rate, channels=1, bits=16, ring_ms=ring_ms)
+            mic = pcm_in(format_of(rate))
         except ValueError as e:
             last = str(e)
             continue
         return mic, Feed(rate)
     said = offers(last)
-    raise Unsupported("this mic offers %s; the wake word takes 16, 24, 32 or 48 kHz 16-bit"
-                      % (said or "no input stream"))
+    raise Unsupported("this microphone offers %s; the wake word takes 16, 24, 32 or 48 kHz 16-bit"
+                      % (said or "none of those"))
 
 
 class Feed:
