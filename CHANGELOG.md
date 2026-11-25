@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3.dev7
+
+- appkit: one bar along the top instead of two. The status bar carries Home, the app's title and its status line, then the clock and the icons, so apps get up to 32 px more of the screen. On a narrow screen the status line takes a row under the bar only once the app asks for it, and the app's area makes room before the app lays out, so nothing is cut off at the bottom. Home's settings and hidden-apps buttons are on the bar too, and the tiles take the row they used.
+- touchkit: under the compact cap, the title row sits inside the circle on a round screen, with Home at its left.
+- Apps that have a status line ask for it before they measure their area: Spotify, MP3, Roku, Cast, Camera, Detect, Security, midiEngine, Backline, Stompbox, Surveillance Camera and Videophone.
+- Bluetooth Receiver: the calls switch moves into the app's area when the bar is too narrow for it.
+- applibs: the apps extra asks for omnipython-desktop 0.8.1.dev5 or later, the first with the status bar's Bluetooth item.
+
 ## 0.1.3.dev6
 
 - appkit: mirror a board's screen to a browser from the picker's Cast to, behind the board's WebREPL password; the status bar shows a cast icon while it's on, and "viewing" while a browser watches.

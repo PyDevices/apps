@@ -165,6 +165,63 @@ def _plant_gauge_ignored():
     B._battery_percent = lambda source: max(0, min(100, int((source.voltage - 3.3) * 100 / 0.9))) if source.voltage is not None else None
 
 
+def _plant_status_over_title():
+    # The title keeps its whole width, whatever the status line needs.
+    B.Bar._fit_header = lambda self: self.title.set_width(self._title_w)
+
+
+def _plant_header_kept():
+    # What one app put in the bar's header stays for the next.
+    B.Bar._clear_header = lambda self: None
+
+
+def _plant_row_always():
+    # The status row shows as soon as an app opens, text or not.
+    real = B.Bar.open
+
+    def opened(self, title, status=True):
+        out = real(self, title, status)
+        if status and self.under is not None:
+            self.under.remove_flag(lv.obj.FLAG.HIDDEN)
+        return out
+
+    B.Bar.open = opened
+
+
+def _plant_row_never():
+    # Asking for the status line never brings the row in.
+    B.Bar.status_row = lambda self: self._new_status()
+
+
+def _plant_row_late():
+    # The row comes in, but the app's area makes room for it a frame later,
+    # after the app has placed its screen.
+    def late(self):
+        st = self._new_status()
+        self.under.remove_flag(lv.obj.FLAG.HIDDEN)
+        self._late = lv.timer_create(lambda t: self._on_change(True), 0, None)
+        self._late.set_repeat_count(1)
+        return st
+
+    B.Bar.status_row = late
+
+
+def _plant_home_untitled():
+    # Home gets no title and no header on the bar.
+    from appkit.shell import Shell as S
+
+    S.home_title = lambda self: ""
+    real = S._title
+    S._title = lambda self, scope: None if scope.name == self.launcher.home else real(self, scope)
+
+
+def _plant_round_row_off():
+    # The round title row runs edge to edge, out past the circle.
+    from touchkit import shell as touch
+
+    touch.round_row = lambda size, y, margin=4: (0, size)
+
+
 def _plant_touch_header_behind_bar():
     from touchkit import shell as touch
 
@@ -179,6 +236,13 @@ PLANTS = {
     "home_everywhere": _plant_home_everywhere,
     "no_way_home": _plant_no_way_home,
     "touch_header_behind_bar": _plant_touch_header_behind_bar,
+    "status_over_title": _plant_status_over_title,
+    "header_kept": _plant_header_kept,
+    "row_always": _plant_row_always,
+    "row_never": _plant_row_never,
+    "row_late": _plant_row_late,
+    "home_untitled": _plant_home_untitled,
+    "round_row_off": _plant_round_row_off,
     "mirror_hidden": _plant_mirror_hidden,
     "gauge_ignored": _plant_gauge_ignored,
 }
@@ -241,7 +305,9 @@ shell = Shell(la, bar=True)
 la.shell = shell
 bar = shell.bar
 check(bar is not None and shell.home_button is None, "bar=True makes the bar, with Home on it, not the corner button")
-check(coords(bar.root) == (0, 0, SW, B.HEIGHT), "the bar is the top strip: %r" % (coords(bar.root),))
+check(bar.height == B.height_for(SW, SH) == B.SHORT, "a 320-tall screen gets the short bar: %r" % (bar.height,))
+check(coords(bar.root) == (0, 0, SW, bar.height), "the bar is the top strip: %r" % (coords(bar.root),))
+check(B.height_for(800, 480) == B.TALL and B.height_for(320, 240) == B.SHORT, "480 tall and up gets the tall bar")
 check([i.name for i in bar.items] == ["clock", "net", "bluetooth", "audio", "cast", "battery"],
       "the built-in items this device has: %r" % ([i.name for i in bar.items],))
 clock = text_of(bar, "clock")
@@ -254,7 +320,8 @@ check(icon_of(bar, "audio") is None and icon_of(bar, "bluetooth") is None, "no a
 la.switch("framed")
 scope = seen["framed"]
 check(scope.bar is bar and bar.is_shown(), "an app gets the bar on its scope, showing")
-check(scope.rect == (0, B.HEIGHT, SW, SH - B.HEIGHT), "and the screen below it: %r" % (scope.rect,))
+check(scope.rect == (0, bar.height, SW, SH - bar.height), "and the screen below it: %r" % (scope.rect,))
+check(scope.header is bar.header and bar.title.get_text() == "framed", "its title is on the bar: %r" % (bar.title.get_text(),))
 check(bar.home is not None and not bar.home.has_flag(lv.obj.FLAG.HIDDEN), "Home shows away from home")
 check(icon_of(bar, "casting") == "cast" and text_of(bar, "casting") == "Den", "the app's own item is on the bar")
 labels = [s[2] for s in bar._shown.values() if s[2] is not None]
@@ -268,7 +335,7 @@ if SHOTS:
 scope.bar.hide()
 check(not bar.is_shown() and scope.rect == (0, 0, SW, SH), "hide gives the app the whole screen: %r" % (scope.rect,))
 scope.bar.show()
-check(bar.is_shown() and scope.rect == (0, B.HEIGHT, SW, SH - B.HEIGHT), "show gives the strip back: %r" % (scope.rect,))
+check(bar.is_shown() and scope.rect == (0, bar.height, SW, SH - bar.height), "show gives the strip back: %r" % (scope.rect,))
 
 # The items follow endpointkit, and only what changed is redrawn.
 net_box = bar._shown["net"][0]
@@ -428,29 +495,128 @@ la.switch("whole")
 settle()
 check(small.home_button.has_flag(lv.obj.FLAG.HIDDEN), "which hides on the home screen")
 
-# touchkit's shell under the bar: the bar, then a shorter header, so the app's
-# area is where it was without the bar; hiding the bar moves both up.
+# touchkit's shell under the bar: the title and the status line are on the
+# bar, and the app has everything below it; hiding the bar gives it all.
 la.shell = None
 small.bar.close()
 small.home_button.add_flag(lv.obj.FLAG.HIDDEN)
 la.info["whole"] = {}   # Home under the bar, as a board's is
 board_shell = touch.TouchShell(la)
 la.shell = board_shell
+tb = board_shell.bar
 
-check(board_shell.bar is not None and board_shell.home_button is None, "TouchShell shows the bar by default")
+check(tb is not None and board_shell.home_button is None, "TouchShell shows the bar by default")
 la.switch("framed")
 settle()
 scope = seen["framed"]
-check(scope.rect == (0, ui.HEADER, SW, SH - ui.HEADER), "TouchShell's app area is below the bar and header: %r" % (scope.rect,))
-check(coords(scope.header)[1] == B.HEIGHT, "its header sits below the bar: %r" % (coords(scope.header),))
+check(scope.rect == (0, tb.height, SW, SH - tb.height), "TouchShell's app area is right below the bar: %r" % (scope.rect,))
+check(scope.header is tb.header and coords(scope.header)[1] == 0 and coords(scope.header)[3] == tb.height,
+      "its header is a stretch of the bar: %r" % (coords(scope.header),))
+check(scope.status is tb.status_line and coords(scope.status)[1] < tb.height, "and so is its status line")
 scope.bar.hide()
-check(scope.rect == (0, ui.HEADER - B.HEIGHT, SW, SH - ui.HEADER + B.HEIGHT) and coords(scope.header)[1] == 0,
-      "hiding the bar moves the header and the app up: %r" % (scope.rect,))
+check(scope.rect == (0, 0, SW, SH), "hiding the bar gives the app the whole screen: %r" % (scope.rect,))
 scope.bar.show()
+
+# A long title and a long status line: the title ends in dots first, down to
+# TITLE_MIN, and the two never overlap; both stay inside the header.
+la.info["framed"] = {"title": "A title far too long for any bar on any screen at all"}
+la.switch("whole")
+settle()
+la.switch("framed")
+settle()
+scope = seen["framed"]
+lv.label(scope.header).set_text("an app's own")   # gone when the next app opens
+scope.status.set_text("a status line that is longer than most, and then some more")
+settle()
+hx, hy, hw, hh = coords(tb.header)
+tx, ty, tw, th = coords(tb.title)
+sx, sy, sw, sh = coords(scope.status)
+check(tx + tw <= sx, "the title ends before the status line starts: title %r, status %r" % ((tx, tw), (sx, sw)))
+check(tw >= B.TITLE_MIN - 1, "the title keeps TITLE_MIN: %r" % (tw,))
+check(hx <= tx and sx + sw <= hx + hw, "both inside the header: %r %r %r" % ((hx, hw), (tx, tw), (sx, sw)))
+scope.status.set_text("ok")
+settle()
+check(coords(tb.title)[2] > tw, "a short status line gives the title its room back: %r" % (coords(tb.title)[2],))
+la.switch("whole")
+settle()
+check(tb.header.get_child_count() == 1 and tb.status_line is None,
+      "Home's bar has the title and nothing an app left: %r" % (tb.header.get_child_count(),))
+check(tb.title.get_text() == "Home" and seen["whole"].header is tb.header,
+      "Home's title is Home, and its header is the bar's, for its own buttons: %r" % (tb.title.get_text(),))
+la.info["framed"] = {}
+la.switch("framed")
+settle()
+check(tb.header.get_child_count() == 2 and tb.title.get_text() == "framed",
+      "the next app gets a clean header: %r" % (tb.header.get_child_count(),))
 la.switch("whole")
 settle()
 scope = seen["whole"]
-check(scope.rect == (0, B.HEIGHT, SW, SH - B.HEIGHT), "TouchShell's home screen is below the bar: %r" % (scope.rect,))
+check(scope.rect == (0, tb.height, SW, SH - tb.height), "TouchShell's home screen is below the bar: %r" % (scope.rect,))
+
+# A narrow screen: the status line has a row of its own under the bar,
+# which shows the first time the app asks for it, and not before; the app's
+# area makes room for it right then, before the app places anything.
+la.shell = None
+tb.close()
+real_under = B.STATUS_ROW_UNDER
+B.STATUS_ROW_UNDER = SW + 1
+narrow = touch.TouchShell(la)
+la.shell = narrow
+B.STATUS_ROW_UNDER = real_under
+la.switch("framed")
+settle()
+scope = seen["framed"]
+nb = narrow.bar
+check(nb.status_below and nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect == (0, nb.height, SW, SH - nb.height),
+      "an app that asks for no status keeps the whole area below the bar: %r" % (scope.rect,))
+st = ui.status(scope)
+row_h = nb.under.get_height()
+check(st is not None and not nb.under.has_flag(lv.obj.FLAG.HIDDEN),
+      "asking for the status line brings the row in under the bar")
+check(scope.rect == (0, nb.height + row_h, SW, SH - nb.height - row_h),
+      "and the app's area gives it room at once, before the app places anything: %r" % (scope.rect,))
+st.set_text("joining")
+settle()
+row = coords(nb.under)
+check(row[1] == nb.height and coords(st)[1] >= nb.height, "the status text is in the row: %r" % (row,))
+check(scope.status is st, "asking again gives the same status line")
+st.set_text("")
+settle()
+check(not nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect[1] == nb.height + row[3],
+      "the row stays while the app is open, so its area moves once: %r" % (scope.rect,))
+scope.bar.hide()
+check(nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect == (0, 0, SW, SH), "hiding the bar hides the row too")
+scope.bar.show()
+check(not nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect[1] == nb.height + row[3], "and showing it brings both back")
+la.switch("whole")
+settle()
+check(nb.under.has_flag(lv.obj.FLAG.HIDDEN) and seen["whole"].rect[1] == nb.height,
+      "Home has no status line, so no row: %r" % (seen["whole"].rect,))
+la.switch("framed")
+settle()
+check(nb.under.has_flag(lv.obj.FLAG.HIDDEN) and seen["framed"].rect[1] == nb.height,
+      "the next app starts without the row again: %r" % (seen["framed"].rect,))
+# An app that can't run here says so with `ui.missing`, as it builds: its
+# message and its "Hide from Home" button stay on the screen under the row.
+scope = seen["framed"]
+msg = ui.missing(scope, "no camera", "No camera here. This app needs a board with a camera, or a folder of pictures set as its source.")
+settle()
+hide = None
+for i in range(scope.root.get_child_count()):
+    c = scope.root.get_child(i)
+    if c.get_child_count() == 1 and getattr(c.get_child(0), "get_text", lambda: "")() == "Hide from Home":
+        hide = c
+check(hide is not None, "ui.missing put a Hide from Home button on the app's area")
+if hide is not None:
+    hx, hy, hw, hh = coords(hide)
+    check(hy >= scope.rect[1] and hy + hh <= SH, "the button is whole on the screen, below the row: %r in %r" % ((hx, hy, hw, hh), scope.rect))
+
+# A round screen under the cap: the title row starts and ends inside the circle.
+for size, y in ((240, touch.CAP_ROW), (360, touch.CAP_ROW), (240, 60)):
+    x0, x1 = touch.round_row(size, y)
+    r = size // 2
+    inside = all((x - r) ** 2 + (y - r) ** 2 <= (r - 4) ** 2 for x in (x0, x1))
+    check(inside and x1 - x0 > size // 2, "the row at y=%d on a %d px circle is inside it: %r" % (y, size, (x0, x1)))
 
 print("%d checks, %d failed" % (checks[0], len(failures)))
 sys.exit(1 if failures else 0)

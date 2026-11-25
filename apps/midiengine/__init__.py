@@ -113,8 +113,8 @@ def clock_text(ms):
 def main(scope):
     global state
     scr = scope.root
-    W, H = scope.size
     status = ui.status(scope)
+    W, H = scope.size
     if gm is None:
         ui.missing(scope, "missing: soundmodule", "midiEngine needs soundmodule, audioinstruments and audiodsp: %s" % (_missing,))
         return

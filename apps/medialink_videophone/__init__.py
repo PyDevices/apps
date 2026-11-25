@@ -55,8 +55,8 @@ def main(scope):
         return
 
     scr = scope.root
-    rect = scope.rect or (0, 0, scope.size[0], scope.size[1])
     status = ui.status(scope)
+    rect = scope.rect or (0, 0, scope.size[0], scope.size[1])
     status.set_text("starting")
     notes_text = []
 

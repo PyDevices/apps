@@ -160,9 +160,17 @@ def main(scope):
         cap = getattr(scope, "bar", None)
         if cap is not None and cap.compact and cap.is_shown():
             gear_y = W - gear_y - gear_h  # the status bar's cap has the top: the bottom one
-    else:
+    # With the status bar's header, its title says "Home" and the buttons
+    # below go on it: the pages take the whole area. Without it, Home draws
+    # its own row of TOP pixels.
+    header = None if round_ else getattr(scope, "header", None)
+    top = 0 if header is not None else TOP
+    if not round_ and header is None:
         title = ui.label(scr, "Home", ui.big, ui.ACCENT)
         title.set_pos(GAP + 4, 14)
+    if header is not None:
+        header.update_layout()
+        bh = header.get_height() - 4
 
     if gear_app is not None:
         gear = lv.button(scr)
@@ -171,6 +179,13 @@ def main(scope):
             gear.set_size(gear_w, gear_h)
             gear.set_pos((W - gear_w) // 2, gear_y)
             gear.set_style_radius(gear_h // 2, 0)
+            gear.set_style_pad_all(0, 0)
+            lvicons.image(gear, "settings", 24, ui.WHITE).center()
+        elif header is not None:
+            gear.set_parent(header)
+            gear.set_size(56, bh)
+            gear.align(lv.ALIGN.RIGHT_MID, -4, 0)
+            gear.set_style_radius(bh // 2, 0)
             gear.set_style_pad_all(0, 0)
             lvicons.image(gear, "settings", 24, ui.WHITE).center()
         else:
@@ -185,11 +200,17 @@ def main(scope):
         if round_ and gear_app is not None:
             gear.add_event_cb(lambda e: _hidden_page(scope, hidden), lv.EVENT.LONG_PRESSED, None)
         elif not round_:
-            shown = lv.button(scr)
+            shown = lv.button(header or scr)
             shown.set_style_bg_color(lv.color_hex(0x44505E), 0)
-            shown.set_size(64, TOP - 12)
-            shown.align(lv.ALIGN.TOP_RIGHT, -GAP - (64 + GAP if gear_app is not None else 0), 6)
-            shown.set_style_radius(12, 0)
+            if header is not None:
+                shown.set_size(56, bh)
+                shown.align(lv.ALIGN.RIGHT_MID, -4 - (56 + 8 if gear_app is not None else 0), 0)
+                shown.set_style_radius(bh // 2, 0)
+                shown.set_style_pad_all(0, 0)
+            else:
+                shown.set_size(64, TOP - 12)
+                shown.align(lv.ALIGN.TOP_RIGHT, -GAP - (64 + GAP if gear_app is not None else 0), 6)
+                shown.set_style_radius(12, 0)
             lvicons.image(shown, "visibility_off", 24, ui.WHITE).center()
             shown.add_event_cb(lambda e: _hidden_page(scope, hidden), lv.EVENT.CLICKED, None)
 
@@ -198,8 +219,8 @@ def main(scope):
         tv.set_pos(x0, x0)
         tv.set_size(side, side)
     else:
-        tv.set_pos(0, TOP)
-        tv.set_size(W, H - TOP)
+        tv.set_pos(0, top)
+        tv.set_size(W, H - top)
     tv.set_tab_bar_position(lv.DIR.BOTTOM)
     tv.set_tab_bar_size(tab_bar if round_ else TAB_BAR)
     tv.set_style_bg_color(ui.BG, 0)
@@ -214,7 +235,7 @@ def main(scope):
         if round_:
             _grid(scope, page, side - 2 * MARGIN, side - tab_bar - 2 * MARGIN, apps, 2, 2, True)
         else:
-            _grid(scope, page, W - 2 * MARGIN, H - TOP - TAB_BAR - 2 * MARGIN, apps)
+            _grid(scope, page, W - 2 * MARGIN, H - top - TAB_BAR - 2 * MARGIN, apps)
 
     bar = tv.get_tab_bar()
     tab_font = ui.font

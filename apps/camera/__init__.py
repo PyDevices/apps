@@ -54,9 +54,9 @@ def _save(path, data):
 def main(scope):
     global state
     root = scope.root
+    status = ui.status(scope)
     W, H = scope.size
     RX, RY = scope.rect[:2]
-    status = ui.status(scope)
     st = state = {"cam": None, "shots": 0, "last": None, "server": None, "open": True}
     keep = {}  # the thumbnail's pixels, while LVGL shows them
     opts = cam.options(scope)

@@ -39,9 +39,9 @@ state = None  # the open app's state, for the console
 def main(scope):
     global state
     root = scope.root
+    status = ui.status(scope)
     W, H = scope.size
     RX, RY = scope.rect[:2]
-    status = ui.status(scope)
 
     opts = cam.options(scope)
     try:

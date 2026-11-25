@@ -233,8 +233,8 @@ def _nothing():
 
 def start(scope):
     global state
-    W, H = scope.size
     status = ui.status(scope)
+    W, H = scope.size
     try:
         from audiodev import AudioFormat
         import board_peripherals as bp

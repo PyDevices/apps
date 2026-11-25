@@ -44,6 +44,7 @@ SIGNAL_BARS = 4  # the phone's signal, 0 to 5, as this many bars
 # The calls setting's label, beside its switch in the header.
 CALLS_LABEL = "Phone calls and battery"
 STATUS_W = 120  # the shell's status line, moved to the label's left
+HEADER_ROOM = 480  # the least header width the switch, its label and the status line share with the title
 CALL_WORDS = {"incoming": "INCOMING CALL", "dialing": "CALLING", "alerting": "RINGING", "active": "ON A CALL",
               "held": "ON HOLD"}
 
@@ -809,6 +810,10 @@ def calls_switch(scope, on, changed):
     *changed* gets the new setting each time it's flipped. The status line
     moves to its left."""
     header = getattr(scope, "header", None)
+    if header is not None:
+        header.update_layout()
+        if header.get_width() < HEADER_ROOM:
+            header = None   # a short header (a narrow bar): the title keeps it
     parent = header or scope.root
     sw = lv.switch(parent)
     sw.set_size(48, 26)
@@ -826,7 +831,7 @@ def calls_switch(scope, on, changed):
     lbl.set_text(CALLS_LABEL)
     lbl.align_to(sw, lv.ALIGN.OUT_LEFT_MID, -10, 0)
     status = getattr(scope, "status", None)
-    if status is not None:
+    if status is not None and header is not None:
         # Its text changes after this: right-aligned in a fixed width, it
         # stays clear of the label.
         status.set_width(STATUS_W)

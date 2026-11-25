@@ -83,16 +83,28 @@ class Rig:
         _r, b = audiocore.get_buffer(self.eng.output)
         self.frames += len(b) // 4
 
-    def run(self, cond=None, what="", blocks=None, seconds=10):
-        """Step until ``cond()`` holds (raises after ``seconds``), or for ``blocks``."""
+    def waited(self, since, seconds):
+        """True once ``seconds`` have passed both on this clock and in the box's
+        audio, from ``since = (ticks_ms(), frames)``. The box plays by the
+        blocks it is pulled for, so a slow machine is slow in audio time too: a
+        wait on the playhead counts the box's seconds, and a wait on the
+        network counts the wall's."""
+        t, frames = since
+        return (be.ticks_diff(be.ticks_ms(), t) > seconds * 1000
+                and self.frames - frames > seconds * be.SR)
+
+    def run(self, cond=None, what="", blocks=None, seconds=10, step=None):
+        """Step until ``cond()`` holds (raises after ``seconds`` of the wall and
+        of the box's audio, see ``waited``), or for ``blocks``."""
+        step = step or self.step
         if cond is None:
             for _ in range(blocks):
-                self.step()
+                step()
             return True
-        t = be.ticks_ms()
+        since = (be.ticks_ms(), self.frames)
         while not cond():
-            self.step()
-            if be.ticks_diff(be.ticks_ms(), t) > seconds * 1000:
+            step()
+            if self.waited(since, seconds):
                 raise RuntimeError("no %s in %d s" % (what, seconds))
         return True
 
