@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 """appkit.net: sockets, HTTP and the clock, with the same calls on every Python."""
 
-from typing import Any
+from typing import Any, Callable
 
 CIRCUITPYTHON: bool
 NTP_HOST: str
@@ -20,6 +20,10 @@ def requests() -> Any:
     """
 def sets_clock() -> bool:
     """True where this program keeps the clock (a board), False on a desktop."""
+def local_time() -> tuple[int, ...]:
+    """The local time as a `time.localtime`-style tuple, from the source set with `set_local_time`."""
+def set_local_time(source: Callable[[], tuple[int, ...]]) -> None:
+    """Have `local_time` read from `source`, a function returning a `time.localtime`-style tuple."""
 def set_clock(year: int, month: int, day: int, hour: int, minute: int, second: int) -> None:
     """Set the board's clock to a UTC time.
 

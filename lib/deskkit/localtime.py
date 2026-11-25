@@ -222,3 +222,7 @@ def clock_time():
     """Return the local ``(hour, minute, second)``."""
     t = now()
     return t[3], t[4], t[5]
+
+
+# The status bar's clock (appkit.bar) reads the same local time as Clock.
+net.set_local_time(now)
