@@ -35,9 +35,10 @@ env:
   # audioeffects names its own audiodsp in AUDIODSP_PIN, and audioinstruments
   # needs one that new (audiodsp 0.6.11 or later), so the pin stands for both.
   # audioinstruments is v0.5.3.dev6, the first that plays a bank frozen into
-  # firmware; audioeffects is its v0.5.0 tag.
+  # firmware. audioeffects is v0.5.2, whose audiodsp (0.6.16.dev5) is new
+  # enough for it.
   AUDIOINSTRUMENTS_REF: 929cec2907bf194b3c3afd4c151a258270157010
-  AUDIOEFFECTS_REF: c0b05edc79e54b3d944417d983030676b80cfca3
+  AUDIOEFFECTS_REF: a5a65dd7976ea5ecda4653bbb16290679effaedd
   # The catalogs the sound module's DAW names are built from aren't in a
   # release of either package yet.
   AUDIOINSTRUMENTS_CATALOG_REF: a6d394852f3957fc188cea9ba03e23c771677587
