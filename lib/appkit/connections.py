@@ -14,7 +14,8 @@ bar, so their lists show what the device really has::
 On a board with Wi-Fi that's `wifinet`, the networks in range, joined from
 the picker. Every board also gets the sound outputs its firmware can drive:
 its own output (and its ``audio_out`` then plays wherever ``audio.out`` is
-chosen), the USB host port's devices, and Bluetooth speakers. What the
+chosen) and microphones (its ``pcm_in`` records from wherever ``audio.in``
+is chosen), the USB host port's devices, and Bluetooth speakers. What the
 firmware lacks is left out without a word. A board whose screen is drawn in
 memory can be mirrored to a browser from "Cast to": it's off until chosen
 there, and the browser asks for the board's WebREPL password. Looking for

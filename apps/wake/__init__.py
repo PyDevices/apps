@@ -1,17 +1,15 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Wake word: listens on a USB microphone for "Hey Jarvis" and flashes on
-each detection.
+"""Wake word: listens for "Hey Jarvis" and flashes on each detection.
 
-The mic is asked for the model's own 16 kHz, mono (a stereo-only mic, like
-a webcam's, is downmixed as the packets land); one without 16 kHz is
-taken at 48, 32 or 24 kHz and filtered down (``feed.py``). The host starts
-at high speed, which reaches a webcam's mic behind the board's hub, and
-if no mic turns up it starts again at full speed, which is how a
-full-speed mic behind the hub is reached. It needs omnipython's ``usb-core``,
-``usb-host-audio`` and ``medialink``, and firmware built with ``tflite`` and
-audiodsp's ``audiofeatures``.
+It listens on whatever microphone the device is set to, the one chosen
+under Audio in, or the board's own microphones when nothing is chosen. A
+USB mic chosen there is heard as soon as it's plugged in. The input is
+asked for the model's own 16 kHz, mono; one without 16 kHz is taken at 48,
+32 or 24 kHz and filtered down (``feed.py``). It needs firmware built with
+``tflite`` and audiodsp's ``audiofeatures``, and omnipython's
+``medialink``; a USB mic also needs ``usb-host-audio``.
 The model, ``hey_jarvis.json``, loads from a ``models`` folder: the SD card's
 ``/sd/models``, then ``/models`` on flash, then ``/data/models``
 (`appkit.places`). The card is mounted read-only and unmounted again at
@@ -30,12 +28,10 @@ from . import feed
 MODEL = "hey_jarvis.json"
 MODELS = "models"  # the folder name, on the card, flash and the data root
 PHRASE = "Hey Jarvis"
-READ = 960  # bytes per read: 30 ms at 16 kHz, 10 ms at 48 kHz
-HIGH_SPEED_MS = 8000  # then full speed, for a full-speed mic behind the hub
-NO_MIC_MS = 15000
 FLASH_MS = 1500
 TICK_MS = 20
-MAX_BLOCKS = 12  # per tick, so a backlog can't hold the screen up
+READ_MS = 10  # audio per read
+BUSY_MS = 12  # reading per tick, so a backlog can't hold the screen up
 
 state = None  # for the console
 
@@ -54,22 +50,24 @@ def _load_model():
         places.unmount_card(card)
 
 
+def _input_name(chosen):
+    """What the status line calls the input in use."""
+    for ep in chosen:
+        return ep.label
+    return "the built-in microphones"
+
+
 def main(scope):
     global state
     try:
         import audiofeatures  # noqa: F401
         import tflite  # noqa: F401
-        import usb.core
         from medialink.wakeword import MicroWakeWord  # noqa: F401
-        from usb.host.audio import Microphone  # noqa: F401
-
-        usb.core.start  # PyUSB on a desktop has no host to start
-    except (ImportError, AttributeError) as e:
+    except ImportError as e:
         ui.missing(
             scope,
-            "missing: tflite, audiofeatures, medialink or usb host",
-            "Wake word needs firmware with tflite and audiofeatures, the medialink package, and the "
-            "board's USB host with usb-host-audio, for a USB microphone: %s." % (e,),
+            "missing: tflite, audiofeatures or medialink",
+            "Wake word needs firmware with tflite and audiofeatures, and the medialink package: %s." % (e,),
         )
         return
     scr = scope.root
@@ -98,90 +96,79 @@ def main(scope):
     bar.set_range(0, 100)
     ui.label(scr, "model score", ui.small, ui.MUTED).set_pos(420, 270)
 
-    st = state = {"host": None, "mic": None, "feed": None, "ww": None, "hits": 0, "flash": None,
-                  "t0": ticks_ms(), "best": 0.0, "dev": None, "since": ticks_ms()}
+    st = state = {"mic": None, "feed": None, "ww": None, "buf": None, "hits": 0, "flash": None,
+                  "t0": ticks_ms(), "best": 0.0, "chosen": [], "error": None}
+
+    def close_mic():
+        mic = st["mic"]
+        st["mic"] = None
+        if mic is not None:
+            try:
+                mic.close()
+            except Exception as e:
+                print("wake: mic close:", e)
 
     def close():
-        if st["mic"] is not None:
-            try:
-                st["mic"].stop()
-            except Exception as e:
-                print("wake: mic stop:", e)
-            st["mic"] = None
-        if st["host"]:
-            import usb.core
-
-            usb.core.stop()
-            st["host"] = None
+        close_mic()
         st["ww"] = None
 
     scope.on_close(close)
 
-    buf = bytearray(READ)
+    def open_mic():
+        # The input the device is set to: boarddev.pcm_in follows the
+        # Audio in choice, and is the board's own microphones without one.
+        import boarddev
+        from audiodev import AudioFormat
+
+        close_mic()
+        name = _input_name(st["chosen"])
+        try:
+            mic, fd = feed.open_input(boarddev.pcm_in, lambda rate: AudioFormat(rate, 1, 16))
+            mic.open()
+        except Exception as e:  # noqa: BLE001 - say why on the screen, keep the app up
+            status.set_text("can't listen on %s: %s" % (name, e))
+            print("wake: input:", repr(e))
+            return
+        st["mic"], st["feed"] = mic, fd
+        st["buf"] = bytearray(fd.rate // 1000 * READ_MS * 2)
+        st["t0"] = ticks_ms()
+        st["ww"].reset()
+        status.set_text("listening on %s, %d kHz" % (name, fd.rate // 1000))
+        print("wake: listening on %s, %d kHz" % (name, fd.rate // 1000))
+
+    def moved(chosen):
+        st["chosen"] = chosen
+        if st["ww"] is not None:
+            open_mic()
 
     def setup(t):
         # One step per tick, so the screen draws between them.
-        import usb.core
-        from usb.host.audio import Microphone
-
-        if st["ww"] is None:
-            status.set_text("loading the model")
-            try:
-                st["ww"] = _load_model()
-            except Exception as e:
-                status.set_text("no model: put %s in %s" % (MODEL, places.where_text(MODELS)))
-                print("wake: model:", e)
-                t.deinit()
+        t.deinit()
+        status.set_text("loading the model")
+        try:
+            st["ww"] = _load_model()
+        except Exception as e:
+            status.set_text("no model: put %s in %s" % (MODEL, places.where_text(MODELS)))
+            print("wake: model:", e)
             return
-        if not st["host"]:
-            status.set_text("looking for the USB mic")
-            try:
-                usb.core.start(classes=("uac",))
-                st["host"] = "high"
-            except OSError as e:
-                if e.errno != 95:  # EOPNOTSUPP: an earlier app ran the host at full speed
-                    raise
-                usb.core.start(full_speed=True, classes=("uac",))  # the hub can't restart at high speed
-                st["host"] = "full"
-            st["since"] = ticks_ms()
-            return
-        if st["mic"] is None:
-            st["dev"] = usb.core.find(custom_match=Microphone.match)
-            if st["dev"] is None:
-                waited = ticks_diff(ticks_ms(), st["since"])
-                if st["host"] == "high" and waited > HIGH_SPEED_MS:
-                    # A full-speed mic behind the hub isn't reachable from a
-                    # high-speed host; at full speed the hub passes it through.
-                    status.set_text("looking for the USB mic at full speed")
-                    usb.core.stop()
-                    usb.core.start(full_speed=True, classes=("uac",))
-                    st["host"] = "full"
-                    st["since"] = ticks_ms()
-                elif st["host"] == "full" and waited > NO_MIC_MS:
-                    status.set_text("no USB microphone: plug one into the hub")
-                return
-            try:
-                mic, fd = feed.open_mic(Microphone, st["dev"])
-            except feed.Unsupported as e:
-                status.set_text(str(e))
-                print("wake:", e)
-                st["dev"] = None
-                setup_timer.deinit()
-                return
-            mic.start()
-            st["mic"], st["feed"] = mic, fd
-            st["t0"] = ticks_ms()
-            how = "%d kHz%s" % (mic.rate // 1000, ", stereo mixed to mono" if mic.downmix else "")
-            status.set_text("listening on the USB mic, " + how)
-            print("wake: listening, %s, %s-speed host" % (how, st["host"]))
-            setup_timer.deinit()
-            scope.every(TICK_MS, listen)
-            scope.every(250, show)
+        st["chosen"] = scope.follow("audio.in", moved)
+        open_mic()
+        scope.every(TICK_MS, listen)
+        scope.every(250, show)
 
     def listen(t):
-        mic, ww, fd = st["mic"], st["ww"], st["feed"]
-        for _ in range(MAX_BLOCKS):
-            n = mic.read(buf)
+        mic, ww, fd, buf = st["mic"], st["ww"], st["feed"], st["buf"]
+        if mic is None:
+            return
+        began = ticks_ms()
+        while ticks_diff(ticks_ms(), began) < BUSY_MS:
+            try:
+                n = mic.readinto(buf)
+            except OSError as e:  # a USB mic pulled out, a stalled codec
+                status.set_text("%s stopped: %s" % (_input_name(st["chosen"]), e))
+                print("wake: read:", e)
+                close_mic()
+                return
             if not n:
                 return
             for pcm in fd.push(memoryview(buf)[:n]):
@@ -215,4 +202,4 @@ def main(scope):
             icon.set_style_text_color(ui.ACCENT, 0)
             say.set_text('Say "%s"' % PHRASE)
 
-    setup_timer = scope.every(200, setup)
+    scope.every(200, setup)
