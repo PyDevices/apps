@@ -148,7 +148,12 @@ class Box:
         self.switches = []
         self.model = BacklineModel(project, forward=self.forward, host=self)
         self.device = hmilink.Device(self.model, telemetry_hz=30)
-        self.use_kit(kit or project["tracks"][0].get("instrument") or kits.MACHINES[0])
+        # A kit kept from before that this box no longer has (a card taken
+        # out) gives way to the song's.
+        spec = (kit if kit in self.kits else None) or project["tracks"][0].get("instrument") or kits.DEFAULT
+        self.fetching = False
+        if not self.use_kit(spec) and spec == kits.SOUNDFONT and kits.find_bank() is None:
+            self._fetch_default()
         self._level()
 
     # -- the sound --------------------------------------------------------------
@@ -183,6 +188,26 @@ class Box:
         self.engine.lookahead = 2 * kits.BLOCK if kit.timed else 0
         self.error = None
         return True
+
+    def _fetch_default(self):
+        """Fetch Backline's own bank on the worker, the first time it's wanted
+        and isn't here; the ``soundfont`` kit opens when it lands. Without a
+        worker the error stays, saying where the bank goes."""
+        if self.worker is None:
+            return
+        self.fetching = True
+        self.error = "fetching Backline's drums, once (%d KB)" % (kits.DEFAULT_BYTES // 1024)
+        self.worker.submit(kits.fetch_default, self._fetched, key="backline-drums")
+
+    def _fetched(self, path, error):
+        """The bank landed, or didn't: on the main thread."""
+        self.fetching = False
+        if error is not None:
+            self.error = "no drums: %s. Pick a drum machine, or put %s in %s" % (
+                error, kits.DEFAULT_BANK, kits.default_folders()[-1])
+        elif self.kit_spec() is None:
+            self.use_kit(kits.DEFAULT)
+        self.device.event("kit", spec=self.kit_spec(), error=self.error, voices=self.voices())
 
     def titles(self):
         """Each starter song's own name, read once."""
@@ -343,7 +368,7 @@ class Box:
             self.song_index = i % n
             project = load_song(self.songs[self.song_index][1])
             # The kit first, so the document every panel gets says the kit it plays.
-            self.use_kit(project["tracks"][0].get("instrument") or kits.MACHINES[0])
+            self.use_kit(project["tracks"][0].get("instrument") or kits.DEFAULT)
             self.model.load(project)
             return {"name": "song", "index": self.song_index, "kit": self.kit_spec(), "voices": self.voices()}
         if name == "ask":
@@ -440,7 +465,7 @@ class Box:
                 e.stop()
                 self.song_index = index
                 self.model.load(project)
-                self.use_kit(project["tracks"][0].get("instrument") or kits.MACHINES[0])
+                self.use_kit(project["tracks"][0].get("instrument") or kits.DEFAULT)
             self._before = None
             return {"name": "proposal", "did": "discard", "kit": self.kit_spec(), "voices": self.voices()}
         raise ValueError("play, keep or discard, not %r" % (what,))

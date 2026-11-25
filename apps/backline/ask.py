@@ -64,7 +64,7 @@ KIT_NOTES = {
     "rhythm606": "light, bright electronic kit: country, latin, synth pop",
     "rhythm78": "vintage preset rhythm box: bossa, lounge, ballads",
     "electronic_drums5": "80s electronic kit with big toms: pop, new wave",
-    "soundfont": "acoustic drum kit: blues, jazz, rock, anything played live",
+    "soundfont": "the default kit, analog-synth drums: rock, pop, funk, anything that suits it",
 }
 TRIES = 2            # the first answer, and one more with what was wrong with it
 #: How much of a bad answer goes back with what was wrong with it.

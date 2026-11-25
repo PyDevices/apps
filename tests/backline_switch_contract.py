@@ -8,8 +8,9 @@ A switch: the app's timer passes that land inside it do no panel work
 (`backline.app.Views.poll`), and telemetry that reaches the floor while it
 draws its art again is kept until the art is there, so the ring is drawn
 once and no digit is reached for before it is drawn. A song change: a song
-on the kit playing builds no kit, another kit is built after the old one
-is closed, and a kit that won't open leaves the old one playing. A meter
+on the kit playing builds no kit, the song's kit is built after the one
+picked by hand is closed, and a kit that won't open leaves the old one
+playing. A meter
 change keeps the beat's digits both meters show.
 
 Notes play through a switch: the box's pass that sequences them runs
@@ -19,9 +20,10 @@ a song change, and when it shows again it is the same, pixel for pixel, as
 a desk made fresh on that song. A document that changes nothing the desk
 shows lays nothing out again.
 
-    python tests/backline_switch_contract.py [--plant=NAME]
+    python tests/backline_switch_contract.py [--plant=NAME] [--tmp FOLDER]
 
-Needs LVGL, svgio, icons, hmilink, audiodsp and audioinstruments.
+Needs LVGL, svgio, icons, hmilink, audiodsp and audioinstruments. The
+SoundFont kit plays a tiny bank written into ``FOLDER`` (``/tmp``).
 ``--plant=NAME`` breaks one of those (``PLANTS``) and a check must then
 fail.
 """
@@ -38,6 +40,7 @@ import lvgl as lv  # noqa: E402
 from hmilink import local  # noqa: E402
 
 import _headless  # noqa: E402
+import backline_bank  # noqa: E402
 from backline import app, art, floor, kits  # noqa: E402
 from backline import box as boxmod  # noqa: E402
 from backline.desk import Desk  # noqa: E402
@@ -214,10 +217,15 @@ class Hook:
 
 def main():
     p = None
-    for a in sys.argv[1:]:
+    tmp = "/tmp"
+    argv = sys.argv[1:]
+    for i, a in enumerate(argv):
         if a.startswith("--plant="):
             p = a[len("--plant="):]
+        elif a == "--tmp":
+            tmp = argv[i + 1]
     plant(p)
+    backline_bank.use(tmp)
     print("on " + sys.implementation.name)
     hook = Hook()
     _headless.display(W, H)
@@ -437,23 +445,26 @@ def main():
 
     performmod.look.button = counted_button
 
-    song("funk")      # the same kit as rock's
+    song("funk")      # the same kit as rock's: the SoundFont
     check("a desk hidden behind the floor lays out nothing on a song change",
           views.shown == "floor" and builds[0] == 0 and buttons[0] == 0,
           "%d grids and %d song buttons laid out" % (builds[0], buttons[0]))
-    check("a song on the kit playing builds no kit", opened == [] and box.kit_spec() == "rhythm909",
+    check("a song on the kit playing builds no kit", opened == [] and box.kit_spec() == kits.SOUNDFONT,
           "built %r" % (opened,))
+    box.command("kit", {"spec": "rhythm606"})
+    settle()
+    del opened[:]
     first = box.bus.kit
     song("bossa")
     check("a song on another kit builds it once, after the old one is closed",
-          [s for s, _ in opened] == ["rhythm606"] and all(gone for _, gone in opened)
-          and getattr(first, "inst", None) is None and box.kit_spec() == "rhythm606",
+          [s for s, _ in opened] == [kits.SOUNDFONT] and all(gone for _, gone in opened)
+          and getattr(first, "inst", None) is None and box.kit_spec() == kits.SOUNDFONT,
           "built %r" % (opened,))
     del opened[:]
     box.command("kit", {"spec": "no_such_kit"})
     settle()
     check("a kit that won't open leaves the one before playing",
-          box.kit_spec() == "rhythm606" and box.bus.kit is not None and "no_such_kit" in (box.error or ""),
+          box.kit_spec() == kits.SOUNDFONT and box.bus.kit is not None and "no_such_kit" in (box.error or ""),
           "playing %r, error %r" % (box.kit_spec(), box.error))
     kits.open_kit = real_open
     box.error = None

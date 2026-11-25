@@ -6,7 +6,7 @@
     python tools/backline/render.py SONG KIT OUT.wav [--log OUT.json]
 
 SONG is a starter song's name (``rock``) or a song file, KIT a kit spec
-(``rhythm909``, ``soundfont``, ``samples:/path/kit``). The script taps the
+(``soundfont``, ``rhythm909``, ``soundfont:/path/bank.sf2``). The script taps the
 song in, taps for the first fill, holds for the transition to the second
 main, taps for its fill and taps twice for the outro; the WAV runs on two
 seconds past the stop. The presses go through the pedal's own timing, on a

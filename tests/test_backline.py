@@ -13,8 +13,8 @@ one that isn't there is skipped, loudly. audioinstruments' ``lib``
 (``$HMILINK_PATH``, else an omnipython checkout beside this one) go on each
 interpreter's path. The kit checks need audiodsp installed or built in;
 without it they skip, and so do the plants only they catch.
-``BACKLINE_REQUIRE=1`` makes a skipped kit or panel check a failure; the
-SoundFont kit still skips without a bank, since none ships with the tests.
+``BACKLINE_REQUIRE=1`` makes a skipped kit or panel check a failure. The
+SoundFont kit plays a tiny bank the contract writes, so it never needs the network.
 
 The floor and desk views' checks need LVGL, svgio and icons (on CPython,
 omnipython-lvgl, omnipython-desktop, resvg-py and Pillow), and skip without
@@ -45,12 +45,14 @@ sys.path.insert(0, str(TESTS))
 from test_engine import _find, audio_checkout  # noqa: E402
 
 PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
-          "late-notes", "drop-pad", "no-choke", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
+          "late-notes", "drop-pad", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
           "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
           "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
           "ramp-jumps", "fill-moves-form", "migrate-forgets", "switch-bounces", "switch-inverted",
-          "switch-swapped")
-NEEDS_AUDIO = ("drop-pad", "no-choke", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals")
+          "switch-swapped", "machine-default", "lost-machine", "unchecked-fetch", "keep-partial", "no-fetch",
+          "stale-url")
+NEEDS_AUDIO = ("drop-pad", "deaf-panel", "edit-resets-form", "edit-not-heard", "deaf-pedals", "lost-machine",
+               "no-fetch")
 FLOOR_PLANTS = ("no-beat", "full-redraw", "deaf-lamp", "overflow", "stale-part", "dark-lamp", "four-beats", "truncate",
                 "dead-switch", "no-pulse", "mute-bar", "bar-while-stopped", "no-fallback", "screen-font", "wide-tempo")
 DESK_PLANTS = ("overflow", "wide-grid", "deaf-cell", "stale-grid", "still-strip", "all-rows", "deaf-fader",

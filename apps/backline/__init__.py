@@ -42,8 +42,10 @@ slow 12-bar blues at 72, 4 times through, slowing in the outro") from any
 OpenAI-compatible chat server, such as lite-assistant on your own network
 or DeepInfra: set ``base_url``, ``key_file`` and ``chat_model`` in
 ``settings.json`` in the app's data folder (``ask.py``). A song you keep is
-saved in that folder's ``songs``. Kits are audioinstruments' drum machines, the drum kit of a
-SoundFont (``kits.py`` says where it looks) and folders of WAV files.
+saved in that folder's ``songs``. The songs play on Backline's own SoundFont
+drum kit, fetched once when the app is installed or first started; the kit
+list also has audioinstruments' drum machines and the drum kit of any other
+SoundFont in a ``soundfonts`` folder (``kits.py`` says where it looks).
 
 Each view draws from an hmilink panel on the box's own device, so any
 other screen can join it the same way.

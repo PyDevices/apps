@@ -1,40 +1,34 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Backline's drum sounds: one interface over three kinds of kit.
+"""Backline's drum sounds: one interface over two kinds of kit.
 
+- The drum kit of a SoundFont bank (`SoundFontKit`), through
+  audioinstruments' ``soundfont_drums``. The ``soundfont`` kit, the one
+  Backline starts on, plays ``$SOUNDFONT`` when that is set, and otherwise
+  Backline's own bank, `DEFAULT_BANK`: a small General MIDI drum kit made from
+  the FreePats synthesizer percussion (CC0). Installing Backline on a board
+  with omip puts the bank in the app's ``soundfonts`` folder; with pip, or in a
+  frozen firmware, Backline fetches it on its first start (`fetch_default`).
+  Every other ``.sf2`` in a ``soundfonts`` folder is a kit of its own:
+  ``~/soundfonts`` on a computer, or the card's, flash's or the data root's
+  on a board.
 - A drum machine from audioinstruments (`DrumMachineKit`): ``rhythm606``,
   ``rhythm78``, ``rhythm808``, ``rhythm909`` and ``electronic_drums5``.
-- The drum kit of a SoundFont bank (`SoundFontKit`), through
-  audioinstruments' ``soundfont_drums``. The bank is ``$SOUNDFONT``, else the
-  first ``.sf2`` in ``~/soundfonts`` on a computer, or in the ``soundfonts``
-  folder on the card, flash or data root of a board.
-- A folder of WAV files and a ``kit.json`` (`SampleKit`), played by
-  audiodsp's ``audiosampler.Sampler``::
-
-      {"name": "Garage", "pads": {"36": "kick.wav", "38": {"file": "snare.wav", "level": 0.9}},
-       "choke": [[42, 44, 46]]}
-
-  A pad in a choke group stops the others in it, as a closed hi-hat stops
-  the open one. Kit folders are in ``$BACKLINE_KITS``, else
-  ``~/backline-kits`` on a computer, or the ``backline-kits`` folder on a
-  board's card, flash or data root.
 
 Every kit has ``name``, ``output`` (what the output plays),
 ``note_on(pitch, velocity, delay=0)`` with the delay in frames, ``fill()``,
 ``timed`` (True when it honours the delay) and ``close()``. `Bus` is the
 output the app plays, so a kit can be swapped while the song runs.
-
-A sample kit's pads can also come from somewhere other than a file:
-`SampleKit.set_pad` takes the samples, and `SampleKit.save_pad` writes them
-to the folder as a WAV and keeps them in ``kit.json``. A recorder hands its
-take to those two.
 """
 
-import json
 import os
-import struct
 import sys
+
+try:
+    import hashlib
+except ImportError:  # pragma: no cover - every port Backline runs on has it
+    hashlib = None
 
 RATE = 48000
 CHANNELS = 2
@@ -43,8 +37,16 @@ MACHINES = ("rhythm808", "rhythm909", "rhythm606", "rhythm78", "electronic_drums
 NAMES = {"rhythm808": "Rhythm 808", "rhythm909": "Rhythm 909", "rhythm606": "Rhythm 606",
          "rhythm78": "Rhythm 78", "electronic_drums5": "Electronic Drums 5"}
 SOUNDFONT = "soundfont"
-SAMPLES = "samples:"
-VOICES = 16
+#: The kit Backline plays when nothing names one.
+DEFAULT = SOUNDFONT
+#: Backline's own bank, which the ``soundfont`` kit plays unless ``$SOUNDFONT``
+#: names another. ``tools/backline/make_drums.py`` makes it; it is published
+#: at `DEFAULT_URL` and checked against `DEFAULT_SHA256` when fetched.
+DEFAULT_BANK = "backline-drums.sf2"
+DEFAULT_TITLE = "Backline Drums"
+DEFAULT_URL = "https://github.com/PyDevices/lib/releases/download/backline-drums-1/" + DEFAULT_BANK
+DEFAULT_SHA256 = "6f719656ecfa2b5ae8946402bb64c532086d682bad75816d7c6d58741b1ae095"
+DEFAULT_BYTES = 1657008
 DESKTOP = sys.implementation.name == "cpython" or sys.platform in (
     "linux", "darwin", "win32", "cygwin", "freebsd", "openbsd", "netbsd")
 
@@ -58,12 +60,18 @@ def home():
     return (getenv("USERPROFILE") or getenv("HOME") or "").replace("\\", "/")
 
 
-def _folders(desktop_name, board_name):
-    if DESKTOP:
-        return [home() + "/" + desktop_name]
-    from appkit import places
+def _here():
+    """This app's folder, where omip puts the bank, or None in a frozen firmware."""
+    path = globals().get("__file__", "").replace("\\", "/")
+    return path.rsplit("/", 1)[0] if "/" in path else None
 
-    return places.folders(board_name)
+
+def _exists(path):
+    try:
+        os.stat(path)
+        return True
+    except OSError:
+        return False
 
 
 def _listdir(folder):
@@ -73,32 +81,135 @@ def _listdir(folder):
         return []
 
 
-def find_bank():
-    """The SoundFont the SoundFont kit plays, or None when there is none."""
-    env = getenv("SOUNDFONT")
-    if env:
-        return env
-    for folder in _folders("soundfonts", "soundfonts"):
-        for name in _listdir(folder):
-            if name.lower().endswith(".sf2"):
-                return folder + "/" + name
+def bank_folders():
+    """Where other SoundFonts are found: ``~/soundfonts`` on a computer, the
+    ``soundfonts`` folder on the card, flash and data root of a board."""
+    if DESKTOP:
+        return [home() + "/soundfonts"]
+    from appkit import places
+
+    return places.folders("soundfonts")
+
+
+def default_folders():
+    """Where `DEFAULT_BANK` is looked for, in order: the app's own
+    ``soundfonts`` folder (omip's install), then Backline's data folder on a
+    computer, or the board's ``soundfonts`` folders (`fetch_default`'s)."""
+    here = _here()
+    found = [here + "/soundfonts"] if here else []
+    if DESKTOP:
+        from appkit import data
+
+        return found + [data.join(data.root(), "backline")]
+    return found + bank_folders()
+
+
+def default_bank():
+    """Where Backline's own bank is, or None before it has been fetched."""
+    for folder in default_folders():
+        if _exists(folder + "/" + DEFAULT_BANK):
+            return folder + "/" + DEFAULT_BANK
     return None
 
 
-def kit_folders():
-    """The sample kits on this device: folders holding a ``kit.json``."""
-    env = getenv("BACKLINE_KITS")
-    roots = [env] if env else _folders("backline-kits", "backline-kits")
+def find_bank():
+    """The bank the ``soundfont`` kit plays: ``$SOUNDFONT``, else `default_bank`."""
+    return getenv("SOUNDFONT") or default_bank()
+
+
+def other_banks():
+    """Every other ``.sf2`` in `bank_folders`, each a kit of its own."""
     found = []
-    for root in roots:
-        for name in _listdir(root):
-            path = root + "/" + name
-            try:
-                os.stat(path + "/kit.json")
-            except OSError:
-                continue
-            found.append(path)
+    for folder in bank_folders():
+        for name in _listdir(folder):
+            if name.lower().endswith(".sf2") and name != DEFAULT_BANK:
+                found.append(folder + "/" + name)
     return found
+
+
+def _fetch_folder():
+    if DESKTOP:
+        from appkit import data
+
+        return data.app_dir("backline")
+    from appkit import places
+
+    return places.write_folder("soundfonts")
+
+
+def _http_get(url, write):
+    """Stream ``url`` into ``write``, following redirects; the HTTP status."""
+    from appkit import net
+
+    r = net.requests().get(url, timeout=30)
+    try:
+        if r.status_code == 200:
+            if hasattr(r, "iter_content"):  # requests on a computer, adafruit_requests
+                for chunk in r.iter_content(4096):
+                    write(chunk)
+            else:  # MicroPython's requests: the socket
+                while True:
+                    chunk = r.raw.read(1024)
+                    if not chunk:
+                        break
+                    write(chunk)
+        return r.status_code
+    finally:
+        r.close()
+
+
+def _verify(got, sha256, url):
+    if got != sha256:
+        raise OSError("%s is not Backline's bank: its SHA-256 is %s" % (url, got))
+
+
+def fetch_default(folder=None, url=None, sha256=None, get=None):
+    """Download Backline's bank once, check it, and return where it is.
+
+    It goes to ``folder``: by default Backline's data folder on a computer, or
+    the first ``soundfonts`` folder that takes a file on a board (the card's,
+    when one is in). The file takes its name only once its SHA-256 matches, so
+    a failed or tampered download leaves nothing behind.
+
+    Args:
+        folder (str): Where to put it.
+        url (str): Where to fetch it from; `DEFAULT_URL` by default.
+        sha256 (str): The hex digest it must have; `DEFAULT_SHA256` by default.
+        get: ``get(url, write)`` streams the body into ``write`` and returns
+            the HTTP status; by default urllib on CPython, requests on a board.
+
+    Raises:
+        OSError: no network, an HTTP error, or the wrong bytes.
+    """
+    folder = folder or _fetch_folder()
+    url = url or DEFAULT_URL
+    sha256 = sha256 or DEFAULT_SHA256
+    path = folder + "/" + DEFAULT_BANK
+    part = path + ".part"
+    digest = hashlib.sha256()
+    try:
+        with open(part, "wb") as f:
+
+            def write(chunk):
+                digest.update(chunk)
+                f.write(chunk)
+
+            status = (get or _http_get)(url, write)
+        if status != 200:
+            raise OSError("HTTP %s from %s" % (status, url))
+        _verify("".join("%02x" % b for b in digest.digest()), sha256, url)
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        os.rename(part, path)
+    except BaseException:
+        try:
+            os.remove(part)
+        except OSError:
+            pass
+        raise
+    return path
 
 
 #: General MIDI's drum notes, for a kit that doesn't name its own.
@@ -110,13 +221,11 @@ GM_DRUMS = (
     (57, "Crash 2"), (59, "Ride 2"), (60, "High Bongo"), (61, "Low Bongo"), (62, "Mute Conga"),
     (63, "Open Conga"), (64, "Low Conga"), (69, "Cabasa"), (70, "Maracas"), (75, "Claves"),
 )
-SOURCES = (("machine", "Drum machines"), ("soundfont", "SoundFont"), ("samples", "Sample kits"))
+SOURCES = (("soundfont", "SoundFont"), ("machine", "Drum machines"))
 
 
 def source(spec):
-    """Which of the three kinds kit ``spec`` is: ``"machine"``, ``"soundfont"`` or ``"samples"``."""
-    if spec.startswith(SAMPLES):
-        return "samples"
+    """Which kind kit ``spec`` is: ``"soundfont"`` or ``"machine"``."""
     if spec == SOUNDFONT or spec.startswith(SOUNDFONT + ":"):
         return "soundfont"
     return "machine"
@@ -126,6 +235,8 @@ def title(spec):
     """What a screen calls kit ``spec``."""
     if spec in NAMES:
         return NAMES[spec]
+    if spec == SOUNDFONT and not getenv("SOUNDFONT"):
+        return DEFAULT_TITLE
     path = spec.split(":", 1)[1] if ":" in spec else (find_bank() or "")
     name = path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
     if name.lower().endswith(".sf2"):
@@ -139,27 +250,24 @@ def describe(specs):
 
 
 def available():
-    """Every kit this device can play, as the specs `open_kit` takes."""
-    specs = list(MACHINES)
-    if find_bank() is not None:
-        specs.append(SOUNDFONT)
-    specs.extend(SAMPLES + f for f in kit_folders())
-    return specs
+    """Every kit this device can play, as the specs `open_kit` takes: the
+    ``soundfont`` kit first, then the drum machines, then the other banks."""
+    return [SOUNDFONT] + list(MACHINES) + [SOUNDFONT + ":" + b for b in other_banks()]
 
 
 def open_kit(spec, rate=RATE):
-    """A kit from its spec: a drum machine's name, ``"soundfont"`` (or
-    ``"soundfont:/path/bank.sf2"``) or ``"samples:/path/folder"``."""
+    """A kit from its spec: ``"soundfont"``, ``"soundfont:/path/bank.sf2"``
+    or a drum machine's name."""
     if spec in MACHINES:
         return DrumMachineKit(spec, rate)
-    if spec == SOUNDFONT or spec.startswith(SOUNDFONT + ":"):
-        bank = spec[len(SOUNDFONT) + 1:] or find_bank()
+    if spec == SOUNDFONT:
+        bank = find_bank()
         if not bank:
-            raise OSError("no SoundFont: put a .sf2 in %s, or set SOUNDFONT" % (
-                "~/soundfonts" if DESKTOP else "a soundfonts folder"))
-        return SoundFontKit(bank, rate)
-    if spec.startswith(SAMPLES):
-        return SampleKit(spec[len(SAMPLES):], rate)
+            raise OSError("%s isn't here yet: it is fetched from %s, or put it in %s" % (
+                DEFAULT_BANK, DEFAULT_URL, default_folders()[-1]))
+        return SoundFontKit(bank, rate, spec)
+    if spec.startswith(SOUNDFONT + ":"):
+        return SoundFontKit(spec[len(SOUNDFONT) + 1:], rate, spec)
     raise ValueError("no kit %r" % (spec,))
 
 
@@ -206,144 +314,22 @@ class DrumMachineKit:
 class SoundFontKit(DrumMachineKit):
     """The standard drum kit of a SoundFont bank."""
 
-    def __init__(self, bank, rate=RATE):
+    def __init__(self, bank, rate=RATE, spec=None):
         import audioinstruments
 
-        self.spec = SOUNDFONT + ":" + bank
+        self.spec = spec or SOUNDFONT + ":" + bank
         self.bank = bank
         name = bank.replace("\\", "/").rsplit("/", 1)[-1]
-        self.name = name[:-4] if name.lower().endswith(".sf2") else name
+        if name == DEFAULT_BANK:
+            self.name = DEFAULT_TITLE
+        else:
+            self.name = name[:-4] if name.lower().endswith(".sf2") else name
         self.inst = audioinstruments.create("soundfont_drums", rate, CHANNELS, bank=bank)
         self.output = self.inst.output
         self._fill = getattr(self.inst, "fill", None)
 
     def voices(self):
         return [list(v) for v in GM_DRUMS]
-
-
-def read_wav(path):
-    """A WAV file's samples as mono signed 16-bit bytes, and its rate.
-    Stereo is mixed to mono; only 16-bit PCM is read."""
-    with open(path, "rb") as f:
-        data = f.read()
-    if data[:4] != b"RIFF" or data[8:12] != b"WAVE":
-        raise ValueError("%s isn't a WAV file" % path)
-    pos = 12
-    fmt = None
-    pcm = None
-    while pos + 8 <= len(data):
-        cid = data[pos:pos + 4]
-        size = struct.unpack("<I", data[pos + 4:pos + 8])[0]
-        body = data[pos + 8:pos + 8 + size]
-        if cid == b"fmt ":
-            fmt = struct.unpack("<HHIIHH", body[:16])
-        elif cid == b"data":
-            pcm = body
-        pos += 8 + size + (size & 1)
-    if fmt is None or pcm is None:
-        raise ValueError("%s has no audio" % path)
-    kind, channels, rate, _bps, _align, bits = fmt
-    if kind != 1 or bits != 16:
-        raise ValueError("%s: only 16-bit PCM WAV files play" % path)
-    if channels == 1:
-        return bytes(pcm), rate
-    frames = len(pcm) // (2 * channels)
-    out = bytearray(frames * 2)
-    for i in range(frames):
-        total = 0
-        for c in range(channels):
-            j = (i * channels + c) * 2
-            v = pcm[j] | (pcm[j + 1] << 8)
-            total += v - 65536 if v > 32767 else v
-        v = total // channels
-        out[2 * i] = v & 255
-        out[2 * i + 1] = (v >> 8) & 255
-    return bytes(out), rate
-
-
-def write_wav(path, samples, rate):
-    """Mono signed 16-bit ``samples`` (bytes) to a WAV file."""
-    with open(path, "wb") as f:
-        f.write(b"RIFF" + struct.pack("<I", 36 + len(samples)) + b"WAVE")
-        f.write(b"fmt " + struct.pack("<IHHIIHH", 16, 1, 1, rate, rate * 2, 2, 16))
-        f.write(b"data" + struct.pack("<I", len(samples)))
-        f.write(samples)
-
-
-class SampleKit:
-    """A folder of WAV files, one per pad, on an ``audiosampler.Sampler``."""
-
-    timed = True
-
-    def __init__(self, folder, rate=RATE, voices=VOICES):
-        import audiosampler
-
-        self._audiosampler = audiosampler
-        self.folder = folder.rstrip("/")
-        self.spec = SAMPLES + self.folder
-        self.rate = rate
-        with open(self.folder + "/kit.json") as f:
-            self.info = json.load(f)
-        self.name = self.info.get("name") or self.folder.rsplit("/", 1)[-1]
-        self.sampler = audiosampler.Sampler(voice_count=voices, channel_count=CHANNELS, sample_rate=rate)
-        self.output = self.sampler
-        self.pads = {}            # pitch -> (buffer, rate, level)
-        self.playing = {}         # pitch -> voice index
-        self.chokes = {}          # pitch -> the pitches it stops
-        self._next = 0
-        for group in self.info.get("choke", []):
-            for p in group:
-                self.chokes[int(p)] = [int(q) for q in group if q != p]
-        for key, pad in self.info.get("pads", {}).items():
-            if isinstance(pad, str):
-                pad = {"file": pad}
-            samples, srate = read_wav(self.folder + "/" + pad["file"])
-            self.set_pad(int(key), samples, srate, pad.get("level", 1.0))
-
-    def set_pad(self, pitch, samples, rate, level=1.0):
-        """Play ``samples`` (mono signed 16-bit bytes at ``rate``) on ``pitch``."""
-        buf = self._audiosampler.SampleBuffer(len(samples))
-        memoryview(buf)[:] = samples
-        self.pads[pitch] = (buf, rate, level)
-
-    def save_pad(self, pitch, filename=None):
-        """Write pad ``pitch`` to the kit's folder as a WAV and name it in ``kit.json``."""
-        buf, rate, level = self.pads[pitch]
-        filename = filename or "pad%d.wav" % pitch
-        write_wav(self.folder + "/" + filename, bytes(buf), rate)
-        self.info.setdefault("pads", {})[str(pitch)] = {"file": filename, "level": level}
-        with open(self.folder + "/kit.json", "w") as f:
-            json.dump(self.info, f)
-
-    def voices(self):
-        names = dict(GM_DRUMS)
-        return [[p, names.get(p, "Pad %d" % p)] for p in sorted(self.pads)]
-
-    def note_on(self, pitch, velocity, delay=0):
-        pad = self.pads.get(pitch)
-        if pad is None:
-            return
-        for other in self.chokes.get(pitch, ()):
-            v = self.playing.pop(other, None)
-            if v is not None:
-                self.sampler.voice[v].stop()
-        v = self._next
-        self._next = (v + 1) % len(self.sampler.voice)
-        buf, rate, level = pad
-        self.sampler.voice[v].play(buf, rate=rate, level=level * velocity / 127.0, delay=delay / self.rate)
-        self.playing[pitch] = v
-
-    def fill(self):
-        pass
-
-    def close(self):
-        if self.sampler is not None:
-            self.sampler.stop()
-            self.sampler.deinit()
-            self.sampler = None
-        for buf, _rate, _level in self.pads.values():
-            buf.deinit()
-        self.pads = {}
 
 
 class Bus:
