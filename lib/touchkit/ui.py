@@ -56,9 +56,10 @@ def plain(obj):
 
 
 def status(scope):
-    """The app's status line: the right end of the shell's header, or a
-    label at the top right of ``scope.root`` without one, kept clear of a
-    Home button at the top left."""
+    """The app's status line: the one on the status bar (or in its row under
+    the bar on a narrow screen, or beside the title under the compact cap),
+    or a label at the top right of ``scope.root`` without one, kept clear of
+    a Home button at the top left."""
     lbl = getattr(scope, "status", None)
     if lbl is None:
         lbl = label(scope.root, "", small, MUTED)

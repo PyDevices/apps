@@ -175,6 +175,40 @@ def _plant_header_kept():
     B.Bar._clear_header = lambda self: None
 
 
+def _plant_row_always():
+    # The status row shows as soon as an app opens, text or not.
+    real = B.Bar.open
+
+    def opened(self, title, status=True):
+        out = real(self, title, status)
+        if status and self.under is not None:
+            self.under.remove_flag(lv.obj.FLAG.HIDDEN)
+        return out
+
+    B.Bar.open = opened
+
+
+def _plant_row_never():
+    # Setting status text never brings the row in.
+    B.Bar._status_set = lambda self: None
+
+
+def _plant_home_untitled():
+    # Home gets no title and no header on the bar.
+    from appkit.shell import Shell as S
+
+    S.home_title = lambda self: ""
+    real = S._title
+    S._title = lambda self, scope: None if scope.name == self.launcher.home else real(self, scope)
+
+
+def _plant_round_row_off():
+    # The round title row runs edge to edge, out past the circle.
+    from touchkit import shell as touch
+
+    touch.round_row = lambda size, y, margin=4: (0, size)
+
+
 def _plant_touch_header_behind_bar():
     from touchkit import shell as touch
 
@@ -191,6 +225,10 @@ PLANTS = {
     "touch_header_behind_bar": _plant_touch_header_behind_bar,
     "status_over_title": _plant_status_over_title,
     "header_kept": _plant_header_kept,
+    "row_always": _plant_row_always,
+    "row_never": _plant_row_never,
+    "home_untitled": _plant_home_untitled,
+    "round_row_off": _plant_round_row_off,
     "mirror_hidden": _plant_mirror_hidden,
     "gauge_ignored": _plant_gauge_ignored,
 }
@@ -489,6 +527,8 @@ la.switch("whole")
 settle()
 check(tb.header.get_child_count() == 1 and tb.status_line is None,
       "Home's bar has the title and nothing an app left: %r" % (tb.header.get_child_count(),))
+check(tb.title.get_text() == "Home" and seen["whole"].header is tb.header,
+      "Home's title is Home, and its header is the bar's, for its own buttons: %r" % (tb.title.get_text(),))
 la.info["framed"] = {}
 la.switch("framed")
 settle()
@@ -499,7 +539,8 @@ settle()
 scope = seen["whole"]
 check(scope.rect == (0, tb.height, SW, SH - tb.height), "TouchShell's home screen is below the bar: %r" % (scope.rect,))
 
-# A narrow screen: the status line has its own row under the bar.
+# A narrow screen: the status line has a row of its own under the bar,
+# which shows the first time the app sets some text, and not before.
 la.shell = None
 tb.close()
 real_under = B.STATUS_ROW_UNDER
@@ -511,14 +552,38 @@ la.switch("framed")
 settle()
 scope = seen["framed"]
 nb = narrow.bar
+check(nb.status_below and nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect == (0, nb.height, SW, SH - nb.height),
+      "an app that sets no status keeps the whole area below the bar: %r" % (scope.rect,))
+scope.status.set_text("joining")
+settle()
 row = coords(nb.under)
-check(nb.status_below and row[1] == nb.height and coords(scope.status)[1] >= nb.height,
-      "the status line is in a row under the bar: %r" % (row,))
-check(scope.rect == (0, nb.height + row[3], SW, SH - nb.height - row[3]), "the app starts under that row: %r" % (scope.rect,))
+check(not nb.under.has_flag(lv.obj.FLAG.HIDDEN) and row[1] == nb.height and coords(scope.status)[1] >= nb.height,
+      "its first status text brings the row in under the bar: %r" % (row,))
+check(scope.rect == (0, nb.height + row[3], SW, SH - nb.height - row[3]),
+      "and the app's area gives it room: %r" % (scope.rect,))
+scope.status.set_text("")
+settle()
+check(not nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect[1] == nb.height + row[3],
+      "the row stays while the app is open, so its area moves once: %r" % (scope.rect,))
+scope.bar.hide()
+check(nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect == (0, 0, SW, SH), "hiding the bar hides the row too")
+scope.bar.show()
+check(not nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect[1] == nb.height + row[3], "and showing it brings both back")
 la.switch("whole")
 settle()
 check(nb.under.has_flag(lv.obj.FLAG.HIDDEN) and seen["whole"].rect[1] == nb.height,
       "Home has no status line, so no row: %r" % (seen["whole"].rect,))
+la.switch("framed")
+settle()
+check(nb.under.has_flag(lv.obj.FLAG.HIDDEN) and seen["framed"].rect[1] == nb.height,
+      "the next app starts without the row again: %r" % (seen["framed"].rect,))
+
+# A round screen under the cap: the title row starts and ends inside the circle.
+for size, y in ((240, touch.CAP_ROW), (360, touch.CAP_ROW), (240, 60)):
+    x0, x1 = touch.round_row(size, y)
+    r = size // 2
+    inside = all((x - r) ** 2 + (y - r) ** 2 <= (r - 4) ** 2 for x in (x0, x1))
+    check(inside and x1 - x0 > size // 2, "the row at y=%d on a %d px circle is inside it: %r" % (y, size, (x0, x1)))
 
 print("%d checks, %d failed" % (checks[0], len(failures)))
 sys.exit(1 if failures else 0)

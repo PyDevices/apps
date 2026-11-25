@@ -16,7 +16,8 @@ from _harness import TESTS, need_micropython, run
 
 CONTRACT = TESTS / "bar_contract.py"
 PLANTS = ("redraws_all", "root_under_bar", "items_stay", "overlays_die", "home_everywhere", "no_way_home",
-          "touch_header_behind_bar", "mirror_hidden", "gauge_ignored", "status_over_title", "header_kept")
+          "touch_header_behind_bar", "mirror_hidden", "gauge_ignored", "status_over_title", "header_kept",
+          "row_always", "row_never", "home_untitled", "round_row_off")
 
 
 def _run(case, interpreter, plant=None):

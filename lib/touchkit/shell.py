@@ -8,7 +8,8 @@
   then the clock and the icons. ``scope.header`` is the bar's stretch that
   holds the title, and ``scope.root`` is everything below the bar. Under
   the compact cap, which has no room for a title, the app gets a short
-  header of its own below the cap instead. An app whose ``app.json`` says ``"bar": "none"``
+  row of its own below the cap instead, with Home at its left; on a round
+  screen the row starts and ends inside the circle (`round_row`). An app whose ``app.json`` says ``"bar": "none"``
   gets the whole screen, with a Home button on LVGL's system layer, where it
   never presses the app's own widgets. Without the bar (``bar=False``) every
   app gets the header with that Home button at its left. The board's BOOT
@@ -28,6 +29,7 @@ import multimer
 from multimer import ticks_diff, ticks_ms
 
 from appkit import Launcher, Shell, foreground
+from appkit.shell import ROUND_MARGIN, is_round
 
 from . import ui
 
@@ -70,6 +72,20 @@ def _set_launcher(running):
     launcher = running
 
 
+def _cap_title_row():
+    """The height of the title row under the compact cap."""
+    return ui.small.line_height + 6
+
+
+def round_row(size, y, margin=ROUND_MARGIN):
+    """``(x0, x1)``: where a row *y* pixels down a round screen *size*
+    pixels across starts and ends, *margin* pixels inside the circle."""
+    r = size // 2
+    dy = r - y
+    half = int(max(0, (r - margin) * (r - margin) - dy * dy) ** 0.5)
+    return r - half, r + half
+
+
 def _under_cap(shell):
     """Whether the status bar is the compact cap: then the Home button is
     just its icon, clear of the cap."""
@@ -92,7 +108,14 @@ class TouchShell(Shell):
 
     def make_home_button(self):
         b = lv.button(lv.layer_sys())
-        if _under_cap(self):
+        if _under_cap(self) and is_round():
+            # The corners are outside the circle: at the left of the title
+            # row, inside it.
+            x0, _ = round_row(lv.display_get_default().get_horizontal_resolution(), CAP_ROW)
+            b.set_size(CAP_HOME_W, _cap_title_row() - 2)
+            b.set_pos(x0, CAP_ROW + 1)
+            b.set_ext_click_area(4)
+        elif _under_cap(self):
             # Beside the cap, in its row: the icon alone.
             b.set_size(CAP_HOME_W, CAP_ROW - 4)
             b.set_pos(4, 2)
@@ -174,12 +197,19 @@ class TouchShell(Shell):
             parent = self.bar_area(scr)
             parent.set_flex_flow(lv.FLEX_FLOW.COLUMN)
             parent.set_style_pad_row(0, 0)
-            hdr_h = CAP_ROW + ui.small.line_height + 6
-            top, left, f = CAP_ROW, 8, ui.small
+            hdr_h = CAP_ROW + _cap_title_row()
+            top, f = CAP_ROW, ui.small
+            if is_round():
+                # Inside the circle where the row starts: Home, then the
+                # title, then the status line, the whole row centred.
+                x0, x1 = round_row(w, CAP_ROW)
+                left, right = x0 + CAP_HOME_W + 6, w - x1
+            else:
+                left, right = 8, 8
         else:
             parent = scr
             hdr_h = ui.HEADER
-            top, left = 0, ui.HOME_W + 24
+            top, left, right = 0, ui.HOME_W + 24, 16
             f = ui.big if w >= 480 else ui.font
         hdr = ui.plain(lv.obj(parent))
         hdr.set_size(w, hdr_h)
@@ -188,20 +218,20 @@ class TouchShell(Shell):
         title = self.launcher.info.get(scope.name, {}).get("title", scope.name)
         # A narrow screen gets the smaller font, and a title that still
         # doesn't fit ends in dots rather than running off the edge.
-        t = ui.label(hdr, title, f, ui.ACCENT)
+        t = ui.label(hdr, title, f, ui.WHITE)
         t.set_long_mode(lv.label.LONG_MODE.DOTS)
-        t.set_size(w - left - 16, f.line_height)
+        t.set_size(w - left - right, f.line_height)
         t.align(lv.ALIGN.LEFT_MID, left, top // 2)
         status = ui.label(hdr, "", ui.tiny if bar else ui.small, ui.MUTED)
         status.set_long_mode(lv.label.LONG_MODE.DOTS)
         status.set_style_max_width(w // 2, 0)
         status.set_height(status.get_style_text_font(0).line_height)  # dots, never a second line
-        status.align(lv.ALIGN.RIGHT_MID, -8 if bar else -16, top // 2)
+        status.align(lv.ALIGN.RIGHT_MID, -right, top // 2)
 
         def fit(e=None):
             # The title gives way first: it takes what the status line leaves.
             sw = status.get_width() + 8 if status.get_text() else 0
-            t.set_width(max(40, w - left - 16 - sw))
+            t.set_width(max(40, w - left - right - sw))
 
         status.add_event_cb(fit, lv.EVENT.SIZE_CHANGED, None)
         scope.header = hdr

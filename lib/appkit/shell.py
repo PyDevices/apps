@@ -192,13 +192,14 @@ class Shell:
     def _title(self, scope):
         """Put *scope*'s title on the bar, and give an app under it the
         bar's header and a fresh status line (``scope.header``,
-        ``scope.status``). The home screen gets `home_title` and no status
-        line; an app with its own bar or none gets an empty title."""
+        ``scope.status``). The home screen gets `home_title` and the header
+        for buttons of its own, but no status line; an app with its own bar
+        or none gets an empty title."""
         bar = self.bar
         if bar.header is None:   # the compact cap has no room for one
             return
         if scope.name == self.launcher.home:
-            bar.open(self.home_title(), status=False)
+            scope.header, _ = bar.open(self.home_title(), status=False)
         elif self.bar_mode(scope) == "shell":
             title = getattr(self.launcher, "info", {}).get(scope.name, {}).get("title", scope.name)
             scope.header, scope.status = bar.open(title)
@@ -206,15 +207,10 @@ class Shell:
             bar.open("", status=False)
 
     def home_title(self):
-        """What the bar says on the home screen, which has no title of its
-        own: the board's name, as the network knows it, so a bench of boards
-        tells apart at a glance. Empty where there's no ``boarddev``."""
-        try:
-            import boarddev
-
-            return boarddev.name() or ""
-        except Exception:  # noqa: BLE001 - no boarddev, or no name yet
-            return ""
+        """What the bar says on the home screen: "Home", which names the
+        screen as every other title names its app. Override it for another,
+        such as the board's name on a bench of boards."""
+        return "Home"
 
     def _corner_home(self, scope):
         """Whether *scope*'s app gets the corner Home button: away from the

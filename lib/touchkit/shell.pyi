@@ -13,6 +13,8 @@ from . import ui as ui
 TOUCH_MS: int
 launcher: Launcher | None
 boot_presses: int
+CAP_ROW: int
+CAP_HOME_W: int
 
 class TouchLauncher(Launcher):
     """appkit's launcher, keeping the last switches."""
@@ -31,6 +33,8 @@ class TouchShell(Shell):
         """Hand the BOOT button to the running app until the returned function is called."""
     def make_root(self, scope: AppScope) -> Any: ...
 
+def round_row(size: int, y: int, margin: int = ...) -> tuple[int, int]:
+    """Where a row `y` pixels down a round screen starts and ends, inside the circle."""
 def go(name: str) -> None:
     """Switch to app `name` after the current callback."""
 def redraw_home_button() -> None:

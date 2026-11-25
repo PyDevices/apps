@@ -23,7 +23,7 @@ keywords = ["lvgl", "controls", "apps", "micropython"]
 dependencies = []
 
 [project.optional-dependencies]
-apps = ["omnipython-desktop>=0.8.1.dev4", "omnipython-lvgl"]
+apps = ["omnipython-desktop>=0.8.1.dev5", "omnipython-lvgl"]
 
 [tool.setuptools.dynamic]
 version = { file = "VERSION" }

@@ -229,12 +229,23 @@ leave its button lit.
 
 ## The status bar
 
-`appkit.run()` puts a bar along the top of the screen: Home, the clock, the
-network, Bluetooth, the audio output, a cast icon while the screen is being
-mirrored, and the battery where the board reports one, with a button at the
-right that opens the picker. Each app gets the
-screen below it, `scope.root`, and should size itself from `scope.size`
-rather than the display. An app that wants the whole screen says so in its
+`appkit.run()` puts a bar along the top of the screen: Home, the app's title
+and its status line, then the clock, the network, Bluetooth, the audio
+output, a cast icon while the screen is being mirrored, and the battery where
+the board reports one, with a button at the right that opens the picker. It
+is 32 px tall on a screen under 480 px tall and 40 px from there up. Each app
+gets the screen below it, `scope.root`, and should size itself from
+`scope.size` rather than the display.
+
+`scope.status` is the app's status line: set its text to say what the app is
+doing. A long title ends in dots before the status line does. On a screen
+under 480 px wide the status line has a row of its own under the bar, which
+shows the first time the app sets some text, and moves the app's area down
+once to make room; an app that never sets one keeps the whole area.
+`scope.header` is the stretch of the bar that holds the title, for a small
+control of the app's own; it's cleared when the next app opens. On the home
+screen the title is "Home" (`Shell.home_title()`), and Home puts its
+settings and hidden-apps buttons in the header. An app that wants the whole screen says so in its
 `app.json` with `"bar": "none"`, and one that draws its own bar says
 `"bar": "own"` and reads what to show from `scope.bar.status()`. Those apps
 get the Home button in the corner instead. `appkit.run(bar=False)` leaves the
@@ -253,7 +264,9 @@ when the app closes. `scope.bar.hide()` gives the app the whole screen for a
 while (a video, a game) and `show()` gives the strip back. On a round screen
 or one under 320x240 the bar is a small cap at the top with the clock, the
 network and the battery, and tapping it opens the picker; Home is the corner
-button there. The bar checks its items once a second and redraws only those
+button there. touchkit's shell gives each app a short row under the cap for
+its title and status line, inside the circle on a round screen, with Home at
+its left. The bar checks its items once a second and redraws only those
 that changed. Its icons come from the `icons` package, which needs a firmware
 with `ttfio` on a board and freetype-py on a computer.
 

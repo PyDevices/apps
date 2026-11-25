@@ -19,7 +19,9 @@ bar between Home and the clock that holds its title, and ``scope.status``,
 its status line, at the header's right. The title gives way first: it ends
 in dots, down to `TITLE_MIN`, before the status line does. On a screen
 under `STATUS_ROW_UNDER` wide the status line has a row of its own under
-the bar instead.
+the bar instead, which shows from the first time the app sets its text:
+an app with no status keeps that row for itself. The home screen's title
+is `Shell.home_title`, "Home", and Home puts its own buttons in the header.
 
 An app reaches the bar as ``scope.bar``: `hide` and `show` it for a while (a
 video, a game), or `add` an item of its own, which goes when the app closes::
@@ -58,14 +60,14 @@ FULL_ICON = 24
 TITLE_MIN = 72
 #: Under this screen width the status line has its own row below the bar.
 STATUS_ROW_UNDER = 480
-#: The title's colour (LVGL's teal, touchkit's accent) and the status line's.
-TITLE = 0x009688
-MUTED = 0x9E9E9E
 #: How often the bar reads its items, in milliseconds.
 TICK_MS = 1000
 #: The bar's colours: its background, and its icons and text.
 BACKGROUND = 0x202020
 FOREGROUND = 0xFFFFFF
+#: The title's colour, and the status line's.
+TITLE = FOREGROUND
+MUTED = 0x9E9E9E
 #: Under this width or height the bar is the compact cap.
 FULL_MIN = (320, 240)
 
@@ -384,11 +386,31 @@ class Bar:
         if self.status_below:
             st.set_style_max_width(self.under.get_width() - 2 * self._title_x(), 0)
             st.align(lv.ALIGN.LEFT_MID, self._title_x(), 0)
+            st.add_event_cb(lambda e: self._status_set(), lv.EVENT.SIZE_CHANGED, None)
         else:
             st.align(lv.ALIGN.RIGHT_MID, 0, 0)
             st.add_event_cb(lambda e: self._fit_header(), lv.EVENT.SIZE_CHANGED, None)
         self.status_line = st
         return st
+
+    def _status_set(self):
+        """The status line in the row under the bar changed size: the first
+        time it holds text, the row shows, and the app's area gives it room.
+        It stays until the next app opens, so the area moves once at most."""
+        st, under = self.status_line, self.under
+        if st is None or under is None or not st.get_text():
+            return
+        if not self.is_shown():
+            self._under_was = True   # `show` brings it back
+            return
+        if under.has_flag(lv.obj.FLAG.HIDDEN):
+            under.remove_flag(lv.obj.FLAG.HIDDEN)
+            if self._on_change is not None:
+                # This runs inside LVGL's layout pass, which can't measure
+                # the app's area again: that waits for a timer of its own.
+                # Kept: a dropped timer is deleted.
+                self._refit = lv.timer_create(lambda t: self._on_change(True), 0, None)
+                self._refit.set_repeat_count(1)
 
     def _title_x(self):
         """Where the title starts on the screen: past Home and the gap."""
@@ -413,10 +435,9 @@ class Bar:
             self.status_line.delete()
             self.status_line = None
         if self.under is not None:
-            if st is not None and self.is_shown():
-                self.under.remove_flag(lv.obj.FLAG.HIDDEN)
-            else:
-                self.under.add_flag(lv.obj.FLAG.HIDDEN)
+            # Out of sight until the app first sets some text (`_status_set`).
+            self.under.add_flag(lv.obj.FLAG.HIDDEN)
+            self._under_was = False
         self._fit_header()
         return self.header, st
 
