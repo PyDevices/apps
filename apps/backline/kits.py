@@ -47,6 +47,10 @@ DEFAULT_TITLE = "Backline Drums"
 DEFAULT_URL = "https://github.com/PyDevices/lib/releases/download/backline-drums-1/" + DEFAULT_BANK
 DEFAULT_SHA256 = "6f719656ecfa2b5ae8946402bb64c532086d682bad75816d7c6d58741b1ae095"
 DEFAULT_BYTES = 1657008
+#: Backline's data folder, which the app sets from its scope; a computer keeps
+#: the fetched bank there. Leaving the import of appkit to the app keeps this
+#: module, and the box, free of LVGL.
+data_folder = None
 DESKTOP = sys.implementation.name == "cpython" or sys.platform in (
     "linux", "darwin", "win32", "cygwin", "freebsd", "openbsd", "netbsd")
 
@@ -93,14 +97,12 @@ def bank_folders():
 
 def default_folders():
     """Where `DEFAULT_BANK` is looked for, in order: the app's own
-    ``soundfonts`` folder (omip's install), then Backline's data folder on a
-    computer, or the board's ``soundfonts`` folders (`fetch_default`'s)."""
+    ``soundfonts`` folder (omip's install), then `data_folder` on a computer,
+    or the board's ``soundfonts`` folders (`fetch_default`'s)."""
     here = _here()
     found = [here + "/soundfonts"] if here else []
     if DESKTOP:
-        from appkit import data
-
-        return found + [data.join(data.root(), "backline")]
+        return found + ([data_folder] if data_folder else [])
     return found + bank_folders()
 
 
@@ -110,6 +112,12 @@ def default_bank():
         if _exists(folder + "/" + DEFAULT_BANK):
             return folder + "/" + DEFAULT_BANK
     return None
+
+
+def where():
+    """Where to put `DEFAULT_BANK` by hand, for a message."""
+    folders = default_folders()
+    return folders[-1] if folders else "a soundfonts folder"
 
 
 def find_bank():
@@ -129,9 +137,9 @@ def other_banks():
 
 def _fetch_folder():
     if DESKTOP:
-        from appkit import data
-
-        return data.app_dir("backline")
+        if not data_folder:
+            raise OSError("Backline has no data folder to fetch its bank into")
+        return data_folder
     from appkit import places
 
     return places.write_folder("soundfonts")
@@ -166,7 +174,7 @@ def _verify(got, sha256, url):
 def fetch_default(folder=None, url=None, sha256=None, get=None):
     """Download Backline's bank once, check it, and return where it is.
 
-    It goes to ``folder``: by default Backline's data folder on a computer, or
+    It goes to ``folder``: by default `data_folder` on a computer, or
     the first ``soundfonts`` folder that takes a file on a board (the card's,
     when one is in). The file takes its name only once its SHA-256 matches, so
     a failed or tampered download leaves nothing behind.
@@ -264,7 +272,7 @@ def open_kit(spec, rate=RATE):
         bank = find_bank()
         if not bank:
             raise OSError("%s isn't here yet: it is fetched from %s, or put it in %s" % (
-                DEFAULT_BANK, DEFAULT_URL, default_folders()[-1]))
+                DEFAULT_BANK, DEFAULT_URL, where()))
         return SoundFontKit(bank, rate, spec)
     if spec.startswith(SOUNDFONT + ":"):
         return SoundFontKit(spec[len(SOUNDFONT) + 1:], rate, spec)

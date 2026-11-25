@@ -254,6 +254,7 @@ def start(scope):
     ask_settings, trouble = None, None
     try:
         data = scope.data_dir
+        kits.data_folder = data
         ask_settings = askmod.load_settings(data + "/settings.json")
     except (ValueError, AttributeError) as e:
         data, trouble = None, "settings: %s" % (e,)

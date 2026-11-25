@@ -204,7 +204,7 @@ class Box:
         self.fetching = False
         if error is not None:
             self.error = "no drums: %s. Pick a drum machine, or put %s in %s" % (
-                error, kits.DEFAULT_BANK, kits.default_folders()[-1])
+                error, kits.DEFAULT_BANK, kits.where())
         elif self.kit_spec() is None:
             self.use_kit(kits.DEFAULT)
         self.device.event("kit", spec=self.kit_spec(), error=self.error, voices=self.voices())
