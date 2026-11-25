@@ -33,10 +33,11 @@ import json
 from multimer import ticks_diff, ticks_ms
 
 from appkit import data as appdata
+from appkit.shell import is_round
 from touchkit import settings, ui
 
 from . import glyphs
-from .screen import BANDS, Screen, calls_switch
+from .screen import BANDS, Screen, calls_switch, switch_header
 
 UI_MS = 250  # how often the app reads the sink
 BARS_MS = 66  # how often the spectrum moves
@@ -227,7 +228,10 @@ def main(scope):
     on = {"play": toggle, "next": sink.next, "previous": sink.previous, "seek": sink.seek, "volume": volume,
           "repeat": repeat, "shuffle": shuffle, "answer": answer, "hangup": hangup, "mute": mute,
           "route": route_audio}
-    scr = Screen(scope.root, scope.size, on)
+    W, H = scope.size
+    rect = getattr(scope, "rect", None) or (0, 0, W, H)
+    round_ = W == H and tuple(rect[:2]) == (0, 0) and is_round()
+    scr = Screen(scope.root, scope.size, on, switch=switch_header(scope) is None, round_=round_)
     st = state = {"sink": sink, "hf": None, "out": None, "rate": 0, "levels": None, "screen": scr, "t0": ticks_ms(),
                   "call_out": None, "mic": None, "muted": False, "talking": False, "answered": None,
                   "takes_audio": True, "config": config}
@@ -522,7 +526,7 @@ def main(scope):
     show_modes()
     scr.show_volume(sink.volume)
     route()
-    st["switch"] = calls_switch(scope, config["calls"], set_calls)
+    st["switch"] = calls_switch(scope, config["calls"], set_calls, scr.lay)
     if config["calls"]:
         open_phone()
     scope.every(UI_MS, follow)

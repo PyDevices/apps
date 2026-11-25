@@ -5,7 +5,8 @@
 
 Bluetooth Receiver's screen on a display with no window, against the app's
 demo phone: pairing, connected, playing, paused and a track with no cover,
-with its buttons and volume slider driven by touch.
+with its buttons and volume slider driven by touch. Then btreceiver_layout.py:
+the screen at every display size, everything inside it.
 
 Each half needs LVGL, svgio, jpegio and multimer. A half whose interpreter
 lacks them skips, loudly; ``BTRECEIVER_REQUIRE=1`` makes that a failure.
@@ -26,6 +27,7 @@ import unittest
 TESTS = Path(__file__).resolve().parent
 LIB = TESTS.parent / "lib"
 CONTRACT = TESTS / "btreceiver_contract.py"
+LAYOUT = TESTS / "btreceiver_layout.py"
 
 
 def _can_run(interpreter):
@@ -63,10 +65,10 @@ def _env():
     return env
 
 
-def _run(interpreter, *args):
+def _run(interpreter, script, *args):
     env = _env()
     return subprocess.run(
-        [interpreter, str(CONTRACT)] + list(args),
+        [interpreter, str(script)] + list(args),
         cwd=str(TESTS),
         env=env,
         capture_output=True,
@@ -87,12 +89,17 @@ class _Contract:
             sys.stderr.write("\n*** " + message + " ***\n")
             self.skipTest(message)
 
-    def contract(self, *args):
-        result = _run(self.interpreter, *args)
+    def contract(self, script=CONTRACT):
+        result = _run(self.interpreter, script)
         return result, result.stdout + result.stderr
 
     def test_the_screen_follows_the_phone(self):
         result, out = self.contract()
+        self.assertEqual(result.returncode, 0, out)
+        self.assertIn("ALL PASSED", out)
+
+    def test_the_screen_fits_every_display(self):
+        result, out = self.contract(LAYOUT)
         self.assertEqual(result.returncode, 0, out)
         self.assertIn("ALL PASSED", out)
 

@@ -21,8 +21,15 @@ omip.install("github:PyDevices/apps/apps/btreceiver")
 Home shows it on the Audio page. It needs a firmware with `btclassic`, and
 plays through the board config's `audio_out` on the audio pump. The spectrum
 needs audiodsp's `audiometer`; without it the app plays with no spectrum.
-Made for an 800 x 480 screen. The cover and its buffers take about 350 KB,
-so it wants a board with PSRAM.
+The screen lays itself out for the display it's on. At 800 x 480 the cover
+fills the left and the rest stacks beside it. At 480 x 320 and 320 x 240 a
+smaller cover sits beside the track, and the progress line, the transport and
+the volume run along the bottom. On a square or round screen everything
+stacks down the middle, and the cover, then the album and track details, give
+way when there's no room for them. The cover and its buffers take about
+350 KB, so it wants a board with PSRAM.
+
+![Bluetooth Receiver at 480 x 320: a smaller cover beside the title, artist, album and track number, with the progress line, the transport, shuffle, repeat and the volume along the bottom](docs/images/playing-480x320.png)
 
 ![Bluetooth Receiver on an ESP32-S31 board with a 4.3-inch screen: the track beside its cover, the Phone calls and battery switch on at the top right, and the phone's signal bars and battery above the title](docs/images/board.png)
 
@@ -133,6 +140,8 @@ PYTHONPATH=lib python -c "import appkit; appkit.run('btreceiver')"
 python apps/btreceiver/tools/shots.py
 ```
 
-Give it a folder first to save them somewhere else.
+Give it a folder first to save them somewhere else, `--size 480x320` for
+another display size, and `--round` with a square size to see it as a round
+screen shows it.
 
 Made by [PyDevices](https://pydevices.com).
