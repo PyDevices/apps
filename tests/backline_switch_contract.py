@@ -46,7 +46,8 @@ from backline.desk import grid as gridmod  # noqa: E402
 from backline.desk import perform as performmod  # noqa: E402
 
 PLANTS = ("poll-mid-switch", "tele-mid-draw", "rebuild-same-kit", "build-beside-old", "lose-kit",
-          "rewrite-digits", "hold-notes", "lay-out-hidden", "drop-held", "relay-same-song")
+          "rewrite-digits", "hold-notes", "lay-out-hidden", "drop-held", "relay-same-song",
+          "collect-playing", "no-redraw-pass", "keep-redraw-pass")
 W, H = 800, 480
 RESULTS = [0, 0]
 
@@ -155,6 +156,22 @@ def plant(name):
             old_rebuild(self, *args)
         performmod.Perform.on_doc = on_doc
         editormod.Editor.rebuild = rebuild
+    elif name == "collect-playing":
+        old_init = app.Views.__init__
+
+        def __init__(self, *args, **kwargs):
+            kwargs.pop("playing", None)
+            old_init(self, *args, **kwargs)
+        app.Views.__init__ = __init__
+    elif name == "no-redraw-pass":
+        art.redraws = lambda fn: (lambda: None)
+    elif name == "keep-redraw-pass":
+        real_redraws = art.redraws
+
+        def redraws(fn):
+            real_redraws(fn)
+            return lambda: None
+        art.redraws = redraws
     else:
         raise SystemExit("no such plant: %r" % name)
 
@@ -220,7 +237,7 @@ def main():
         box.service()
 
     views = app.Views(lambda on_switch: floor.Floor(scr, (W, H), panel, on_switch=on_switch), make_desk,
-                      service=service)
+                      service=service, playing=lambda: box.engine.transport["playing"])
 
     def settle():
         for _ in range(3):
@@ -269,6 +286,56 @@ def main():
               "p" in trace and run <= 1,
               "%d pictures, %d passes, at most %d pictures in a row" % (trace.count("p"), trace.count("s"), run))
         settle()
+
+    # While a song plays, a switch leaves the heap to collect itself: a
+    # collection is one step it can't break up. Stopped, it collects first.
+    collected = [0]
+    real_gc = app.gc
+
+    class CountedGc:
+        @staticmethod
+        def collect():
+            collected[0] += 1
+            real_gc.collect()
+
+    app.gc = CountedGc
+    try:
+        views.show("desk")
+        settle()
+        views.show("floor")
+        settle()
+        while_playing = collected[0]
+        box.engine.stop()
+        views.show("desk")
+        settle()
+        stopped = collected[0] - while_playing
+        play()
+        views.show("floor")
+        settle()
+    finally:
+        app.gc = real_gc
+    check("a switch while a song plays doesn't collect the heap", while_playing == 0,
+          "collected %d times in two switches" % while_playing)
+    check("a switch while the song is stopped collects the heap first", stopped == 1,
+          "collected %d times" % stopped)
+
+    # LVGL sends the screen to the display a piece at a time, and the box's
+    # pass runs before each piece; after the app stops it, it doesn't.
+    passes = [0]
+
+    def redraw_pass():
+        passes[0] += 1
+
+    stop = art.redraws(redraw_pass)
+    lv.screen_active().invalidate()
+    _headless.refresh()
+    ran = passes[0]
+    stop()
+    lv.screen_active().invalidate()
+    _headless.refresh()
+    check("the box's pass runs as LVGL sends the screen to the display", ran >= 1, "ran %d times" % ran)
+    check("it stops running there when the app stops it", passes[0] == ran,
+          "ran %d more times" % (passes[0] - ran))
 
     # Telemetry that reaches the floor while it draws its art again, with a
     # tempo the floor hasn't shown: its digits aren't drawn yet.
