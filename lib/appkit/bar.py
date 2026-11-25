@@ -233,7 +233,7 @@ def _font_up_to(px):
         f = getattr(lv, "font_montserrat_%d" % size, None)
         if f is not None:
             return f
-    return lv.font_default()
+    return lv.font_get_default()
 
 
 def _plain(obj):

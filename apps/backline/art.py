@@ -353,7 +353,7 @@ class Layout:
             f = getattr(lv, "font_montserrat_%d" % size, None)
             if f is not None and (best is None or size <= want):
                 best = f
-        return best or lv.font_default()
+        return best or lv.font_get_default()
 
 
 def panel_svg(lay, steps=4, group=1):

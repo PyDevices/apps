@@ -37,7 +37,7 @@ def font(px):
         f = getattr(lv, "font_montserrat_%d" % size, None)
         if f is not None and (best is None or size <= px):
             best = f
-    return best or lv.font_default()
+    return best or lv.font_get_default()
 
 
 def plain(obj):

@@ -368,7 +368,7 @@ def _fonts(limit):
         font = getattr(lv, "font_montserrat_%d" % size, None)
         if font is not None and (not fonts or size <= limit):
             fonts.append(font)
-    return fonts or [lv.font_default()]
+    return fonts or [lv.font_get_default()]
 
 
 def _font_for(short):
