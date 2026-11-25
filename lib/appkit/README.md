@@ -240,8 +240,10 @@ gets the screen below it, `scope.root`, and should size itself from
 `scope.status` is the app's status line: set its text to say what the app is
 doing. A long title ends in dots before the status line does. On a screen
 under 480 px wide the status line has a row of its own under the bar, which
-shows the first time the app sets some text, and moves the app's area down
-once to make room; an app that never sets one keeps the whole area.
+shows the first time the app asks for `scope.status`. The app's area moves
+down to make room right then, so `scope.size` and `scope.rect` are smaller
+afterwards: ask for the status line before you place anything from them. An
+app that never asks keeps the whole area.
 `scope.header` is the stretch of the bar that holds the title, for a small
 control of the app's own; it's cleared when the next app opens. On the home
 screen the title is "Home" (`Shell.home_title()`), and Home puts its

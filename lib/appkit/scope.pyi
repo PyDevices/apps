@@ -44,6 +44,8 @@ class AppScope:
     bar: Any
     size: tuple[int, int] | None
     rect: tuple[int, int, int, int] | None
+    status: Any
+    def status_later(self, make: Callable[[], Any]) -> None: ...
     problems: list[str]
     retained: int | None
     free_after_close: int | None

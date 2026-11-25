@@ -189,8 +189,21 @@ def _plant_row_always():
 
 
 def _plant_row_never():
-    # Setting status text never brings the row in.
-    B.Bar._status_set = lambda self: None
+    # Asking for the status line never brings the row in.
+    B.Bar.status_row = lambda self: self._new_status()
+
+
+def _plant_row_late():
+    # The row comes in, but the app's area makes room for it a frame later,
+    # after the app has placed its screen.
+    def late(self):
+        st = self._new_status()
+        self.under.remove_flag(lv.obj.FLAG.HIDDEN)
+        self._late = lv.timer_create(lambda t: self._on_change(True), 0, None)
+        self._late.set_repeat_count(1)
+        return st
+
+    B.Bar.status_row = late
 
 
 def _plant_home_untitled():
@@ -227,6 +240,7 @@ PLANTS = {
     "header_kept": _plant_header_kept,
     "row_always": _plant_row_always,
     "row_never": _plant_row_never,
+    "row_late": _plant_row_late,
     "home_untitled": _plant_home_untitled,
     "round_row_off": _plant_round_row_off,
     "mirror_hidden": _plant_mirror_hidden,
@@ -540,7 +554,8 @@ scope = seen["whole"]
 check(scope.rect == (0, tb.height, SW, SH - tb.height), "TouchShell's home screen is below the bar: %r" % (scope.rect,))
 
 # A narrow screen: the status line has a row of its own under the bar,
-# which shows the first time the app sets some text, and not before.
+# which shows the first time the app asks for it, and not before; the app's
+# area makes room for it right then, before the app places anything.
 la.shell = None
 tb.close()
 real_under = B.STATUS_ROW_UNDER
@@ -553,15 +568,19 @@ settle()
 scope = seen["framed"]
 nb = narrow.bar
 check(nb.status_below and nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect == (0, nb.height, SW, SH - nb.height),
-      "an app that sets no status keeps the whole area below the bar: %r" % (scope.rect,))
-scope.status.set_text("joining")
+      "an app that asks for no status keeps the whole area below the bar: %r" % (scope.rect,))
+st = ui.status(scope)
+row_h = nb.under.get_height()
+check(st is not None and not nb.under.has_flag(lv.obj.FLAG.HIDDEN),
+      "asking for the status line brings the row in under the bar")
+check(scope.rect == (0, nb.height + row_h, SW, SH - nb.height - row_h),
+      "and the app's area gives it room at once, before the app places anything: %r" % (scope.rect,))
+st.set_text("joining")
 settle()
 row = coords(nb.under)
-check(not nb.under.has_flag(lv.obj.FLAG.HIDDEN) and row[1] == nb.height and coords(scope.status)[1] >= nb.height,
-      "its first status text brings the row in under the bar: %r" % (row,))
-check(scope.rect == (0, nb.height + row[3], SW, SH - nb.height - row[3]),
-      "and the app's area gives it room: %r" % (scope.rect,))
-scope.status.set_text("")
+check(row[1] == nb.height and coords(st)[1] >= nb.height, "the status text is in the row: %r" % (row,))
+check(scope.status is st, "asking again gives the same status line")
+st.set_text("")
 settle()
 check(not nb.under.has_flag(lv.obj.FLAG.HIDDEN) and scope.rect[1] == nb.height + row[3],
       "the row stays while the app is open, so its area moves once: %r" % (scope.rect,))
@@ -577,6 +596,20 @@ la.switch("framed")
 settle()
 check(nb.under.has_flag(lv.obj.FLAG.HIDDEN) and seen["framed"].rect[1] == nb.height,
       "the next app starts without the row again: %r" % (seen["framed"].rect,))
+# An app that can't run here says so with `ui.missing`, as it builds: its
+# message and its "Hide from Home" button stay on the screen under the row.
+scope = seen["framed"]
+msg = ui.missing(scope, "no camera", "No camera here. This app needs a board with a camera, or a folder of pictures set as its source.")
+settle()
+hide = None
+for i in range(scope.root.get_child_count()):
+    c = scope.root.get_child(i)
+    if c.get_child_count() == 1 and getattr(c.get_child(0), "get_text", lambda: "")() == "Hide from Home":
+        hide = c
+check(hide is not None, "ui.missing put a Hide from Home button on the app's area")
+if hide is not None:
+    hx, hy, hw, hh = coords(hide)
+    check(hy >= scope.rect[1] and hy + hh <= SH, "the button is whole on the screen, below the row: %r in %r" % ((hx, hy, hw, hh), scope.rect))
 
 # A round screen under the cap: the title row starts and ends inside the circle.
 for size, y in ((240, touch.CAP_ROW), (360, touch.CAP_ROW), (240, 60)):

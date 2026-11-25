@@ -190,6 +190,8 @@ class AppScope:
         self.bar = None
         self.size = None
         self.rect = None
+        self._status = None
+        self._make_status = None
         self._worker = None
         self._data_dir = None
         self._closed = False
@@ -223,6 +225,29 @@ class AppScope:
         return tuple(t for t in self._timers if t.running)
 
     # -- services -------------------------------------------------------
+
+    @property
+    def status(self):
+        """The app's status line on the shell's bar (an LVGL label), or None.
+        On a narrow screen it is made the first time it's asked for, and the
+        app's area makes room for its row then: ``scope.size`` and
+        ``scope.rect`` are smaller afterwards. ``touchkit.ui.status`` asks."""
+        st = self._status
+        if st is None and self._make_status is not None:
+            make, self._make_status = self._make_status, None
+            st = self._status = make()
+        return st
+
+    @status.setter
+    def status(self, value):
+        self._status = value
+        self._make_status = None
+
+    def status_later(self, make):
+        """Have ``make()`` build the status line when the app first asks for
+        ``scope.status``. The shell calls this before ``main``."""
+        self._status = None
+        self._make_status = make
 
     @property
     def worker(self):

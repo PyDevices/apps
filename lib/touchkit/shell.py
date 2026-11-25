@@ -29,7 +29,7 @@ import multimer
 from multimer import ticks_diff, ticks_ms
 
 from appkit import Launcher, Shell, foreground
-from appkit.shell import ROUND_MARGIN, is_round
+from appkit import shell as appshell
 
 from . import ui
 
@@ -79,9 +79,12 @@ def _cap_title_row():
     return ui.small.line_height + 6
 
 
-def round_row(size, y, margin=ROUND_MARGIN):
+def round_row(size, y, margin=None):
     """``(x0, x1)``: where a row *y* pixels down a round screen *size*
-    pixels across starts and ends, *margin* pixels inside the circle."""
+    pixels across starts and ends, *margin* pixels inside the circle
+    (appkit's ``ROUND_MARGIN`` by default)."""
+    if margin is None:
+        margin = appshell.ROUND_MARGIN
     r = size // 2
     dy = r - y
     half = int(max(0, (r - margin) * (r - margin) - dy * dy) ** 0.5)
@@ -110,7 +113,7 @@ class TouchShell(Shell):
 
     def make_home_button(self):
         b = lv.button(lv.layer_sys())
-        if _under_cap(self) and is_round():
+        if _under_cap(self) and appshell.is_round():
             # The corners are outside the circle: at the left of the title
             # row, inside it.
             x0, _ = round_row(lv.display_get_default().get_horizontal_resolution(), CAP_ROW)
@@ -201,7 +204,7 @@ class TouchShell(Shell):
             parent.set_style_pad_row(0, 0)
             hdr_h = CAP_ROW + _cap_title_row()
             top, f = CAP_ROW, ui.small
-            if is_round():
+            if appshell.is_round():
                 # Inside the circle where the row starts: Home, then the
                 # title, then the status line, the whole row centred.
                 x0, x1 = round_row(w, CAP_ROW)

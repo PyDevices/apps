@@ -192,7 +192,8 @@ class Shell:
     def _title(self, scope):
         """Put *scope*'s title on the bar, and give an app under it the
         bar's header and a fresh status line (``scope.header``,
-        ``scope.status``). The home screen gets `home_title` and the header
+        ``scope.status``; on a narrow screen that one is made, with its row,
+        when the app first asks). The home screen gets `home_title` and the header
         for buttons of its own, but no status line; an app with its own bar
         or none gets an empty title."""
         bar = self.bar
@@ -203,6 +204,8 @@ class Shell:
         elif self.bar_mode(scope) == "shell":
             title = getattr(self.launcher, "info", {}).get(scope.name, {}).get("title", scope.name)
             scope.header, scope.status = bar.open(title)
+            if bar.status_below:
+                scope.status_later(bar.status_row)
         else:
             bar.open("", status=False)
 

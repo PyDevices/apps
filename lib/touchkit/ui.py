@@ -59,7 +59,9 @@ def status(scope):
     """The app's status line: the one on the status bar (or in its row under
     the bar on a narrow screen, or beside the title under the compact cap),
     or a label at the top right of ``scope.root`` without one, kept clear of
-    a Home button at the top left."""
+    a Home button at the top left. On a narrow screen asking for it brings
+    its row in and shrinks ``scope.size`` and ``scope.rect``, so ask before
+    placing anything from them."""
     lbl = getattr(scope, "status", None)
     if lbl is None:
         lbl = label(scope.root, "", small, MUTED)

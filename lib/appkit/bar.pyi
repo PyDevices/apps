@@ -83,6 +83,8 @@ class Bar:
     ) -> None: ...
     def open(self, title: str, status: bool = True) -> tuple[Any, Any]:
         """Set the bar up for the app being opened: its title, and a fresh status line."""
+    def status_row(self) -> Any:
+        """The status line in its row under the bar, made when the app first asks; the area makes room at once."""
     def chrome_height(self) -> int:
         """How much of the screen's top the bar takes while it shows."""
     def default_items(self) -> list[Item]:

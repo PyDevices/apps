@@ -175,8 +175,8 @@ def main(scope):
     folder = scope.data_dir
     cred_path = folder + "/" + CRED_FILE
     root = scope.root
-    W, H = scope.size
     status = ui.status(scope)
+    W, H = scope.size
     speaker = _speaker_available()
     st = state = {
         "phase": "wifi", "dev": None, "pcm": None, "client": None, "pb": None, "my_id": None,

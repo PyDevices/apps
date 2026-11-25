@@ -19,8 +19,10 @@ bar between Home and the clock that holds its title, and ``scope.status``,
 its status line, at the header's right. The title gives way first: it ends
 in dots, down to `TITLE_MIN`, before the status line does. On a screen
 under `STATUS_ROW_UNDER` wide the status line has a row of its own under
-the bar instead, which shows from the first time the app sets its text:
-an app with no status keeps that row for itself. The home screen's title
+the bar instead, which shows from the first time the app asks for
+``scope.status``, and the app's area and ``scope.rect`` shrink right then:
+ask for it before placing anything from ``scope.rect``. An app with no
+status keeps that row for itself. The home screen's title
 is `Shell.home_title`, "Home", and Home puts its own buttons in the header.
 
 An app reaches the bar as ``scope.bar``: `hide` and `show` it for a while (a
@@ -386,31 +388,26 @@ class Bar:
         if self.status_below:
             st.set_style_max_width(self.under.get_width() - 2 * self._title_x(), 0)
             st.align(lv.ALIGN.LEFT_MID, self._title_x(), 0)
-            st.add_event_cb(lambda e: self._status_set(), lv.EVENT.SIZE_CHANGED, None)
         else:
             st.align(lv.ALIGN.RIGHT_MID, 0, 0)
             st.add_event_cb(lambda e: self._fit_header(), lv.EVENT.SIZE_CHANGED, None)
         self.status_line = st
         return st
 
-    def _status_set(self):
-        """The status line in the row under the bar changed size: the first
-        time it holds text, the row shows, and the app's area gives it room.
-        It stays until the next app opens, so the area moves once at most."""
-        st, under = self.status_line, self.under
-        if st is None or under is None or not st.get_text():
-            return
+    def status_row(self):
+        """The running app's status line in the row under the bar, made the
+        first time the app asks for it (``scope.status``): the row shows,
+        and the app's area gives it room at once, before the app places
+        anything from ``scope.rect``. It stays until the next app opens, so
+        the area moves once at most, and an app that never asks keeps it."""
+        st = self._new_status()
         if not self.is_shown():
             self._under_was = True   # `show` brings it back
-            return
-        if under.has_flag(lv.obj.FLAG.HIDDEN):
-            under.remove_flag(lv.obj.FLAG.HIDDEN)
+        else:
+            self.under.remove_flag(lv.obj.FLAG.HIDDEN)
             if self._on_change is not None:
-                # This runs inside LVGL's layout pass, which can't measure
-                # the app's area again: that waits for a timer of its own.
-                # Kept: a dropped timer is deleted.
-                self._refit = lv.timer_create(lambda t: self._on_change(True), 0, None)
-                self._refit.set_repeat_count(1)
+                self._on_change(True)
+        return st
 
     def _title_x(self):
         """Where the title starts on the screen: past Home and the gap."""
@@ -422,20 +419,21 @@ class Bar:
         and with *status* a fresh, empty status line (in its row under the
         bar on a narrow screen). What the last app put in the header goes.
         Returns ``(header, status line)``; both None on the compact cap, and
-        the status line None without *status*."""
+        the status line None without *status* or on a narrow screen, where
+        `status_row` makes it when the app first asks."""
         if self.header is None:
             return None, None
         self._clear_header()
         self.title.set_text(title or "")
         self._title_w = self._text_width(title or "", self.title_font)
         st = None
-        if status:
+        if status and not self.status_below:
             st = self._new_status()
         elif self.status_line is not None:
             self.status_line.delete()
             self.status_line = None
         if self.under is not None:
-            # Out of sight until the app first sets some text (`_status_set`).
+            # Out of sight until the app first asks for it (`status_row`).
             self.under.add_flag(lv.obj.FLAG.HIDDEN)
             self._under_was = False
         self._fit_header()
