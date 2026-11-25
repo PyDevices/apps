@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.3rc3
+
+- Home and Wake word fit a 170 px wide screen, such as the T-Display-S3 and T-Embed. Home starts its own row below the status bar's cap when the cap would cover its title and buttons, and Wake word lays itself out from the app's area: the ring beside the text on a wide screen and above it on a tall or square one. A missing model's message also shows under the ring, where it wraps.
+
 ## 0.1.3rc2
 
 - Each app and each shared library is its own package on the library index. An app's package.json lists, under `applibs`, the libraries it imports, and `lib/applibs.json` says what each library needs, so `omip.install("app-btreceiver")` brings only appkit, controlkit, deskkit, spectrum and touchkit. The libraries no longer pull in the instruments; MIDI Engine still names audioinstruments and audioeffects in its own package.
