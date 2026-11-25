@@ -36,8 +36,13 @@ RATE = 48000
 CHANNELS = 2
 BLOCK = 256
 MACHINES = ("rhythm808", "rhythm909", "rhythm606", "rhythm78", "electronic_drums5")
-NAMES = {"rhythm808": "Rhythm 808", "rhythm909": "Rhythm 909", "rhythm606": "Rhythm 606",
-         "rhythm78": "Rhythm 78", "electronic_drums5": "Electronic Drums 5"}
+NAMES = {
+    "rhythm808": "Rhythm 808",
+    "rhythm909": "Rhythm 909",
+    "rhythm606": "Rhythm 606",
+    "rhythm78": "Rhythm 78",
+    "electronic_drums5": "Electronic Drums 5",
+}
 SOUNDFONT = "soundfont"
 #: The kit Backline plays when nothing names one.
 DEFAULT = SOUNDFONT
@@ -46,7 +51,10 @@ DEFAULT = SOUNDFONT
 #: at `DEFAULT_URL` and checked against `DEFAULT_SHA256` when fetched.
 DEFAULT_BANK = "backline-drums.sf2"
 DEFAULT_TITLE = "Backline Drums"
-DEFAULT_URL = "https://github.com/PyDevices/lib/releases/download/backline-drums-1/" + DEFAULT_BANK
+DEFAULT_URL = (
+    "https://github.com/PyDevices/lib/releases/download/backline-drums-1/"
+    + DEFAULT_BANK
+)
 DEFAULT_SHA256 = "6f719656ecfa2b5ae8946402bb64c532086d682bad75816d7c6d58741b1ae095"
 DEFAULT_BYTES = 1657008
 #: The module a firmware freezes `DEFAULT_BANK` into, its ``BANK`` the bank's
@@ -59,7 +67,14 @@ FROZEN_MODULE = "backline_drums"
 #: module, and the box, free of LVGL.
 data_folder = None
 DESKTOP = sys.implementation.name == "cpython" or sys.platform in (
-    "linux", "darwin", "win32", "cygwin", "freebsd", "openbsd", "netbsd")
+    "linux",
+    "darwin",
+    "win32",
+    "cygwin",
+    "freebsd",
+    "openbsd",
+    "netbsd",
+)
 
 
 def getenv(name):
@@ -121,13 +136,25 @@ def default_bank():
     return None
 
 
+def reads_from_memory():
+    """Whether this audioinstruments plays a bank held in memory, such as one
+    frozen into the firmware; an older one opens banks from files only."""
+    try:
+        import audioinstruments._rack._sf2  # noqa: F401 - a full name, past _rack's lazy attributes
+    except ImportError:
+        return False
+    return hasattr(sys.modules["audioinstruments._rack._sf2"].SoundFont, "sample_view")
+
+
 def frozen_bank():
-    """Backline's bank frozen into the firmware, as bytes, or None."""
+    """Backline's bank frozen into the firmware, as bytes, or None when there
+    is none or this audioinstruments can't play it (`reads_from_memory`)."""
     try:
         module = __import__(FROZEN_MODULE)
     except ImportError:
         return None
-    return getattr(module, "BANK", None)
+    bank = getattr(module, "BANK", None)
+    return bank if bank is not None and reads_from_memory() else None
 
 
 def where():
@@ -239,12 +266,38 @@ def fetch_default(folder=None, url=None, sha256=None, get=None):
 
 #: General MIDI's drum notes, for a kit that doesn't name its own.
 GM_DRUMS = (
-    (35, "Kick 2"), (36, "Kick"), (37, "Side Stick"), (38, "Snare"), (39, "Clap"), (40, "Snare 2"),
-    (41, "Low Floor Tom"), (42, "Closed Hat"), (43, "Floor Tom"), (44, "Pedal Hat"), (45, "Low Tom"),
-    (46, "Open Hat"), (47, "Low Mid Tom"), (48, "High Mid Tom"), (49, "Crash"), (50, "High Tom"),
-    (51, "Ride"), (52, "China"), (53, "Ride Bell"), (54, "Tambourine"), (55, "Splash"), (56, "Cowbell"),
-    (57, "Crash 2"), (59, "Ride 2"), (60, "High Bongo"), (61, "Low Bongo"), (62, "Mute Conga"),
-    (63, "Open Conga"), (64, "Low Conga"), (69, "Cabasa"), (70, "Maracas"), (75, "Claves"),
+    (35, "Kick 2"),
+    (36, "Kick"),
+    (37, "Side Stick"),
+    (38, "Snare"),
+    (39, "Clap"),
+    (40, "Snare 2"),
+    (41, "Low Floor Tom"),
+    (42, "Closed Hat"),
+    (43, "Floor Tom"),
+    (44, "Pedal Hat"),
+    (45, "Low Tom"),
+    (46, "Open Hat"),
+    (47, "Low Mid Tom"),
+    (48, "High Mid Tom"),
+    (49, "Crash"),
+    (50, "High Tom"),
+    (51, "Ride"),
+    (52, "China"),
+    (53, "Ride Bell"),
+    (54, "Tambourine"),
+    (55, "Splash"),
+    (56, "Cowbell"),
+    (57, "Crash 2"),
+    (59, "Ride 2"),
+    (60, "High Bongo"),
+    (61, "Low Bongo"),
+    (62, "Mute Conga"),
+    (63, "Open Conga"),
+    (64, "Low Conga"),
+    (69, "Cabasa"),
+    (70, "Maracas"),
+    (75, "Claves"),
 )
 SOURCES = (("soundfont", "SoundFont"), ("machine", "Drum machines"))
 
@@ -288,11 +341,13 @@ def open_kit(spec, rate=RATE):
     if spec == SOUNDFONT:
         bank = find_bank()
         if not bank:
-            raise OSError("%s isn't here yet: it is fetched from %s, or put it in %s" % (
-                DEFAULT_BANK, DEFAULT_URL, where()))
+            raise OSError(
+                "%s isn't here yet: it is fetched from %s, or put it in %s"
+                % (DEFAULT_BANK, DEFAULT_URL, where())
+            )
         return SoundFontKit(bank, rate, spec)
     if spec.startswith(SOUNDFONT + ":"):
-        return SoundFontKit(spec[len(SOUNDFONT) + 1:], rate, spec)
+        return SoundFontKit(spec[len(SOUNDFONT) + 1 :], rate, spec)
     raise ValueError("no kit %r" % (spec,))
 
 
@@ -317,7 +372,9 @@ class DrumMachineKit:
         mod = getattr(audioinstruments, self.spec, None)
         if mod is None:
             try:
-                mod = __import__("audioinstruments." + self.spec, None, None, ["NOTE_MAP"])
+                mod = __import__(
+                    "audioinstruments." + self.spec, None, None, ["NOTE_MAP"]
+                )
             except ImportError:
                 mod = None
         table = getattr(mod, "NOTE_MAP", None)
@@ -345,12 +402,18 @@ class SoundFontKit(DrumMachineKit):
 
         self.spec = spec or SOUNDFONT + ":" + bank
         self.bank = bank
-        name = bank.replace("\\", "/").rsplit("/", 1)[-1] if isinstance(bank, str) else DEFAULT_BANK
+        name = (
+            bank.replace("\\", "/").rsplit("/", 1)[-1]
+            if isinstance(bank, str)
+            else DEFAULT_BANK
+        )
         if name == DEFAULT_BANK:
             self.name = DEFAULT_TITLE
         else:
             self.name = name[:-4] if name.lower().endswith(".sf2") else name
-        self.inst = audioinstruments.create("soundfont_drums", rate, CHANNELS, bank=bank)
+        self.inst = audioinstruments.create(
+            "soundfont_drums", rate, CHANNELS, bank=bank
+        )
         self.output = self.inst.output
         self._fill = getattr(self.inst, "fill", None)
 
@@ -364,8 +427,14 @@ class Bus:
     def __init__(self, rate=RATE, level=0.9):
         import audiomixer
 
-        self.mixer = audiomixer.Mixer(voice_count=1, sample_rate=rate, channel_count=CHANNELS,
-                                      bits_per_sample=16, samples_signed=True, buffer_size=BLOCK * 4)
+        self.mixer = audiomixer.Mixer(
+            voice_count=1,
+            sample_rate=rate,
+            channel_count=CHANNELS,
+            bits_per_sample=16,
+            samples_signed=True,
+            buffer_size=BLOCK * 4,
+        )
         self.mixer.voice[0].level = level
         self.output = self.mixer
         self.kit = None
