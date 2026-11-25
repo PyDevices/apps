@@ -122,11 +122,8 @@ class Contract(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn(" 0 failed", result.stdout)
         if REQUIRE:
-            # The frozen bank plays only on an audioinstruments that opens a
-            # bank from bytes, which the pinned release doesn't yet.
             skipped = [line for line in result.stdout.splitlines()
-                       if line.startswith("skip ") and not line.startswith("skip the SoundFont kit")
-                       and not line.startswith("skip the frozen bank plays: this audioinstruments")]
+                       if line.startswith("skip ") and not line.startswith("skip the SoundFont kit")]
             self.assertEqual(skipped, [], result.stdout)
         return result
 
