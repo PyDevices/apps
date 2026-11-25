@@ -130,6 +130,22 @@ def _pages(info, hidden=()):
     return out
 
 
+def _below_cap(scope, title, right):
+    """How far Home's own row has to move down to clear the status bar's
+    compact cap, which floats at the top middle: 0 when the cap fits between
+    *title* and the buttons, which start at *right*, else the cap's height."""
+    cap = getattr(scope, "bar", None)
+    if cap is None or not cap.compact or not cap.is_shown():
+        return 0
+    cap.root.update_layout()
+    title.update_layout()
+    w = cap.root.get_width()
+    left = (scope.size[0] - w) // 2
+    if left >= title.get_x() + title.get_width() + 4 and left + w + 4 <= right:
+        return 0
+    return cap.root.get_y() + cap.root.get_height() + 4
+
+
 def main(scope):
     scr = scope.root
     W, H = scope.size
@@ -165,9 +181,14 @@ def main(scope):
     # its own row of TOP pixels.
     header = None if round_ else getattr(scope, "header", None)
     top = 0 if header is not None else TOP
+    drop = 0  # how far Home's own row moves down, to clear the status bar's cap
     if not round_ and header is None:
         title = ui.label(scr, "Home", ui.big, ui.ACCENT)
         title.set_pos(GAP + 4, 14)
+        drop = _below_cap(scope, title, W - GAP - (64 + GAP) * ((gear_app is not None) + bool(scope.launcher.hidden())))
+        if drop:
+            title.set_y(14 + drop)
+            top += drop
     if header is not None:
         header.update_layout()
         bh = header.get_height() - 4
@@ -190,7 +211,7 @@ def main(scope):
             lvicons.image(gear, "settings", 24, ui.WHITE).center()
         else:
             gear.set_size(64, TOP - 12)
-            gear.align(lv.ALIGN.TOP_RIGHT, -GAP, 6)
+            gear.align(lv.ALIGN.TOP_RIGHT, -GAP, 6 + drop)
             gear.set_style_radius(12, 0)
             lvicons.image(gear, "settings", 24, ui.WHITE).center()
         gear.add_event_cb(lambda e: scope.switch(gear_app), lv.EVENT.CLICKED, None)
@@ -209,7 +230,7 @@ def main(scope):
                 shown.set_style_pad_all(0, 0)
             else:
                 shown.set_size(64, TOP - 12)
-                shown.align(lv.ALIGN.TOP_RIGHT, -GAP - (64 + GAP if gear_app is not None else 0), 6)
+                shown.align(lv.ALIGN.TOP_RIGHT, -GAP - (64 + GAP if gear_app is not None else 0), 6 + drop)
                 shown.set_style_radius(12, 0)
             lvicons.image(shown, "visibility_off", 24, ui.WHITE).center()
             shown.add_event_cb(lambda e: _hidden_page(scope, hidden), lv.EVENT.CLICKED, None)
