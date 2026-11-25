@@ -65,12 +65,13 @@ and make `main.py` say `import midi_module`. The other settings (`tx`, `rate`,
 [`midi_module.py`](midi_module.py). Sixteen voices with no effects is what a
 classic ESP32 holds at 44.1 kHz.
 
-A sample is read from the bank the first time a note plays it, and the note
-waits until it's read. From a big bank on a slow card that can be seconds,
-and MIDI arriving in the meantime waits too. At start the program times a
-read of the bank and, when its largest sample would take 100 ms or more,
-says how long a note can wait. A smaller bank, or a faster card, plays
-without the wait.
+A sample is read from the bank the first time a note plays it. The note
+starts at once, and the sample fills in as the card reads it, the notes
+about to run out first, so MIDI never waits for the card. From a big bank on
+a slow card, a new note can start quiet for a moment. At start the program
+times a read of the bank and says so when its largest sample takes 100 ms
+or more to read. A smaller bank, or a faster card, plays every note whole
+from its first moment.
 
 ## Check it without a MIDI cable
 

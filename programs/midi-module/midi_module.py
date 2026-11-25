@@ -159,15 +159,23 @@ def read_speed(path, nbytes=32768):
     return got * 1000 // max(ms, 1)
 
 
-# A note waits while its sample is read from the bank the first time.
+# A sample is read from the bank the first time a note plays it. A bank that
+# reads in pieces (it has fill()) starts the note at once and fills the
+# sample in as the card reads it; an older one makes the note wait.
 speed = read_speed(bank)
 largest = max((s.end - s.start) * 2 for s in module.loaded.font.samples)
 wait_ms = largest * 1000 // speed
 if wait_ms >= SLOW_MS:
-    print("midi_module: %s reads at %d KB/s, so a note waits up to %.1f s the first time it plays a sample"
-          " (the largest is %d KB). A smaller bank, on flash or a faster card, plays without the wait."
-          % (name, speed // 1024, wait_ms / 1000, largest // 1024))
-    show(3, "Slow: notes wait %.1f s" % (wait_ms / 1000))
+    if hasattr(module.loaded, "fill"):
+        print("midi_module: %s reads at %d KB/s, so a new note can start quiet while its sample fills in"
+              " (the largest takes %.1f s). A smaller bank, on flash or a faster card, plays it whole."
+              % (name, speed // 1024, wait_ms / 1000))
+        show(3, "Slow: new notes fill in")
+    else:
+        print("midi_module: %s reads at %d KB/s, so a note waits up to %.1f s the first time it plays a sample"
+              " (the largest is %d KB). A smaller bank, on flash or a faster card, plays without the wait."
+              % (name, speed // 1024, wait_ms / 1000, largest // 1024))
+        show(3, "Slow: notes wait %.1f s" % (wait_ms / 1000))
 
 # The output. The pump pulls the engine's mix from here on.
 if board.has("audio_power"):
