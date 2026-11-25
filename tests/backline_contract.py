@@ -43,46 +43,13 @@ from backline import midipedal  # noqa: E402
 from backline import pedal as pedals  # noqa: E402
 from songmodel import model  # noqa: E402
 
-PLANTS = (
-    "no-hold",
-    "no-double",
-    "switch-now",
-    "no-return",
-    "no-wrap",
-    "outro-forever",
-    "fill-ignores-main",
-    "late-notes",
-    "drop-pad",
-    "deaf-panel",
-    "song-without-outro",
-    "four-steps",
-    "deaf-mix",
-    "form-out-of-order",
-    "tap-sticks",
-    "edit-resets-form",
-    "edit-not-heard",
-    "learn-on-release",
-    "cc-no-release",
-    "pc-as-pedal",
-    "any-channel",
-    "tempo-no-reset",
-    "deaf-pedals",
-    "no-repeat",
-    "no-ramp",
-    "ramp-jumps",
-    "fill-moves-form",
-    "migrate-forgets",
-    "switch-bounces",
-    "switch-inverted",
-    "switch-swapped",
-    "machine-default",
-    "lost-machine",
-    "unchecked-fetch",
-    "keep-partial",
-    "no-fetch",
-    "stale-url",
-    "no-frozen",
-)
+PLANTS = ("no-hold", "no-double", "switch-now", "no-return", "no-wrap", "outro-forever", "fill-ignores-main",
+          "late-notes", "drop-pad", "deaf-panel", "song-without-outro", "four-steps", "deaf-mix",
+          "form-out-of-order", "tap-sticks", "edit-resets-form", "edit-not-heard", "learn-on-release",
+          "cc-no-release", "pc-as-pedal", "any-channel", "tempo-no-reset", "deaf-pedals", "no-repeat", "no-ramp",
+          "ramp-jumps", "fill-moves-form", "migrate-forgets", "switch-bounces", "switch-inverted",
+          "switch-swapped", "machine-default", "lost-machine", "unchecked-fetch", "keep-partial", "no-fetch",
+          "stale-url", "no-frozen")
 
 # The kit lookup as the app has it: backline_bank.use() replaces it for
 # the checks that play the test bank.
@@ -113,7 +80,7 @@ def args():
     while argv:
         a = argv.pop(0)
         if a.startswith("--plant="):
-            plant = a[len("--plant=") :]
+            plant = a[len("--plant="):]
         elif a == "--tmp":
             tmp = argv.pop(0)
     return plant, tmp
@@ -157,7 +124,6 @@ def plant(name):
 
         def init(self, hold_ms=pedals.HOLD_MS, double_ms=pedals.DOUBLE_MS):
             old(self, hold_ms, -1)
-
         pedals.Pedal.__init__ = init
     elif name == "switch-now":
         eng.bar_after = lambda tick: tick
@@ -165,29 +131,16 @@ def plant(name):
         old = eng.Form._cut
 
         def cut(self, tick, now, at, steps):
-            old(
-                self,
-                tick,
-                now,
-                at,
-                [s for s in steps if not (s[0] == "main" and steps[0][0] == "fill")],
-            )
-
+            old(self, tick, now, at, [s for s in steps if not (s[0] == "main" and steps[0][0] == "fill")])
         eng.Form._cut = cut
     elif name == "no-wrap":
         old = eng.Form.gesture
 
         def gesture(self, pedal, g, tick):
             now = self.sounding(tick)
-            if (
-                g == "hold"
-                and now is not None
-                and now[0] == "main"
-                and now[1] == len(self.mains) - 1
-            ):
+            if g == "hold" and now is not None and now[0] == "main" and now[1] == len(self.mains) - 1:
                 return None
             return old(self, pedal, g, tick)
-
         eng.Form.gesture = gesture
     elif name == "outro-forever":
         old = eng.Form.gesture
@@ -196,7 +149,6 @@ def plant(name):
             did = old(self, pedal, g, tick)
             self.plan = [e for e in self.plan if e[0] != "end"] or self.plan
             return did
-
         eng.Form.gesture = gesture
     elif name == "fill-ignores-main":
         eng.Form.fill_for = lambda self, n: self.fills[0] if self.fills else None
@@ -206,7 +158,6 @@ def plant(name):
         def sequence(self):
             self.lookahead = -3000
             old(self)
-
         eng.Engine.sequence = sequence
     elif name == "drop-pad":
         from backline import kits
@@ -216,7 +167,6 @@ def plant(name):
         def note_on(self, pitch, velocity, delay=0):
             if pitch != 46:
                 old(self, pitch, velocity, delay)
-
         kits.DrumMachineKit.note_on = note_on
     elif name == "machine-default":
         from backline import kits
@@ -243,7 +193,6 @@ def plant(name):
             def remove(self, path):
                 if not path.endswith(".part"):
                     old_remove(path)
-
         old_os = kits.os
         kits.os = _Os()
     elif name == "no-fetch":
@@ -257,9 +206,7 @@ def plant(name):
     elif name == "stale-url":
         from backline import kits
 
-        kits.DEFAULT_URL = kits.DEFAULT_URL.replace(
-            "backline-drums-1", "backline-drums-0"
-        )
+        kits.DEFAULT_URL = kits.DEFAULT_URL.replace("backline-drums-1", "backline-drums-0")
     elif name == "deaf-panel":
         from backline import box
 
@@ -269,7 +216,6 @@ def plant(name):
             if name == "pedal":
                 return None
             return old(self, name, a)
-
         box.Box.command = command
     elif name == "song-without-outro":
         old = eng.Form.__init__
@@ -277,7 +223,6 @@ def plant(name):
         def init(self, project):
             old(self, project)
             self.outro = None
-
         eng.Form.__init__ = init
     elif name == "four-steps":
         eng.meter = lambda project: (4, 1)
@@ -302,7 +247,6 @@ def plant(name):
                 self.engine.form.__init__(self.model.doc)
                 return
             old(self, op)
-
         box.Box.forward = forward
     elif name == "edit-not-heard":
         from backline import box
@@ -311,7 +255,6 @@ def plant(name):
 
         def load(self, project):
             old(self, json.loads(json.dumps(project)))
-
         eng.Engine.load = load
     elif name == "learn-on-release":
         old = midipedal.MidiPedal.handle
@@ -321,7 +264,6 @@ def plant(name):
                 msg, _press = midipedal.read(status, d1, d2)
                 return self._learn(msg) if msg is not None else None
             return old(self, status, d1, d2)
-
         midipedal.MidiPedal.handle = handle
     elif name == "cc-no-release":
         old = midipedal.MidiPedal._act
@@ -329,7 +271,6 @@ def plant(name):
         def act(self, i, slot, press):
             if press:
                 old(self, i, slot, press)
-
         midipedal.MidiPedal._act = act
     elif name == "pc-as-pedal":
         midipedal.can_pedal = lambda msg: True
@@ -338,14 +279,12 @@ def plant(name):
 
         def read(status, d1, d2):
             return old(status & 0xF0, d1, d2)
-
         midipedal.read = read
     elif name == "tempo-no-reset":
         old = midipedal.TapTempo.__init__
 
         def init(self, reset_ms=2000, keep=4, lo=40.0, hi=240.0):
             old(self, 1 << 29, keep, lo, hi)
-
         midipedal.TapTempo.__init__ = init
     elif name == "deaf-pedals":
         from backline import box
@@ -357,7 +296,6 @@ def plant(name):
         def init(self, project):
             old(self, project)
             self.repeat = 0
-
         eng.Form.__init__ = init
     elif name == "no-ramp":
         model.ramp_to = lambda project, part: None
@@ -368,23 +306,13 @@ def plant(name):
             old(self)
             if self.ramp is not None:
                 self.ramp = (self.ramp[0], self.ramp[0] + 1, self.ramp[2])
-
         eng.Engine._ramp = ramp
     elif name == "fill-moves-form":
-
         def fill_in_plan(self, now, number, fill, tick):
             at = eng.bar_after(tick)
-            self._cut(
-                tick,
-                now,
-                at,
-                [
-                    ("fill", number, fill, at),
-                    ("main", number, self.mains[number], at + self.length(fill)),
-                ],
-            )
+            self._cut(tick, now, at, [("fill", number, fill, at), ("main", number, self.mains[number],
+                                                                   at + self.length(fill))])
             return "fill"
-
         eng.Form._fill_in_plan = fill_in_plan
     elif name == "migrate-forgets":
         old = model.migrate
@@ -394,21 +322,12 @@ def plant(name):
             project.pop("repeat", None)
             project.pop("tempo_map", None)
             return project
-
         model.migrate = migrate
     elif name == "switch-bounces":
         old = footswitch.Footswitch.__init__
 
-        def init(
-            self,
-            pin,
-            which=0,
-            on_pedal=None,
-            active_low=True,
-            settle_ms=footswitch.SETTLE_MS,
-        ):
+        def init(self, pin, which=0, on_pedal=None, active_low=True, settle_ms=footswitch.SETTLE_MS):
             old(self, pin, which, on_pedal, active_low, 0)
-
         footswitch.Footswitch.__init__ = init
     elif name == "switch-inverted":
         footswitch.Footswitch._pressed = lambda self: bool(self.pin.value())
@@ -427,24 +346,15 @@ def check_pedal():
     check("a short press is a tap, on its release", got == ["tap"], repr(got))
     got = p.press(2000) + p.poll(2399)
     held = p.poll(2400)
-    check(
-        "held 400 ms is a hold, while still down",
-        got == [] and held == ["hold"] and p.state == "held",
-        repr((got, held, p.state)),
-    )
-    check(
-        "a hold says nothing more when let go",
-        p.release(3000) == [] and p.state == "up",
-    )
+    check("held 400 ms is a hold, while still down", got == [] and held == ["hold"] and p.state == "held",
+          repr((got, held, p.state)))
+    check("a hold says nothing more when let go", p.release(3000) == [] and p.state == "up")
     p = pedals.Pedal()
     first = p.press(0) + p.release(80)
     second = p.press(300)
     rest = p.release(380)
-    check(
-        "a second press within 350 ms of a tap is a double tap",
-        first == ["tap"] and second == ["double"] and rest == [],
-        repr((first, second, rest)),
-    )
+    check("a second press within 350 ms of a tap is a double tap", first == ["tap"] and second == ["double"] and
+          rest == [], repr((first, second, rest)))
     p = pedals.Pedal()
     p.press(0)
     p.release(80)
@@ -453,11 +363,7 @@ def check_pedal():
     p = pedals.Pedal()
     p.press(0)
     got = p.press(10) + p.release(450)
-    check(
-        "an unpolled long press still holds, and a repeat is ignored",
-        got == ["hold"],
-        repr(got),
-    )
+    check("an unpolled long press still holds, and a repeat is ignored", got == ["hold"], repr(got))
 
 
 # -- the plan ------------------------------------------------------------------
@@ -468,102 +374,51 @@ def check_form():
     f = eng.Form(rock)
     intro = f.length(f.intro)
     f.start(0)
-    check(
-        "a start plays the intro, then main 1",
-        [(e[0], e[1]) for e in f.plan] == [("intro", None), ("main", 0)]
-        and f.plan[1][3] == intro,
-        repr(f.plan),
-    )
+    check("a start plays the intro, then main 1",
+          [(e[0], e[1]) for e in f.plan] == [("intro", None), ("main", 0)] and f.plan[1][3] == intro, repr(f.plan))
     f.advance(intro)
-    tick = intro + eng.BAR + 100  # mid-bar in main 1
+    tick = intro + eng.BAR + 100          # mid-bar in main 1
     did = f.gesture(0, "tap", tick)
     fill_at = intro + 2 * eng.BAR
-    ok = (
-        did == "fill"
-        and f.plan[1][:3] == ("fill", 0, f.fills[0])
-        and f.plan[1][3] == fill_at
-    )
+    ok = did == "fill" and f.plan[1][:3] == ("fill", 0, f.fills[0]) and f.plan[1][3] == fill_at
     check("a tap plays main 1's fill at the next bar line", ok, repr(f.plan))
-    ok = (
-        len(f.plan) == 3
-        and f.plan[2][:3] == ("main", 0, f.mains[0])
-        and f.plan[2][3] == fill_at + f.length(f.fills[0])
-    )
+    ok = len(f.plan) == 3 and f.plan[2][:3] == ("main", 0, f.mains[0]) and \
+        f.plan[2][3] == fill_at + f.length(f.fills[0])
     check("after the fill, main 1 again", ok, repr(f.plan))
     did = f.gesture(0, "double", tick + 10)
-    ok = (
-        did == "outro"
-        and [e[0] for e in f.plan] == ["main", "outro", "end"]
-        and f.plan[1][3] == fill_at
-    )
-    check(
-        "a double tap before the fill starts replaces it with the outro",
-        ok,
-        repr(f.plan),
-    )
+    ok = did == "outro" and [e[0] for e in f.plan] == ["main", "outro", "end"] and f.plan[1][3] == fill_at
+    check("a double tap before the fill starts replaces it with the outro", ok, repr(f.plan))
     f.start(0)
     f.advance(intro)
     f.gesture(0, "tap", intro + 5)
     f.advance(intro + eng.BAR)
-    ignored = (
-        f.gesture(0, "tap", intro + eng.BAR + 5) is None
-        and f.gesture(0, "hold", intro + eng.BAR + 6) is None
-    )
-    check(
-        "taps and holds wait while a fill plays",
-        ignored and f.plan[0][0] == "fill",
-        repr(f.plan),
-    )
+    ignored = f.gesture(0, "tap", intro + eng.BAR + 5) is None and f.gesture(0, "hold", intro + eng.BAR + 6) is None
+    check("taps and holds wait while a fill plays", ignored and f.plan[0][0] == "fill", repr(f.plan))
     f.start(0)
     f.advance(intro)
     did = f.gesture(0, "hold", intro + 30)
     at = intro + eng.BAR
-    ok = (
-        did == "transition"
-        and f.plan[1][:3] == ("transition", 1, f.transition_into(1))
-        and f.plan[1][3] == at
-        and f.plan[2][:3] == ("main", 1, f.mains[1])
-        and f.plan[2][3] == at + f.length(f.transition_into(1))
-    )
+    ok = did == "transition" and f.plan[1][:3] == ("transition", 1, f.transition_into(1)) and f.plan[1][3] == at \
+        and f.plan[2][:3] == ("main", 1, f.mains[1]) and f.plan[2][3] == at + f.length(f.transition_into(1))
     check("a hold plays the transition, then main 2", ok, repr(f.plan))
     f.advance(f.plan[2][3])
     f.gesture(0, "tap", f.plan[0][3] + 7)
-    check(
-        "main 2's tap plays main 2's own fill",
-        f.plan[1][:3] == ("fill", 1, f.fills[1]),
-        repr(f.plan),
-    )
+    check("main 2's tap plays main 2's own fill", f.plan[1][:3] == ("fill", 1, f.fills[1]), repr(f.plan))
     f.advance(f.plan[2][3])
     f.gesture(0, "hold", f.plan[0][3] + 7)
-    check(
-        "a hold on the last main goes round to main 1",
-        f.plan[-1][:2] == ("main", 0),
-        repr(f.plan),
-    )
+    check("a hold on the last main goes round to main 1", f.plan[-1][:2] == ("main", 0), repr(f.plan))
     f.advance(f.plan[-1][3])
     t = f.plan[0][3] + 7
     did = f.gesture(0, "double", t)
-    ok = (
-        did == "outro"
-        and f.plan[1][0] == "outro"
-        and f.plan[-1][0] == "end"
-        and f.plan[-1][3] == eng.bar_after(t) + f.length(f.outro)
-    )
+    ok = did == "outro" and f.plan[1][0] == "outro" and f.plan[-1][0] == "end" and \
+        f.plan[-1][3] == eng.bar_after(t) + f.length(f.outro)
     check("a double tap plays the outro, then stops", ok, repr(f.plan))
     f.advance(f.plan[1][3])
     did = f.gesture(0, "double", f.plan[0][3] + 50)
-    check(
-        "a double tap in the outro stops at once",
-        did == "stop" and f.plan[0][0] == "end",
-        repr(f.plan),
-    )
+    check("a double tap in the outro stops at once", did == "stop" and f.plan[0][0] == "end", repr(f.plan))
     f.start(0)
     did = f.gesture(1, "hold", 10)
-    check(
-        "pedal B's hold stops at once",
-        did == "stop" and f.plan == [("end", None, -1, 10)],
-        repr(f.plan),
-    )
+    check("pedal B's hold stops at once", did == "stop" and f.plan == [("end", None, -1, 10)], repr(f.plan))
     check("pedal B's tap is the accent", f.gesture(1, "tap", 10) == "accent")
 
 
@@ -576,14 +431,7 @@ def run_engine(project, script, until_bars, lookahead=0, timed=False):
     frames = [0]
     kit = FakeKit(lambda: frames[0])
     kit.timed = timed
-    e = eng.Engine(
-        project,
-        kit,
-        lambda: frames[0],
-        RATE,
-        lookahead=lookahead,
-        now_ms=lambda: frames[0] * 1000 // RATE,
-    )
+    e = eng.Engine(project, kit, lambda: frames[0], RATE, lookahead=lookahead, now_ms=lambda: frames[0] * 1000 // RATE)
     e.record = True
     spb = RATE * 60.0 / project["tempo"]
     end = int(until_bars * 4 * spb)
@@ -613,52 +461,32 @@ def check_engine():
     check("the parts play in order and the song stops", names == want, repr(names))
     f = eng.Form(rock)
     intro = f.length(f.intro)
-    fill_tick = intro + eng.BAR  # the tap was in main 1's first bar
+    fill_tick = intro + eng.BAR       # the tap was in main 1's first bar
     f0 = int(e.frame_at(fill_tick))
     f1 = int(e.frame_at(fill_tick + eng.BAR))
     fill = rock["tracks"][0]["patterns"][f.fills[0]]
     after = [n for n in e.played if n[0] >= f0 - 1]
     ok = bool(after) and after[0][0] == f0 and after[0][1] == fill["notes"][0][2]
-    check(
-        "the fill's first note lands on the bar line",
-        ok,
-        "%r, the bar line at %d" % (after[:2], f0),
-    )
+    check("the fill's first note lands on the bar line", ok, "%r, the bar line at %d" % (after[:2], f0))
     in_bar = [n for n in e.played if f0 <= n[0] < f1]
-    check(
-        "the bar after the tap is the fill, note for note",
-        sorted(n[1] for n in in_bar) == sorted(n[2] for n in fill["notes"]),
-        "%r" % sorted(n[1] for n in in_bar),
-    )
+    check("the bar after the tap is the fill, note for note",
+          sorted(n[1] for n in in_bar) == sorted(n[2] for n in fill["notes"]),
+          "%r" % sorted(n[1] for n in in_bar))
     worst = 0
     early = 0
     for (frame, pitch, _v), (handed, kpitch, _kv, delay) in zip(e.played, kit.notes):
         worst = max(worst, handed - frame)
         if handed < frame:
             early += 1
-    check(
-        "every note reaches the kit within a block of its frame, never early",
-        worst <= 256 and not early and len(e.played) == len(kit.notes),
-        "%d frames late at worst, %d early" % (worst, early),
-    )
-    check(
-        "the song stops once the outro ends",
-        parts[-1][1] is None and parts[-2][1] == "Outro",
-        repr(parts[-2:]),
-    )
+    check("every note reaches the kit within a block of its frame, never early", worst <= 256 and not early and
+          len(e.played) == len(kit.notes), "%d frames late at worst, %d early" % (worst, early))
+    check("the song stops once the outro ends", parts[-1][1] is None and parts[-2][1] == "Outro", repr(parts[-2:]))
     # A kit that holds notes back is handed them early, each with its delay.
     e, kit, parts = run_engine(rock, [(0, 0, "tap")], 3, lookahead=512, timed=True)
-    exact = all(
-        handed == frame
-        for (frame, _p, _v), (handed, _kp, _kv, _d) in zip(e.played, kit.notes)
-    )
-    check(
-        "a timed kit gets every note ahead, its delay landing it on its frame",
-        exact
-        and len(e.played) == len(kit.notes) > 0
-        and max(n[3] for n in kit.notes) > 0,
-        "%d notes" % len(kit.notes),
-    )
+    exact = all(handed == frame for (frame, _p, _v), (handed, _kp, _kv, _d) in zip(e.played, kit.notes))
+    check("a timed kit gets every note ahead, its delay landing it on its frame",
+          exact and len(e.played) == len(kit.notes) > 0 and max(n[3] for n in kit.notes) > 0,
+          "%d notes" % len(kit.notes))
 
 
 # -- the play plan: a repeat count and the outro slowing ---------------------------------
@@ -671,16 +499,10 @@ def planned_song(repeat, outro_tempo=None, tempo=120.0):
     p = model.new_project()
     t = model.track("drums", "fake", "Drums")
     t["id"] = 1
-    t["patterns"] = [
-        {"bars": 1, "notes": hats},
-        {
-            "bars": 4,
-            "notes": [n[:] for n in hats * 1]
-            + [[n[0] + k * eng.BAR, 24, 42, 100] for k in (1, 2, 3) for n in hats],
-        },
-        {"bars": 1, "notes": [[i * model.STEP, 24, 38, 90] for i in range(16)]},
-        {"bars": 2, "notes": hats + [[n[0] + eng.BAR, 24, 42, 100] for n in hats]},
-    ]
+    t["patterns"] = [{"bars": 1, "notes": hats}, {"bars": 4, "notes": [n[:] for n in hats * 1] +
+                                                  [[n[0] + k * eng.BAR, 24, 42, 100] for k in (1, 2, 3) for n in hats]},
+                     {"bars": 1, "notes": [[i * model.STEP, 24, 38, 90] for i in range(16)]},
+                     {"bars": 2, "notes": hats + [[n[0] + eng.BAR, 24, 42, 100] for n in hats]}]
     p["tracks"] = [t]
     p["tempo"] = tempo
     p["parts"] = {"intro": 0, "mains": [1], "fills": [2], "outro": 3}
@@ -690,57 +512,37 @@ def planned_song(repeat, outro_tempo=None, tempo=120.0):
 
 
 def check_plan():
-    old = {
-        "tempo": 100.0,
-        "tracks": [model.track("drums", "fake")],
-        "parts": {"mains": [0]},
-    }
+    old = {"tempo": 100.0, "tracks": [model.track("drums", "fake")], "parts": {"mains": [0]}}
     model.migrate(old)
-    check(
-        "an older song loads with no repeat count and no tempo map",
-        old.get("repeat") == 0 and old.get("tempo_map") == [],
-        repr(sorted(old)),
-    )
+    check("an older song loads with no repeat count and no tempo map",
+          old.get("repeat") == 0 and old.get("tempo_map") == [], repr(sorted(old)))
     song = planned_song(3)
     f = eng.Form(song)
     f.start(0)
     roles = [e[0] for e in f.plan]
-    check(
-        "three times through: the intro, the main three times, the outro, the end",
-        roles == ["intro", "main", "main", "main", "outro", "end"],
-        repr(roles),
-    )
+    check("three times through: the intro, the main three times, the outro, the end",
+          roles == ["intro", "main", "main", "main", "outro", "end"], repr(roles))
     e, kit, parts = run_engine(song, [(0, 0, "tap")], 30)
     names = [p[1] for p in parts]
     end = (1 + 3 * 4 + 2) * 4 * RATE * 60.0 / song["tempo"]
     stopped = parts[-1][0] if parts[-1][1] is None else -1
-    check(
-        "a song with a repeat count plays itself through and stops after the outro",
-        names == ["Intro", "Main 1", "Outro", None] and abs(stopped - end) < 512,
-        "%r, stopped at %d of %d" % (names, stopped, end),
-    )
+    check("a song with a repeat count plays itself through and stops after the outro",
+          names == ["Intro", "Main 1", "Outro", None] and abs(stopped - end) < 512, "%r, stopped at %d of %d" %
+          (names, stopped, end))
     loop = planned_song(0)
     e, kit, parts = run_engine(loop, [(0, 0, "tap")], 30)
-    check(
-        "with no repeat count the main plays on until the pedal",
-        [p[1] for p in parts] == ["Intro", "Main 1"],
-        repr(parts),
-    )
+    check("with no repeat count the main plays on until the pedal", [p[1] for p in parts] == ["Intro", "Main 1"],
+          repr(parts))
     # A tap in a planned song: the fill takes the main's last bar, and the outro keeps its place.
     spb = RATE * 60.0 / song["tempo"]
     e, kit, parts = run_engine(song, [(0, 0, "tap"), (int(5.5 * spb), 0, "tap")], 30)
     names = [p[1] for p in parts]
     fill_at = [p[0] for p in parts if p[1] == "Fill 1"]
     outro_at = [p[0] for p in parts if p[1] == "Outro"]
-    check(
-        "a tap in a planned song plays the fill over the main's last bar, and the form keeps its length",
-        names[:5] == ["Intro", "Main 1", "Fill 1", "Main 1", "Outro"]
-        and fill_at
-        and abs(fill_at[0] - 4 * 4 * spb) < 512
-        and outro_at
-        and abs(outro_at[0] - 13 * 4 * spb) < 512,
-        "%r" % parts,
-    )
+    check("a tap in a planned song plays the fill over the main's last bar, and the form keeps its length",
+          names[:5] == ["Intro", "Main 1", "Fill 1", "Main 1", "Outro"] and fill_at and
+          abs(fill_at[0] - 4 * 4 * spb) < 512 and outro_at and abs(outro_at[0] - 13 * 4 * spb) < 512,
+          "%r" % parts)
 
 
 def onsets(e, pitch=42):
@@ -756,54 +558,31 @@ def check_ramp():
     before = [b - a for a, b in zip(hats, hats[1:]) if b <= outro_at]
     inside = [b - a for a, b in zip(hats, hats[1:]) if a >= outro_at]
     even = max(before) - min(before) <= 2
-    check(
-        "before the outro the tempo holds",
-        even,
-        "gaps %d to %d frames" % (min(before), max(before)),
-    )
+    check("before the outro the tempo holds", even, "gaps %d to %d frames" % (min(before), max(before)))
     widening = all(b > a for a, b in zip(inside, inside[1:]))
-    smooth = (
-        inside
-        and inside[0] < 1.12 * before[-1]
-        and all(b < 1.15 * a for a, b in zip(inside, inside[1:]))
-    )
-    check(
-        "across the outro the beats spread out smoothly",
-        len(inside) == 15 and widening and smooth,
-        "%r" % inside,
-    )
+    smooth = inside and inside[0] < 1.12 * before[-1] and all(b < 1.15 * a for a, b in zip(inside, inside[1:]))
+    check("across the outro the beats spread out smoothly", len(inside) == 15 and widening and smooth,
+          "%r" % inside)
     # 120 to 60 over two bars: the last eighth is at nearly 62 BPM, almost twice as long as at 120.
-    check(
-        "and the outro ends near its end tempo",
-        inside and inside[-1] > 1.8 * before[-1],
-        "last gap %d against %d" % (inside[-1] if inside else 0, before[-1]),
-    )
+    check("and the outro ends near its end tempo", inside and inside[-1] > 1.8 * before[-1],
+          "last gap %d against %d" % (inside[-1] if inside else 0, before[-1]))
     t_mid = None
     frames = [0]
-    e2 = eng.Engine(
-        song, None, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE
-    )
+    e2 = eng.Engine(song, None, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE)
     e2.gesture(0, "tap")
     while e2.transport["playing"] and frames[0] < outro_at + int(4 * spb):
         e2.sequence()
         frames[0] += 256
     t_mid = e2.telemetry()["tempo"]
-    check(
-        "the box tells the panels the tempo as it slows",
-        60.0 < t_mid < 110.0,
-        "%r" % t_mid,
-    )
+    check("the box tells the panels the tempo as it slows", 60.0 < t_mid < 110.0, "%r" % t_mid)
     # The outro reached by a double tap, in a song that loops: it slows the same way.
     loop = planned_song(0, outro_tempo=60.0)
     e, kit, parts = run_engine(loop, [(0, 0, "tap"), (int(6.5 * spb), 0, "double")], 20)
     hats = onsets(e)
     outro_at = [p[0] for p in parts if p[1] == "Outro"]
     inside = [b - a for a, b in zip(hats, hats[1:]) if outro_at and a >= outro_at[0]]
-    check(
-        "a double tap's outro slows too",
-        len(inside) == 15 and all(b > a for a, b in zip(inside, inside[1:])),
-        "%r" % inside,
-    )
+    check("a double tap's outro slows too", len(inside) == 15 and all(b > a for a, b in zip(inside, inside[1:])),
+          "%r" % inside)
 
 
 # -- the meter, the mixer, the desk's reading of a song -------------------------------
@@ -822,18 +601,11 @@ def check_meter():
         t = e.telemetry()
         seen.append((t["step"], t["beat"]))
     want = [(k + 1, k // 3 + 1) for k in range(12)]
-    check(
-        "12/8 lights twelve steps a bar, three to a beat",
-        seen == want and e.telemetry()["steps"] == 12 and e.telemetry()["beats"] == 4,
-        repr(seen),
-    )
+    check("12/8 lights twelve steps a bar, three to a beat", seen == want and e.telemetry()["steps"] == 12 and
+          e.telemetry()["beats"] == 4, repr(seen))
     rock = load("rock")
     t = run_engine(rock, [(0, 0, "tap")], 1)[0].telemetry()
-    check(
-        "4/4 lights four steps a bar, one a beat",
-        t["steps"] == 4 and t["beats"] == 4,
-        repr(t),
-    )
+    check("4/4 lights four steps a bar, one a beat", t["steps"] == 4 and t["beats"] == 4, repr(t))
 
 
 def check_mix():
@@ -848,16 +620,9 @@ def check_mix():
                 pat[n[3]] = True
     snares = [n[2] for n in kit.notes if n[1] == 38]
     want = set(v * 50 // 100 for v in pat)
-    check(
-        "the mixer's kick at 0 silences the kick, its snare at 50 halves it",
-        not kicks and snares and set(snares) <= want,
-        "%d kicks, snares %r" % (len(kicks), sorted(set(snares))),
-    )
-    check(
-        "a song with no mix gets every group at 100",
-        load_mixed("pop") == eng.MIX,
-        repr(load_mixed("pop")),
-    )
+    check("the mixer's kick at 0 silences the kick, its snare at 50 halves it",
+          not kicks and snares and set(snares) <= want, "%d kicks, snares %r" % (len(kicks), sorted(set(snares))))
+    check("a song with no mix gets every group at 100", load_mixed("pop") == eng.MIX, repr(load_mixed("pop")))
 
 
 def load_mixed(name):
@@ -870,35 +635,16 @@ def check_desk_reading():
 
     rock = load("rock")
     roles = [(b["role"], b["number"]) for b in parts.blocks(rock)]
-    want = [
-        ("intro", None),
-        ("main", 0),
-        ("fill", 0),
-        ("transition", 1),
-        ("main", 1),
-        ("fill", 1),
-        ("outro", None),
-    ]
-    check(
-        "the song form reads intro, main 1, fill 1, transition, main 2, fill 2, outro",
-        roles == want,
-        repr(roles),
-    )
-    check(
-        "a 4/4 grid has sixteen steps a bar, 12/8 twelve",
-        parts.columns(rock) == (16, 24)
-        and parts.columns(load("ballad_68")) == (12, 32),
-        repr((parts.columns(rock), parts.columns(load("ballad_68")))),
-    )
+    want = [("intro", None), ("main", 0), ("fill", 0), ("transition", 1), ("main", 1), ("fill", 1), ("outro", None)]
+    check("the song form reads intro, main 1, fill 1, transition, main 2, fill 2, outro", roles == want, repr(roles))
+    check("a 4/4 grid has sixteen steps a bar, 12/8 twelve", parts.columns(rock) == (16, 24) and
+          parts.columns(load("ballad_68")) == (12, 32), repr((parts.columns(rock), parts.columns(load("ballad_68")))))
     doc = json.loads(json.dumps(rock))
     index = doc["parts"]["mains"][0]
     seen = []
     for _ in range(4):
         op, path, value = parts.tap(doc, index, 39, 3, 24)
-        keys = [
-            int(k) if k.isdigit() else (-1 if k == "-" else k)
-            for k in path.split("/")[1:]
-        ]
+        keys = [int(k) if k.isdigit() else (-1 if k == "-" else k) for k in path.split("/")[1:]]
         if op == "add":
             model.apply(doc, {"op": "insert", "path": keys, "value": value})
         elif op == "remove":
@@ -922,27 +668,13 @@ def check_songs():
         parts = p.get("parts") or {}
         pats = p["tracks"][0]["patterns"] if p.get("tracks") else []
         f = eng.Form(p)
-        idx = (
-            [parts.get("intro"), parts.get("outro")]
-            + list(parts.get("mains") or [])
-            + list(parts.get("fills") or [])
-            + list(parts.get("transitions") or [])
-        )
-        ok = (
-            len(p["tracks"]) == 1
-            and p["tracks"][0]["kind"] == "drums"
-            and f.intro is not None
-            and f.outro is not None
-            and len(f.mains) >= 2
-            and len(f.fills) == len(f.mains)
-            and len(f.transitions) >= 1
-            and all(i is not None and 0 <= i < len(pats) for i in idx)
-        )
-        check(
-            "%s has an intro, mains, a fill per main, a transition and an outro" % name,
-            ok,
-            repr(parts),
-        )
+        idx = [parts.get("intro"), parts.get("outro")] + list(parts.get("mains") or []) + \
+            list(parts.get("fills") or []) + list(parts.get("transitions") or [])
+        ok = len(p["tracks"]) == 1 and p["tracks"][0]["kind"] == "drums" and \
+            f.intro is not None and f.outro is not None and len(f.mains) >= 2 and \
+            len(f.fills) == len(f.mains) and len(f.transitions) >= 1 and \
+            all(i is not None and 0 <= i < len(pats) for i in idx)
+        check("%s has an intro, mains, a fill per main, a transition and an outro" % name, ok, repr(parts))
         bad = []
         for i, pat in enumerate(pats):
             length = pat["bars"] * model.BAR
@@ -951,11 +683,7 @@ def check_songs():
             for n in pat["notes"]:
                 if not (0 <= n[0] < length and 35 <= n[2] <= 81 and 1 <= n[3] <= 127):
                     bad.append("pattern %d: %r" % (i, n))
-        check(
-            "%s's notes are General MIDI drums inside their bars" % name,
-            not bad,
-            repr(bad[:3]),
-        )
+        check("%s's notes are General MIDI drums inside their bars" % name, not bad, repr(bad[:3]))
 
 
 # -- the kits --------------------------------------------------------------------------
@@ -982,7 +710,7 @@ def peaks(kit, frames):
 
 
 def sounds(kit, pitch):
-    peaks(kit, 4096)  # let what came before die away a little
+    peaks(kit, 4096)              # let what came before die away a little
     kit.note_on(pitch, 120)
     return peaks(kit, RATE // 8)
 
@@ -1001,11 +729,8 @@ def check_kits(tmp):
         skip("the kits", "no audio modules here (%s)" % e)
         return
     have = kits.available()
-    check(
-        "the SoundFont kit comes first, and every drum machine is still a kit",
-        have[0] == kits.SOUNDFONT and all(m in have for m in MACHINES),
-        repr(have),
-    )
+    check("the SoundFont kit comes first, and every drum machine is still a kit",
+          have[0] == kits.SOUNDFONT and all(m in have for m in MACHINES), repr(have))
     for machine in kits.MACHINES:
         kit = kits.open_kit(machine)
         heard = [(p, sounds(kit, p)) for p in PADS]
@@ -1016,17 +741,12 @@ def check_kits(tmp):
     kit = kits.open_kit("soundfont")
     heard = [(p, sounds(kit, p)) for p in PADS]
     quiet = [p for p, v in heard if v < 500]
-    check(
-        "the SoundFont kit sounds 36, 38, 42, 46 and 49",
-        not quiet and kit.spec == "soundfont",
-        repr((heard, kit.spec)),
-    )
+    check("the SoundFont kit sounds 36, 38, 42, 46 and 49", not quiet and kit.spec == "soundfont",
+          repr((heard, kit.spec)))
     peaks(kit, RATE)
     kit.note_on(46, 120)
     peaks(kit, 1024)
-    kit.note_on(
-        42, 1
-    )  # nearly silent, so what's left is the open hat's tail, or nothing
+    kit.note_on(42, 1)            # nearly silent, so what's left is the open hat's tail, or nothing
     peaks(kit, 2048)
     tail = peaks(kit, 1024)
     check("a closed hat stops the open one", tail < 300, "still %d" % tail)
@@ -1050,9 +770,8 @@ def _served(body, status=200):
         asked.append(url)
         if status == 200:
             for i in range(0, len(body), 1000):
-                write(body[i : i + 1000])
+                write(body[i:i + 1000])
         return status
-
     return get, asked
 
 
@@ -1066,15 +785,10 @@ def _listing(folder):
 def check_default_bank(tmp):
     from backline import kits
 
-    check(
-        "the starter songs and a song naming no kit play the SoundFont kit",
-        kits.DEFAULT == kits.SOUNDFONT
-        and all(
-            load(n[:-5])["tracks"][0].get("instrument") == kits.SOUNDFONT
-            for n in os.listdir(songs_dir())
-            if n.endswith(".json")
-        ),
-    )
+    check("the starter songs and a song naming no kit play the SoundFont kit",
+          kits.DEFAULT == kits.SOUNDFONT and
+          all(load(n[:-5])["tracks"][0].get("instrument") == kits.SOUNDFONT
+              for n in os.listdir(songs_dir()) if n.endswith(".json")))
     folder = tmp + "/fetched"
     try:
         os.mkdir(folder)
@@ -1085,14 +799,9 @@ def check_default_bank(tmp):
     path = kits.fetch_default(folder, sha256=_sha256(body), get=get)
     with open(path, "rb") as f:
         got = f.read()
-    check(
-        "the bank is fetched from where the app says, whole, under its own name",
-        got == body
-        and path == folder + "/" + kits.DEFAULT_BANK
-        and _listing(folder) == [kits.DEFAULT_BANK]
-        and asked == [kits.DEFAULT_URL],
-        repr((len(got), path, _listing(folder), asked)),
-    )
+    check("the bank is fetched from where the app says, whole, under its own name",
+          got == body and path == folder + "/" + kits.DEFAULT_BANK and _listing(folder) == [kits.DEFAULT_BANK] and
+          asked == [kits.DEFAULT_URL], repr((len(got), path, _listing(folder), asked)))
     os.remove(path)
     bad = body[:-1] + b"!"
     get, _asked = _served(bad)
@@ -1101,34 +810,25 @@ def check_default_bank(tmp):
         refused = False
     except OSError:
         refused = True
-    check(
-        "a download with the wrong bytes is refused and leaves nothing",
-        refused and not _listing(folder),
-        repr((refused, _listing(folder))),
-    )
+    check("a download with the wrong bytes is refused and leaves nothing", refused and not _listing(folder),
+          repr((refused, _listing(folder))))
     get, _asked = _served(b"", status=404)
     try:
         kits.fetch_default(folder, sha256=_sha256(body), get=get)
         refused = False
     except OSError:
         refused = True
-    check(
-        "a missing bank is an error, and leaves nothing",
-        refused and not _listing(folder),
-        repr((refused, _listing(folder))),
-    )
+    check("a missing bank is an error, and leaves nothing", refused and not _listing(folder),
+          repr((refused, _listing(folder))))
     url = None
     try:
         with open(songs_dir() + "/../app.json") as f:
             url = json.load(f)["downloads"]["soundfonts/" + kits.DEFAULT_BANK]
     except (OSError, KeyError, ValueError):
         pass
-    check(
-        "omip installs the bank from where the app fetches it, into the folder it looks in",
-        url == kits.DEFAULT_URL
-        and kits.default_folders()[0].endswith("backline/soundfonts"),
-        repr((url, kits.DEFAULT_URL, kits.default_folders()[:1])),
-    )
+    check("omip installs the bank from where the app fetches it, into the folder it looks in",
+          url == kits.DEFAULT_URL and kits.default_folders()[0].endswith("backline/soundfonts"),
+          repr((url, kits.DEFAULT_URL, kits.default_folders()[:1])))
 
 
 def check_frozen_bank(tmp):
@@ -1156,22 +856,16 @@ def check_frozen_bank(tmp):
     try:
         if not kits.reads_from_memory():
             found = kits.find_bank()
-            check(
-                "an audioinstruments that plays no bank from memory leaves a frozen bank for the download",
-                found is None,
-                repr(type(found)),
-            )
+            check("an audioinstruments that plays no bank from memory leaves a frozen bank for the download",
+                  found is None, repr(type(found)))
         reads = kits.reads_from_memory
         kits.reads_from_memory = lambda: True
         try:
             found = kits.find_bank()
         finally:
             kits.reads_from_memory = reads
-        check(
-            "a bank frozen into the firmware is the one the soundfont kit plays, before any download",
-            found == data,
-            repr(type(found)),
-        )
+        check("a bank frozen into the firmware is the one the soundfont kit plays, before any download",
+              found == data, repr(type(found)))
         if found != data:
             return
         try:
@@ -1181,10 +875,7 @@ def check_frozen_bank(tmp):
             skip("the frozen bank plays", "no audio modules here (%s)" % e)
             return
         if not kits.reads_from_memory():
-            skip(
-                "the frozen bank plays",
-                "this audioinstruments plays no bank from bytes",
-            )
+            skip("the frozen bank plays", "this audioinstruments plays no bank from bytes")
             return
         kit = kits.open_kit(kits.SOUNDFONT)
         heard = kit.name == kits.DEFAULT_TITLE and kit.bank is found
@@ -1202,11 +893,8 @@ def check_frozen_bank(tmp):
         b = boxmod.Box(lambda: 0, song=project, worker=worker, now_ms=lambda: 0)
         started = (b.kit_spec(), b.error, len(worker.jobs))
         b.close()
-        check(
-            "a box on the frozen bank plays it at once and fetches nothing",
-            started == (kits.SOUNDFONT, None, 0),
-            repr(started),
-        )
+        check("a box on the frozen bank plays it at once and fetches nothing",
+              started == (kits.SOUNDFONT, None, 0), repr(started))
     finally:
         sys.path.remove(folder)
         sys.modules.pop(kits.FROZEN_MODULE, None)
@@ -1255,7 +943,6 @@ def check_first_start(tmp):
     def fetch():
         landed.append(backline_bank.write(folder + "/" + kits.DEFAULT_BANK))
         return landed[-1]
-
     kits.find_bank = lambda: landed[-1] if landed else None
     kits.default_bank = kits.find_bank
     kits.fetch_default = fetch
@@ -1270,13 +957,8 @@ def check_first_start(tmp):
         b.close()
     finally:
         kits.find_bank, kits.default_bank, kits.fetch_default = old
-    check(
-        "a box with no bank yet says it's fetching it, then plays it",
-        before[0] is None
-        and "fetching" in before[1]
-        and after == (kits.SOUNDFONT, None),
-        repr((before, after)),
-    )
+    check("a box with no bank yet says it's fetching it, then plays it",
+          before[0] is None and "fetching" in before[1] and after == (kits.SOUNDFONT, None), repr((before, after)))
 
 
 # -- a pedal from a panel ---------------------------------------------------------------
@@ -1293,22 +975,15 @@ def check_panel():
         return
     frames = [0]
     ms = [0]
-    b = boxmod.Box(
-        lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: ms[0]
-    )
-    b.device._tele_ms = 0  # telemetry on demand, below
+    b = boxmod.Box(lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: ms[0])
+    b.device._tele_ms = 0         # telemetry on demand, below
     panel = hmilink.Panel(local.connect(b.device.add(local.serve())))
     seen = []
     panel.on_tele = seen.append
     b.poll()
     panel.poll()
-    check(
-        "a panel gets the song",
-        panel.doc is not None
-        and panel.doc.get("name") == "Straight Rock"
-        and panel.desc.get("kind") == "backline"
-        and "parts" in panel.desc,
-    )
+    check("a panel gets the song", panel.doc is not None and panel.doc.get("name") == "Straight Rock" and
+          panel.desc.get("kind") == "backline" and "parts" in panel.desc)
     panel.command("pedal", pedal=0, down=True)
     b.poll()
     ms[0] = 90
@@ -1320,14 +995,9 @@ def check_panel():
     b.device._telemetry()
     panel.poll()
     t = seen[-1] if seen else {}
-    check(
-        "a tap from a panel starts the song, and its telemetry says so",
-        t.get("playing")
-        and t.get("part") == "Intro"
-        and t.get("next") == "Main 1"
-        and t.get("beat") == 1,
-        repr(t),
-    )
+    check("a tap from a panel starts the song, and its telemetry says so",
+          t.get("playing") and t.get("part") == "Intro" and t.get("next") == "Main 1" and t.get("beat") == 1,
+          repr(t))
     b.close()
 
 
@@ -1345,12 +1015,7 @@ def check_live_edit():
         skip("a live edit", "no hmilink or audio modules here (%s)" % e)
         return
     frames = [0]
-    b = boxmod.Box(
-        lambda: frames[0],
-        song="rock",
-        kit="rhythm808",
-        now_ms=lambda: frames[0] * 1000 // RATE,
-    )
+    b = boxmod.Box(lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: frames[0] * 1000 // RATE)
     b.device._tele_ms = 0
     listener = b.device.add(local.serve())
     a = hmilink.Panel(local.connect(listener))
@@ -1373,48 +1038,27 @@ def check_live_edit():
             c.poll()
 
     e.gesture(0, "tap")
-    run(10.2)  # into main 1's first bar
+    run(10.2)                        # into main 1's first bar
     main = e.project["parts"]["mains"][0]
     before = len(e.played)
     a.send("add", "/tracks/0/patterns/%d/notes/-" % main, [48, 24, 39, 110])
-    hats = [
-        i
-        for i, n in enumerate(e.project["tracks"][0]["patterns"][main]["notes"])
-        if n[2] == 42
-    ]
+    hats = [i for i, n in enumerate(e.project["tracks"][0]["patterns"][main]["notes"]) if n[2] == 42]
     c.send("replace", "/tracks/0/patterns/%d/notes/%d/3" % (main, hats[0]), 40)
     run(20)
     t = e.telemetry()
-    check(
-        "the song plays on through an edit",
-        t["playing"] and t["part"] == "Main 1",
-        repr(t.get("part")),
-    )
+    check("the song plays on through an edit", t["playing"] and t["part"] == "Main 1", repr(t.get("part")))
     claps = [n for n in e.played[before:] if n[1] == 39]
     now = e.form.sounding(e.tick_at(frames[0]))
     start = now[3] if now is not None else 0
     length = e.form.length(main)
-    on_step = [
-        n
-        for n in claps
-        if now is not None and abs((e.tick_at(n[0]) - start) % length - 48) < 1
-    ]
-    check(
-        "the clap added while it plays is heard, on its step",
-        len(on_step) >= 2 and len(on_step) == len(claps),
-        "%d claps, %d on the step" % (len(claps), len(on_step)),
-    )
+    on_step = [n for n in claps if now is not None and abs((e.tick_at(n[0]) - start) % length - 48) < 1]
+    check("the clap added while it plays is heard, on its step", len(on_step) >= 2 and len(on_step) == len(claps),
+          "%d claps, %d on the step" % (len(claps), len(on_step)))
     box_notes = b.model.doc["tracks"][0]["patterns"][main]["notes"]
-    same = (
-        a.doc["tracks"][0]["patterns"][main]["notes"]
-        == box_notes
-        == c.doc["tracks"][0]["patterns"][main]["notes"]
-    )
-    check(
-        "both panels end with the box's groove, the clap and the quieter hat in it",
-        same and [48, 24, 39, 110] in box_notes and box_notes[hats[0]][3] == 40,
-        "resyncs %d / %d" % (a.stats["resyncs"], c.stats["resyncs"]),
-    )
+    same = a.doc["tracks"][0]["patterns"][main]["notes"] == box_notes == c.doc["tracks"][0]["patterns"][main]["notes"]
+    check("both panels end with the box's groove, the clap and the quieter hat in it",
+          same and [48, 24, 39, 110] in box_notes and box_notes[hats[0]][3] == 40,
+          "resyncs %d / %d" % (a.stats["resyncs"], c.stats["resyncs"]))
     b.close()
 
 
@@ -1427,39 +1071,23 @@ def cc(num, value, ch=0):
 
 def check_midi_learn():
     got = []
-    m = midipedal.MidiPedal(
-        on_pedal=lambda w, d: got.append(("pedal", w, d)),
-        on_action=lambda a: got.append(("action", a)),
-    )
-    check(
-        "the default map is pedal A, pedal B, tap tempo and stop, waiting to be learned",
-        [s["bind"] for s in m.slots] == ["pedal_a", "pedal_b", "tap_tempo", "stop"]
-        and all(s["msg"] is None for s in m.slots),
-        repr(m.slots),
-    )
+    m = midipedal.MidiPedal(on_pedal=lambda w, d: got.append(("pedal", w, d)),
+                            on_action=lambda a: got.append(("action", a)))
+    check("the default map is pedal A, pedal B, tap tempo and stop, waiting to be learned",
+          [s["bind"] for s in m.slots] == ["pedal_a", "pedal_b", "tap_tempo", "stop"] and
+          all(s["msg"] is None for s in m.slots), repr(m.slots))
     m.learn(0)
-    m.feed(cc(80, 0))  # a foot coming up from before the slot was armed
+    m.feed(cc(80, 0))                  # a foot coming up from before the slot was armed
     m.feed(cc(81, 127))
-    check(
-        "an armed slot learns the next switch pressed, not a release",
-        m.slots[0]["msg"] == ["cc", 0, 81] and m.learning is None and not got,
-        repr((m.slots[0], got)),
-    )
+    check("an armed slot learns the next switch pressed, not a release",
+          m.slots[0]["msg"] == ["cc", 0, 81] and m.learning is None and not got, repr((m.slots[0], got)))
     m.learn(1)
     m.feed(cc(81, 127))
-    check(
-        "a switch learned again leaves the slot that had it",
-        m.slots[1]["msg"] == ["cc", 0, 81]
-        and m.slots[0]["msg"] is None
-        and m.slots[1]["bind"] == "pedal_b",
-        repr(m.slots[:2]),
-    )
+    check("a switch learned again leaves the slot that had it", m.slots[1]["msg"] == ["cc", 0, 81] and
+          m.slots[0]["msg"] is None and m.slots[1]["bind"] == "pedal_b", repr(m.slots[:2]))
     m2 = midipedal.MidiPedal(m.saved())
-    check(
-        "the map saves as plain data and comes back the same",
-        m2.saved() == m.saved() and repr(m.saved()) == repr(eval(repr(m.saved()))),
-        repr(m2.saved()),
-    )
+    check("the map saves as plain data and comes back the same", m2.saved() == m.saved() and
+          repr(m.saved()) == repr(eval(repr(m.saved()))), repr(m2.saved()))
 
 
 def run_midi(project, script, until_bars):
@@ -1468,9 +1096,7 @@ def run_midi(project, script, until_bars):
     parts, as `run_engine` does, and the gestures the pedal made."""
     frames = [0]
     kit = FakeKit(lambda: frames[0])
-    e = eng.Engine(
-        project, kit, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE
-    )
+    e = eng.Engine(project, kit, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE)
     m = midipedal.MidiPedal(on_pedal=lambda w, d: e.press(w) if d else e.release(w))
     m.learn(0)
     m.handle(0xB0, 80, 127)
@@ -1480,7 +1106,6 @@ def run_midi(project, script, until_bars):
     def gesture(which, g):
         gestures.append(g)
         return old(which, g)
-
     e.gesture = gesture
     spb = RATE * 60.0 / project["tempo"]
     end = int(until_bars * 4 * spb)
@@ -1503,44 +1128,23 @@ def run_midi(project, script, until_bars):
 def check_midi_pedal():
     rock = load("rock")
     beat = 60000.0 / rock["tempo"]
-    t1 = int(9.5 * beat)  # main 1's first bar: hold
-    t2 = int(30.5 * beat)  # main 2: tap, then tap again at once
-    script = [
-        (0, cc(80, 127)),
-        (90, cc(80, 0)),
-        (t1, cc(80, 127)),
-        (t1 + 600, cc(80, 0)),
-        (t2, cc(80, 127)),
-        (t2 + 80, cc(80, 0)),
-        (t2 + 250, cc(80, 127)),
-        (t2 + 330, cc(80, 0)),
-    ]
+    t1 = int(9.5 * beat)                # main 1's first bar: hold
+    t2 = int(30.5 * beat)               # main 2: tap, then tap again at once
+    script = [(0, cc(80, 127)), (90, cc(80, 0)),
+              (t1, cc(80, 127)), (t1 + 600, cc(80, 0)),
+              (t2, cc(80, 127)), (t2 + 80, cc(80, 0)), (t2 + 250, cc(80, 127)), (t2 + 330, cc(80, 0))]
     names, gestures = run_midi(rock, script, 48)
-    check(
-        "a momentary switch's CC 127 and 0 tap, hold and double-tap pedal A",
-        gestures == ["tap", "hold", "tap", "double"],
-        repr(gestures),
-    )
+    check("a momentary switch's CC 127 and 0 tap, hold and double-tap pedal A",
+          gestures == ["tap", "hold", "tap", "double"], repr(gestures))
     want = [None, "Intro", "Main 1", "Transition 2", "Main 2", "Outro", None]
-    check(
-        "from MIDI the tap starts the song, the hold moves to the next part and the double tap plays the outro",
-        names == want,
-        repr(names),
-    )
+    check("from MIDI the tap starts the song, the hold moves to the next part and the double tap plays the outro",
+          names == want, repr(names))
     # A note on and its note off are a pedal too, and a repeat isn't a second press.
     got = []
-    m = midipedal.MidiPedal(
-        [{"msg": ["note", 9, 36], "bind": "pedal_b"}],
-        on_pedal=lambda w, d: got.append((w, d)),
-    )
-    m.feed(
-        bytes((0x99, 36, 100, 0x99, 36, 100, 0x89, 36, 0, 0x99, 36, 90, 0x99, 36, 0))
-    )
-    check(
-        "a note on and its note off move the pedal once each",
-        got == [(1, True), (1, False), (1, True), (1, False)],
-        repr(got),
-    )
+    m = midipedal.MidiPedal([{"msg": ["note", 9, 36], "bind": "pedal_b"}], on_pedal=lambda w, d: got.append((w, d)))
+    m.feed(bytes((0x99, 36, 100, 0x99, 36, 100, 0x89, 36, 0, 0x99, 36, 90, 0x99, 36, 0)))
+    check("a note on and its note off move the pedal once each", got == [(1, True), (1, False), (1, True), (1, False)],
+          repr(got))
 
 
 class FakePin:
@@ -1560,9 +1164,7 @@ def run_switch(project, script, until_bars):
     switch's own [(ms, down)]."""
     frames = [0]
     kit = FakeKit(lambda: frames[0])
-    e = eng.Engine(
-        project, kit, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE
-    )
+    e = eng.Engine(project, kit, lambda: frames[0], RATE, now_ms=lambda: frames[0] * 1000 // RATE)
     moves = []
 
     def on_pedal(which, down):
@@ -1571,18 +1173,14 @@ def run_switch(project, script, until_bars):
             e.press(which)
         else:
             e.release(which)
-
     pin = FakePin()
-    sw = footswitch.open_switches(
-        {"switch": "pin:4"}, on_pedal, opener=lambda spec: (pin, True)
-    )[0]
+    sw = footswitch.open_switches({"switch": "pin:4"}, on_pedal, opener=lambda spec: (pin, True))[0]
     gestures = []
     old = e.gesture
 
     def gesture(which, g):
         gestures.append(g)
         return old(which, g)
-
     e.gesture = gesture
     end_ms = int(until_bars * 4 * 60000.0 / project["tempo"])
     script = list(script)
@@ -1592,7 +1190,7 @@ def run_switch(project, script, until_bars):
         frames[0] = ms * RATE // 1000
         while script and script[0][0] <= ms:
             pin.level = script.pop(0)[1]
-        sw.poll(ms)  # as the box's service pass does, every few ms
+        sw.poll(ms)                 # as the box's service pass does, every few ms
         if ms % 4 == 0:
             e.poll()
             e.sequence()
@@ -1625,27 +1223,15 @@ def check_footswitch():
     t2 = int(30.5 * beat)
     script = press(10, 90) + press(t1, 600) + press(t2, 80) + press(t2 + 250, 80)
     names, gestures, moves = run_switch(rock, script, 48)
-    check(
-        "a bouncing switch on a pin goes down and up once a press",
-        [d for _t, d in moves] == [True, False] * 4,
-        repr(moves),
-    )
-    check(
-        "it is heard within a few ms of the contact settling",
-        moves and 10 <= moves[0][0] <= 10 + 4 + 10,
-        repr(moves[:1]),
-    )
-    check(
-        "a switch on a pin taps, holds and double-taps pedal A",
-        gestures == ["tap", "hold", "tap", "double"],
-        repr(gestures),
-    )
+    check("a bouncing switch on a pin goes down and up once a press",
+          [d for _t, d in moves] == [True, False] * 4, repr(moves))
+    check("it is heard within a few ms of the contact settling", moves and 10 <= moves[0][0] <= 10 + 4 + 10,
+          repr(moves[:1]))
+    check("a switch on a pin taps, holds and double-taps pedal A", gestures == ["tap", "hold", "tap", "double"],
+          repr(gestures))
     want = [None, "Intro", "Main 1", "Transition 2", "Main 2", "Outro", None]
-    check(
-        "from the pin the tap starts the song, the hold moves to the next part and the double tap plays the outro",
-        names == want,
-        repr(names),
-    )
+    check("from the pin the tap starts the song, the hold moves to the next part and the double tap plays the outro",
+          names == want, repr(names))
     # A switch that reads high when pressed, and the second setting is pedal B.
     pins = {}
 
@@ -1653,112 +1239,55 @@ def check_footswitch():
         pins[spec] = FakePin()
         pins[spec].level = 0
         return pins[spec], not spec.endswith(":high")
-
     got = []
-    sws = footswitch.open_switches(
-        {"switch": "", "switch_b": "pin:5:high"},
-        lambda w, d: got.append((w, d)),
-        opener=opener,
-    )
+    sws = footswitch.open_switches({"switch": "", "switch_b": "pin:5:high"}, lambda w, d: got.append((w, d)),
+                                   opener=opener)
     sws[0].poll(0)
     pins["pin:5:high"].level = 1
     for t in range(1, 20):
         sws[0].poll(t)
-    check(
-        "an empty setting is no switch; switch_b is pedal B; pin:N:high is pressed when high",
-        len(sws) == 1 and got == [(1, True)],
-        repr((len(sws), got)),
-    )
+    check("an empty setting is no switch; switch_b is pedal B; pin:N:high is pressed when high",
+          len(sws) == 1 and got == [(1, True)], repr((len(sws), got)))
     try:
         footswitch.open_pin("gpio35")
         bad = None
     except ValueError as e:
         bad = str(e)
-    check(
-        "a switch spec that isn't one of the forms says so",
-        bad is not None and "pin:N" in bad,
-        repr(bad),
-    )
+    check("a switch spec that isn't one of the forms says so", bad is not None and "pin:N" in bad, repr(bad))
 
 
 def check_midi_actions():
     got = []
-    m = midipedal.MidiPedal(
-        on_pedal=lambda w, d: got.append(("pedal", w, d)),
-        on_action=lambda a: got.append(("action", a)),
-    )
-    m.learn(0)  # bound to pedal A, but a program change can't be a pedal
+    m = midipedal.MidiPedal(on_pedal=lambda w, d: got.append(("pedal", w, d)),
+                            on_action=lambda a: got.append(("action", a)))
+    m.learn(0)                          # bound to pedal A, but a program change can't be a pedal
     m.feed(bytes((0xC0, 3)))
     m.feed(bytes((0xC0, 3)))
-    check(
-        "a program change learned for a pedal becomes an action, and does it on every press",
-        m.slots[0]["bind"] == midipedal.ONE_SHOT and got == [("action", "fill")],
-        repr((m.slots[0], got)),
-    )
+    check("a program change learned for a pedal becomes an action, and does it on every press",
+          m.slots[0]["bind"] == midipedal.ONE_SHOT and got == [("action", "fill")], repr((m.slots[0], got)))
     refused = False
     try:
         m.bind(0, "pedal_a")
     except ValueError:
         refused = True
-    check(
-        "a program change can't be bound to a pedal",
-        refused and m.slots[0]["bind"] == "fill",
-        repr(m.slots[0]),
-    )
+    check("a program change can't be bound to a pedal", refused and m.slots[0]["bind"] == "fill", repr(m.slots[0]))
     m.bind(0, "outro")
     m.learn(3)
     m.feed(cc(64, 127, ch=1))
     del got[:]
     m.feed(bytes((0xC0, 3)) + cc(64, 127, ch=1) + cc(64, 0, ch=1))
-    check(
-        "each press of an action switch does its action once",
-        got == [("action", "outro"), ("action", "stop")],
-        repr(got),
-    )
+    check("each press of an action switch does its action once", got == [("action", "outro"), ("action", "stop")],
+          repr(got))
     del got[:]
-    m.feed(
-        bytes(
-            (
-                0xC1,
-                3,
-                0xC0,
-                4,
-                0xB0,
-                64,
-                127,
-                0x90,
-                60,
-                100,
-                0x80,
-                60,
-                0,
-                0xF8,
-                0xFA,
-                0xF0,
-                0x7E,
-                0x7F,
-                0x06,
-                0x01,
-                0xF7,
-                0xE0,
-                0,
-                64,
-            )
-        )
-    )
-    check(
-        "messages no switch holds are ignored: another channel, program or controller, notes, clock, SysEx",
-        got == [],
-        repr(got),
-    )
+    m.feed(bytes((0xC1, 3, 0xC0, 4, 0xB0, 64, 127, 0x90, 60, 100, 0x80, 60, 0, 0xF8, 0xFA,
+                  0xF0, 0x7E, 0x7F, 0x06, 0x01, 0xF7, 0xE0, 0, 64)))
+    check("messages no switch holds are ignored: another channel, program or controller, notes, clock, SysEx",
+          got == [], repr(got))
     tt = midipedal.TapTempo()
     bpm = [tt.tap(t) for t in (0, 500, 1000, 1500)]
     later = [tt.tap(t) for t in (6000, 6600)]
-    check(
-        "tap tempo is the taps' pace, and a pause starts the count again",
-        bpm == [None, 120.0, 120.0, 120.0] and later == [None, 100.0],
-        repr((bpm, later)),
-    )
+    check("tap tempo is the taps' pace, and a pause starts the count again",
+          bpm == [None, 120.0, 120.0, 120.0] and later == [None, 100.0], repr((bpm, later)))
 
 
 def check_midi_box():
@@ -1785,14 +1314,12 @@ def check_midi_box():
             if not self.waiting:
                 return None
             msg = self.waiting.pop(0)
-            buf[: len(msg)] = msg
+            buf[:len(msg)] = msg
             return len(msg)
 
     frames = [0]
     ms = [0]
-    b = boxmod.Box(
-        lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: ms[0]
-    )
+    b = boxmod.Box(lambda: frames[0], song="rock", kit="rhythm808", now_ms=lambda: ms[0])
     port = Port()
     b.midi_in = port
     panel = hmilink.Panel(local.connect(b.device.add(local.serve())))
@@ -1807,50 +1334,34 @@ def check_midi_box():
         b.poll()
         panel.poll()
 
-    check(
-        "a panel is told the switches' map",
-        (panel.desc or {}).get("pedals", {}).get("learning") == -1,
-        repr((panel.desc or {}).get("pedals")),
-    )
+    check("a panel is told the switches' map", (panel.desc or {}).get("pedals", {}).get("learning") == -1,
+          repr((panel.desc or {}).get("pedals")))
     panel.command("pedals", learn=2)
     step()
     step(bytes((0xC0, 9)))
     last = [ev for ev in seen if ev.get("name") == "pedals"]
-    check(
-        "a slot armed from a panel learns the switch, and the panel hears the map",
-        len(last) >= 2
-        and last[-1]["slots"][2]["msg"] == ["pc", 0, 9]
-        and last[-1]["learning"] == -1,
-        repr(last[-1:]),
-    )
+    check("a slot armed from a panel learns the switch, and the panel hears the map",
+          len(last) >= 2 and last[-1]["slots"][2]["msg"] == ["pc", 0, 9] and last[-1]["learning"] == -1,
+          repr(last[-1:]))
     panel.command("pedals", learn=0)
     step()
     step(cc(80, 127), cc(80, 0))
     step(cc(80, 127))
     ms[0] = 90
     step(cc(80, 0))
-    check(
-        "the learned switch is pedal A: its tap starts the song",
-        b.engine.transport["playing"] and b.engine.last == "start",
-        repr(b.engine.last),
-    )
+    check("the learned switch is pedal A: its tap starts the song", b.engine.transport["playing"] and
+          b.engine.last == "start", repr(b.engine.last))
     tempo = b.engine.project["tempo"]
     for t in (1000, 1400, 1800):
         ms[0] = t
         step(bytes((0xC0, 9)))
-    check(
-        "the tap tempo switch sets the song to its pace, and the panel's song follows",
-        b.engine.project["tempo"] == 150.0 and (panel.doc or {}).get("tempo") == 150.0,
-        "%r -> %r, panel %r"
-        % (tempo, b.engine.project["tempo"], (panel.doc or {}).get("tempo")),
-    )
+    check("the tap tempo switch sets the song to its pace, and the panel's song follows",
+          b.engine.project["tempo"] == 150.0 and (panel.doc or {}).get("tempo") == 150.0,
+          "%r -> %r, panel %r" % (tempo, b.engine.project["tempo"], (panel.doc or {}).get("tempo")))
     panel.command("pedals", slot=2, bind="stop")
     step()
     step(bytes((0xC0, 9)))
-    check(
-        "bound to stop from the panel, the switch stops the song",
-        not b.engine.transport["playing"],
-    )
+    check("bound to stop from the panel, the switch stops the song", not b.engine.transport["playing"])
     b.close()
 
 
