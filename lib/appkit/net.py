@@ -42,6 +42,7 @@ _NTP_DELTA = 2208988800
 
 _pool = None
 _session = None
+_local_time = time.localtime
 
 
 def sockets():
@@ -115,6 +116,33 @@ def sets_clock():
     """Return True where this program keeps the clock (a board), False where
     the computer does (a desktop)."""
     return CIRCUITPYTHON or machine is not None
+
+
+def local_time():
+    """Return the local time as a ``time.localtime``-style tuple.
+
+    It comes from the source a library set with `set_local_time`, so the
+    status bar and the apps read the same zone. With none set, it's
+    ``time.localtime()``: on a board that's UTC, and on a desktop the
+    computer's zone.
+    """
+    return _local_time()
+
+
+def set_local_time(source):
+    """Have `local_time` read from ``source``.
+
+    A board keeps its clock in UTC and doesn't know its zone. A library that
+    finds the zone (deskkit looks it up from the board's IP address, or the
+    place chosen in Weather) sets itself here, and the status bar's clock
+    follows it without depending on that library.
+
+    Args:
+        source: a function taking no arguments and returning a
+            ``time.localtime``-style tuple.
+    """
+    global _local_time
+    _local_time = source
 
 
 def set_clock(year, month, day, hour, minute, second):

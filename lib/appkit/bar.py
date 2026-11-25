@@ -39,10 +39,11 @@ board's display time that audio may need.
 """
 
 import sys
-import time
 
 import lvgl as lv
 from icons import lvgl as lvicons
+
+from . import net
 
 try:
     import endpointkit
@@ -96,10 +97,11 @@ class Item:
 
 
 def clock_item():
-    """The time, ``14:05``, from ``time.localtime``."""
+    """The local time, ``14:05``, from `appkit.net.local_time`: the zone a
+    library such as deskkit found, or ``time.localtime`` until one has."""
 
     def read():
-        t = time.localtime()
+        t = net.local_time()
         return None, "%02d:%02d" % (t[3], t[4])
 
     return Item("clock", read)

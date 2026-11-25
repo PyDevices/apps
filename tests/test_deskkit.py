@@ -9,6 +9,7 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+import time
 import unittest
 from unittest import mock
 
@@ -164,6 +165,40 @@ class LocalTimeTest(unittest.TestCase):
         lt.offset_s = -18000
         with mock.patch.object(lt.time, "time", return_value=1793673000):  # 02:30 UTC
             self.assertEqual(lt.clock_time()[:2], (21, 30))
+
+
+def _load(name, path):
+    spec = importlib.util.spec_from_file_location(name, str(path))
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+class StatusBarClockTest(unittest.TestCase):
+    """The status bar's clock reads the zone deskkit found, as Clock does."""
+
+    def test_the_bar_shows_the_same_local_time_as_clock(self):
+        appkit = mock.MagicMock()
+        fakes = {name: mock.MagicMock() for name in ("lvgl", "icons", "icons.lvgl", "requests", "wifi_manager",
+                                                     "appkit.data")}
+        fakes["appkit"] = appkit
+        with mock.patch.dict(sys.modules, fakes):
+            for name in ("deskkit", "deskkit.forecast", "deskkit.localtime", "appkit.net", "appkit.bar"):
+                sys.modules.pop(name, None)
+            # The real appkit.net and appkit.bar, by their files: the package
+            # brings the Launcher and the Shell, which this needs neither of.
+            appkit.net = _load("appkit.net", ROOT / "lib" / "appkit" / "net.py")
+            appkit.__path__ = [str(ROOT / "lib" / "appkit")]
+            bar = _load("appkit.bar", ROOT / "lib" / "appkit" / "bar.py")
+            from deskkit import localtime
+
+            localtime.offset_s = -21600  # UTC-6, as the IP lookup sets it
+            with mock.patch.object(time, "time", return_value=1793673000):  # 02:30 UTC
+                hour, minute, _ = localtime.clock_time()
+                _, text = bar.clock_item().read()
+        self.assertEqual((hour, minute), (20, 30))
+        self.assertEqual(text, "20:30")
 
 
 class SyncTest(unittest.TestCase):
