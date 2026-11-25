@@ -29,6 +29,13 @@
       "latest"
     ]
   ],
+  "applibs": [
+    "appkit",
+    "deskkit",
+    "sayso",
+    "spectrum",
+    "touchkit"
+  ],
   "upstream": [
     [
       "requests",

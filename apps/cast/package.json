@@ -33,6 +33,11 @@
       "main"
     ]
   ],
+  "applibs": [
+    "appkit",
+    "deskkit",
+    "touchkit"
+  ],
   "upstream": [
     [
       "requests",

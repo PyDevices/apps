@@ -61,5 +61,9 @@
       "latest"
     ]
   ],
+  "applibs": [
+    "appkit",
+    "controlkit"
+  ],
   "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
 }

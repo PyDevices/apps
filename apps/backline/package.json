@@ -169,6 +169,13 @@
       "main"
     ]
   ],
+  "applibs": [
+    "appkit",
+    "chatclient",
+    "deskkit",
+    "songmodel",
+    "touchkit"
+  ],
   "upstream": [
     [
       "requests",
