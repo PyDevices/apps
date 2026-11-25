@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.3.dev7
+## 0.1.3rc1
 
 - appkit: one bar along the top instead of two. The status bar carries Home, the app's title and its status line, then the clock and the icons, so apps get up to 32 px more of the screen. On a narrow screen the status line takes a row under the bar only once the app asks for it, and the app's area makes room before the app lays out, so nothing is cut off at the bottom. Home's settings and hidden-apps buttons are on the bar too, and the tiles take the row they used.
 - touchkit: under the compact cap, the title row sits inside the circle on a round screen, with Home at its left.
