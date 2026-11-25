@@ -71,30 +71,57 @@ def main(scope):
         )
         return
     scr = scope.root
-    status = ui.status(scope)
+    status = ui.status(scope)  # first: on a narrow screen it takes a row from scope.size
     status.set_text("starting")
+    W, H = scope.size
 
-    ring = lv.obj(scr)
-    ring.set_size(260, 260)
-    ring.align(lv.ALIGN.CENTER, -170, -2)
-    ring.set_style_radius(130, 0)
+    # The ring beside a column of text on a wide screen, above it on a tall
+    # or square one, both centred in the app's area.
+    wide = W * 3 >= H * 4
+    if wide:
+        d = max(80, min(260, H - 48, W * 2 // 5))
+        col_w = min(340, W - d - 64)
+    else:
+        col_w = W - 24
+        d = max(80, min(260, W - 48, H * 2 // 5))
+    big = ui.big if col_w >= 300 else ui.font
+    body = ui.plain(lv.obj(scr))
+    body.set_size(W, H)
+    body.set_flex_flow(lv.FLEX_FLOW.ROW if wide else lv.FLEX_FLOW.COLUMN)
+    body.set_flex_align(lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.CENTER)
+    body.set_style_pad_column(40, 0)
+    body.set_style_pad_row(16 if d >= 160 else 8, 0)
+
+    ring = lv.obj(body)
+    ring.set_size(d, d)
+    ring.set_style_radius(d // 2, 0)
     ring.set_style_bg_color(ui.PANEL, 0)
     ring.set_style_border_color(ui.ACCENT, 0)
-    ring.set_style_border_width(6, 0)
+    ring.set_style_border_width(6 if d >= 160 else 4, 0)
     ring.remove_flag(lv.obj.FLAG.SCROLLABLE)
-    icon = ui.label(ring, lv.SYMBOL.AUDIO, ui.huge, ui.ACCENT)
+    icon = ui.label(ring, lv.SYMBOL.AUDIO, ui.huge if d >= 160 else ui.big, ui.ACCENT)
     icon.center()
-    say = ui.label(scr, 'Say "%s"' % PHRASE, ui.big, ui.WHITE)
-    say.set_pos(420, 70)
-    count = ui.label(scr, "Detections: 0", ui.big, ui.WHITE)
-    count.set_pos(420, 130)
-    last = ui.label(scr, "", ui.font, ui.MUTED)
-    last.set_pos(420, 180)
-    bar = lv.bar(scr)
-    bar.set_size(340, 24)
-    bar.set_pos(420, 240)
+
+    col = ui.plain(lv.obj(body))
+    col.set_size(col_w, lv.SIZE_CONTENT)
+    col.set_flex_flow(lv.FLEX_FLOW.COLUMN)
+    col.set_flex_align(lv.FLEX_ALIGN.START, lv.FLEX_ALIGN.START if wide else lv.FLEX_ALIGN.CENTER, lv.FLEX_ALIGN.START)
+    col.set_style_pad_row(12 if big is ui.big else 4, 0)
+    align = lv.TEXT_ALIGN.LEFT if wide else lv.TEXT_ALIGN.CENTER
+
+    def line(text, font, color):
+        lbl = ui.label(col, text, font, color)
+        lbl.set_width(col_w)
+        lbl.set_style_text_align(align, 0)
+        return lbl
+
+    say = line('Say "%s"' % PHRASE, big, ui.WHITE)
+    count = line("Detections: 0", big, ui.WHITE)
+    last = line("", ui.font if big is ui.big else ui.small, ui.MUTED)
+    bar = lv.bar(col)
+    bar.set_size(col_w, 24 if big is ui.big else 12)
     bar.set_range(0, 100)
-    ui.label(scr, "model score", ui.small, ui.MUTED).set_pos(420, 270)
+    line("model score", ui.small if big is ui.big else ui.tiny, ui.MUTED)
 
     st = state = {"mic": None, "feed": None, "ww": None, "buf": None, "hits": 0, "flash": None,
                   "t0": ticks_ms(), "best": 0.0, "chosen": [], "error": None}
@@ -149,6 +176,8 @@ def main(scope):
             st["ww"] = _load_model()
         except Exception as e:
             status.set_text("no model: put %s in %s" % (MODEL, places.where_text(MODELS)))
+            # Again under the ring, where it wraps: a narrow status line cuts it short.
+            last.set_text("No model: put %s in %s." % (MODEL, places.where_text(MODELS)))
             print("wake: model:", e)
             return
         st["chosen"] = scope.follow("audio.in", moved)

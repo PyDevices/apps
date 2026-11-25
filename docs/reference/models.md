@@ -50,13 +50,13 @@ fit your use before you ship it in a product.
 ## Put them on the board
 
 On a computer, copy the files into a `models` folder at the top of the SD card.
-Or put them on flash with [mpftp](https://github.com/PyDevices/mcuctl) from the
+Or put them on flash with [mcuctl](https://github.com/PyDevices/mcuctl) from the
 folder you downloaded to:
 
 ```sh
-mpftp mkdir /models
-mpftp put hey_jarvis.json /models/hey_jarvis.json
-mpftp put hey_jarvis.tflite /models/hey_jarvis.tflite
+mcuctl mkdir /models
+mcuctl put hey_jarvis.json /models/hey_jarvis.json
+mcuctl put hey_jarvis.tflite /models/hey_jarvis.tflite
 ```
 
 A desktop has no card or flash: its folder is `models` in the app's data root
