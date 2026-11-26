@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.3
+
+- Watch, a home screen for round and small screens: a watch face first, then a wheel of apps. Watch and Clock open on the hybrid face, Weather fits a 240-pixel watch, and its words stay clear of the Home button on a round screen.
+- Eye Camera is an app of its own in `apps/eyecam`, installed by name. It also runs in the all-apps browser page, on the Video tab, with the page's camera and object detector.
+- Bluetooth Receiver plays a chime over the music when a call rings and when a new text arrives.
+- Home: a tab with more apps than its grid holds turns in pages, with dots, where before the extra apps never showed.
+- In a browser page, Connections lists the page's MIDI ports, gamepads, speakers, microphones, camera and serial ports, and the apps use what's chosen there: MIDI apps play and hear the page's other tabs, Gamepad tests the browser's pad, Video Camera runs, and the REPL can be a terminal to a board on a serial port. The page keeps what was chosen.
+- Weather in a browser opens on the visitor's own forecast. Detect's status line names the model that runs.
+- Backline and Bit World start in a build with every app frozen in.
+- Releases publish the all-apps page to apps.omnipython.org.
+
 ## 0.1.3rc5
 
 - Home: the board's own apps share a System tab, with Info (what System was), a new Settings app, a new Hidden apps app, the REPL and the Shell; Gamepad has a Games tab. Settings sets the board's name and holds the Wi-Fi power saving switch on every screen size, and Hidden apps lists what's hidden, with each reason, and puts it back.
