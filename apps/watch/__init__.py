@@ -162,7 +162,7 @@ def main(scope):
     root.set_style_bg_opa(lv.OPA.COVER, 0)
     kept = scope.store()
     side = min(W, H)
-    state = {"face": None, "name": _load_face(scope), "swiped": False, "glance_at": 0, "idle": 0}
+    state = {"face": None, "name": _load_face(scope), "swiped": False, "glance_at": 0, "opened": 0}
 
     # -- the face --
     face_view = lv.obj(root)
@@ -246,7 +246,7 @@ def main(scope):
         clock.set_text("%d:%02d" % (t[3], t[4]))
         face_view.add_flag(lv.obj.FLAG.HIDDEN)
         wheel_view.remove_flag(lv.obj.FLAG.HIDDEN)
-        state["idle"] = 0
+        state["opened"] = lv.tick_get()
         if lv.group_get_default() is not None:
             lv.group_focus_obj(wheel.cont)
 
@@ -308,7 +308,10 @@ def main(scope):
         t = localtime.now()
         clock.set_text("%d:%02d" % (t[3], t[4]))
         disp = lv.display_get_default()
-        if disp is not None and disp.get_inactive_time() > WHEEL_IDLE_MS:
+        # Untouched since it opened, however it was opened (a tap, a key,
+        # or a script), for WHEEL_IDLE_MS.
+        if (disp is not None and disp.get_inactive_time() > WHEEL_IDLE_MS
+                and lv.tick_elaps(state["opened"]) > WHEEL_IDLE_MS):
             close_wheel()
 
     show_face(state["name"])

@@ -336,6 +336,25 @@ if wh is not None:
     check(la.current == "watch", "Home brings Watch back: %r" % (la.current,))
     check(shown(la.scope.root.get_child(0)), "on its face")
 
+# -- the wheel goes back to the face when left alone ------------------------------
+
+# Opened after the screen sat untouched for longer than the wheel waits (by
+# a key, or a script, neither of which touches the screen), the wheel stays
+# until it has been left alone itself. The wait is cut short here.
+sys.modules["apps.watch"].WHEEL_IDLE_MS = 400
+root = la.scope.root
+catch = root.get_child(0).get_child(root.get_child(0).get_child_count() - 1)
+settle(1000)
+catch.send_event(lv.EVENT.CLICKED, None)
+settle(100)
+time.sleep(0.4)
+settle(100)
+check(shown(root.get_child(1)), "a wheel just opened stays open, however long the screen sat untouched")
+settle(1000)
+time.sleep(0.4)
+settle(100)
+check(shown(root.get_child(0)) and not shown(root.get_child(1)), "left alone, it goes back to the face")
+
 # Watch's clock ticks on a timer, which would keep the program alive once
 # this script ends.
 if la.scope is not None:
