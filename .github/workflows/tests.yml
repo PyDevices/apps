@@ -105,7 +105,7 @@ jobs:
           echo "ostinato=$(has '^(programs/ostinato/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "engines=$(has '^(lib/|tests/|apps/stompbox/|apps/backline/|apps/synthstation/|programs/vamp/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "appkit=$(has '^(lib/(appkit|touchkit|deskkit)/|apps/(home|watch|clock|info|settings)/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "camera_apps=$(has '^(apps/(camera|detect)/|lib/(touchkit|appkit)/|tests/(test_camera_preview|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"

@@ -27,6 +27,8 @@ from . import data, glass, hover
 
 #: How far a round screen's Home button keeps in from the circle's edge, in pixels.
 ROUND_MARGIN = 4
+#: A screen whose longer side is shorter than this, in pixels, is small (`is_small`).
+SMALL = 320
 
 
 def is_round():
@@ -48,6 +50,16 @@ def is_round():
     if r is None:
         r = type(drv).__name__.upper().startswith("GC9A01")
     return bool(r)
+
+
+def is_small():
+    """Whether the default display is too small for a grid of app tiles: its
+    longer side is under `SMALL` pixels, as on a 240 by 240 watch. A 320 by
+    170 strip is not small; one with no display isn't either."""
+    disp = lv.display_get_default()
+    if disp is None:
+        return False
+    return max(disp.get_horizontal_resolution(), disp.get_vertical_resolution()) < SMALL
 
 
 def round_corner(size, d, margin=ROUND_MARGIN):

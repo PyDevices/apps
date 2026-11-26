@@ -149,6 +149,10 @@
       "main"
     ],
     [
+      "github:PyDevices/apps/apps/watch",
+      "main"
+    ],
+    [
       "github:PyDevices/apps/apps/weather",
       "main"
     ]

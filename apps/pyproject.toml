@@ -67,6 +67,7 @@ packages = [
     "apps.system",
     "apps.touchcal",
     "apps.wake",
+    "apps.watch",
     "apps.weather",
 ]
 
@@ -106,4 +107,5 @@ packages = [
 "apps.system" = ["app.json"]
 "apps.touchcal" = ["app.json"]
 "apps.wake" = ["app.json"]
+"apps.watch" = ["app.json"]
 "apps.weather" = ["app.json"]

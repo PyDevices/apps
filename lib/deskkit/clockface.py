@@ -1,10 +1,11 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The clock's face: a responsive, skinnable analog clock in LVGL.
+"""An analog clock face in LVGL that fits any screen, in skins you can add to.
 
-Add a face with ``AnalogClock.register_skin(name, mapping)``, or a new entry in
-`BUILTIN_SKINS`, then name it in the app's ``FACE``.
+Clock and Watch both show it. Add a skin with
+``AnalogClock.register_skin(name, mapping)``, or a new entry in
+`BUILTIN_SKINS`, then name it when you make the clock.
 """
 
 import math
