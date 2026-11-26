@@ -17,8 +17,14 @@ while a WebREPL client is connected, the app waits for it to leave.
 It needs vtterm (``mip.install("github:PyDevices/omnipython/packages/vtterm")``)
 and firmware whose palettes has its ANSI palette. Shift+Page Up and Page Down
 page back through what scrolled off the screen.
+
+In a browser page there is no REPL of the page's own, so the app is a
+terminal to a board's: plug the board into the computer, choose it under
+Serial ports in Connections (Chrome or Edge), and its REPL comes here, typed
+on the computer's keyboard. Choosing another port moves the terminal there.
 """
 
+import os
 import sys
 
 import lvgl as lv
@@ -37,6 +43,10 @@ STATUS_H = 20
 KEYDOWN = 0x300
 #: How often the app asks for the dupterm slot while WebREPL holds it, in ms.
 WAIT_MS = 1000
+#: The speed a board's serial REPL runs at, in a browser page.
+BAUDRATE = 115200
+#: What the status line says in a browser page before a port is chosen.
+CHOOSE_TEXT = "Choose a board under Serial ports in Connections"
 
 
 class _Area:
@@ -75,6 +85,8 @@ class _Area:
 
 
 def main(scope):
+    if not hasattr(os, "dupterm"):
+        return _main_serial(scope)
     root = scope.root
     root.remove_flag(lv.obj.FLAG.SCROLLABLE)
     root.set_style_bg_color(lv.color_hex(0), 0)
@@ -150,6 +162,110 @@ def main(scope):
         console = st["console"]
         if console is not None:
             console.detach()
+        for src in st["sources"]:
+            try:
+                src.close()
+            except Exception as e:  # noqa: BLE001 - closing the rest matters more
+                print("repl app: closing", src, e)
+
+    scope.on_close(close)
+    scope.after(150, start)
+
+
+def _root(scope):
+    """Paint the app's root black and put the status line under it; ``(status, x, y, w, rows_h)``."""
+    root = scope.root
+    root.remove_flag(lv.obj.FLAG.SCROLLABLE)
+    root.set_style_bg_color(lv.color_hex(0), 0)
+    root.set_style_bg_opa(lv.OPA.COVER, 0)
+    x, y, w, h = scope.rect
+    status = lv.label(root)
+    status.set_style_text_color(lv.color_hex(0x5FAFAF), 0)
+    status.set_style_text_font(lv.font_montserrat_14, 0)
+    status.set_long_mode(lv.label.LONG_MODE.CLIP)
+    status.set_width(w - 8)
+    status.align(lv.ALIGN.BOTTOM_LEFT, 4, -2)
+    return status, x, y, w, (h - STATUS_H) // 16 * 16
+
+
+def _main_serial(scope):
+    """A terminal to the board on the serial port chosen in Connections: a browser page's REPL."""
+    import webserial
+
+    status, x, y, w, rows_h = _root(scope)
+    status.set_text("Starting")
+    st = {"term": None, "port": None, "sources": [], "shown": None, "said": None}
+
+    def say(text):
+        if text != st["shown"]:
+            st["shown"] = text
+            status.set_text(text)
+
+    def use(endpoints):
+        port = st["port"]
+        if port is not None:
+            st["port"] = None
+            port.close()
+        if not endpoints:
+            say(CHOOSE_TEXT)
+            return
+        try:
+            st["port"] = webserial.open(endpoints[0], BAUDRATE)
+        except OSError as e:
+            say(str(e))
+            return
+        say("Opening %s" % st["port"].name)
+        st["said"] = None
+
+    def start(_t=None):
+        # After LVGL has painted the root, or it would paint over the terminal.
+        area = _Area(display_drv, x, y, w, rows_h)
+        st["term"] = Terminal(area, palette=AnsiPalette(length=256, color_depth=16))
+        st["sources"] = start_all()[0]  # the page's own keyboard; a board's USB and BLE don't apply
+        use(scope.follow("serial", use))
+        scope.every(TICK_MS, tick)
+
+    def tick(_t=None):
+        term = st["term"]
+        port = st["port"]
+        out = None
+        for src in st["sources"]:
+            try:
+                evs = src.poll()
+            except Exception:  # noqa: BLE001 - the source keeps trying
+                evs = ()
+            for e in evs:
+                if e.type == KEYDOWN:
+                    if scroll_key(term.screen, e.key, e.mod):
+                        continue
+                    b = key_bytes(e.key, e.mod, term.screen.app_cursor)
+                    if b:
+                        out = b if out is None else out + b
+        if port is None:
+            return
+        if port.error:
+            say("%s: %s" % (port.name, port.error))
+            return
+        if not port.is_open():
+            return
+        if st["said"] is None:
+            st["said"] = port.name
+            say(port.name)
+            port.write(b"\r")  # a fresh prompt from the board
+        answers = term.answers()
+        if answers:
+            out = answers if out is None else out + answers
+        if out:
+            port.write(out)
+        data = port.read()
+        if data:
+            term.write(data)
+
+    def close():
+        port = st["port"]
+        st["port"] = None
+        if port is not None:
+            port.close()
         for src in st["sources"]:
             try:
                 src.close()

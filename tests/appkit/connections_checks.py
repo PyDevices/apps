@@ -77,6 +77,8 @@ elif PLANT == "browser_without_audio":
     connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "audiodev")
 elif PLANT == "browser_without_gamepads":
     connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "displaydev")
+elif PLANT == "browser_without_serial":
+    connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "webserial")
 elif PLANT == "unnamed_tabs":
     connections.name_page = lambda name_of: None
 elif PLANT == "noisy_absence":
@@ -380,6 +382,16 @@ class _PageInput:
         _PageInput.registered.append(registry)
 
 
+class _PageSerial:
+    registered = []
+
+    @staticmethod
+    def register(registry=None):
+        _PageSerial.registered.append(registry)
+
+
+real_serial = sys.modules.get("webserial")
+sys.modules["webserial"] = _PageSerial
 real_input = sys.modules.get("displaydev.endpoints")
 sys.modules["displaydev.endpoints"] = _PageInput
 import displaydev  # noqa: E402
@@ -405,6 +417,7 @@ check("midiports" in names, "a browser registers Web MIDI's ports: %r" % (names,
 check(_WebMidi.registered == [reg], "in the registry it was given: %r" % (_WebMidi.registered,))
 check("audiodev" in names and _PageAudio.registered == [reg], "and the page's speakers and microphones: %r" % (names,))
 check("displaydev" in names and _PageInput.registered == [reg], "and the gamepads the browser shows it: %r" % (names,))
+check("webserial" in names and _PageSerial.registered == [reg], "and the serial ports the person lets it use: %r" % (names,))
 check("usb.host" not in names and "btclassic" not in names, "and none of a board's: %r" % (names,))
 _title = lambda: "Synth Station"  # noqa: E731
 connections.name_page(_title)
@@ -415,6 +428,10 @@ check(_Tabs.name_of is _title, "away from a browser, nothing is named")
 del sys.modules["midiports"]
 del sys.modules["midiports.endpoints"]
 del sys.modules["midiports.tabs"]
+if real_serial is not None:
+    sys.modules["webserial"] = real_serial
+else:
+    del sys.modules["webserial"]
 if real_input is not None:
     sys.modules["displaydev.endpoints"] = real_input
 else:

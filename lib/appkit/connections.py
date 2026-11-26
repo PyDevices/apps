@@ -36,8 +36,9 @@ ports, displaydev's keyboard, mouse and gamepads, and castdisplay's Rokus.
 
 In a browser page it's what the browser lets a page reach: its speakers and
 microphones, through audiodev, Web MIDI's ports and the page's other tabs,
-through midiports, and the gamepads the browser shows it, through
-displaydev. A browser offers MIDI only once the person allows
+through midiports, the gamepads the browser shows it, through
+displaydev, and the serial ports the person lets it use, through webserial.
+A browser offers MIDI only once the person allows
 it, so until then each MIDI kind lists one "Allow MIDI" entry, and tapping it
 in the picker has the browser ask.
 
@@ -108,6 +109,12 @@ def _displaydev(registry):
     endpoints.register(registry)
 
 
+def _webserial(registry):
+    import webserial
+
+    webserial.register(registry)
+
+
 def _castdisplay(registry):
     from castdisplay import endpoints
 
@@ -169,6 +176,7 @@ WEB_PROVIDERS = (
     ("audiodev", _audiodev),
     ("midiports", _midiports),
     ("displaydev", _displaydev),
+    ("webserial", _webserial),
 )
 
 #: A computer's providers: the name `register` reports, and what registers it.

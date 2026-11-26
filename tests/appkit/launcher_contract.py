@@ -375,6 +375,9 @@ def scan_leaves_out_an_app_this_python_lacks():
     expect(L.lacks(["sys", "os.getcwd"]) is None, "an app with what it needs was refused")
     expect(L.lacks(["os.no_such_function"]) == "os.no_such_function", "a missing attribute went unseen")
     expect(L.lacks(["no_such_module_anywhere"]) == "no_such_module_anywhere", "a missing module went unseen")
+    expect(L.lacks(["os.no_such_function|sys"]) is None, "one of two that will do was refused")
+    expect(L.lacks(["os.no_such_function|no_such_module_anywhere"]) == "os.no_such_function|no_such_module_anywhere",
+           "neither of two went unseen")
     la = L.Launcher(_app())
     found = la.scan(_dir + _sep + "sample_needs" + _sep + "apps")
     expect(sorted(found) == ["here"], "scan found %r" % (sorted(found),))

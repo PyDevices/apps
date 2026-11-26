@@ -171,17 +171,22 @@ def lacks(needs):
     Args:
         needs (list): What an app's ``app.json`` lists under ``"needs"``:
             module names (``"audiomp3"``) and attributes of modules
-            (``"os.dupterm"``).
+            (``"os.dupterm"``). One of several, any of which will do,
+            is written with ``|`` between them (``"os.dupterm|webserial"``).
     """
     for need in needs or ():
-        module, _, name = need.partition(".")
-        try:
-            found = __import__(module)
-        except ImportError:
-            return need
-        if name and not hasattr(found, name):
+        if not any(_has(one) for one in need.split("|")):
             return need
     return None
+
+
+def _has(need):
+    module, _, name = need.partition(".")
+    try:
+        found = __import__(module)
+    except ImportError:
+        return False
+    return not name or hasattr(found, name)
 
 
 #: What appkit writes to an apps folder that has no ``__init__.py``.
