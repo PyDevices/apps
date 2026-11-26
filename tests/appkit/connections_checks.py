@@ -12,7 +12,7 @@ castdisplay it must leave alone, and stand-in ``board_peripherals``,
 ``usb`` and ``btclassic`` modules. The board is an ESP32-P4, so its USB host
 port is started; other chips check that only the P4, the S31 and the GIGA
 start it. Then a board whose firmware has none of those, which must register
-them without a word. Exit status 0 when every
+them without a word. Last a browser page, which gets Web MIDI's ports. Exit status 0 when every
 check passes.
 """
 
@@ -71,6 +71,8 @@ elif PLANT == "never_starts_usb_host":
 
         return {} if usb.core.stats() is not None else None
     connections._usb_host_start = _never_starts
+elif PLANT == "browser_gets_nothing":
+    connections.WEB_PROVIDERS = ()
 elif PLANT == "noisy_absence":
     def _usb_raises(registry):
         import usb.core
@@ -330,6 +332,40 @@ del connections._done[:]
 del connections._usb[:]
 check("mirror" not in connections.register(endpointkit.Registry()), "an older castdisplay has no mirror")
 del sys.modules["board_config"]
+
+# A browser page: Web MIDI's ports through midiports, and no Wi-Fi.
+class _Browser:
+    platform = "webassembly"
+    implementation = sys.implementation
+    modules = sys.modules
+
+
+class _WebMidi:
+    registered = []
+
+    @staticmethod
+    def register(registry=None):
+        _WebMidi.registered.append(registry)
+
+
+class _Midiports:
+    endpoints = _WebMidi
+
+
+sys.modules["midiports"] = _Midiports
+sys.modules["midiports.endpoints"] = _WebMidi
+real_sys, real_wifi = connections.sys, connections._wifi
+connections.sys = _Browser
+connections._wifi = lambda: False
+del connections._done[:]
+reg = endpointkit.Registry()
+names = connections.register(reg)
+check("midiports" in names, "a browser registers Web MIDI's ports: %r" % (names,))
+check(_WebMidi.registered == [reg], "in the registry it was given: %r" % (_WebMidi.registered,))
+check("audiodev" not in names and "usb.host" not in names, "and none of a board's: %r" % (names,))
+connections.sys, connections._wifi = real_sys, real_wifi
+del sys.modules["midiports"]
+del sys.modules["midiports.endpoints"]
 
 if FAILS:
     print("%d checks failed" % len(FAILS))

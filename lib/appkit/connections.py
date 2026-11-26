@@ -34,6 +34,11 @@ one only where it's installed: `hostnet` for the operating system's network
 link (reported only), audiodev's sound outputs and inputs, midiports' MIDI
 ports, displaydev's keyboard, mouse and gamepads, and castdisplay's Rokus.
 
+In a browser page it's what the browser lets a page reach: Web MIDI's ports,
+through midiports. A browser offers a device only once the person allows it,
+so until then each kind lists one "Allow" entry, and tapping it in the picker
+has the browser ask.
+
 An app hears a choice move with `AppScope.follow`, and `device` turns what
 it hears into the name a computer's audio backend opens. On a board it
 opens ``audio_out`` again, which plays on the new choice.
@@ -48,6 +53,9 @@ except ImportError:
 
 #: The platforms where the operating system owns networking.
 HOSTS = ("linux", "win32", "darwin")
+
+#: The platforms that are a browser page: MicroPython's WebAssembly port and Pyodide.
+BROWSERS = ("webassembly", "emscripten")
 
 #: Chips whose USB host has a controller of its own, so starting it leaves
 #: the REPL's USB port alone, and whether that host is full speed only.
@@ -154,6 +162,11 @@ BOARD_PROVIDERS = (
     ("mirror", _mirror),
 )
 
+#: A browser page's providers: the name `register` reports, and what registers it.
+WEB_PROVIDERS = (
+    ("midiports", _midiports),
+)
+
 #: A computer's providers: the name `register` reports, and what registers it.
 HOST_PROVIDERS = (
     ("hostnet", _hostnet),
@@ -188,6 +201,8 @@ def register(registry=None):
         names.append("wifinet")
     elif sys.platform in HOSTS:
         providers = HOST_PROVIDERS
+    elif sys.platform in BROWSERS:
+        providers = WEB_PROVIDERS
     for name, add in providers:
         try:
             if add(registry) is False:

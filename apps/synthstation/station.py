@@ -194,7 +194,7 @@ class Station:
         # it happens once the splash is on the screen.
         scope.after(50, self._open_midi)
         follow = getattr(scope, "follow", None)
-        if follow is not None and sys.platform in _midi.DESKTOPS:
+        if follow is not None and sys.platform in _midi.DESKTOPS + _midi.BROWSERS:
             follow("midi.in", self._midi_moved)
 
     # ---- the splash and the menu -----------------------------------------------

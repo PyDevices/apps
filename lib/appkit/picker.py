@@ -19,6 +19,9 @@ plug in, pair or discover shows up as it's found. A choice that would stop
 something sharing its hardware asks first. Tapping something that needs
 pairing (a Bluetooth device, a Wi-Fi network not yet joined) pairs first,
 asking for its password or PIN on the on-screen keyboard when it needs one.
+One the browser asks about itself (a page's "Allow MIDI", whose ``caps``
+say ``grant``) pairs at the tap, so the browser's own question opens while
+the tap still counts as the person's.
 A kind an app has pinned says so: the device's choice is kept for when the
 app lets go.
 
@@ -320,7 +323,10 @@ class Picker:
         kind = self.kind
         ep = self.registry.find(endpoint_id)
         if ep is not None and ep.state == endpointkit.NEEDS_PAIRING:
-            self._ask_pair(ep)
+            if ep.caps.get("grant") and not ep.asks:
+                self._pair(endpoint_id, None)
+            else:
+                self._ask_pair(ep)
             return
         try:
             toggle(self.registry, kind, endpoint_id, confirm=confirm)

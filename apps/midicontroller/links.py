@@ -16,13 +16,15 @@
 ``ble``
     The board advertises BLE-MIDI, for a computer, a phone or a tablet.
     Needs bledev and firmware with Bluetooth.
-``pc:<name>``
-    One of a computer's MIDI outputs, by name: a synth, a DAW's virtual
-    port, a loopback. On Windows and Linux, with midiports.
-``web:<name>``
-    In a browser page, one of the MIDI outputs Web MIDI offers, by name,
-    through midiports' ``webmidi``. The browser asks the person first;
-    until they answer there is one choice, ``web``, the first output.
+``out:<endpoint id>``
+    On a computer or in a browser page, one of the MIDI outputs the
+    Connections picker lists under MIDI out: a synth, a DAW's virtual port,
+    a loopback, or what Web MIDI offers. Choosing one here chooses it there,
+    for the whole device, and a choice made there is what the controller
+    plays, every output chosen at once. What comes back is the MIDI ins
+    chosen there. Needs midiports and endpointkit. In a browser the person
+    allows MIDI first: until then the one choice is "Allow MIDI", and
+    choosing it has the browser ask, then plays the first output.
 
 `open_link` opens one and hands back a `Link`: ``write`` for the output,
 ``read_into`` for what comes back (CC feedback), a status line, ``close``.
@@ -167,52 +169,82 @@ class BleLink(Link):
             pass
 
 
-class WebLink(Link):
-    """A browser's MIDI output, and its input of the same name for feedback."""
+#: The platforms that are a browser page.
+BROWSERS = ("webassembly", "emscripten")
+#: The platforms whose MIDI ports the Connections picker lists: computers and browser pages.
+CONNECTED_PLATFORMS = ("win32", "linux", "darwin") + BROWSERS
+
+
+def _chosen():
+    """``(endpointkit, midiports.endpoints)`` with this device's MIDI ports
+    registered, or None where the picker lists none (a board, or neither
+    library installed)."""
+    if sys.platform not in CONNECTED_PLATFORMS:
+        return None
+    try:
+        import endpointkit
+        from midiports import endpoints
+    except ImportError:
+        return None
+    try:
+        endpoints.register()  # the Shell's picker registers them too: whichever is first
+    except OSError:  # no MIDI ports on this computer's system
+        return None
+    return endpointkit, endpoints
+
+
+class ChosenLink(Link):
+    """The MIDI outputs chosen in the Connections picker, all at once, and the inputs chosen there for feedback.
+
+    The ports are the picker's: closing the link leaves them open for the
+    next program.
+    """
+
+    def __init__(self, key, kit, endpoints, first=False):
+        Link.__init__(self, key, "MIDI out", endpoints.fan_out(), endpoints.merged_in())
+        self._kit = kit
+        self._first = first
+
+    def poll(self):
+        kit = self._kit
+        if self._first and not kit.selection("midi.out"):
+            # Allowed now: play the first output, as a board plays its first way out.
+            for ep in kit.endpoints("midi.out"):
+                if ep.state in (kit.AVAILABLE, kit.CONNECTED):
+                    kit.select("midi.out", ep.id)
+                    self.key = "out:" + ep.id
+                    self._first = False
+                    break
+
+    def names(self):
+        """What the controller plays now, for a person: the chosen outputs' names."""
+        kit = self._kit
+        chosen = kit.selected("midi.out")
+        if chosen:
+            return ", ".join(ep.label for ep in chosen)
+        for ep in kit.endpoints("midi.out"):
+            if ep.state == kit.NEEDS_PAIRING:
+                return "allow MIDI when the browser asks"
+            if ep.state == kit.UNAVAILABLE:
+                return ep.caps.get("why") or ep.label
+        if kit.selection("midi.out"):
+            return "waiting for %s" % kit.selection("midi.out")[0].split(":", 1)[-1]
+        return "nothing chosen"
 
     def status(self):
-        name = getattr(self.out, "name", None)
-        if name:
-            return "Web MIDI: %s" % name
-        why = getattr(self.out, "why", None)
-        if why:
-            return "Web MIDI: %s" % why
-        return "Web MIDI: waiting for the browser (allow MIDI if it asks)"
+        return "MIDI out: %s" % self.names()
 
-
-_web_outputs = None
-
-
-def _webmidi():
-    """midiports' webmidi if this is a browser page that can send, or None."""
-    if sys.platform not in ("webassembly", "emscripten"):
-        return None
-    try:
-        from midiports import webmidi
-    except ImportError:
-        return None
-    return webmidi if hasattr(webmidi, "page_out") else None
-
-
-def _desktop():
-    """midiports' module for this computer's own ports, or None."""
-    try:
-        if sys.platform == "win32":
-            from midiports import windows
-
-            return windows
-        if sys.platform == "linux":
-            from midiports import linux
-
-            return linux
-    except ImportError:
-        pass
-    return None
+    def close(self):
+        self.closed = True
 
 
 def choices():
     """``[(key, label), ...]``: each way out this board has."""
     out = []
+    if sys.platform in BROWSERS:
+        # A page has no USB port or radio of its own: a build that carries
+        # the USB host's module for boards still reaches no device from here.
+        return _connected(out)
     try:
         import machine
 
@@ -243,32 +275,33 @@ def choices():
             out.append(("ble", "Bluetooth LE"))
     except ImportError:
         pass
-    desk = _desktop()
-    if desk is not None:
-        try:
-            for p in desk.available():
-                if p.direction == "out":
-                    out.append(("pc:" + p.name, p.name))
-        except Exception:  # noqa: BLE001 - no MIDI service: offer none
-            pass
-    webmidi = _webmidi()
-    if webmidi is not None:
-        global _web_outputs
-        if _web_outputs is None:
-            _web_outputs = webmidi.page_out()  # asks the browser now, and lists its outputs
-        names = _web_outputs.names
-        out.extend(("web:" + n, n) for n in names)
-        if not names:
-            out.append(("web", "Web MIDI"))
+    return _connected(out)
+
+
+def _connected(out):
+    """*out* with the MIDI outputs the Connections picker lists added."""
+    chosen = _chosen()
+    if chosen is not None:
+        kit = chosen[0]
+        for ep in kit.endpoints("midi.out"):
+            if ep.state != kit.UNAVAILABLE:
+                out.append(("out:" + ep.id, ep.label))
     return out
 
 
 def missing():
     """A line saying what this board lacks, for when `choices` is empty."""
-    if sys.platform in ("webassembly", "emscripten"):
-        return "No Web MIDI here: this page needs midiports' webmidi with page_out."
+    chosen = _chosen()
+    if chosen is not None:
+        kit = chosen[0]
+        for ep in kit.endpoints("midi.out"):
+            if ep.state == kit.UNAVAILABLE and ep.caps.get("why"):
+                return "No MIDI out here: %s." % ep.caps["why"]
+        return "No MIDI out here: plug in a MIDI device or start a synth, then choose it in Connections."
+    if sys.platform in BROWSERS:
+        return "No Web MIDI here: this page needs midiports and endpointkit."
     return ("No way out for MIDI here: this needs a USB device or host port with midiports, "
-            "Bluetooth LE with bledev, or a computer's MIDI ports.")
+            "Bluetooth LE with bledev, or a computer's MIDI ports with endpointkit.")
 
 
 def _start_host():
@@ -332,30 +365,20 @@ def open_link(key):
         import bledev.midi
 
         return BleLink(bledev.midi, bledev.auto.adapter(), asyncio)
-    if key.startswith("pc:"):
-        name = key[3:]
-        desk = _desktop()
-        if desk is None:
-            raise OSError("no MIDI ports on this computer")
-        outs = [p for p in desk.available() if p.direction == "out" and p.name == name]
-        if not outs:
-            raise OSError("no MIDI output named %r" % name)
-        ins = [p for p in desk.available() if p.direction == "in" and p.name == name]
-        out = desk.open_port(outs[0])
-        try:
-            inp = desk.open_port(ins[0]) if ins else None
-        except OSError:
-            inp = None  # another program holds it: send without feedback
-        return Link(key, name, out, inp)
-    if key == "web" or key.startswith("web:"):
-        webmidi = _webmidi()
-        if webmidi is None:
-            raise OSError("no Web MIDI output in this page")
-        name = key[4:]
-        out = webmidi.page_out(name)
-        try:
-            inp = webmidi.page_in(name)
-        except Exception:  # noqa: BLE001 - send without feedback
-            inp = None
-        return WebLink(key, "Web MIDI", out, inp)
+    if key.startswith("out:"):
+        chosen = _chosen()
+        if chosen is None:
+            raise OSError("no MIDI ports to choose from here")
+        kit, endpoints = chosen
+        ep_id = key[4:]
+        ep = kit.find(ep_id)
+        first = ep is not None and ep.state == kit.NEEDS_PAIRING
+        if first:
+            kit.pair(ep_id)  # the browser asks the person
+        elif ep is not None and ep.state == kit.UNAVAILABLE:
+            raise OSError(ep.caps.get("why") or "%s isn't available" % ep.label)
+        else:
+            # Chosen for the whole device; one not plugged in yet is used when it is.
+            kit.select("midi.out", ep_id)
+        return ChosenLink(key, kit, endpoints, first)
     raise ValueError("no MIDI link %r" % (key,))

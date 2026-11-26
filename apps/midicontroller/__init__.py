@@ -25,10 +25,11 @@ edge. Setup can fix the velocity instead.
 
 MIDI goes out over whichever way this board has: USB as a MIDI device
 (``usb-device-midi``), a synth on the USB host port, Bluetooth LE MIDI
-(bledev), or a computer's own MIDI ports. Setup picks one when there are
-several. What comes back moves the controls to match, so a DAW's
-automation turns the knobs, and a note played into the board lights its
-pad.
+(bledev), or, on a computer or in a browser page, the MIDI outputs the
+Connections picker lists. Setup picks one when there are several, and an
+output picked there is the one Connections uses too. What comes back moves
+the controls to match, so a DAW's automation turns the knobs, and a note
+played into the board lights its pad.
 
 Edit in Setup shows each control's note or CC in its place; tap one to
 change it. The mapping and the settings are kept in ``config.json`` in
@@ -214,11 +215,14 @@ class Controller:
     def choose(self, key, save=True):
         """Send through the way out named *key*, or the first this board has."""
         keys = [k for k, _ in self.choices]
-        # A browser output saved last time can't be listed until the
-        # browser says yes again, so it's kept rather than replaced.
-        web = key is not None and key.startswith("web:") and any(k.startswith("web") for k in keys)
-        if key not in keys and not web:
-            key = keys[0] if keys else None
+        if key is not None and (key.startswith("pc:") or key.startswith("web:")):
+            key = self._chosen_now(key[key.index(":") + 1:])  # saved before the picker chose
+        # An output saved last time may not be listed yet (a browser lists
+        # none until the person allows MIDI again, a synth not started yet):
+        # it stays chosen, and plays once it's there.
+        kept = key is not None and key.startswith("out:") and any(k.startswith("out:") for k in keys)
+        if key not in keys and not kept:
+            key = self._chosen_now() or (keys[0] if keys else None)
         if self.link is not None:
             self.link.close()
             self.link = None
@@ -604,7 +608,7 @@ class Controller:
         self.choices = links.choices()
         names = dict(self.choices)
         key = self.link.key if self.link is not None else s.settings["output"]
-        row(0, "Send to", names.get(key) or self._web_name(key) or "nowhere", lambda: self._output(-1), lambda: self._output(1))
+        row(0, "Send to", self._out_name(key) or names.get(key) or "nowhere", lambda: self._output(-1), lambda: self._output(1))
         row(1, "Channel", str(s.settings["channel"]), lambda: self._set("channel", -1),
             lambda: self._set("channel", 1))
         vel = s.settings["velocity"]
@@ -619,12 +623,26 @@ class Controller:
         _button(self.body, "Reset mapping", self._reset_all, m + (w + m), y, w, rh)
         _button(self.body, "All notes off", s.panic, m + 2 * (w + m), y, w, rh)
 
-    def _web_name(self, key):
-        """A browser output's name when it isn't listed yet, or None."""
-        if not key or not key.startswith("web"):
-            return None
-        out = self.link.out if self.link is not None else None
-        return getattr(out, "name", None) or key[4:] or "Web MIDI"
+    def _chosen_now(self, label=None):
+        """The key of the output chosen in Connections now (or the listed one
+        called *label*), when there is one, else None."""
+        for key, name in self.choices:
+            if key.startswith("out:") and (name == label if label is not None else self._is_chosen(key[4:])):
+                return key
+        return None
+
+    @staticmethod
+    def _is_chosen(ep_id):
+        try:
+            import endpointkit
+        except ImportError:
+            return False
+        return ep_id in endpointkit.selection("midi.out")
+
+    def _out_name(self, key):
+        """What the controller plays when that's the Connections choice, or None."""
+        names = getattr(self.link, "names", None)
+        return names() if names is not None and key and key.startswith("out:") else None
 
     def _output(self, step):
         self.choices = links.choices()  # a browser lists its outputs once the person says yes
@@ -632,8 +650,8 @@ class Controller:
         if not keys:
             return
         cur = self.link.key if self.link is not None else self.surface.settings["output"]
-        if cur not in keys and self._web_name(cur):
-            cur = "web:" + self._web_name(cur)  # the first output, now listed by name
+        if cur not in keys or (cur.startswith("out:") and not self._is_chosen(cur[4:])):
+            cur = self._chosen_now() or cur  # what Connections chose since
         i = keys.index(cur) if cur in keys else -step
         self.choose(keys[(i + step) % len(keys)])
         self.later(self._build)
