@@ -218,6 +218,17 @@ class PreviewTest(unittest.TestCase):
         o = ((y + h - 2) * SIZE + x + w - 2) * 2  # clear of the stand-in's box
         self.assertEqual(bytes(d.fb[o : o + 2]), RED.to_bytes(2, "little"))
 
+    def test_no_camera_in_a_browser_points_at_the_browser_and_connections(self):
+        from unittest import mock
+
+        from touchkit import cam as tcam
+
+        with mock.patch.object(sys, "platform", "webassembly"):
+            text = tcam.no_camera_text(OSError("the browser found no camera"), "Video Camera")
+        self.assertIn("the browser found no camera", text)
+        self.assertIn("Connections", text)
+        self.assertNotIn("CSI", text)
+
 
 if __name__ == "__main__":
     unittest.main()

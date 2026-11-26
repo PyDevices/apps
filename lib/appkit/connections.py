@@ -41,6 +41,10 @@ displaydev. A browser offers MIDI only once the person allows
 it, so until then each MIDI kind lists one "Allow MIDI" entry, and tapping it
 in the picker has the browser ask.
 
+A browser page starts again for every app opened from Home, so there the
+choices are kept in the page's storage (`remember_in_page`) and come back
+when it does.
+
 An app hears a choice move with `AppScope.follow`, and `device` turns what
 it hears into the name a computer's audio backend opens. On a board it
 opens ``audio_out`` again, which plays on the new choice.
@@ -231,8 +235,65 @@ def register(registry=None):
             print("appkit.connections: no %s here: %s" % (name, exc))
             continue
         names.append(name)
+    if sys.platform in BROWSERS:
+        remember_in_page(registry)
     _done.append(names)
     return names
+
+
+#: Where a browser page keeps its choices: the page's localStorage, by this key.
+PAGE_KEY = "omnipython-connections"
+
+
+def _page_storage():
+    """The page's ``localStorage``, or None where there's none to use."""
+    try:
+        import js
+
+        return js.localStorage
+    except Exception:  # noqa: BLE001 - no js, no storage, or storage refused
+        return None
+
+
+def remember_in_page(registry, storage=None):
+    """Keep *registry*'s choices in the browser page's storage, and bring
+    back the ones kept before. A page starts again for each app opened from
+    Home, so without this a choice made in Home's Connections would be gone
+    by the time the app opens. *storage* stands in for ``localStorage``.
+    Returns True when the choices are kept."""
+    import json
+
+    storage = storage if storage is not None else _page_storage()
+    if storage is None:
+        return False
+    try:
+        kept = json.loads(storage.getItem(PAGE_KEY) or "{}")
+    except Exception as exc:  # noqa: BLE001 - nothing kept, or not ours to read
+        print("appkit.connections: the page's kept choices can't be read: %s" % exc)
+        kept = {}
+    for kind, ids in kept.items():
+        if kind in endpointkit.KINDS and ids and not registry.chosen(kind):
+            try:
+                registry.select(kind, ids)
+            except Exception as exc:  # noqa: BLE001 - a choice that no longer fits is left behind
+                print("appkit.connections: kept %s choice dropped: %s" % (kind, exc))
+
+    def save(event, kind):
+        if event != endpointkit.SELECTION:
+            return
+        forget = [p.name + ":" for p in registry.providers() if not getattr(p, "remember", True)]
+        out = {}
+        for k in endpointkit.KINDS:
+            ids = [i for i in registry.chosen(k) if not any(i.startswith(f) for f in forget)]
+            if ids:
+                out[k] = ids
+        try:
+            storage.setItem(PAGE_KEY, json.dumps(out))
+        except Exception as exc:  # noqa: BLE001 - storage full or refused: choices last this page only
+            print("appkit.connections: the page's choices can't be kept: %s" % exc)
+
+    registry.subscribe(None, save)
+    return True
 
 
 def _machine():

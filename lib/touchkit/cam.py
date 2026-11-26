@@ -4,6 +4,10 @@
 """touchkit.cam -- what the camera apps share: opening the CSI camera, its
 settings, and where photos go.
 
+In a browser page the camera is the one the browser gives the page, chosen
+in Connections; the board's settings that need a sensor (light, brightness)
+change nothing there.
+
 Flip, mirror, light and brightness are the Camera app's, kept in its
 ``scope.store()`` while the board stays up, so Security, Detect and Cast
 see the camera as Camera left it. Photos are in a ``photos`` folder
@@ -13,6 +17,7 @@ takes a file.
 """
 
 import os
+import sys
 
 import lvgl as lv
 
@@ -39,6 +44,7 @@ BRIGHT = 59
 # hunt: the picture flickered.
 LIGHT = (("Normal", 0x0F8), ("Night", 0x3F8))
 PHOTOS = "photos"  # the folder name, on the card, flash and the data root
+BROWSERS = ("webassembly", "emscripten")
 
 
 class NoCameraPort(OSError):
@@ -48,6 +54,8 @@ class NoCameraPort(OSError):
 
 def no_camera_text(err, app):
     """What *app* shows when `open_camera` raised *err*."""
+    if sys.platform in BROWSERS:
+        return "No camera: %s\n\n%s uses the camera the browser gives this page: allow it, or choose another in Connections, then open %s again." % (err, app, app)
     if isinstance(err, NoCameraPort):
         here = "computer" if data.desktop() else "board"
         return "No camera: %s\n\n%s needs the board's CSI camera, which this %s doesn't have." % (err, app, here)
