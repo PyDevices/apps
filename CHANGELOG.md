@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3rc5
+
+- Home: the board's own apps share a System tab, with Info (what System was), a new Settings app, a new Hidden apps app, the REPL and the Shell; Gamepad has a Games tab. Settings sets the board's name and holds the Wi-Fi power saving switch on every screen size, and Hidden apps lists what's hidden, with each reason, and puts it back.
+- Home: the tabs are as tall as the status bar, and on the home screen the bar's title is just the Home icon. A title too long for its tile takes a second line where the tile has room, and small tiles with room for it show a 48 px icon.
+- appkit: an app that takes the whole screen, such as Clock or Huey's Perch, gets a small square glass Home button you can see the app through, in place of the solid 128 px one. The corner Home buttons show the Home icon instead of the word.
+- Touch, a new app on Home's System tab: tap five targets and it says whether taps land where you touch and, if not, whether the axes are swapped, mirrored, turned, scaled or offset, and which rotation table entry and calibration would be right.
+- Camera and Detect show a live preview on a panel with no framebuffer, such as the ESP32-P4X-EYE's SPI display, where before they stopped at "no framebuffer".
+- The Camera program's Home tile says Eye Camera, so it no longer shares its name with the Camera app.
+- Text fields take keys from a hardware keyboard, or from the browser showing a RemoteDisplay screen, where before they went to the on-screen keyboard.
+- deskkit: when the time-zone lookup fails at boot, it tries again after a minute and then at longer waits, so the clock no longer stays on UTC until the next daily sync.
+- Camera's install guide says the firmware brings mp4mux and how long the install takes on an ESP32-P4X-EYE.
+
 ## 0.1.3rc4
 
 - Bluetooth Receiver, System, Huey, Backline and the status bar fall back to LVGL's default font on a firmware without the larger Montserrat sizes, such as the ESP32 Audio Kit's, where Bluetooth Receiver failed to start.
