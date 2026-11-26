@@ -14,7 +14,16 @@ takes a file.
 
 import os
 
+import lvgl as lv
+
+try:
+    import uctypes
+except ImportError:  # CPython: no DMA to line up for
+    uctypes = None
+
 from appkit import data, places
+
+from . import ui
 
 # The whole sensor, 2x2 binned: Flip and Mirror show the same picture turned
 # over (the 800x800 default is a window, and reads a different patch when
@@ -90,6 +99,79 @@ def preview_size(cam, longest):
     """The preview's ``(width, height)``, its longer side *longest*."""
     cw, ch = cam.size()[:2]
     return (longest, longest * ch // cw) if cw >= ch else (longest * cw // ch, longest)
+
+
+def aligned(n):
+    """A writable *n*-byte memoryview that starts on a 64-byte boundary.
+
+    The P4's scaler writes by DMA, which wants one; a bytearray lands where
+    it lands, so this takes a view of a slightly bigger one.
+    """
+    raw = bytearray(n + 64)
+    off = (-uctypes.addressof(raw)) % 64 if uctypes is not None else 0
+    return memoryview(raw)[off : off + n]
+
+
+class Preview:
+    """The camera's picture in a *w* x *h* box at (*x*, *y*) in *parent*.
+
+    On a panel with a framebuffer (an RGB or DSI panel) the scaler writes
+    each frame straight into it and only that box is presented. A panel on
+    a bus (SPI or i80) has none, so the frame goes into a buffer of the
+    preview's own, shown by an LVGL image: LVGL then sends it to the panel
+    with the rest of the screen, and anything drawn over the picture stays
+    on top.
+
+    *origin* is *parent*'s top-left corner on the panel (``scope.rect``).
+    *own* asks for that buffer on every panel, for an app that draws on the
+    frame before it shows (Detect's boxes): `buf` is the frame then, and
+    `show` puts it on the panel.
+    """
+
+    def __init__(self, parent, x, y, w, h, origin=(0, 0), own=False, display=None):
+        if display is None:
+            from board_config import display_drv as display
+        self.d = display
+        fbs = display.framebuffers()
+        self.fb = memoryview(fbs[0]) if fbs else None
+        self.x, self.y = origin[0] + x, origin[1] + y  # on the panel
+        self.w, self.h = w, h
+        self.buf = aligned(w * h * 2) if own or self.fb is None else None
+        self.image = None
+        self._panel = None
+        self._keep = {}
+        if self.fb is None:
+            self.image = lv.image(parent)
+            self.image.set_pos(x, y)
+            ui.rgb565_image(self.image, self.buf, w, h, self._keep)
+        ui.frame(parent, x, y, w, h)
+
+    def capture(self, c, timeout=200):
+        """The next frame from camera *c* into the preview; False when none
+        came. Without `own` on a panel with a framebuffer it is on the
+        panel already; otherwise it's in `buf` until `show`."""
+        if self.buf is None:
+            if c.capture_scaled(self.fb, self.d.width, self.d.height, x=self.x, y=self.y, w=self.w, h=self.h, timeout=timeout) is None:
+                return False
+            self.d.flush_rect(self.x, self.y, self.w, self.h)
+            return True
+        return c.capture_scaled(self.buf, self.w, self.h, timeout=timeout) is not None
+
+    def show(self):
+        """Put `buf` on the panel: the image redraws, or it's copied into
+        the framebuffer and presented."""
+        if self.image is not None:
+            self.image.invalidate()
+        elif self.buf is not None:
+            if self._panel is None:
+                from pygraphics import RGB565, FrameBuffer
+
+                # Not row by row through memoryview slices: into a buffer
+                # this big, that took 7 s a frame on an ESP32-P4.
+                self._panel = FrameBuffer(self.fb, self.d.width, self.d.height, RGB565)
+                self._canvas = FrameBuffer(self.buf, self.w, self.h, RGB565)
+            self._panel.blit(self._canvas, self.x, self.y)
+            self.d.flush_rect(self.x, self.y, self.w, self.h)
 
 
 def mount_sd(readonly=True):

@@ -4,10 +4,15 @@
 """Camera: a live preview from the CSI camera, and a shutter.
 
 The preview is cameraif's ``capture_scaled``: the P4's pixel accelerator
-scales each frame straight into a square of the panel's framebuffer, beside
-the LVGL widgets, and only that square is presented. It runs as the set's
-foreground loop, one frame per call, so LVGL and the timers keep going
-between frames.
+scales each frame straight into a box of the panel's framebuffer, beside
+the LVGL widgets, and only that box is presented. A panel on a bus (SPI or
+i80) has no framebuffer, so there the frame goes into a buffer an LVGL
+image shows (`touchkit.cam.Preview`). It runs as the set's foreground loop,
+one frame per call, so LVGL and the timers keep going between frames.
+
+On a screen too narrow for the controls beside the picture (240 x 240, say)
+the picture takes the width with the shutter under it, and the other
+controls are left off.
 
 The shutter takes a JPEG on the P4's encoder (``capture_jpeg``) and saves it
 in ``/sd/photos`` on the SD card, mounted while the app is open. Without a
@@ -27,6 +32,8 @@ from touchkit import cam, net, ui
 from touchkit.clock import sleep_ms
 
 PREVIEW = 400  # the preview's longer side on the panel
+WIDE = 640  # the narrowest app area with the controls beside the picture
+SHUTTER_H = 44  # the shutter's height under the picture on a narrow screen
 QUALITY = 85
 PORT = 8080
 THUMB = 160
@@ -67,23 +74,31 @@ def main(scope):
         ui.missing(scope, "no camera", cam.no_camera_text(e, "Video Camera"))
         return
 
-    from board_config import display_drv as d
-
-    if not d.framebuffers():
-        st["cam"].deinit()
-        st["cam"] = None
-        ui.missing(scope, "no framebuffer", "Video Camera draws its preview straight into the display's framebuffer, and this board's display has none.")
-        return
     c0 = st["cam"]
-    pw, ph = cam.preview_size(c0, PREVIEW)
-    x0, y0 = 24, 8 + (PREVIEW - ph) // 2  # in root
-    ui.frame(root, x0, y0, pw, ph)
+    wide = W >= WIDE
+    if wide:
+        pw, ph = cam.preview_size(c0, PREVIEW)
+        x0, y0 = 24, 8 + (PREVIEW - ph) // 2  # in root
+    else:
+        # The picture as wide as the area, or as tall as the shutter leaves.
+        # Under the row the Home button and the status line share.
+        y0 = ui.small.line_height + 14
+        cw, ch = c0.size()[:2]
+        pw, tall = W - 8, H - y0 - SHUTTER_H - 10
+        ph = pw * ch // cw
+        if ph > tall:
+            pw, ph = tall * cw // ch, tall
+        x0 = (W - pw) // 2
+    pv = cam.Preview(root, x0, y0, pw, ph, (RX, RY))
 
     top = 8
     rx = 24 + PREVIEW + 24
     rw = W - rx - 24
     shutter, _ = ui.button(root, lv.SYMBOL.IMAGE + "  Shoot", lambda: shoot(), w=rw, h=72, font=ui.big, color=ui.ACCENT)
     shutter.set_pos(rx, top)
+    if not wide:
+        shutter.set_size(W - 8, SHUTTER_H)
+        shutter.set_pos(4, y0 + ph + 6)
     bw = (rw - 16) // 3
     light_b, light_l = ui.button(root, "", lambda: cycle_light(), w=bw, h=52, font=ui.small)
     light_b.set_pos(rx, top + 84)
@@ -104,6 +119,9 @@ def main(scope):
     info = ui.label(root, "", ui.small, ui.MUTED)
     info.set_pos(rx, top + 200 + THUMB + 4)
     info.set_width(rw)
+    if not wide:
+        for o in (light_b, flip_b, mirror_b, bright_l, slider, thumb, info):
+            o.add_flag(lv.obj.FLAG.HIDDEN)
 
     sd = cam.mount_sd(readonly=False)
     scope.on_close(lambda: cam.unmount_sd(sd))
@@ -146,15 +164,11 @@ def main(scope):
         lambda e: bright_l.set_text("Brightness %d%%" % slider.get_value()), lv.EVENT.VALUE_CHANGED, None
     )
     apply()
-    fb = d.framebuffers()[0]
-    ax, ay = RX + x0, RY + y0  # on the panel
 
     def preview():
         c = st["cam"]
-        if c is None:
-            return
-        if c.capture_scaled(fb, d.width, d.height, x=ax, y=ay, w=pw, h=ph, timeout=200) is not None:
-            d.flush_rect(ax, ay, pw, ph)
+        if c is not None and pv.capture(c):
+            pv.show()
 
     def shoot():
         c = st["cam"]
@@ -172,8 +186,9 @@ def main(scope):
             return
         st["shots"] += 1
         st["last"] = path
-        px, tw, th = ui.decode_jpeg(img, THUMB)
-        ui.rgb565_image(thumb, px, tw, th, keep)
+        if wide:
+            px, tw, th = ui.decode_jpeg(img, THUMB)
+            ui.rgb565_image(thumb, px, tw, th, keep)
         status.set_text("saved %s (%d KB)" % (path.rsplit("/", 1)[1], len(img) // 1024))
 
     # -- the web page: every shot, newest first ----------------------------------

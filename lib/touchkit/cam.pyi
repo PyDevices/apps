@@ -33,3 +33,26 @@ def photos(scope: AppScope | None = None) -> list[tuple[str, str]]:
     """`[(key, path)]` of every photo, newest name first."""
 def next_name(scope: AppScope | None = None) -> str:
     """A new photo's path, numbered after the highest `IMG_` anywhere."""
+def aligned(n: int) -> memoryview:
+    """A writable `n`-byte memoryview that starts on a 64-byte boundary."""
+
+class Preview:
+    """The camera's picture in a box: straight into the panel's framebuffer, or an LVGL image on a panel with none."""
+
+    buf: memoryview | None
+    image: Any
+    def __init__(
+        self,
+        parent: Any,
+        x: int,
+        y: int,
+        w: int,
+        h: int,
+        origin: tuple[int, int] = (0, 0),
+        own: bool = False,
+        display: Any = None,
+    ) -> None: ...
+    def capture(self, c: Any, timeout: int = 200) -> bool:
+        """The next frame from camera `c` into the preview; False when none came."""
+    def show(self) -> None:
+        """Put `buf` on the panel."""

@@ -9,9 +9,11 @@ looks at a 160 x 160 copy of each frame, so a thing that fills a fair part of
 the picture is found and a small one far away isn't.
 
 Each loop takes a preview-sized frame into a buffer of its own, runs the
-detector on it, draws the boxes into it and copies it to the panel; the list
-on the right names what was found, in the colour of its box. Flip, mirror,
-light and brightness are the Camera app's.
+detector on it, draws the boxes into it and puts it on the panel
+(`touchkit.cam.Preview`: copied into the framebuffer, or shown by an LVGL
+image on a panel with none); the list on the right names what was found,
+in the colour of its box. On a narrow screen the list is under the picture.
+Flip, mirror, light and brightness are the Camera app's.
 
 It needs a firmware with the ``espdl`` and ``image`` modules, and the model
 file, ``yolo11n_coco.espdl``, in a ``models`` folder: ``/sd/models`` on the SD
@@ -30,6 +32,7 @@ from touchkit import cam, ui
 MODEL = "yolo11n_coco.espdl"
 MODELS = "models"  # the folder name, on the card, flash and the data root
 PREVIEW = 520
+WIDE = 640  # the narrowest app area with the list beside the picture
 SCORE = 0.15  # two clear bottles in a dim room scored 0.27 and 0.18
 LISTED = 8
 
@@ -92,12 +95,6 @@ def main(scope):
         missing(cam.no_camera_text(e, "Object detection"))
         return
 
-    from board_config import display_drv as d
-
-    if not d.framebuffers():
-        c0.deinit()
-        missing("No framebuffer: Object detection draws its preview straight into the display's framebuffer, and this board's display has none.")
-        return
     st["cam"] = c0
     try:
         det = espdl.YOLO11(path, score=SCORE)
@@ -109,50 +106,47 @@ def main(scope):
     st["det"] = det
     cam.apply_controls(c0, opts)
 
-    fb = memoryview(d.framebuffers()[0])
-    pw, ph = cam.preview_size(c0, PREVIEW)
+    wide = W >= WIDE
+    if wide:
+        pw, ph = cam.preview_size(c0, PREVIEW)
+        x0, y0 = 24, 8
+    else:
+        # Under the row the Home button and the status line share.
+        pw, ph = cam.preview_size(c0, W - 8)
+        x0, y0 = (W - pw) // 2, ui.small.line_height + 14
     c0 = None
-    x0, y0 = 24, 8
-    ax, ay = RX + x0, RY + y0
-    # The scaler writes by DMA, which wants a 64-byte boundary; a bytearray
-    # lands where it lands, so take a view that starts on one.
-    import uctypes
-
-    raw = bytearray(pw * ph * 2 + 64)
-    off = (-uctypes.addressof(raw)) % 64
-    buf = memoryview(raw)[off : off + pw * ph * 2]
+    pv = cam.Preview(root, x0, y0, pw, ph, (RX, RY), own=True)
+    buf = pv.buf
     canvas = FrameBuffer(buf, pw, ph, RGB565)
     img = image.Image(pw, ph, image.RGB565, buffer=buf)
-    ui.frame(root, x0, y0, pw, ph)
 
-    rx = x0 + pw + 24
-    rw = W - rx - 24
-    title = ui.label(root, lv.SYMBOL.GPS + "  Seeing", ui.big, ui.ACCENT)
-    title.set_pos(rx, 12)
+    if wide:
+        rx, ry, rw, font, step = x0 + pw + 24, 64, W - x0 - pw - 48, ui.font, 34
+        title = ui.label(root, lv.SYMBOL.GPS + "  Seeing", ui.big, ui.ACCENT)
+        title.set_pos(rx, 12)
+        listed = LISTED
+    else:
+        # Under the picture: as many rows as fit, and the speed line.
+        rx, ry, rw, font = x0, y0 + ph + 4, pw, ui.small
+        step = font.line_height + 2
+        listed = max(1, min(LISTED, (H - ry - step) // step))
     rows = []
-    for i in range(LISTED):
-        r = ui.label(root, "", ui.font, ui.WHITE)
-        r.set_pos(rx, 64 + i * 34)
+    for i in range(listed):
+        r = ui.label(root, "", font, ui.WHITE)
+        r.set_pos(rx, ry + i * step)
         r.set_width(rw)
         r.set_long_mode(lv.label.LONG_MODE.CLIP)
         rows.append(r)
     note = ui.label(root, "", ui.small, ui.MUTED)
-    note.set_pos(rx, 64 + LISTED * 34 + 8)
+    note.set_pos(rx, ry + listed * step + (8 if wide else 0))
+    speed = "%.1f frames a second, %d ms to look at each" if wide else "%.1f fps, %d ms a look"
     note.set_width(rw)
-
-    panel = FrameBuffer(fb, d.width, d.height, RGB565)
-
-    def blit():
-        # The finished frame onto the panel. Not row by row through memoryview
-        # slices: into a buffer this big, that took 7 s a frame on an ESP32-P4.
-        panel.blit(canvas, ax, ay)
-        d.flush_rect(ax, ay, pw, ph)
 
     def loop():
         c = st["cam"]
         if c is None:
             return
-        if c.capture_scaled(buf, pw, ph, timeout=200) is None:
+        if not pv.capture(c):
             return
         t = ticks_ms()
         found = st["det"].detect(img)
@@ -164,7 +158,7 @@ def main(scope):
             canvas.rect(x + 2, y + 2, w - 4, h - 4, col)
         st["found"] = found
         st["frames"] += 1
-        blit()
+        pv.show()
 
     def tick(t=None):
         found = sorted(st["found"], key=lambda f: -f[4])
@@ -180,7 +174,7 @@ def main(scope):
             rows[0].set_text("nothing I know")
             rows[0].set_style_text_color(ui.MUTED, 0)
         dt = ticks_diff(ticks_ms(), st["t0"]) or 1
-        note.set_text("%.1f frames a second, %d ms to look at each" % (st["frames"] * 1000 / dt, st["ms"]))
+        note.set_text(speed % (st["frames"] * 1000 / dt, st["ms"]))
         st["frames"] = 0
         st["t0"] = ticks_ms()
 

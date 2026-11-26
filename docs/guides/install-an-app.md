@@ -143,6 +143,32 @@ omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
 Like Home's, it joins the Wi-Fi in `secrets.py` and starts WebREPL once the
 picture is up. A board with no `secrets.py` starts Camera offline.
 
+## Start in one app, with Home behind it
+
+A board can start in any app and still have Home and every other app one
+press away. Copy Home's `main.py` to the board and change the app that
+`launcher.boot` starts, here the Video Camera app (`apps/camera`):
+
+```python
+import appkit
+
+if not appkit.run_pending_script():
+    from display_driver import app
+    from touchkit import net, shell
+
+    shell.quiet_app_timers(app)
+    launcher = shell.TouchLauncher(app, home="home")
+    launcher.scan("apps")
+    launcher.shell = shell.TouchShell(launcher)
+    launcher.boot("camera")
+    net.boot()
+    appkit.serve()
+```
+
+The Home button, and BOOT on a board that has one, still go to Home. For a
+board with one job, where nothing else should show, name that app as `home=`
+too: then Home is never started, and the Home button comes back to the app.
+
 ## Updating, and a particular version
 
 Running the same line again fetches the app's files afresh. Without
