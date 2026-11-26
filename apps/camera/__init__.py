@@ -22,8 +22,9 @@ in all three folders is on a small web page on the board: open the address
 on the screen from a phone or a PC.
 
 In a browser page the camera is the one the browser gives the page, chosen
-under Camera in Connections (from Home's bar); the shutter's photos go to
-the page's own storage, and Light and Brightness change nothing there.
+under Camera in Connections (from Home's bar). The shutter's photos stay
+in the page's memory and are gone when the page reloads, and Light and
+Brightness change nothing there.
 
 Without a camera the app says so, and Home goes back as usual.
 """
