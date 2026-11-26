@@ -53,6 +53,11 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 
 - More faces on the clock, and a way to pick a face that's saved.
 
+## Programs
+
+- The programs in `programs/` that run on a computer rather than a board
+  move to a repository of their own; any that run on a board become apps.
+
 ## Libraries
 
 - [appkit](lib/appkit/ROADMAP.md), [controlkit](lib/controlkit/ROADMAP.md)
