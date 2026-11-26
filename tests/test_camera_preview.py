@@ -166,7 +166,7 @@ class PreviewTest(unittest.TestCase):
             app = __import__("apps." + name, None, None, ["main"])
             if name == "detect":
                 app._model = lambda scope: "/models/yolo11n_coco.espdl"
-            screen = lv.obj(None)
+            screen = self.screen = lv.obj(None)
             lv.screen_load(screen)
             scope = Scope(screen)
             app.main(scope)
@@ -217,6 +217,34 @@ class PreviewTest(unittest.TestCase):
         x, y, w, h = d.flushed[0]
         o = ((y + h - 2) * SIZE + x + w - 2) * 2  # clear of the stand-in's box
         self.assertEqual(bytes(d.fb[o : o + 2]), RED.to_bytes(2, "little"))
+
+    def texts(self, obj=None):
+        obj = self.screen if obj is None else obj
+        found = []
+        for i in range(obj.get_child_count()):
+            child = obj.get_child(i)
+            try:
+                found.append(lv.label.get_text(child))
+            except Exception:
+                pass
+            found.extend(self.texts(child))
+        return found
+
+    # The status line is cut short on a small screen: its start names the model.
+    def test_detect_names_the_model_a_board_runs(self):
+        self.run_app("detect", BusDisplay(), self.detect_modules())
+        self.assertTrue(any(t.startswith("YOLO11") for t in self.texts()), self.texts())
+
+    def test_detect_names_the_model_a_page_runs(self):
+        class PageYolo(Yolo):
+            model = "YOLOX-nano"
+
+        mods = self.detect_modules()
+        mods["espdl"] = types.SimpleNamespace(YOLO11=PageYolo)
+        self.run_app("detect", BusDisplay(), mods)
+        texts = self.texts()
+        self.assertTrue(any(t.startswith("YOLOX-") for t in texts), texts)
+        self.assertFalse(any(t.startswith("YOLO11") for t in texts), texts)
 
     def test_no_camera_in_a_browser_points_at_the_browser_and_connections(self):
         from unittest import mock

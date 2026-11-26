@@ -21,6 +21,10 @@ card (mounted while the app is open), ``/models`` on flash or
 ``/data/models``, looked at in that order (`appkit.places`). It checks for
 all three, and for the camera, when it opens, and says what's missing.
 Where to download the model: https://github.com/PyDevices/apps/blob/main/docs/reference/models.md
+
+In a browser the page brings its own model, YOLOX-nano, and fetches it the
+first time the app opens, so its boxes can differ a little from a board's.
+The status line names the model that runs.
 """
 
 import lvgl as lv
@@ -200,5 +204,5 @@ def main(scope):
 
     scope.on_close(close)
     scope.every(500, tick)
-    status.set_text("YOLO11n, 80 COCO classes")
+    status.set_text("%s, 80 COCO classes" % getattr(det, "model", "YOLO11n"))
     scope.foreground(loop)
