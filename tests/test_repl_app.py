@@ -87,6 +87,49 @@ class _Scope:
     def on_close(self, fn):
         self.closers.append(fn)
 
+    def stop_timers(self):
+        self.ticks = None
+
+    def follow(self, kind, fn):
+        self.follows = (kind, fn)
+        return self.chosen
+
+
+class _Port:
+    """A board's REPL on a serial port: what it sends, and what it was sent."""
+
+    def __init__(self, name):
+        self.name = name
+        self.error = None
+        self.inbox = b""
+        self.sent = b""
+        self.closed = False
+
+    def is_open(self):
+        return not self.closed
+
+    def read(self):
+        out, self.inbox = self.inbox, b""
+        return out or None
+
+    def write(self, buf):
+        self.sent += bytes(buf)
+        return len(buf)
+
+    def close(self):
+        self.closed = True
+
+
+class _WebSerial:
+    def __init__(self):
+        self.ports = []
+
+    def open(self, endpoint, baudrate):
+        port = _Port(endpoint.label)
+        port.baudrate = baudrate
+        self.ports.append(port)
+        return port
+
 
 class ReplScrollbackTest(unittest.TestCase):
     def setUp(self):
@@ -143,6 +186,33 @@ class ReplScrollbackTest(unittest.TestCase):
         self.keyboard.pending = [_Event(PAGE_UP, 0)]
         scope.ticks()
         self.assertEqual(bytes(console._rx), b"\x1b[5~", "a plain Page Up still goes to the program")
+
+
+    def test_a_chosen_serial_port_is_a_terminal_to_its_board(self):
+        """In a browser page, choosing a serial port moves the REPL to the
+        board on it, and letting it go brings the page's own back."""
+        serial = _WebSerial()
+        self.repl._webserial = lambda: serial
+        scope = _Scope()
+        scope.chosen = [types.SimpleNamespace(label="Espressif (303a:1001)")]
+        self.repl.main(scope)
+        self.assertEqual(scope.follows[0], "serial")
+        scope.timers[0]()
+        self.assertNotIn(0, self.slots, "the page's own REPL was taken while a board is chosen")
+        port = serial.ports[0]
+        self.assertEqual(port.baudrate, self.repl.BAUDRATE)
+        scope.ticks()
+        self.assertEqual(port.sent, b"\r", "the board wasn't asked for a prompt")
+        port.inbox = b"\r\n>>> "
+        self.keyboard.pending = [_Event(ord("a"), 0)]
+        scope.ticks()
+        self.assertEqual(port.sent, b"\ra", "a key went to the board")
+        term = scope.ticks.__self__.term
+        shown = [term.screen.text(y) for y in range(term.screen.rows)]
+        self.assertTrue(any(">>>" in row for row in shown), "the board's prompt isn't on the screen: %r" % shown[:3])
+        scope.follows[1]([])
+        self.assertTrue(port.closed, "letting the port go left it open")
+        self.assertIn(0, self.slots, "the page's own REPL didn't come back")
 
 
 if __name__ == "__main__":
