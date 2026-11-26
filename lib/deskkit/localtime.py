@@ -16,7 +16,9 @@ weather shows at once. ipwho.is is free and needs no key, and like any web
 service it sees the board's public IP address. The answer is asked for again
 with each daily resync, so a daylight saving change lands within a day. When
 the lookup fails, the clock keeps what it had (UTC at first), Weather asks for
-a ZIP code, and the board asks again at the next resync.
+a ZIP code, and the board asks again a minute later, then at longer gaps up
+to an hour: the first lookup after joining a network can fail while the link
+settles, and the clock would otherwise stay on UTC for a day.
 """
 
 import time
@@ -37,11 +39,16 @@ _IP_URL = (
 # Where the IP is in one of these, temperatures start in Fahrenheit.
 _FAHRENHEIT = ("US", "PR", "GU", "VI", "AS", "MP", "LR", "KY", "BS", "BZ", "PW", "FM", "MH")
 _RESYNC_S = 24 * 3600
+# After a failed IP lookup: the first wait before the next try, and the longest.
+_IP_RETRY_S = 60
+_IP_RETRY_MAX_S = 3600
 
 offset_s = None  # seconds east of UTC: the chosen place's (forecast sets it), or the IP's
 zone = None  # the IANA zone the IP lookup found, while no place is chosen
 _synced_at = None
 _looked = False  # a resync has run since boot, so the IP lookup is done or failed
+_ip_retry_at = None  # when a failed IP lookup is tried again
+_ip_wait_s = 0  # the wait before that try
 
 
 def is_set():
@@ -109,7 +116,9 @@ def sync():
 
 def due():
     """Return True when the clock is unset, or this program hasn't set it in a day."""
-    return not is_set() or _synced_at is None or time.time() - _synced_at >= _RESYNC_S
+    if not is_set() or _synced_at is None or time.time() - _synced_at >= _RESYNC_S:
+        return True
+    return _ip_retry_at is not None and time.time() >= _ip_retry_at
 
 
 def parse_ip_zone(reply):
@@ -158,13 +167,14 @@ def follow_ip_zone():
     Returns:
         bool: True when the offset now comes from the IP.
     """
-    global offset_s, zone
+    global offset_s, zone, _ip_retry_at, _ip_wait_s
     if not net.sets_clock():
         return False
     from . import forecast  # here: forecast imports this module
 
     if forecast.place() is not None:
         zone = None
+        _ip_retry_at = None
         return False  # a chosen place wins
     try:
         resp = net.requests().get(_IP_URL, timeout=10)
@@ -174,8 +184,12 @@ def follow_ip_zone():
             resp.close()
         found, offset = parse_ip_zone(reply)
     except Exception as exc:
-        print("deskkit: no place from the IP address, keeping %s: %r" % (zone or "UTC", exc))
+        _ip_wait_s = min(max(2 * _ip_wait_s, _IP_RETRY_S), _IP_RETRY_MAX_S)
+        _ip_retry_at = time.time() + _ip_wait_s
+        print("deskkit: no place from the IP address, keeping %s, trying again in %d s: %r" % (zone or "UTC", _ip_wait_s, exc))
         return False
+    _ip_retry_at = None
+    _ip_wait_s = 0
     if forecast.place() is not None:
         return False  # chosen while the lookup ran
     zone = found
@@ -201,9 +215,11 @@ def network_moved():
     """Another network carries traffic now: the next `resync_if_due` sets
     the clock and looks up the IP's place again, and `finding` is True
     until it has."""
-    global _synced_at, _looked
+    global _synced_at, _looked, _ip_retry_at, _ip_wait_s
     _synced_at = None
     _looked = False
+    _ip_retry_at = None
+    _ip_wait_s = 0
 
 
 def finding():

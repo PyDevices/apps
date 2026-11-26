@@ -370,6 +370,38 @@ class IpZoneTest(unittest.TestCase):
             lt.resync_if_due()
         self.assertEqual(lt.offset_s, -18000)  # daylight saving began
 
+    def test_a_failed_lookup_is_tried_again_within_minutes(self):
+        # The first lookup after joining can be reset while the link settles.
+        lt = self._localtime(error=OSError(104))
+        lt.sync = mock.MagicMock(return_value=True)
+        lt._synced_at = None
+        lt._ip_retry_at = None
+        lt._ip_wait_s = 0
+        with mock.patch.object(lt.time, "time", return_value=1000), mock.patch.object(lt, "is_set", return_value=True):
+            with mock.patch("builtins.print"):
+                lt.resync_if_due()
+            lt._synced_at = 1000
+            self.assertIsNone(lt.offset_s)
+            self.assertFalse(lt.due(), "not straight away")
+        self.http.get.side_effect = None
+        self.http.get.return_value.json.return_value = self.CHICAGO
+        with mock.patch.object(lt.time, "time", return_value=1000 + 60), mock.patch.object(lt, "is_set", return_value=True):
+            self.assertTrue(lt.due(), "a minute later, not a day")
+            lt.resync_if_due()
+            self.assertEqual(lt.offset_s, -21600)
+            self.assertFalse(lt.due(), "and not again once it worked")
+
+    def test_the_wait_between_failed_lookups_grows_to_an_hour(self):
+        lt = self._localtime(error=OSError(104))
+        lt._ip_retry_at = None
+        lt._ip_wait_s = 0
+        waits = []
+        with mock.patch.object(lt.time, "time", return_value=0), mock.patch("builtins.print"):
+            for _ in range(8):
+                lt.follow_ip_zone()
+                waits.append(lt._ip_wait_s)
+        self.assertEqual(waits, [60, 120, 240, 480, 960, 1920, 3600, 3600])
+
     def test_no_lookup_when_the_clock_could_not_be_set(self):
         lt = self._localtime(reply=self.CHICAGO)
         lt.sync = mock.MagicMock(return_value=False)
