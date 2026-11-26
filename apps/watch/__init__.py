@@ -247,9 +247,8 @@ def main(scope):
         face_view.add_flag(lv.obj.FLAG.HIDDEN)
         wheel_view.remove_flag(lv.obj.FLAG.HIDDEN)
         state["idle"] = 0
-        group = lv.group_get_default()
-        if group is not None:
-            group.focus_obj(wheel.cont)
+        if lv.group_get_default() is not None:
+            lv.group_focus_obj(wheel.cont)
 
     def close_wheel():
         wheel_view.add_flag(lv.obj.FLAG.HIDDEN)
@@ -293,7 +292,7 @@ def main(scope):
     if group is not None:
         group.add_obj(catch)
         group.add_obj(wheel.cont)
-        group.focus_obj(catch)
+        lv.group_focus_obj(catch)
 
     def face_key(e):
         if e.get_key() == lv.KEY.ENTER:
