@@ -6,6 +6,9 @@
 `Watch` looks for a gamepad, reads its events and keeps what it holds now,
 and finds it again after it's unplugged. It takes ``usb.core`` and
 ``usb.host.hid_generic`` as arguments, so the tests hand it stand-ins.
+`PageWatch` is the same for a browser page: the pad chosen for ``gamepad``
+in Connections, or the first the browser shows, read through the Gamepad
+API.
 """
 
 #: How often the tester looks for a gamepad while it has none, in ms.
@@ -182,3 +185,168 @@ class Watch:
                 pad.close()
             except Exception as e:  # noqa: BLE001 - it's gone either way
                 print("gamepad: closing the pad:", e)
+
+
+#: What the tester says in a browser without gamepads.
+NO_GAMEPAD_API = "This browser has no Gamepad API"
+#: The browser's standard gamepad layout, as the tester names its axes: the
+#: left stick, then the right.
+PAGE_AXES = (0x010030, 0x010031, 0x010032, 0x010035)
+#: The standard layout's d-pad buttons (up, down, left, right), counted from 1,
+#: which the tester shows as a hat.
+PAGE_DPAD = (13, 14, 15, 16)
+#: Hat directions for the d-pad's buttons held (up, down, left, right):
+#: 0 up, clockwise to 7 up-left.
+_HAT_OF = {
+    (1, 0, 0, 0): 0, (1, 0, 0, 1): 1, (0, 0, 0, 1): 2, (0, 1, 0, 1): 3,
+    (0, 1, 0, 0): 4, (0, 1, 1, 0): 5, (0, 0, 1, 0): 6, (1, 0, 1, 0): 7,
+}
+
+# Every pad the page sees, one per line: index, id, mapping, then the
+# buttons' values and the axes' values, comma-separated.
+_PADS = """() => {
+    const nav = globalThis.navigator;
+    if (!nav || !nav.getGamepads) return null;
+    const lines = [];
+    for (const pad of nav.getGamepads()) {
+        if (!pad || !pad.connected) continue;
+        lines.push([pad.index, pad.id.replace(/[\\t\\n]/g, ' '), pad.mapping,
+            pad.buttons.map((b) => b.pressed ? Math.max(b.value, 0.5).toFixed(2) : b.value.toFixed(2)).join(','),
+            pad.axes.map((a) => a.toFixed(3)).join(',')].join('\\t'));
+    }
+    return lines.join('\\n');
+}"""
+
+
+def page_pads(read=None):
+    """The pads the browser shows this page, as ``(index, name, mapping,
+    buttons, axes)``: buttons are 0.0 to 1.0, axes -1.0 to 1.0. None when the
+    browser has no Gamepad API. *read* stands in for the browser in a test."""
+    if read is None:
+        import js
+
+        read = js.eval(_PADS)
+    text = read()
+    if text is None:
+        return None
+    pads = []
+    for line in str(text).split("\n") if text else ():
+        index, name, mapping, buttons, axes = line.split("\t")
+        pads.append((int(index), name, mapping,
+                     [float(v) for v in buttons.split(",")] if buttons else [],
+                     [float(v) for v in axes.split(",")] if axes else []))
+    return pads
+
+
+class _PagePad:
+    """What the tester reads of a pad besides its state: ``axes``, the raw values."""
+
+    def __init__(self):
+        self.axes = {}
+
+
+class PageWatch:
+    """A gamepad the browser shows the page, read like `Watch` reads one on
+    the USB host port: the one chosen for ``gamepad`` in Connections, or the
+    first there is.
+
+    Args:
+        pads (callable): returns `page_pads`'s list; the browser's when None.
+        chosen (callable): returns the names chosen for ``gamepad``;
+            endpointkit's choice when None.
+    """
+
+    def __init__(self, pads=None, chosen=None):
+        self._pads = pads or page_pads
+        self._chosen = chosen or _chosen_pads
+        self.pad = None
+        self.name = None
+        self.layout = None
+        self.buttons = set()
+        self.axes = {}
+        self.hats = {}
+        self.extras = []
+        self.events = 0
+        self.status = "no gamepad yet: press a button on one, and the browser shows it to the page"
+        self._last = None
+
+    def _pick(self, pads):
+        """The chosen pad, by the name Connections lists it under (a second
+        pad of the same name is "#2"), or the first when none is chosen."""
+        names = self._chosen()
+        if not names:
+            return pads[0] if pads else None
+        labels = []
+        for pad in pads:
+            label, n = pad[1], 2
+            while label in labels:
+                label = "%s #%d" % (pad[1], n)
+                n += 1
+            labels.append(label)
+        for want in names:
+            if want in labels:
+                return pads[labels.index(want)]
+        return None
+
+    def poll(self, now_ms=None, since=None):
+        """Read the chosen pad now. Returns True when anything changed."""
+        pads = self._pads()
+        if pads is None:
+            changed = self.status != NO_GAMEPAD_API
+            self.status = NO_GAMEPAD_API
+            return changed
+        pad = self._pick(pads)
+        if pad is None:
+            if self.pad is None:
+                return False
+            self.close()
+            self.status = "the gamepad went: press a button on it again"
+            return True
+        index, name, mapping, buttons, axes = pad
+        standard = mapping == "standard"
+        dpad = PAGE_DPAD if standard and len(buttons) >= 16 else ()
+        numbers = tuple(n for n in range(1, len(buttons) + 1) if n not in dpad)
+        codes = PAGE_AXES[:len(axes)] if standard else tuple(0x010030 + i for i in range(len(axes)))
+        layout = (numbers, codes, 1 if dpad else 0, ())
+        changed = False
+        if self.pad is None or self.name != name or self.layout != layout:
+            self.pad = _PagePad()
+            self.name = name
+            self.layout = layout
+            self.status = name
+            changed = True
+        held = {n for n in numbers if buttons[n - 1] >= 0.5}
+        if held != self.buttons:
+            self.buttons = held
+            changed = True
+        for code, value in zip(codes, axes):
+            if self.axes.get(code) != value:
+                self.axes[code] = value
+                self.pad.axes[code] = int(value * 32767)
+                changed = True
+        if dpad:
+            key = tuple(1 if buttons[n - 1] >= 0.5 else 0 for n in dpad)
+            hat = _HAT_OF.get(key, -1)
+            if self.hats.get(0, -1) != hat:
+                self.hats[0] = hat
+                changed = True
+        if changed:
+            self.events += 1
+        return changed
+
+    def close(self):
+        self.pad = None
+        self.name = None
+        self.layout = None
+        self.buttons = set()
+        self.axes = {}
+        self.hats = {}
+
+
+
+def _chosen_pads():
+    try:
+        import endpointkit
+    except ImportError:
+        return []
+    return [ep.label for ep in endpointkit.selected("gamepad")]

@@ -35,8 +35,9 @@ link (reported only), audiodev's sound outputs and inputs, midiports' MIDI
 ports, displaydev's keyboard, mouse and gamepads, and castdisplay's Rokus.
 
 In a browser page it's what the browser lets a page reach: its speakers and
-microphones, through audiodev, and Web MIDI's ports and the page's other
-tabs, through midiports. A browser offers MIDI only once the person allows
+microphones, through audiodev, Web MIDI's ports and the page's other tabs,
+through midiports, and the gamepads the browser shows it, through
+displaydev. A browser offers MIDI only once the person allows
 it, so until then each MIDI kind lists one "Allow MIDI" entry, and tapping it
 in the picker has the browser ask.
 
@@ -167,6 +168,7 @@ BOARD_PROVIDERS = (
 WEB_PROVIDERS = (
     ("audiodev", _audiodev),
     ("midiports", _midiports),
+    ("displaydev", _displaydev),
 )
 
 #: A computer's providers: the name `register` reports, and what registers it.

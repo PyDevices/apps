@@ -15,6 +15,10 @@ and every axis has a bar. Any HID gamepad or joystick works, whatever its
 layout, apart from the ones that need a start-up message first (a DualShock
 4, a Switch Pro controller).
 
+In a browser page, it shows the same for the gamepad chosen in
+Connections, or the first the browser shows the page; a browser shows one
+once a button is pressed on it.
+
 A board that can do both asks which. The gamepad needs ``usb-hid`` and the
 tester ``usb-host-hid``, which ``omip.install("usb-host-hid")`` puts in
 ``/lib``. Both fit a screen of 480 x 320 or larger.
@@ -25,7 +29,7 @@ from multimer import ticks_diff, ticks_ms
 from touchkit import ui
 
 from .pad import A, B, L, R, SELECT, START, X, Y, Pad, Sender, hat_at, stick_at
-from .watch import AXIS_NAMES, BUTTON_NAMES, CENTRED, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, Watch
+from .watch import AXIS_NAMES, BUTTON_NAMES, CENTRED, EXTRA_NAMES, EXTRA_ORDER, PRESSURE_OF, PageWatch, Watch
 
 #: How often the screen catches up with the pad or the tester, in ms.
 TICK_MS = 20
@@ -43,9 +47,20 @@ WAITING = "Plug a gamepad into the USB host port.\nPlugged in? Press its Home bu
 COMPASS = ("N", "NE", "E", "SE", "S", "SW", "W", "NW")
 
 
+#: The platforms that are a browser page.
+BROWSERS = ("webassembly", "emscripten")
+#: What the tester says in a browser page while it has no gamepad.
+PAGE_WAITING = "Press a button on a gamepad:\nthe browser shows one to the page then."
+
+
 def sides():
     """What this board can be: ``"device"`` with a USB device port,
-    ``"host"`` with a USB host port, in that order."""
+    ``"host"`` with a USB host port, in that order. A browser page is
+    ``"page"`` alone: it tests the pads the browser shows it."""
+    import sys
+
+    if sys.platform in BROWSERS:
+        return ["page"]
     out = []
     try:
         import machine
@@ -397,33 +412,47 @@ def _show(column, v, held):
     name.set_style_text_color(ui.ACCENT if held else ui.MUTED, 0)
 
 
-def test_gamepad(scope):
-    """The gamepad on the board's USB host port, live."""
+def test_page_gamepad(scope):
+    """A gamepad the browser shows the page, live: the one chosen in
+    Connections, or the first."""
+    return test_gamepad(scope, PageWatch())
+
+
+def test_gamepad(scope, watch=None):
+    """The gamepad on the board's USB host port, live; or what *watch*
+    reads, read like `Watch`."""
     root = scope.root
     W, H = scope.size
-    try:
-        import usb.core
-        from usb.host import hid_generic
-    except ImportError as e:
-        print("gamepad:", e)
-        _missing(scope, "missing: usb-host-hid", 'The tester needs usb-host-hid:\nomip.install("usb-host-hid")')
-        return None
+    waiting = WAITING if watch is None else PAGE_WAITING
+    if watch is None:
+        try:
+            import usb.core
+            from usb.host import hid_generic
+        except ImportError as e:
+            print("gamepad:", e)
+            _missing(scope, "missing: usb-host-hid", 'The tester needs usb-host-hid:\nomip.install("usb-host-hid")')
+            return None
     status, row = _status_row(scope)
-    # A gamepad is a full-speed device, and full speed reaches one behind a
-    # hub too. A host that already ran at high speed since power-up can't
-    # change on a board whose hub can't be power-cycled, so it stays there.
-    try:
-        usb.core.start(full_speed=True, classes=("hid",))
-    except OSError as e:
-        if e.errno != 95:  # EOPNOTSUPP: an earlier app ran the host at high speed
-            raise
-        usb.core.start(classes=("hid",))
-    watch = Watch(usb.core, hid_generic)
+    if watch is None:
+        # A gamepad is a full-speed device, and full speed reaches one behind a
+        # hub too. A host that already ran at high speed since power-up can't
+        # change on a board whose hub can't be power-cycled, so it stays there.
+        try:
+            usb.core.start(full_speed=True, classes=("hid",))
+        except OSError as e:
+            if e.errno != 95:  # EOPNOTSUPP: an earlier app ran the host at high speed
+                raise
+            usb.core.start(classes=("hid",))
+        watch = Watch(usb.core, hid_generic)
+        stop = usb.core.stop
+    else:
+        stop = None
     st = {"watch": watch, "layout": None, "view": None, "shown": None}
 
     def close():
         watch.close()
-        usb.core.stop()
+        if stop is not None:
+            stop()
 
     scope.on_close(close)
 
@@ -432,7 +461,7 @@ def test_gamepad(scope):
     body = ui.plain(lv.obj(root))
     body.set_pos(0, row)
     body.set_size(W, H)
-    hint = ui.label(body, WAITING, ui.font, ui.MUTED)
+    hint = ui.label(body, waiting, ui.font, ui.MUTED)
     hint.center()
 
     def build(layout):
@@ -598,7 +627,7 @@ def test_gamepad(scope):
             if watch.layout is None:
                 body.clean()
                 st["view"] = None
-                ui.label(body, WAITING, ui.font, ui.MUTED).center()
+                ui.label(body, waiting, ui.font, ui.MUTED).center()
             else:
                 st["view"] = build(watch.layout)
             changed = True
@@ -619,6 +648,9 @@ def main(scope):
     if not can:
         _missing(scope, "no USB port for this", "Gamepad needs a board with a USB device port (to be a gamepad) "
                  "or a USB host port (to test one), such as an ESP32-S3 or ESP32-P4.")
+        return
+    if can == ["page"]:
+        test_page_gamepad(scope)
         return
     if len(can) == 1:
         (be_gamepad if can[0] == "device" else test_gamepad)(scope)

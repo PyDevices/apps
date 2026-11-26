@@ -287,6 +287,71 @@ class ExtrasTest(unittest.TestCase):
         self.assertEqual(w.extras, [200, 514])
 
 
+PageWatch = _watch.PageWatch
+
+
+def _standard(buttons=(), axes=(0.0, 0.0, 0.0, 0.0)):
+    """A standard-layout pad's 17 buttons, *buttons* (counted from 1) held."""
+    return [1.0 if n in buttons else 0.0 for n in range(1, 18)], list(axes)
+
+
+class PageWatchTest(unittest.TestCase):
+    def _watch(self, pads, chosen=()):
+        return PageWatch(pads=lambda: pads, chosen=lambda: list(chosen))
+
+    def test_the_first_pad_until_one_is_chosen(self):
+        buttons, axes = _standard((1, 6), (0.5, -1.0, 0.0, 0.25))
+        pads = [(0, "Xbox Controller", "standard", buttons, axes), (1, "8BitDo", "standard", *_standard())]
+        w = self._watch(pads)
+        self.assertTrue(w.poll())
+        self.assertEqual(w.name, "Xbox Controller")
+        self.assertEqual(w.buttons, {1, 6})
+        self.assertEqual(w.axes[0x010030], 0.5)
+        self.assertEqual(w.axes[0x010035], 0.25)
+        self.assertEqual(w.pad.axes[0x010031], -32767)
+        numbers, codes, hats, extras = w.layout
+        self.assertEqual((len(numbers), codes, hats), (13, (0x010030, 0x010031, 0x010032, 0x010035), 1))
+        self.assertFalse(w.poll(), "nothing moved")
+
+    def test_the_pad_chosen_in_connections(self):
+        pads = [(0, "Pad", "standard", *_standard()), (1, "Pad", "standard", *_standard((2,)))]
+        w = self._watch(pads, chosen=["Pad #2"])
+        w.poll()
+        self.assertEqual(w.buttons, {2})
+
+    def test_the_d_pad_is_a_hat(self):
+        pads = [(0, "Pad", "standard", *_standard((13, 16)))]
+        w = self._watch(pads)
+        w.poll()
+        self.assertEqual((w.hats[0], w.buttons), (1, set()))
+
+    def test_a_pad_that_goes_is_looked_for_again(self):
+        pads = [(0, "Pad", "standard", *_standard())]
+        w = self._watch(pads)
+        w.poll()
+        del pads[:]
+        self.assertTrue(w.poll())
+        self.assertIsNone(w.layout)
+        self.assertIn("went", w.status)
+
+    def test_a_chosen_pad_not_shown_isnt_another(self):
+        pads = [(0, "8BitDo", "standard", *_standard())]
+        w = self._watch(pads, chosen=["Xbox Controller"])
+        self.assertFalse(w.poll())
+        self.assertIsNone(w.pad)
+
+    def test_a_browser_without_the_api_says_so(self):
+        w = PageWatch(pads=lambda: None, chosen=lambda: [])
+        self.assertTrue(w.poll())
+        self.assertEqual(w.status, _watch.NO_GAMEPAD_API)
+
+    def test_the_browser_list_is_read(self):
+        text = "0\tXbox Controller\tstandard\t1.00,0.00\t0.500,-1.000"
+        self.assertEqual(_watch.page_pads(lambda: text), [(0, "Xbox Controller", "standard", [1.0, 0.0], [0.5, -1.0])])
+        self.assertEqual(_watch.page_pads(lambda: ""), [])
+        self.assertIsNone(_watch.page_pads(lambda: None))
+
+
 def _omnipython():
     return os.getenv("OMNIPYTHON_DIR") or os.path.join(ROOT, "..", "omnipython")
 
