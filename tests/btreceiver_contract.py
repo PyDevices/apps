@@ -108,6 +108,29 @@ class Scope:
 
 
 opens = []  # each hands-free unit the app opened
+outs = []  # each speaker the app opened
+
+
+class Out:
+    """Stands in for the board's ``audio_out``: what it was handed to play."""
+
+    def __init__(self, rate):
+        self.rate = rate
+        self.sample = None
+        self.closed = False
+        outs.append(self)
+
+    def play(self, sample):
+        self.sample = sample
+
+    def stop(self):
+        pass
+
+    def close(self):
+        self.closed = True
+
+
+app._speaker = Out
 
 
 def opened(state, call_audio=True, calls=True):
@@ -431,6 +454,145 @@ scope.close()
 forget_settings()
 scope, sink, scr = opened("nocover", calls=False)
 check("a sender that reports no battery shows none", not shown(scr.battery))
+scope.close()
+
+# ---- Chimes -------------------------------------------------------------------
+
+from multimer import ticks_add, ticks_ms  # noqa: E402
+
+try:
+    import audiomixer  # noqa: F401
+    import synthio  # noqa: F401
+    CAN_MIX = True
+except ImportError:
+    CAN_MIX = False
+    print("NOTE: no audiomixer or synthio here: the chimes' mixer isn't checked")
+
+
+def played():
+    return list(app.state["chimes"].played)
+
+
+def later(key, ms):
+    """Move the app's *key* time back *ms*, as if that long had passed."""
+    app.state[key] = ticks_add(ticks_ms(), -ms)
+
+
+if CAN_MIX:
+    import time
+    from array import array
+
+    import audiocore
+    from apps.btreceiver import chime
+
+    music = audiocore.RawSample(array("h", [0] * 256), sample_rate=44100, channel_count=2)
+    chimes = chime.Chimes()
+    mixer = chimes.mix(44100, music)
+    chimes.play("text")
+    check("a chime dips the music first, before its first note",
+          mixer.voice[0].level == chime.DUCK and not mixer.voice[1].playing,
+          str((mixer.voice[0].level, mixer.voice[1].playing)))
+    time.sleep((chime.DUCK_MS + chime.GAP_MS + chime.HOLD_MS + 150) / 1000)
+    check("and brings it back after the chime", mixer.voice[0].level == 1.0, str(mixer.voice[0].level))
+    check("the synthesizer goes quiet between chimes", not chimes._sounding)
+    chimes.close()
+    mixer = chimes.mix(44100)
+    check("chimes with no music dip nothing and play at once", chimes.play("call") and mixer.voice[1].playing)
+    chimes.close()
+
+forget_settings()
+del outs[:]
+scope, sink, scr = opened("incoming")
+hf = app.state["hf"]
+check("a ringing call chimes", played() == ["call"], str(played()))
+if CAN_MIX:
+    check("the chime opens the speaker on the chimes' mixer, at 44.1 kHz with no music yet",
+          len(outs) == 1 and outs[0].rate == 44100 and outs[0].sample is app.state["chimes"].mixer,
+          str([(o.rate, o.sample) for o in outs]))
+scope.run()
+check("it doesn't chime again at once", played() == ["call"], str(played()))
+later("rang", app.RING_MS)
+scope.run()
+check("it chimes again while the call still rings", played() == ["call", "call"], str(played()))
+tap(scr.answer.obj)
+scope.run()
+later("rang", app.RING_MS)
+scope.run()
+check("an answered call stops the chimes", played() == ["call", "call"], str(played()))
+scope.close()
+
+scope, sink, scr = opened("incoming")
+hf = app.state["hf"]
+hf.in_band_ring = True
+later("rang", app.RING_MS)
+scope.run()
+check("a phone that rings in band still chimes: it can send silence", played() == ["call", "call"],
+      str(played()))
+scope.close()
+
+scope, sink, scr = opened("incoming", call_audio=False)
+hf = app.state["hf"]
+hf.in_band_ring = True
+later("rang", app.RING_MS)
+scope.run()
+check("a board that can't take call audio chimes even for an in-band phone", played() == ["call", "call"],
+      str(played()))
+scope.close()
+
+scope, sink, scr = opened("call")
+msgs = app.state["msgs"]
+later("map_asked", app.MAP_WAIT_MS)
+scope.run()
+scope.run()
+msgs.arrive()
+scope.run()
+check("a text doesn't chime over a call's audio on the board", app.state["talking"] and played() == [],
+      str(played()))
+scope.close()
+
+scope, sink, scr = opened("incoming", calls=False)
+check("with the calls setting off there's no call to chime for", played() == [], str(played()))
+scope.close()
+
+del outs[:]
+scope, sink, scr = opened("text", calls=False)
+msgs = app.state["msgs"]
+check("the message service opens with the calls setting off", msgs is not None and not msgs.connected)
+later("map_asked", app.MAP_WAIT_MS)
+scope.run()
+scope.run()
+check("it connects to the phone and asks for its reports", msgs.connected and msgs.notifying)
+msgs.arrive()
+scope.run()
+check("a new text chimes once", played() == ["text"], str(played()))
+if CAN_MIX:
+    check("the music and the chimes share one mixer", len(outs) == 1 and outs[0].sample is app.state["chimes"].mixer,
+          str(len(outs)))
+msgs.arrive()
+msgs.arrive()
+scope.run()
+check("two texts together chime once", played() == ["text", "text"], str(played()))
+msgs.arrive("telecom/msg/sent")
+scope.run()
+check("a text the phone sent doesn't chime", played() == ["text", "text"], str(played()))
+scope.close()
+check("closing the app lets the message service go", not msgs.connected)
+
+scope, sink, scr = opened("nocover", calls=False)
+msgs = app.state["msgs"]
+for _ in range(app.MAP_TRIES + 2):
+    later("map_asked", app.MAP_PENDING_MS)
+    scope.run()
+check("a sender with no message service is asked a few times, then let be",
+      not msgs.connected and app.state["map_tries"] == app.MAP_TRIES, str(app.state["map_tries"]))
+scope.close()
+
+forget_settings()
+scope = Scope()
+app._save_config(scope, {"texts": False})
+scope.close()
+scope, sink, scr = opened("text", calls=None)
+check("texts off in config.json leaves the phone's messages alone", app.state["msgs"] is None)
 scope.close()
 
 forget_settings()

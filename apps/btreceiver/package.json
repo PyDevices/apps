@@ -11,6 +11,10 @@
       "app.json"
     ],
     [
+      "chime.py",
+      "chime.py"
+    ],
+    [
       "demo.py",
       "demo.py"
     ],

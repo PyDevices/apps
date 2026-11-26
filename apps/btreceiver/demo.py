@@ -14,9 +14,11 @@ way it decodes a phone's. `DemoHandsFree` answers like
 ``BTRECEIVER_DEMO`` holds it in one state, for screenshots: ``pairing``,
 ``idle``, ``playing``, ``paused``, ``nocover`` (a podcast with no cover, from
 a sender with no hands-free link), ``long`` (a long title, with every line
-filled in, and a low battery), ``incoming`` (a call ringing) or ``call`` (a
-call answered on the board). Without it the demo runs through pairing,
-connecting and playing on its own.
+filled in, and a low battery), ``incoming`` (a call ringing), ``call`` (a
+call answered on the board) or ``text`` (playing, and a text arrives). Without
+it the demo runs through pairing, connecting and playing on its own, and a
+text arrives a few seconds in. `DemoMessages` answers like
+``btclassic.Messages``, for those texts.
 """
 
 import os
@@ -35,6 +37,10 @@ SETTINGS = 1 << 26
 PHONE = 512
 CALL = 1024
 AUDIO = 2048
+NOTIFY = 1 << 20
+
+TEXT_MS = 1500  # from the message service's link to a text, in the text state
+FREE_TEXT_MS = 8000  # and when the demo runs on its own
 
 PAIR_MS = 4000  # how long the demo waits to be paired, from the app opening
 PLAY_MS = 2500  # and then before it plays
@@ -146,7 +152,7 @@ class DemoSink:
                                      "long": (None, None)}.get(self.state, ("off", "off"))
         self._clear_track()
         st = self.state
-        if st in ("idle", "playing", "paused", "nocover", "long", "incoming", "call"):
+        if st in ("idle", "playing", "paused", "nocover", "long", "incoming", "call", "text"):
             self._connect()
             if st != "idle":
                 self._load({"nocover": 3, "long": 2}.get(st, 0))
@@ -358,6 +364,9 @@ class DemoHandsFree:
         self.operator = ""
         self.call = None
         self.caller = ""
+        self.ringing = False
+        # True is a phone that sends its own ringtone as the call's audio.
+        self.in_band_ring = False
         self.audio = False
         self.sample_rate = 0
         self.mic = None  # what uplink() was last given
@@ -379,12 +388,14 @@ class DemoHandsFree:
     def answer(self):
         if self.call == "incoming":
             self.call = "active"
+            self.ringing = False
             self._audio(True)
             self._bits |= CALL
 
     def hangup(self):
         if self.call in ("incoming", "dialing", "alerting", "active", "held"):
             self.call = "idle"
+            self.ringing = False
             self._audio(False)
             self._bits |= CALL
             if self._resume:
@@ -430,6 +441,7 @@ class DemoHandsFree:
 
     def _ring(self):
         self.call = "incoming"
+        self.ringing = True
         self.caller = CALLER
         self._bits |= CALL
         if self.sink.playing:
@@ -442,3 +454,67 @@ class DemoHandsFree:
         self.audio = on
         self.sample_rate = 16000 if on else 0
         self._bits |= AUDIO
+
+
+class DemoMessages:
+    """A pretend ``btclassic.Messages`` on *sink*'s phone.
+
+    It connects when asked while the sink is connected, except to a sender
+    with no message service (the nocover state's computer), and once asked
+    to report changes, reports a new text: after `TEXT_MS` in the ``text``
+    state, after `FREE_TEXT_MS` when the demo runs on its own, and never in
+    the other held states. `arrive` makes one at any time.
+    """
+
+    def __init__(self, sink, state=None):
+        self.sink = sink
+        self.state = state if state is not None else sink.state
+        self.connected = False
+        self.notifying = False
+        self._bits = 0
+        self._events = []
+        self._due = None
+
+    @property
+    def events(self):
+        return len(self._events)
+
+    def connect(self, addr=None, *, instance=None, timeout=30000):
+        if self.sink.connected and self.state != "nocover":
+            self.connected = True
+        self._bits |= CONNECTION
+
+    def notify(self, on=True):
+        if not self.connected:
+            raise OSError("not connected")
+        self.notifying = on
+        wait = {"text": TEXT_MS, None: FREE_TEXT_MS}.get(self.state)
+        self._due = _now() + wait / 1000 if on and wait is not None else None
+
+    def arrive(self, folder="telecom/msg/inbox", sender="Sam"):
+        """A text arrives, or, with *folder* "telecom/msg/sent", the phone
+        sent one."""
+        self._events.append({"type": "NewMessage", "handle": "%04d" % len(self._events), "folder": folder,
+                             "msg_type": "SMS_GSM", "sender_name": sender})
+        self._bits |= NOTIFY
+
+    def event(self):
+        return self._events.pop(0) if self._events else None
+
+    def changes(self):
+        if self._due is not None and _now() >= self._due:
+            self._due = None
+            self.arrive()
+        if self.connected and not self.sink.connected:
+            self.connected = False
+            self.notifying = False
+            self._bits |= CONNECTION
+        bits, self._bits = self._bits, 0
+        return bits
+
+    def disconnect(self):
+        self.connected = False
+        self._bits |= CONNECTION
+
+    def deinit(self):
+        self.disconnect()

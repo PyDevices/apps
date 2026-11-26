@@ -20,7 +20,14 @@ to answer or decline. An answered call plays through the board's speaker and
 sends its microphones to the phone, and the music comes back when the call
 ends. On a board whose Bluetooth can't carry a
 call's audio (``HandsFree.call_audio`` is False), the card answers and hangs
-up, and you talk on the phone.
+up, and you talk on the phone. A ringing call chimes every few
+seconds.
+
+A new text chimes once, over the music, whatever the calls setting (but not
+over a call's audio on the board): the app
+reads the phone's message service (MAP) for that, which the phone asks its
+owner to allow the first time. ``"texts": false`` in ``config.json`` leaves
+the phone's messages alone.
 
 It needs a firmware with ``btclassic``. The audio goes out through the
 board's ``audio_out`` on the audio pump, so a redraw never holds it up. On a
@@ -37,6 +44,7 @@ from appkit.shell import is_round
 from touchkit import settings, ui
 
 from . import glyphs
+from .chime import Chimes
 from .screen import BANDS, Screen, calls_switch, switch_header
 
 UI_MS = 250  # how often the app reads the sink
@@ -51,6 +59,15 @@ BUFFER_MS = 1000
 # misses, and there are this many tries in all.
 HF_RETRY_MS = 3000
 HF_TRIES = 3
+RING_MS = 4000  # how often a ringing call chimes
+# The phone's message service, for the new-text chime: the first try waits
+# this long after the music connects, which leaves the phone to set up its
+# other links first. A try the phone hasn't answered in MAP_PENDING_MS is
+# taken as failed.
+MAP_WAIT_MS = 4000
+MAP_TRIES = 3
+MAP_PENDING_MS = 40000
+MAP_BYTES = 4096  # the replies kept: only the phone's answer to notify()
 
 state = None  # the open app's state, for the console
 # What Android sends for a field it doesn't know, the title included when
@@ -62,8 +79,9 @@ NEXT_REPEAT = {"off": "all", "all": "single"}
 #: The app's settings, kept in ``config.json`` in its data folder. ``calls``
 #: makes the board the phone's hands-free unit: the phone's battery and
 #: signal from that link, and a card for its calls. Off, the board is a
-#: speaker only, and the battery is the one the player reports.
-DEFAULTS = {"calls": False}
+#: speaker only, and the battery is the one the player reports. ``texts``
+#: chimes for each new text, from the phone's message service.
+DEFAULTS = {"calls": False, "texts": True}
 
 
 def _said(text):
@@ -100,6 +118,20 @@ def _open_handsfree(bt, sink, bits):
         return None
     # Stereo frames, the shape the speaker plays. It follows the sink's phone.
     return make(bt, channels=2)
+
+
+def _open_messages(bt, sink, bits):
+    """The phone's message service, for the new-text chime: btclassic's
+    ``Messages``, or the demo's on a computer. None on a firmware whose
+    btclassic has no message client."""
+    demo_msgs = getattr(bits, "DemoMessages", None)
+    if demo_msgs is not None:
+        return demo_msgs(sink)
+    make = getattr(bits, "Messages", None)
+    if make is None:
+        print("btreceiver: this btclassic has no Messages: no chime for texts")
+        return None
+    return make(bt, max_bytes=MAP_BYTES)
 
 
 def _load_config(scope):
@@ -234,7 +266,8 @@ def main(scope):
     scr = Screen(scope.root, scope.size, on, switch=switch_header(scope) is None, round_=round_)
     st = state = {"sink": sink, "hf": None, "out": None, "rate": 0, "levels": None, "screen": scr, "t0": ticks_ms(),
                   "call_out": None, "mic": None, "muted": False, "talking": False, "answered": None,
-                  "takes_audio": True, "config": config}
+                  "takes_audio": True, "config": config, "chimes": Chimes(), "rang": None, "msgs": None,
+                  "map_tries": 0, "map_asked": ticks_ms(), "map_pending": False}
     jpeg = bytearray(COVER_JPEG)
     # Covers decode into two buffers made once, taking turns, so LVGL never
     # shows the one being written and a new cover makes no garbage.
@@ -248,23 +281,51 @@ def main(scope):
         rate = sink.sample_rate
         if not rate or rate == st["rate"]:
             return
-        close_out()
-        st["rate"] = rate
-        if demo_mode:
+        if demo_mode:  # the pretend phone has no audio: a chime's speaker stays
+            st["rate"] = rate
             st["levels"] = _levels(None, True)
             return
+        close_out()
+        st["rate"] = rate
+        if open_out(rate):
+            st["levels"] = _levels(st["out"], False)
+
+    def open_out(rate, music=True):
+        # The speaker plays the music and the chimes through one mixer.
+        # The demo's pretend phone has no audio: there it plays the chimes
+        # alone.
         try:
             out = _speaker(rate)
             if out is None:
-                status.set_text("no audio out")
-                return
-            out.play(sink)
+                if not demo_mode:
+                    status.set_text("no audio out")
+                return False
+            out.play(st["chimes"].mix(rate, sink if music else None))
             st["out"] = out
         except Exception as e:  # the screen still follows the sender
             print("btreceiver: no audio out:", e)
-            status.set_text("no audio out")
+            if not demo_mode:
+                status.set_text("no audio out")
+            return False
+        return True
+
+    def chime(kind):
+        # On the board, the call's audio has the speaker, and only the call's
+        # own chime goes over it while it rings. With no music yet, the
+        # speaker opens for the chime at the phone's usual rate, and stays
+        # open for the music to come.
+        if st["talking"]:
+            if kind == "call" and st["call_out"] is not None:
+                print("btreceiver: chime for a call")
+                st["chimes"].play(kind)
             return
-        st["levels"] = _levels(out, False)
+        if st["out"] is None:
+            rate = sink.sample_rate or 44100
+            if not demo_mode:
+                st["rate"] = rate
+            open_out(rate, music=not demo_mode)
+        print("btreceiver: chime for a %s" % kind)
+        st["chimes"].play(kind)
 
     def close_out():
         src = st["levels"]
@@ -276,6 +337,7 @@ def main(scope):
         if out is not None:
             out.stop()
             out.close()
+        st["chimes"].close()
 
     def route_call():
         # The phone moves a call's audio to the board and back; the speaker
@@ -294,7 +356,9 @@ def main(scope):
                 if out is None:
                     status.set_text("no audio out")
                     return
-                out.play(st["hf"])
+                # A phone may bring the call's audio up while it still rings,
+                # and send nothing until it's answered: the chime goes over it.
+                out.play(st["chimes"].mix(rate, st["hf"]))
                 st["call_out"] = out
             except Exception as e:
                 print("btreceiver: no call audio out:", e)
@@ -327,6 +391,7 @@ def main(scope):
         if out is not None:
             out.stop()
             out.close()
+            st["chimes"].close()
             print("btreceiver: call audio off the board; sent", st["hf"].stats().get("sent"), "frames")
 
     def show_phone():
@@ -381,6 +446,68 @@ def main(scope):
             show_call()
         else:
             show_time()
+        ring()
+
+    def ring():
+        # A ringing call chimes now and every RING_MS until it's answered or
+        # gone, over the phone's own ringtone if it sends one: a phone that
+        # rings in band can still send silence.
+        hf = st["hf"]
+        if hf.call != "incoming":
+            st["rang"] = None
+            return
+        if st["rang"] is None or ticks_diff(ticks_ms(), st["rang"]) >= RING_MS:
+            st["rang"] = ticks_ms()
+            chime("call")
+
+    def call_messages():
+        # The message service follows the music's phone: asked for a few
+        # seconds after it connects, and again, a few times, if that fails.
+        # A computer has none, and is let be after MAP_TRIES.
+        msgs = st["msgs"]
+        now = ticks_ms()
+        if msgs.connected or not sink.connected:
+            st["map_tries"] = 0
+            st["map_asked"] = now
+            st["map_pending"] = False
+            return
+        if st["map_pending"] and ticks_diff(now, st["map_asked"]) < MAP_PENDING_MS:
+            return
+        if st["map_tries"] >= MAP_TRIES or ticks_diff(now, st["map_asked"]) < MAP_WAIT_MS:
+            return
+        st["map_tries"] += 1
+        st["map_asked"] = now
+        st["map_pending"] = True
+        try:
+            msgs.connect(timeout=0)
+        except OSError as e:
+            st["map_pending"] = False
+            print("btreceiver: the phone's messages:", e)
+
+    def follow_texts():
+        msgs = st["msgs"]
+        call_messages()
+        changed = msgs.changes()
+        if changed & bits.CONNECTION:
+            st["map_pending"] = False
+            if msgs.connected:
+                try:
+                    msgs.notify()
+                    print("btreceiver: the phone reports new texts")
+                except OSError as e:
+                    print("btreceiver: the phone won't report new texts:", e)
+        if not (changed & bits.NOTIFY or msgs.events):
+            return
+        new = False
+        while True:
+            ev = msgs.event()
+            if ev is None:
+                break
+            # A text the phone sent shows up too, in "sent" or "outbox".
+            if ev.get("type") == "NewMessage" and ev.get("folder", "inbox").endswith("inbox"):
+                new = True
+        if new:
+            chime("text")
 
     def show_cover():
         try:
@@ -481,6 +608,8 @@ def main(scope):
     def follow(t):
         if st["hf"] is not None:
             follow_phone()
+        if st["msgs"] is not None:
+            follow_texts()
         changed = sink.changes()
         if changed:
             route()
@@ -511,6 +640,10 @@ def main(scope):
         if hf is not None:
             drop_call()
         close_out()
+        msgs = st["msgs"]
+        st["msgs"] = None
+        if msgs is not None:
+            msgs.deinit()
         # The phone is let go when the app closes, and called back when it
         # opens again. The radio goes back off if it was off.
         if hf is not None:
@@ -529,6 +662,11 @@ def main(scope):
     st["switch"] = calls_switch(scope, config["calls"], set_calls, scr.lay)
     if config["calls"]:
         open_phone()
+    if config["texts"]:
+        try:
+            st["msgs"] = _open_messages(bt, sink, bits)
+        except OSError as e:  # the player and calls go on without it
+            print("btreceiver: no chime for texts:", e)
     scope.every(UI_MS, follow)
     scope.every(BARS_MS, bars)
     if not sink.connected:
