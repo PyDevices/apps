@@ -274,7 +274,7 @@ def start(scope):
     if port:
         try:
             box.device.add(tcp.serve(port, page=page_data.page()))
-        except OSError as e:
+        except (OSError, ImportError) as e:  # ImportError: no socket module (a browser)
             box.error = "desks can't join on port %d: %s" % (port, e)
     name = remote.ble_name(prefs, scope.data_dir)
     if name:

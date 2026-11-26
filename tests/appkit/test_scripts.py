@@ -368,6 +368,37 @@ class Index(unittest.TestCase):
                 index.choose(apps, ["nothing"])
             self.assertIn("'nothing'", str(cm.exception))
 
+    def test_script_app_freezes_the_modules_beside_it(self):
+        # A script imports its folder's modules by their own names (Bit World's
+        # bit_palette), so a freeze puts them at the top level with it, with
+        # native taken out where asked; its tests stay out.
+        with tempfile.TemporaryDirectory() as tmp:
+            apps = os.path.join(tmp, "apps")
+            where = os.path.join(apps, "game")
+            os.makedirs(os.path.join(where, "tests"))
+            with open(os.path.join(where, "app.json"), "w") as f:
+                json.dump({"name": "game", "tile": False, "script": "game"}, f)
+            with open(os.path.join(where, "game.py"), "w") as f:
+                f.write("from game_palette import RED\n")
+            with open(os.path.join(where, "game_palette.py"), "w") as f:
+                f.write("@micropython.native\ndef red():\n    return 1\nRED = 1\n")
+            with open(os.path.join(where, "tests", "test_game.py"), "w") as f:
+                f.write("")
+            out = os.path.join(tmp, "out")
+            frozen = []
+
+            def module(path, base_path="."):
+                frozen.append(path)
+                with open(os.path.join(base_path, path)) as f:
+                    texts[path] = f.read()
+
+            texts = {}
+            index.freeze_apps(apps, module, None, out, native=False)
+            self.assertIn("game.py", frozen)
+            self.assertIn("game_palette.py", frozen)
+            self.assertNotIn("test_game.py", [os.path.basename(p) for p in frozen])
+            self.assertNotIn("@micropython.native", texts["game_palette.py"])
+
     def test_frozen_files_read_through_assets(self):
         with tempfile.TemporaryDirectory() as tmp:
             apps = os.path.join(tmp, "apps")
