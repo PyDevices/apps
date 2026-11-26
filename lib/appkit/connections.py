@@ -34,10 +34,11 @@ one only where it's installed: `hostnet` for the operating system's network
 link (reported only), audiodev's sound outputs and inputs, midiports' MIDI
 ports, displaydev's keyboard, mouse and gamepads, and castdisplay's Rokus.
 
-In a browser page it's what the browser lets a page reach: Web MIDI's ports,
-through midiports. A browser offers a device only once the person allows it,
-so until then each kind lists one "Allow" entry, and tapping it in the picker
-has the browser ask.
+In a browser page it's what the browser lets a page reach: its speakers and
+microphones, through audiodev, and Web MIDI's ports and the page's other
+tabs, through midiports. A browser offers MIDI only once the person allows
+it, so until then each MIDI kind lists one "Allow MIDI" entry, and tapping it
+in the picker has the browser ask.
 
 An app hears a choice move with `AppScope.follow`, and `device` turns what
 it hears into the name a computer's audio backend opens. On a board it
@@ -164,6 +165,7 @@ BOARD_PROVIDERS = (
 
 #: A browser page's providers: the name `register` reports, and what registers it.
 WEB_PROVIDERS = (
+    ("audiodev", _audiodev),
     ("midiports", _midiports),
 )
 

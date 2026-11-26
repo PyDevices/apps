@@ -73,6 +73,8 @@ elif PLANT == "never_starts_usb_host":
     connections._usb_host_start = _never_starts
 elif PLANT == "browser_gets_nothing":
     connections.WEB_PROVIDERS = ()
+elif PLANT == "browser_without_audio":
+    connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "audiodev")
 elif PLANT == "unnamed_tabs":
     connections.name_page = lambda name_of: None
 elif PLANT == "noisy_absence":
@@ -335,7 +337,8 @@ del connections._usb[:]
 check("mirror" not in connections.register(endpointkit.Registry()), "an older castdisplay has no mirror")
 del sys.modules["board_config"]
 
-# A browser page: Web MIDI's ports through midiports, and no Wi-Fi.
+# A browser page: its speakers and microphones through audiodev, Web MIDI's
+# ports through midiports, and no Wi-Fi.
 class _Browser:
     platform = "webassembly"
     implementation = sys.implementation
@@ -359,6 +362,20 @@ class _Midiports:
     tabs = _Tabs
 
 
+class _PageAudio:
+    registered = []
+
+    @staticmethod
+    def register(registry=None):
+        _PageAudio.registered.append(registry)
+
+
+real_audio = sys.modules.get("audiodev.endpoints")
+sys.modules["audiodev.endpoints"] = _PageAudio
+import audiodev  # noqa: E402
+
+real_audio_attr = getattr(audiodev, "endpoints", None)
+audiodev.endpoints = _PageAudio
 sys.modules["midiports"] = _Midiports
 sys.modules["midiports.endpoints"] = _WebMidi
 sys.modules["midiports.tabs"] = _Tabs
@@ -370,7 +387,8 @@ reg = endpointkit.Registry()
 names = connections.register(reg)
 check("midiports" in names, "a browser registers Web MIDI's ports: %r" % (names,))
 check(_WebMidi.registered == [reg], "in the registry it was given: %r" % (_WebMidi.registered,))
-check("audiodev" not in names and "usb.host" not in names, "and none of a board's: %r" % (names,))
+check("audiodev" in names and _PageAudio.registered == [reg], "and the page's speakers and microphones: %r" % (names,))
+check("usb.host" not in names and "btclassic" not in names, "and none of a board's: %r" % (names,))
 _title = lambda: "Synth Station"  # noqa: E731
 connections.name_page(_title)
 check(_Tabs.name_of is _title, "the other tabs hear this one's name")
@@ -380,6 +398,14 @@ check(_Tabs.name_of is _title, "away from a browser, nothing is named")
 del sys.modules["midiports"]
 del sys.modules["midiports.endpoints"]
 del sys.modules["midiports.tabs"]
+if real_audio is not None:
+    sys.modules["audiodev.endpoints"] = real_audio
+else:
+    del sys.modules["audiodev.endpoints"]
+if real_audio_attr is not None:
+    audiodev.endpoints = real_audio_attr
+else:
+    del audiodev.endpoints
 
 if FAILS:
     print("%d checks failed" % len(FAILS))
