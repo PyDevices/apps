@@ -496,6 +496,7 @@ jobs:
           sparse-checkout: |
             /lib/
             /packages/midiports/
+            /packages/endpointkit/
             /packages/icons/
             /packages/_boardname/
             /utils/ttfio.py
