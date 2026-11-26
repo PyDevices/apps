@@ -116,6 +116,11 @@ class Scope:
         self._timers.append(t)
         return t
 
+    def after(self, ms, callback):
+        t = lv.timer_create(lambda _t: callback(_t), ms, None)
+        t.set_repeat_count(1)
+        return t
+
     def adopt(self, obj, close=None):
         self._adopted.append((obj, close))
         return obj
@@ -139,6 +144,20 @@ def texts(obj):
     return out
 
 
+def press(point, ms):
+    """Hold the stand-in touch at *point* for *ms*, then lift it."""
+    dev.point = point
+    for _ in range(ms // 30 + 1):
+        _headless.advance(30)
+    dev.point = None
+    for _ in range(3):
+        _headless.advance(30)
+
+
+def numbers_on(sheet):
+    return [t for t in texts(sheet) if t.isdigit()]
+
+
 def run(name, controller, mask):
     """Tap each target where ``controller(x, y)`` says the touch controller reads it; return what the app saved."""
     folder = tempfile.mkdtemp()
@@ -152,11 +171,10 @@ def run(name, controller, mask):
         shown = texts(sheet)
         numbers = [t for t in shown if t.isdigit()]
         check(numbers == [str(n)], "%s: target %d alone on the screen (numbers shown: %s)" % (name, n, numbers))
-        dev.point = controller(x, y)
-        for _ in range(4):
-            _headless.advance(30)
-        dev.point = None
-        for _ in range(4):
+        press(controller(x, y), 90)
+        if n < 5:
+            check("Got it" in texts(sheet), "%s: target %d says Got it" % (name, n))
+        for _ in range(25):
             _headless.advance(30)
     path = os.path.join(folder, touchcal.FILE)
     check(os.path.exists(path), "%s: the run is saved to %s" % (name, touchcal.FILE))
@@ -200,6 +218,42 @@ check(any("swapped" in w for w in a["words"]), "swap: said in words: %s" % a["wo
 # The same controller with SWAP_XY already in the table: right.
 r = run("swap fixed", lambda x, y: (y, x), SWAP_XY)
 check(r["analysis"]["ok"], "swap fixed: every tap on its target: %s" % r["analysis"])
+
+# The same finger twice, a long press, and the run after it.
+folder = tempfile.mkdtemp()
+dev._mask = 0
+dev._rotation_table = (0, 0, 0, 0)
+scope = Scope(folder)
+touchcal.main(scope)
+_headless.advance(50)
+sheet = lv.layer_sys().get_child(lv.layer_sys().get_child_count() - 1)
+places = touchcal.target_places(SW, SH)
+press(places[0], 90)
+press(places[0], 90)  # a bounce, at once
+for _ in range(25):
+    _headless.advance(30)
+check(numbers_on(sheet) == ["2"], "a bounce on target 1 doesn't count: showing %s" % numbers_on(sheet))
+press(places[0], 90)  # the same spot again, soon after
+for _ in range(25):
+    _headless.advance(30)
+check(numbers_on(sheet) == ["2"], "a second tap on target 1 soon after doesn't count: showing %s" % numbers_on(sheet))
+press(places[1], 90)
+for _ in range(25):
+    _headless.advance(30)
+check(numbers_on(sheet) == ["3"], "a tap on target 2 moves on: showing %s" % numbers_on(sheet))
+for _ in range(40):
+    _headless.advance(30)
+press(places[2], touchcal.HOLD_MS + 100)
+_headless.advance(30)
+check(numbers_on(sheet) == ["1"], "a long press starts over: showing %s" % numbers_on(sheet))
+for n, (x, y) in enumerate(places, 1):
+    press((x, y), 90)
+    for _ in range(25):
+        _headless.advance(30)
+with open(os.path.join(folder, touchcal.FILE)) as f:
+    record = json.load(f)
+check([t["target"] for t in record["taps"]] == [list(p) for p in places], "after starting over, the five taps are the new run's: %s" % record["taps"])
+scope.close()
 
 if failures:
     print("%d of %d checks failed" % (len(failures), checks[0]))
