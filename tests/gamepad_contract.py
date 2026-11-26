@@ -606,5 +606,24 @@ check(find_label(scope.root, "no USB port for this") is not None, "a board with 
 shot("missing_ports")
 scope.close()
 
+# -- A browser page ----------------------------------------------------------------
+
+_pads = []
+_real_watch, _real_platform = gamepad.PageWatch, sys.platform
+gamepad.PageWatch = lambda: _real_watch(pads=lambda: _pads, chosen=lambda: [])
+sys.platform = "webassembly"
+scope = Scope()
+gamepad.main(scope)
+_headless.advance(40)
+check(find_label(scope.root, "Be a gamepad") is None, "a browser page goes straight to the tester")
+check(find_label(scope.root, gamepad.PAGE_WAITING) is not None, "it asks for a button press on a pad")
+_pads.append((0, "Xbox Wireless Controller", "standard", [1.0] + [0.0] * 16, [0.0, 0.0, 1.0, -1.0]))
+scope.run()
+check(find_label(scope.root, gamepad.PAGE_WAITING) is None, "the pad the browser shows is drawn")
+tidy("page tester")
+shot("page_tester")
+scope.close()
+gamepad.PageWatch, sys.platform = _real_watch, _real_platform
+
 print("%d checks, %d failed" % (checks[0], len(failures)))
 sys.exit(1 if failures else 0)

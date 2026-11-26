@@ -75,6 +75,8 @@ elif PLANT == "browser_gets_nothing":
     connections.WEB_PROVIDERS = ()
 elif PLANT == "browser_without_audio":
     connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "audiodev")
+elif PLANT == "browser_without_gamepads":
+    connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "displaydev")
 elif PLANT == "unnamed_tabs":
     connections.name_page = lambda name_of: None
 elif PLANT == "noisy_absence":
@@ -370,6 +372,20 @@ class _PageAudio:
         _PageAudio.registered.append(registry)
 
 
+class _PageInput:
+    registered = []
+
+    @staticmethod
+    def register(registry=None):
+        _PageInput.registered.append(registry)
+
+
+real_input = sys.modules.get("displaydev.endpoints")
+sys.modules["displaydev.endpoints"] = _PageInput
+import displaydev  # noqa: E402
+
+real_input_attr = getattr(displaydev, "endpoints", None)
+displaydev.endpoints = _PageInput
 real_audio = sys.modules.get("audiodev.endpoints")
 sys.modules["audiodev.endpoints"] = _PageAudio
 import audiodev  # noqa: E402
@@ -388,6 +404,7 @@ names = connections.register(reg)
 check("midiports" in names, "a browser registers Web MIDI's ports: %r" % (names,))
 check(_WebMidi.registered == [reg], "in the registry it was given: %r" % (_WebMidi.registered,))
 check("audiodev" in names and _PageAudio.registered == [reg], "and the page's speakers and microphones: %r" % (names,))
+check("displaydev" in names and _PageInput.registered == [reg], "and the gamepads the browser shows it: %r" % (names,))
 check("usb.host" not in names and "btclassic" not in names, "and none of a board's: %r" % (names,))
 _title = lambda: "Synth Station"  # noqa: E731
 connections.name_page(_title)
@@ -398,6 +415,14 @@ check(_Tabs.name_of is _title, "away from a browser, nothing is named")
 del sys.modules["midiports"]
 del sys.modules["midiports.endpoints"]
 del sys.modules["midiports.tabs"]
+if real_input is not None:
+    sys.modules["displaydev.endpoints"] = real_input
+else:
+    del sys.modules["displaydev.endpoints"]
+if real_input_attr is not None:
+    displaydev.endpoints = real_input_attr
+else:
+    del displaydev.endpoints
 if real_audio is not None:
     sys.modules["audiodev.endpoints"] = real_audio
 else:
