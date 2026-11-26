@@ -21,6 +21,7 @@ to an hour: the first lookup after joining a network can fail while the link
 settles, and the clock would otherwise stay on UTC for a day.
 """
 
+import sys
 import time
 
 from appkit import net
@@ -111,7 +112,23 @@ def sync():
             print("deskkit: could not set the clock: %r" % (exc2,))
             return False
     _synced_at = time.time()
+    keep_board_clock()
     return True
+
+
+def keep_board_clock():
+    """Copy the clock, now set from the network, to the board's own clock
+    chip (its ``rtc`` role), which keeps time while the board is off. The
+    board's config reads it back at the next start. Does nothing on a board
+    without one."""
+    board = sys.modules.get("board_config")
+    if board is None or "rtc" not in getattr(board, "PERIPHERALS", ()):
+        return
+    try:
+        t = gmtime()
+        board.rtc.datetime((t[0], t[1], t[2], t[6], t[3], t[4], t[5], 0))
+    except Exception as exc:
+        print("deskkit: the board's clock chip wasn't set: %r" % (exc,))
 
 
 def due():

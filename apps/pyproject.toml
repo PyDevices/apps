@@ -33,6 +33,7 @@ packages = [
     "apps",
     "apps.backline",
     "apps.backline.desk",
+    "apps.battery",
     "apps.bit_world",
     "apps.btreceiver",
     "apps.camera",
@@ -45,6 +46,7 @@ packages = [
     "apps.home",
     "apps.huey",
     "apps.info",
+    "apps.lora",
     "apps.medialink_baby_monitor",
     "apps.medialink_doorbell",
     "apps.medialink_hands_free",
@@ -62,6 +64,7 @@ packages = [
     "apps.settings",
     "apps.shell",
     "apps.spotify",
+    "apps.steps",
     "apps.stompbox",
     "apps.synthstation",
     "apps.system",
@@ -73,6 +76,7 @@ packages = [
 
 [tool.setuptools.package-data]
 "apps.backline" = ["app.json", "songs/ballad_68.json", "songs/bossa.json", "songs/country_train.json", "songs/funk.json", "songs/metal.json", "songs/pop.json", "songs/rock.json", "songs/shuffle.json"]
+"apps.battery" = ["app.json"]
 "apps.bit_world" = ["app.json"]
 "apps.btreceiver" = ["app.json"]
 "apps.camera" = ["app.json"]
@@ -85,6 +89,7 @@ packages = [
 "apps.home" = ["app.json"]
 "apps.huey" = ["app.json", "settings.example.json"]
 "apps.info" = ["app.json"]
+"apps.lora" = ["app.json"]
 "apps.medialink_baby_monitor" = ["app.json"]
 "apps.medialink_doorbell" = ["app.json"]
 "apps.medialink_hands_free" = ["app.json"]
@@ -102,6 +107,7 @@ packages = [
 "apps.settings" = ["app.json"]
 "apps.shell" = ["app.json"]
 "apps.spotify" = ["app.json"]
+"apps.steps" = ["app.json"]
 "apps.stompbox" = ["app.json", "guitar-set.txt"]
 "apps.synthstation" = ["app.json"]
 "apps.system" = ["app.json"]
