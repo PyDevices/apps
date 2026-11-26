@@ -123,6 +123,10 @@ class BitWorldDirector:
             print("Bit World: this firmware has no offheap, so the frames are in the heap and each collection pauses the picture")
         if not self.direct:
             self.screen_buf, self.screen_fb = make_fb(WIDTH, HEIGHT, VOID)
+            # What blit_rect copies from: a display that copies with a slice
+            # assignment (a browser canvas's framebuffer) takes a memoryview,
+            # not an OffHeapBuffer.
+            self.screen_view = memoryview(self.screen_buf)
             self.screen_draw = make_draw(self.screen_fb)
             self.screen_state = PanelState()
         backgrounds = [make_fb(WIDTH, HEIGHT, VOID) for _ in range(3)]
@@ -330,7 +334,7 @@ class BitWorldDirector:
             else:
                 display_drv.show()
             return
-        display_drv.blit_rect(self.screen_buf, 0, 0, WIDTH, HEIGHT)
+        display_drv.blit_rect(self.screen_view, 0, 0, WIDTH, HEIGHT)
         if first_frame:
             display_drv.show()
 
