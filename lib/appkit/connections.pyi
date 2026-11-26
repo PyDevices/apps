@@ -16,6 +16,11 @@ USB_HOST_APART: dict[str, bool]
 def name_page(name_of: Callable[[], str]) -> None:
     """In a browser, what the page's other tabs call this one."""
 
+PAGE_KEY: str
+
+def remember_in_page(registry: Any, storage: Any = None) -> bool:
+    """Keep *registry*'s choices in the browser page's storage, and bring back the ones kept before."""
+
 def register(registry: Any = None) -> list[str]:
     """Register the device's providers once; returns the names registered."""
 
