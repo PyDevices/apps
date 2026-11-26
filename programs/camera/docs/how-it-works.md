@@ -21,8 +21,8 @@ log:
 
 On the ESP32-P4X-EYE every part is there, and nothing changes. On the board
 the models go in a `models` folder (`/sd/models` on the card, `/models` or
-`/data/models` on flash): `pedestrian.espdl` and `face.espdl`, and the
-`mp4mux` package in `/lib/mp4mux`. The two model files are Espressif's, and
+`/data/models` on flash): `pedestrian.espdl` and `face.espdl`. Video needs
+`mp4mux`, which OmniPython 0.8.1 and later carry in the firmware. The two model files are Espressif's, and
 [the model files page](../../../docs/reference/models.md) says which ones and
 where to download them.
 The Eye's board config brings its display, keys, accelerometer and
