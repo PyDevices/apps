@@ -65,6 +65,7 @@ packages = [
     "apps.stompbox",
     "apps.synthstation",
     "apps.system",
+    "apps.touchcal",
     "apps.wake",
     "apps.weather",
 ]
@@ -103,5 +104,6 @@ packages = [
 "apps.stompbox" = ["app.json", "guitar-set.txt"]
 "apps.synthstation" = ["app.json"]
 "apps.system" = ["app.json"]
+"apps.touchcal" = ["app.json"]
 "apps.wake" = ["app.json"]
 "apps.weather" = ["app.json"]

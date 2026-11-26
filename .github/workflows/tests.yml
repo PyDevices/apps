@@ -63,6 +63,7 @@ jobs:
       camera_apps: ${{ steps.scope.outputs.camera_apps }}
       app_packages: ${{ steps.scope.outputs.app_packages }}
       gamepad: ${{ steps.scope.outputs.gamepad }}
+      touchcal: ${{ steps.scope.outputs.touchcal }}
       perch: ${{ steps.scope.outputs.perch }}
       btreceiver: ${{ steps.scope.outputs.btreceiver }}
       huey: ${{ steps.scope.outputs.huey }}
@@ -90,6 +91,7 @@ jobs:
             echo "camera_apps=true" >> "$GITHUB_OUTPUT"
             echo "app_packages=true" >> "$GITHUB_OUTPUT"
             echo "gamepad=true" >> "$GITHUB_OUTPUT"
+            echo "touchcal=true" >> "$GITHUB_OUTPUT"
             echo "perch=true" >> "$GITHUB_OUTPUT"
             echo "btreceiver=true" >> "$GITHUB_OUTPUT"
             echo "huey=true" >> "$GITHUB_OUTPUT"
@@ -109,6 +111,7 @@ jobs:
           echo "camera_apps=$(has '^(apps/(camera|detect)/|lib/(touchkit|appkit)/|tests/(test_camera_preview|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/(app_packages|import_every_app)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "touchcal=$(has '^(apps/touchcal/|lib/touchkit/|tests/(test_touchcal|touchcal_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "perch=$(has '^(apps/perch/|lib/appkit/glass\.py$|tests/(test_perch|perch_contract|perch_drawings|_headless)\.py$|tests/perch_drawings\.golden$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "btreceiver=$(has '^(apps/btreceiver/|lib/(touchkit|appkit|controlkit|spectrum)/|tests/(test_btreceiver|btreceiver_contract|btreceiver_layout|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "huey=$(has '^(apps/(huey|perch)/|lib/chatclient/|tests/(test_huey|huey_contract|huey_fakes|huey_servers_check|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
@@ -445,6 +448,32 @@ jobs:
           GAMEPAD_REQUIRE: "1"
           SDL_VIDEODRIVER: dummy
         run: python -m unittest tests.test_gamepad -v
+
+  # The Touch app on CPython, on a display with no window: its analysis against
+  # known transforms, and five taps through a stand-in touch device at three
+  # screen sizes.
+  touchcal:
+    needs: scope
+    if: needs.scope.outputs.touchcal == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install LVGL for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1"
+
+      - name: The Touch app's tests
+        env:
+          TOUCHCAL_REQUIRE: "1"
+          SDL_VIDEODRIVER: dummy
+        run: python -m unittest tests.test_touchcal -v
 
   # The MIDI Controller app on CPython against omnipython's midiports from its
   # main branch, on a display with no window: each touch is read back as the

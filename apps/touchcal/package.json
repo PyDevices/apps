@@ -1,0 +1,50 @@
+{
+  "description": "Touch, an app for Home",
+  "target": "apps/touchcal",
+  "urls": [
+    [
+      "__init__.py",
+      "__init__.py"
+    ],
+    [
+      "app.json",
+      "app.json"
+    ],
+    [
+      "fit.py",
+      "fit.py"
+    ]
+  ],
+  "deps": [
+    [
+      "applibs",
+      "latest"
+    ],
+    [
+      "endpointkit",
+      "latest"
+    ],
+    [
+      "icons",
+      "latest"
+    ]
+  ],
+  "applibs": [
+    "appkit",
+    "deskkit",
+    "touchkit"
+  ],
+  "upstream": [
+    [
+      "requests",
+      "latest"
+    ]
+  ],
+  "circuitpython": [
+    [
+      "adafruit_requests",
+      "latest"
+    ]
+  ],
+  "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
+}
