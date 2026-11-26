@@ -216,6 +216,20 @@ HAVE_KIT = os.path.isdir(_KIT) and os.path.isdir(_MIDIPORTS)
 NO_KIT = "endpointkit and midiports aren't at %s: set OMNIPYTHON_DIR" % OMNIPYTHON
 
 
+def _has_page_ports():
+    """Whether that midiports lists a browser page's ports in endpointkit
+    (an omnipython pinned from before it doesn't)."""
+    path = os.path.join(_MIDIPORTS, "midiports", "webmidi.py")
+    if not os.path.isfile(path):
+        return False
+    with open(path) as f:
+        return "def request(" in f.read()
+
+
+HAVE_PAGE_PORTS = HAVE_KIT and (_has_page_ports() or os.getenv("MIDICONTROLLER_REQUIRE") == "1")
+NO_PAGE_PORTS = "the midiports at %s is from before a page's ports were in endpointkit" % OMNIPYTHON
+
+
 class _Port:
     def __init__(self, info):
         self.info = info
@@ -377,7 +391,7 @@ class ComputerLinksTest(_Connections, unittest.TestCase):
         self.assertIn("midiports", links.missing())
 
 
-@unittest.skipUnless(HAVE_KIT, NO_KIT)
+@unittest.skipUnless(HAVE_PAGE_PORTS, NO_PAGE_PORTS)
 class BrowserLinksTest(_Connections, unittest.TestCase):
     """In a browser page, nothing is listed until the person allows MIDI."""
 
