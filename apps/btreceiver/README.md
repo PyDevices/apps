@@ -157,9 +157,8 @@ its chime through the computer's speakers.
 `playing`, `paused`, `nocover`, `long`, `incoming`, `call` or `text`).
 `text` plays and has a text arrive, and `incoming` rings with its chime once
 Phone calls and battery is on. [`tools/shots.py`](tools/shots.py)
-saves a picture of each screen in
-[`tools/shots.py`](tools/shots.py) saves a picture of each in
-[`docs/images`](docs/images), where this page's pictures live:
+saves a picture of each screen in [`docs/images`](docs/images), where this
+page's pictures live:
 
 ```bash
 python apps/btreceiver/tools/shots.py
