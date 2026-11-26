@@ -87,6 +87,7 @@ class Eye:
         self.mag = max(MAG_MIN, min(MAG_MAX, settings.magnify))
         self.interval = settings.int_time
         self.ai_mode = "pedestrian"
+        self._said_why = None  # what the AI page last said about its detector
         self.cam_panel = False
         self.item = 0
         self.cam_item = 0
@@ -312,6 +313,11 @@ class Eye:
     def _draw_detections(self, buf):
         det = self.hw.detector
         boxes = det.people(buf, 240, 240) if self.ai_mode == "pedestrian" else det.faces(buf, 240, 240)
+        why = getattr(det, "why", None)
+        if why != self._said_why:
+            self._said_why = why
+            if why:
+                self._say(why)  # a mode that can't find anything here says so
         fb = self.fb
         for x0, y0, x1, y1, pts in boxes:
             for k in range(5):  # red, 5 px thick
@@ -449,8 +455,10 @@ class Eye:
         self.popup_timer = None
 
     def goto_page(self, page):
-        if self.page == AI and page != AI and hasattr(self.hw.detector, "release"):
+        if self.page in (AI, ALBUM) and page != self.page and hasattr(self.hw.detector, "release"):
             self.hw.detector.release()  # the models' memory goes back on leaving the page
+        if page == AI:
+            self._said_why = None  # each visit says again why a mode finds nothing
         self.page = page
         c = self.cam
         if page == CAMERA:

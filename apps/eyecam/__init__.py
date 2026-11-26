@@ -39,7 +39,17 @@ def main(scope):
     if _control.framebuf is None:
         ui.missing(scope, "no framebuf", "Eye Camera needs MicroPython: this Python has no framebuf module.")
         return
-    parts = hw.build(scope)
+    try:
+        parts = hw.build(scope)
+    except OSError as e:
+        if not hw.in_browser():
+            raise
+        # No test card in a browser: say why the page's camera didn't open.
+        from touchkit import cam
+
+        text = cam.no_camera_text(e, "Eye Camera")
+        ui.missing(scope, text.split(":")[0], text)
+        return
     board = None
     if not parts.desktop:
         try:

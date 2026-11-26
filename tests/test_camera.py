@@ -3,15 +3,18 @@
 # SPDX-License-Identifier: MIT
 """Eye Camera's decisions, which need no screen or board: how far the
 240x240 layout is enlarged, which controls a board gets, which picture source
-it uses, and what part of a small camera's frame a video takes.
+it uses, what part of a small camera's frame a video takes, and what a
+browser page's camera and detector give the app, against stand-ins for both.
 
     python -m unittest tests.test_camera
 """
 
 import importlib.util
 import os
+import sys
 import types
 import unittest
+from unittest import mock
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PKG = os.path.join(ROOT, "apps", "eyecam")
@@ -214,6 +217,271 @@ class CropTest(unittest.TestCase):
                 self.assertLessEqual(x + w, 640)
                 self.assertLessEqual(y + h, 480)
                 self.assertGreater(w, 0)
+
+
+def _load_hw():
+    """``hw``, ``hw.desktop`` and ``hw.browser`` as a package, loaded over
+    stand-ins for LVGL, appkit and the MicroPython modules they import, which
+    are taken out of ``sys.modules`` again afterwards."""
+    fakes = {name: types.ModuleType(name) for name in ("lvgl", "framebuf", "jpegio", "ppa", "appkit", "appkit.assets")}
+    fakes["jpegio"].JpegEncoder = lambda **kw: None
+    fakes["appkit"].assets = fakes["appkit.assets"]
+    name = "eyecam_hw"
+    spec = importlib.util.spec_from_file_location(
+        name, os.path.join(PKG, "hw", "__init__.py"), submodule_search_locations=[os.path.join(PKG, "hw")])
+    pkg = importlib.util.module_from_spec(spec)
+    with mock.patch.dict(sys.modules, fakes):
+        sys.modules[name] = pkg
+        spec.loader.exec_module(pkg)
+        importlib.import_module(name + ".desktop")
+        importlib.import_module(name + ".browser")
+        ours = {k: v for k, v in sys.modules.items() if k == name or k.startswith(name + ".")}
+    sys.modules.update(ours)  # the package stays importable; the stand-ins go
+    return pkg, ours[name + ".browser"]
+
+
+hw, browser = _load_hw()
+
+
+class FakePpa:
+    """Records each cut, and fills the 240x240 picture with one byte."""
+
+    def __init__(self):
+        self.calls = []
+
+    def srm(self, src, sw, sh, dst, dw, dh, **kw):
+        self.calls.append((sw, sh, dw, dh, kw))
+        dst[:] = b"\x5a" * len(dst)
+
+
+class FakePageCamera:
+    """``displaydev.page_camera.Camera``'s calls: a 1280x720 webcam."""
+
+    def __init__(self, w=1280, h=720):
+        self.w, self.h = w, h
+        self.asked = []
+        self.closed = False
+        self.give = True
+
+    def size(self):
+        return (self.w, self.h, self.w * self.h * 2)
+
+    def capture_scaled(self, dst, pic_w, pic_h, *, x=0, y=0, w=0, h=0, rotate=0, mirror=False, src_rect=None, swap=False, timeout=1000):
+        if src_rect is not None or rotate not in (0, 180):
+            raise ValueError("a browser camera turns by 180 degrees only, and doesn't crop")
+        self.asked.append((pic_w, pic_h, swap))
+        if not self.give:
+            return None
+        assert len(dst) == pic_w * pic_h * 2
+        dst[:2] = b"\x1f\x00"  # blue, little-endian
+        return (pic_w, pic_h)
+
+    def close(self):
+        self.closed = True
+
+
+class FakeScope:
+    def __init__(self, data_dir):
+        self.data_dir = data_dir
+        self.adopted = []
+        self.closing = []
+
+    def adopt(self, obj):
+        self.adopted.append(obj)
+        return obj
+
+    def on_close(self, fn):
+        self.closing.append(fn)
+
+    def close(self):
+        for fn in self.closing:
+            fn()
+        for obj in self.adopted:
+            obj.close()
+
+
+class BrowserChoiceTest(unittest.TestCase):
+    def test_a_browser_gets_the_browser_seams_not_the_test_card(self):
+        picked = []
+        for platform in ("webassembly", "emscripten", "linux", "esp32"):
+            with mock.patch.object(sys, "platform", platform):
+                picked.append((hw.in_browser(), hw.on_board()))
+        self.assertEqual(picked, [(True, False), (True, False), (False, False), (False, True)])
+
+    def test_build_in_a_browser_uses_hw_browser(self):
+        with mock.patch.object(sys, "platform", "webassembly"), \
+                mock.patch.object(browser, "build", return_value="browser seams") as build:
+            self.assertEqual(hw.build("scope"), "browser seams")
+        build.assert_called_once_with("scope")
+
+
+class BrowserPreviewTest(unittest.TestCase):
+    def setUp(self):
+        self.ppa = FakePpa()
+        patcher = mock.patch.object(browser, "ppa", self.ppa)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.cam = FakePageCamera()
+        self.preview = browser.Preview(self.cam)
+
+    def test_each_frame_comes_from_the_page_camera_whole_and_in_lvgls_byte_order(self):
+        buf = self.preview.frame(1)
+        self.assertEqual(len(buf), 240 * 240 * 2)
+        self.assertEqual(self.cam.asked, [(960, 540, False)])  # short side 540, never swapped
+        self.assertEqual(bytes(buf[:2]), b"\x5a\x5a")  # what the cut wrote
+
+    def test_zoom_cuts_the_centre_as_a_board_does(self):
+        for m in (1, 2, 3, 4):
+            self.preview.frame(m)
+            sw, sh, dw, dh, kw = self.ppa.calls[-1]
+            side = crop.preview_side(960, 540, m)
+            self.assertEqual((sw, sh, dw, dh), (960, 540, 240, 240))
+            self.assertEqual(kw["src_rect"], ((960 - side) // 2, (540 - side) // 2, side, side))
+        sides = [c[4]["src_rect"][2] for c in self.ppa.calls]
+        self.assertEqual(sides, sorted(sides, reverse=True))
+        self.assertLess(sides[-1], sides[0])
+
+    def test_rotate_turns_the_cut(self):
+        self.preview.rotate(-90)
+        self.preview.frame(1)
+        self.assertEqual(self.ppa.calls[-1][4]["rotate"], 270)
+
+    def test_no_new_frame_keeps_the_last_picture(self):
+        first = self.preview.frame(1)
+        self.cam.give = False
+        self.assertIs(self.preview.frame(2), first)
+        self.assertEqual(len(self.ppa.calls), 1)
+
+    def test_a_photo_takes_the_whole_frame_at_the_cameras_size(self):
+        buf, w, h = self.preview.source()
+        self.assertEqual((w, h), (1280, 720))
+        self.assertEqual(len(buf), 1280 * 720 * 2)
+        self.assertEqual(self.cam.asked[-1], (1280, 720, False))
+
+    def test_a_small_camera_is_not_enlarged(self):
+        preview = browser.Preview(FakePageCamera(640, 480))
+        preview.frame(1)
+        self.assertEqual(preview.cam.asked, [(640, 480, False)])
+
+
+class FakeYolo:
+    made = []
+
+    def __init__(self, path, score=None):
+        self.path, self.score = path, score
+        self.closed = False
+        FakeYolo.made.append(self)
+
+    def detect(self, img):
+        self.seen = img
+        return [(10, 20, 30, 40, 0.9, 0), (100, 50, 120, 150, 0.8, 5), (5, 5, 10, 10, 0.4, 0), (1, 2, 3, 4, 0.5, 99)]
+
+    def deinit(self):
+        self.closed = True
+
+
+def _fake_vision():
+    espdl = types.ModuleType("espdl")
+    espdl.YOLO11 = FakeYolo
+    image = types.ModuleType("image")
+    image.RGB565 = 3
+    image.Image = lambda w, h, fmt, buffer=None: ("img", w, h, fmt, buffer)
+    return {"espdl": espdl, "image": image}
+
+
+class BrowserDetectorTest(unittest.TestCase):
+    def setUp(self):
+        FakeYolo.made = []
+        self.buf = bytearray(240 * 240 * 2)
+
+    def test_objects_are_named_with_their_scores(self):
+        with mock.patch.dict(sys.modules, _fake_vision()):
+            det = browser.Detector(find=lambda: "/models/yolo11n_coco.espdl")
+            got = det.objects(self.buf, 240, 240)
+        self.assertEqual(got, [
+            (10, 20, 40, 60, "person", 0.9),
+            (100, 50, 220, 200, "bus", 0.8),
+            (5, 5, 15, 15, "person", 0.4),
+            (1, 2, 4, 6, "class 99", 0.5),
+        ])
+        yolo = FakeYolo.made[0]
+        self.assertEqual(yolo.path, "/models/yolo11n_coco.espdl")
+        self.assertEqual(yolo.seen, ("img", 240, 240, 3, self.buf))
+        self.assertIsNone(det.why)
+
+    def test_people_are_the_person_boxes(self):
+        with mock.patch.dict(sys.modules, _fake_vision()):
+            det = browser.Detector(find=lambda: "/models/m")
+            self.assertEqual(det.people(self.buf, 240, 240), [(10, 20, 40, 60, None), (5, 5, 15, 15, None)])
+
+    def test_the_model_loads_once_on_first_use_and_goes_on_release(self):
+        with mock.patch.dict(sys.modules, _fake_vision()):
+            det = browser.Detector(find=lambda: "/models/m")
+            self.assertEqual(FakeYolo.made, [])  # nothing until the AI page or the album asks
+            det.people(self.buf, 240, 240)
+            det.objects(self.buf, 240, 240)
+            self.assertEqual(len(FakeYolo.made), 1)
+            det.release()
+            self.assertTrue(FakeYolo.made[0].closed)
+            det.people(self.buf, 240, 240)
+            self.assertEqual(len(FakeYolo.made), 2)
+
+    def test_faces_find_nothing_and_say_why(self):
+        with mock.patch.dict(sys.modules, _fake_vision()):
+            det = browser.Detector(find=lambda: "/models/m")
+            self.assertEqual(det.faces(self.buf, 240, 240), [])
+            self.assertIn("face", det.why.lower())
+            det.people(self.buf, 240, 240)
+            self.assertIsNone(det.why)  # back in Pedestrian mode, nothing to say
+
+    def test_a_page_without_espdl_says_so_and_finds_nothing(self):
+        with mock.patch.dict(sys.modules, {"espdl": None, "image": None}), \
+                mock.patch("builtins.print") as printed:
+            det = browser.Detector(find=lambda: "/models/m")
+            self.assertEqual(det.people(self.buf, 240, 240), [])
+            self.assertEqual(det.objects(self.buf, 240, 240), [])
+        self.assertIn("espdl", det.why)
+        printed.assert_called_once()
+        self.assertIn("espdl", printed.call_args[0][0])
+
+    def test_a_model_that_wont_load_says_why(self):
+        vision = _fake_vision()
+
+        def refuse(path, score=None):
+            raise OSError("the model didn't download")
+
+        vision["espdl"].YOLO11 = refuse
+        with mock.patch.dict(sys.modules, vision), mock.patch("builtins.print"):
+            det = browser.Detector(find=lambda: "/models/m")
+            self.assertEqual(det.people(self.buf, 240, 240), [])
+        self.assertIn("didn't download", det.why)
+
+
+class BrowserBuildTest(unittest.TestCase):
+    def setUp(self):
+        import tempfile
+
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.scope = FakeScope(self.tmp.name)
+
+    def test_the_page_camera_and_detector_with_the_desktops_stand_ins(self):
+        cam = FakePageCamera()
+        parts = browser.build(self.scope, open_camera=lambda: cam)
+        self.assertIs(parts.preview.cam, cam)
+        self.assertIsInstance(parts.detector, browser.Detector)
+        self.assertIs(parts.photo.preview, parts.preview)
+        self.assertTrue(parts.desktop)
+        self.assertTrue(parts.browser)
+        self.scope.close()
+        self.assertTrue(cam.closed)  # the browser stops showing the camera in use
+
+    def test_a_camera_that_wont_open_is_an_error_not_a_test_card(self):
+        def refuse():
+            raise OSError("this page wasn't allowed to use the camera")
+
+        with self.assertRaises(OSError):
+            browser.build(self.scope, open_camera=refuse)
 
 
 if __name__ == "__main__":
