@@ -1,1 +1,1 @@
-{"name": "repl", "title": "REPL", "category": "Desk", "icon": "terminal", "color": "#2E3440", "needs": ["os.dupterm"]}
+{"name": "repl", "title": "REPL", "category": "System", "icon": "terminal", "color": "#2E3440", "needs": ["os.dupterm"]}

@@ -1,5 +1,5 @@
 {
-  "description": "System, an app for Home",
+  "description": "Info, an app for Home",
   "target": "apps/system",
   "urls": [
     [
@@ -13,33 +13,8 @@
   ],
   "deps": [
     [
-      "applibs",
-      "latest"
-    ],
-    [
-      "endpointkit",
-      "latest"
-    ],
-    [
-      "icons",
-      "latest"
-    ]
-  ],
-  "applibs": [
-    "appkit",
-    "deskkit",
-    "touchkit"
-  ],
-  "upstream": [
-    [
-      "requests",
-      "latest"
-    ]
-  ],
-  "circuitpython": [
-    [
-      "adafruit_requests",
-      "latest"
+      "github:PyDevices/apps/apps/info",
+      "main"
     ]
   ],
   "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"

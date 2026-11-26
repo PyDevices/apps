@@ -1,1 +1,1 @@
-{"name": "shell", "title": "Shell", "category": "Desk", "icon": "folder_open", "color": "#3B4252", "needs": ["os.dupterm"]}
+{"name": "shell", "title": "Shell", "category": "System", "icon": "folder_open", "color": "#3B4252", "needs": ["os.dupterm"]}

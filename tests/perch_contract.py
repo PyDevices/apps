@@ -14,7 +14,8 @@ import os
 import sys
 
 _HERE = __file__.rsplit("/", 1)[0] if "/" in __file__ else "."
-sys.path[:0] = [_HERE + "/../apps", _HERE]
+# lib for appkit, whose glass controls the dock is drawn with
+sys.path[:0] = [_HERE + "/../lib", _HERE + "/../apps", _HERE]
 
 import lvgl as lv
 

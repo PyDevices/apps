@@ -89,7 +89,7 @@ def missing(scope, short, text):
 def hide_button(scope, reason, below):
     """A "Hide from Home" button under *below*, for an app that can't run
     here and draws its own message: a tap keeps the app off Home's pages,
-    with *reason* on Home's Hidden apps page, and goes home. Only a tap
+    with *reason* in the Hidden apps app, and goes home. Only a tap
     hides an app. With no home screen to go back to there's no button, and
     it returns None; else the button."""
     launcher = getattr(scope, "launcher", None)

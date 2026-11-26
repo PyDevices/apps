@@ -45,11 +45,19 @@
       "main"
     ],
     [
+      "github:PyDevices/apps/apps/hidden",
+      "main"
+    ],
+    [
       "github:PyDevices/apps/apps/home",
       "main"
     ],
     [
       "github:PyDevices/apps/apps/huey",
+      "main"
+    ],
+    [
+      "github:PyDevices/apps/apps/info",
       "main"
     ],
     [
@@ -106,6 +114,10 @@
     ],
     [
       "github:PyDevices/apps/apps/security",
+      "main"
+    ],
+    [
+      "github:PyDevices/apps/apps/settings",
       "main"
     ],
     [

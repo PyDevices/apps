@@ -58,7 +58,7 @@ Name the app's folder under [`apps/`](../../apps):
 ```python
 import omip
 omip.install("github:PyDevices/apps/apps/home")
-omip.install("github:PyDevices/apps/apps/system")
+omip.install("github:PyDevices/apps/apps/info")
 omip.install("github:PyDevices/apps/apps/bit_world")
 ```
 
@@ -128,8 +128,8 @@ Home's `main.py` goes at the board's root:
 omip.install("github:PyDevices/apps/apps/home/main.py", target="/")
 ```
 
-Reset the board. Home comes up with a tile for each app you installed, and the
-gear opens System. On CircuitPython, remove `code.py` first (`os.remove("/code.py")`):
+Reset the board. Home comes up with a tile for each app you installed, on a
+page per category; Info is on the System page. On CircuitPython, remove `code.py` first (`os.remove("/code.py")`):
 CircuitPython runs it ahead of `main.py`, and a freshly erased board has one. Installing Home doesn't touch `main.py`, so a board that
 starts something else keeps doing so until you run this line.
 

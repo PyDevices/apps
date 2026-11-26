@@ -3,6 +3,7 @@ appkit
 appkit.assets
 appkit.data
 appkit.foreground
+appkit.glass
 appkit.home
 appkit.hover
 appkit.index

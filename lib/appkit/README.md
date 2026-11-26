@@ -169,7 +169,7 @@ it sometimes needs pressing twice.
 On a CircuitPython board Ctrl-C ends `code.py`, display and all, so there's
 no REPL to go to while the apps run. The loop reads the console instead:
 type a line and it runs in `code.py`'s namespace, with its value printed.
-`launcher.current` or `import apps.system; apps.system.stats()` answer
+`launcher.current` or `import apps.info; apps.info.stats()` answer
 while the apps keep running.
 
 ## An app set
@@ -206,8 +206,8 @@ home screen instead of its own list of buttons.
 An app that can't run on this board says so with `touchkit.ui.missing()`.
 When there's a home screen, that message has a Hide from Home button:
 `launcher.hide(name, reason)` takes the app off Home's pages and keeps the
-list in the data folder, for every app set on the board. Home's Hidden apps
-page lists them with their reasons and puts each back
+list in the data folder, for every app set on the board. The Hidden apps
+app, on Home's System page, lists them with their reasons and puts each back
 (`launcher.unhide(name)`). A hidden app still runs when something asks for it.
 
 `appkit.run("hello")` runs one app on its own, with no home screen. An app
@@ -230,9 +230,10 @@ leave its button lit.
 ## The status bar
 
 `appkit.run()` puts a bar along the top of the screen: Home, the app's title
-and its status line, then the clock, the network, Bluetooth, the audio
-output, a cast icon while the screen is being mirrored, and the battery where
-the board reports one, with a button at the right that opens the picker. It
+and its status line at the left. At the right, from the edge in, are a
+button that opens the picker, the clock, the network, then Bluetooth, the
+audio output, a cast icon while the screen is being mirrored, and the
+battery where the board reports one; an app's own items go left of those. It
 is 32 px tall on a screen under 480 px tall and 40 px from there up. Each app
 gets the screen below it, `scope.root`, and should size itself from
 `scope.size` rather than the display.
@@ -246,8 +247,8 @@ afterwards: ask for the status line before you place anything from them. An
 app that never asks keeps the whole area.
 `scope.header` is the stretch of the bar that holds the title, for a small
 control of the app's own; it's cleared when the next app opens. On the home
-screen the title is "Home" (`Shell.home_title()`), and Home puts its
-settings and hidden-apps buttons in the header. An app that wants the whole screen says so in its
+screen the title is the Home icon (`Shell.home_title()` returns None; override
+it to show words instead). An app that wants the whole screen says so in its
 `app.json` with `"bar": "none"`, and one that draws its own bar says
 `"bar": "own"` and reads what to show from `scope.bar.status()`. Those apps
 get the Home button in the corner instead. `appkit.run(bar=False)` leaves the

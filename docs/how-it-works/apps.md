@@ -19,7 +19,8 @@ The apps share code in `lib/`, and draw their icons with [icons](https://github.
 An app imports from `lib/` and from the libraries in omnipython.
 
 On a board, an app opens under the status bar, which carries Home, the app's
-title and its status line (`scope.status`), then the clock and the icons;
+title and its status line (`scope.status`), then the icons, the clock and the
+connections button at the right edge;
 `scope.root` is everything below it. An app whose `app.json` says
 `"bar": "none"` or `"own"` gets the whole screen instead, with Home in the
 corner. [appkit's README](../../lib/appkit/README.md#the-status-bar) has the

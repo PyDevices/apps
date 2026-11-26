@@ -95,7 +95,13 @@ def _plant_keyboard_holds_dead_field():
     keys._field_event = field_event
 
 
+def _plant_keyboard_eats_keys():
+    # A keypad's letters go to the open on-screen keyboard, which ignores them.
+    keys._typed_on_board = lambda e: None
+
+
 PLANTS = {
+    "keyboard_eats_keys": _plant_keyboard_eats_keys,
     "keyboard_holds_dead_field": _plant_keyboard_holds_dead_field,
     "no_shift": _plant_no_shift,
     "keyboard_stays": _plant_keyboard_stays,
@@ -177,6 +183,37 @@ check(field.get_text() == "Hi", "Backspace through the same input: %r" % (field.
 keys.show(field)
 keys.keyboard().send_event(lv.EVENT.READY, None)
 check(not keys.is_shown(), "the keyboard's Enter closes it")
+
+# The display's own keyboard (a desktop window's, or the browser showing a
+# remote display) is a keypad of its own, and the field is tapped first, so
+# the on-screen keyboard has the focus when the typing starts.
+_pad = []
+
+
+def _pad_read(indev, data):
+    if _pad:
+        key, pressed = _pad.pop(0)
+        data.key = key
+        data.state = lv.INDEV_STATE.PRESSED if pressed else lv.INDEV_STATE.RELEASED
+        data.continue_reading = bool(_pad)
+    else:
+        data.state = lv.INDEV_STATE.RELEASED
+
+
+pad = lv.indev_create()
+pad.set_type(lv.INDEV_TYPE.KEYPAD)
+pad.set_read_cb(_pad_read)
+pad.set_group(group)
+field.set_text("")
+tap(field)
+settle()
+check(keys.is_shown() and group.get_focused() == keys.keyboard(), "a tap gives the open keyboard the focus")
+for code in (ord("o"), ord("k"), lv.KEY.BACKSPACE, ord("K")):
+    _pad.append((code, True))
+    _pad.append((code, False))
+    settle(60)
+check(field.get_text() == "oK", "the display's keyboard types into the field, not the on-screen one: %r" % (field.get_text(),))
+check(not keys.is_shown(), "and the on-screen keyboard closes")
 
 # -- an encoder, and no touch -------------------------------------------------------
 

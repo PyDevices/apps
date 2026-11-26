@@ -112,7 +112,7 @@ jobs:
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/(app_packages|import_every_app)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "touchcal=$(has '^(apps/touchcal/|lib/touchkit/|tests/(test_touchcal|touchcal_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "perch=$(has '^(apps/perch/|tests/(test_perch|perch_contract|perch_drawings|_headless)\.py$|tests/perch_drawings\.golden$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "perch=$(has '^(apps/perch/|lib/appkit/glass\.py$|tests/(test_perch|perch_contract|perch_drawings|_headless)\.py$|tests/perch_drawings\.golden$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "btreceiver=$(has '^(apps/btreceiver/|lib/(touchkit|appkit|controlkit|spectrum)/|tests/(test_btreceiver|btreceiver_contract|btreceiver_layout|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "huey=$(has '^(apps/(huey|perch)/|lib/chatclient/|tests/(test_huey|huey_contract|huey_fakes|huey_servers_check|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "midicontroller=$(has '^(apps/midicontroller/|lib/(touchkit|appkit|controlkit)/|tests/(test_midicontroller|midicontroller_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"

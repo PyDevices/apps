@@ -10,7 +10,9 @@ sits in the corner when there's a home screen to go back to. With
 gets the screen below it unless its ``app.json`` says ``"bar": "own"`` or ``"none"``. Those apps,
 and every app under the compact cap, keep the corner Home button. On a round
 screen (`is_round`) the button is a circle with the Home icon, set in
-from the top right along the diagonal so all of it is inside the circle. A board that
+from the top right along the diagonal so all of it is inside the circle;
+elsewhere it's a square. Either way it's glass (`appkit.glass`), so the
+app shows through it. A board that
 wants a header, its own look or its own buttons subclasses it: override
 `Shell.make_root` to give apps a smaller area (with the bar on, inside
 `Shell.bar_area`), `Shell.make_home_button` for its own Home button, or
@@ -20,9 +22,8 @@ wants a header, its own look or its own buttons subclasses it: override
 import sys
 
 import lvgl as lv
-from icons import lvgl as lvicons
 
-from . import data, hover
+from . import data, glass, hover
 
 #: How far a round screen's Home button keeps in from the circle's edge, in pixels.
 ROUND_MARGIN = 4
@@ -130,19 +131,17 @@ class Shell:
         app's screen; `prepare` hides it on the home screen itself.
         """
         launcher = self.launcher
-        b = lv.button(lv.layer_top())
+        disp = lv.display_get_default()
+        w, h = disp.get_horizontal_resolution(), disp.get_vertical_resolution()
         if is_round():
             # The corner is outside the circle: a round button on the diagonal.
-            size = lv.display_get_default().get_horizontal_resolution()
-            d = max(36, size // 6)
-            b.set_size(d, d)
-            b.set_style_radius(lv.RADIUS_CIRCLE, 0)
-            b.set_style_pad_all(0, 0)
-            lvicons.image(b, "home", 24).center()
-            b.set_pos(*round_corner(size, d))
+            d = max(36, w // 6)
+            b = glass.button(lv.layer_top(), "home", d, lv.RADIUS_CIRCLE)
+            b.set_pos(*round_corner(w, d))
         else:
+            # A square of glass over the app, which shows through it.
+            b = glass.button(lv.layer_top(), "home", glass.side(w, h))
             b.align(lv.ALIGN.TOP_RIGHT, -8, 8)
-            lv.label(b).set_text("Home")
         b.add_event_cb(lambda e: launcher.request(launcher.home), lv.EVENT.CLICKED, None)
         return b
 
@@ -193,14 +192,15 @@ class Shell:
         """Put *scope*'s title on the bar, and give an app under it the
         bar's header and a fresh status line (``scope.header``,
         ``scope.status``; on a narrow screen that one is made, with its row,
-        when the app first asks). The home screen gets `home_title` and the header
-        for buttons of its own, but no status line; an app with its own bar
+        when the app first asks). The home screen gets `home_title` and the header,
+        but no status line; an app with its own bar
         or none gets an empty title."""
         bar = self.bar
         if bar.header is None:   # the compact cap has no room for one
             return
         if scope.name == self.launcher.home:
-            scope.header, _ = bar.open(self.home_title(), status=False)
+            title = self.home_title()
+            scope.header, _ = bar.open(title or "", status=False, icon=None if title else "home")
         elif self.bar_mode(scope) == "shell":
             title = getattr(self.launcher, "info", {}).get(scope.name, {}).get("title", scope.name)
             scope.header, scope.status = bar.open(title)
@@ -210,10 +210,10 @@ class Shell:
             bar.open("", status=False)
 
     def home_title(self):
-        """What the bar says on the home screen: "Home", which names the
-        screen as every other title names its app. Override it for another,
-        such as the board's name on a bench of boards."""
-        return "Home"
+        """What the bar says on the home screen: None for the Home icon,
+        the one on the Home button everywhere else. Override it to return
+        text instead, such as the board's name on a bench of boards."""
+        return None
 
     def _corner_home(self, scope):
         """Whether *scope*'s app gets the corner Home button: away from the
