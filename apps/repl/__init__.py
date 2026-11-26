@@ -18,10 +18,11 @@ It needs vtterm (``mip.install("github:PyDevices/omnipython/packages/vtterm")``)
 and firmware whose palettes has its ANSI palette. Shift+Page Up and Page Down
 page back through what scrolled off the screen.
 
-In a browser page there is no REPL of the page's own, so the app is a
-terminal to a board's: plug the board into the computer, choose it under
-Serial ports in Connections (Chrome or Edge), and its REPL comes here, typed
-on the computer's keyboard. Choosing another port moves the terminal there.
+In a browser page the REPL is the page's own until a serial port is chosen
+under Serial ports in Connections (Chrome or Edge): then the app is a
+terminal to the board on that port, typed on the computer's keyboard.
+Choosing another port moves the terminal there, and letting it go brings
+the page's REPL back.
 """
 
 import os
@@ -85,91 +86,205 @@ class _Area:
 
 
 def main(scope):
-    if not hasattr(os, "dupterm"):
-        return _main_serial(scope)
-    root = scope.root
-    root.remove_flag(lv.obj.FLAG.SCROLLABLE)
-    root.set_style_bg_color(lv.color_hex(0), 0)
-    root.set_style_bg_opa(lv.OPA.COVER, 0)
-    x, y, w, h = scope.rect
-    status = lv.label(root)
-    status.set_style_text_color(lv.color_hex(0x5FAFAF), 0)
-    status.set_style_text_font(lv.font_montserrat_14, 0)
-    status.set_long_mode(lv.label.LONG_MODE.CLIP)
-    status.set_width(w - 8)
-    status.align(lv.ALIGN.BOTTOM_LEFT, 4, -2)
+    status, x, y, w, rows_h = _root(scope)
     status.set_text("Starting")
-    rows_h = (h - STATUS_H) // 16 * 16
-    st = {"console": None, "sources": [], "missing": [], "shown": None}
+    shown = [None]
 
-    def show_status(waiting=False):
-        parts = [src.status for src in st["sources"]] + st["missing"]
-        if waiting:
-            parts.insert(0, "WebREPL is connected: the REPL comes here when it leaves")
-        text = "   ".join(parts)
-        if text != st["shown"]:
-            st["shown"] = text
+    def say(text):
+        if text != shown[0]:
+            shown[0] = text
             status.set_text(text)
 
-    def start(_t=None):
-        # After LVGL has painted the root, or it would paint over the terminal.
-        area = _Area(display_drv, x, y, w, rows_h)
-        st["console"] = Console(Terminal(area, palette=AnsiPalette(length=256, color_depth=16)))
-        st["sources"], st["missing"] = start_all()
-        show_status()
-        take()
+    def area():
+        return _Area(display_drv, x, y, w, rows_h)
 
-    def take(_t=None):
-        console = st["console"]
-        try:
-            console.attach(0)
-        except OSError:
-            show_status(waiting=True)
-            scope.after(WAIT_MS, take)
+    serial = _webserial()
+    chosen = []
+    mode = [None]
+
+    def switch(endpoints):
+        want = _Serial if endpoints or not hasattr(os, "dupterm") else _Own
+        now = mode[0]
+        if now is not None and type(now) is want:
+            now.use(endpoints)
             return
-        show_status()
+        if now is not None:
+            now.stop()
+            scope.stop_timers()
+        mode[0] = want(scope, area, say)
+        mode[0].start(endpoints)
+
+    if serial is not None:
+        chosen = scope.follow("serial", switch)
+    elif not hasattr(os, "dupterm"):
+        say("This Python has no REPL to show")
+        return
+
+    def close():
+        if mode[0] is not None:
+            mode[0].stop()
+
+    scope.on_close(close)
+    # After LVGL has painted the root, or it would paint over the terminal.
+    scope.after(150, lambda _t=None: switch(chosen))
+
+
+def _webserial():
+    """The `webserial` module in a browser page, or None elsewhere."""
+    if sys.platform not in ("webassembly", "emscripten"):
+        return None
+    try:
+        import webserial
+    except ImportError:
+        return None
+    return webserial
+
+
+def _keys(sources, terminal):
+    """The bytes the keys pressed since the last call type, or None."""
+    out = None
+    for src in sources:
+        try:
+            evs = src.poll()
+        except Exception as e:  # noqa: BLE001 - shown; the source keeps trying
+            evs = ()
+            src.status = str(e)
+        for e in evs:
+            if e.type == KEYDOWN:
+                if scroll_key(terminal.screen, e.key, e.mod):
+                    continue
+                b = key_bytes(e.key, e.mod, terminal.screen.app_cursor)
+                if b:
+                    out = b if out is None else out + b
+    return out
+
+
+def _close_all(sources):
+    for src in sources:
+        try:
+            src.close()
+        except Exception as e:  # noqa: BLE001 - closing the rest matters more
+            print("repl app: closing", src, e)
+
+
+class _Own:
+    """This Python's own REPL, through ``os.dupterm``."""
+
+    def __init__(self, scope, area, say):
+        self.scope = scope
+        self.area = area
+        self.say = say
+        self.console = None
+        self.sources = []
+        self.missing = []
+
+    def status(self, waiting=False):
+        parts = [src.status for src in self.sources] + self.missing
+        if waiting:
+            parts.insert(0, "WebREPL is connected: the REPL comes here when it leaves")
+        self.say("   ".join(parts))
+
+    def start(self, endpoints):
+        self.console = Console(Terminal(self.area(), palette=AnsiPalette(length=256, color_depth=16)))
+        self.sources, self.missing = start_all()
+        self.status()
+        self.take()
+
+    def use(self, endpoints):
+        pass
+
+    def take(self, _t=None):
+        try:
+            self.console.attach(0)
+        except OSError:
+            self.status(waiting=True)
+            self.scope.after(WAIT_MS, self.take)
+            return
+        self.status()
         fg = sys.modules.get("appkit.foreground")
         if fg is not None and fg._serving:
             # The REPL runs once the main loop returns; timers keep going.
             fg.stop()
         else:
-            console.push(b"\r")  # a fresh prompt drawn here
-        scope.every(TICK_MS, tick)
+            self.console.push(b"\r")  # a fresh prompt drawn here
+        self.scope.every(TICK_MS, self.tick)
 
-    def tick(_t=None):
-        console = st["console"]
-        app_cursor = console.terminal.screen.app_cursor
-        out = None
-        for src in st["sources"]:
-            try:
-                evs = src.poll()
-            except Exception as e:  # noqa: BLE001 - shown; the source keeps trying
-                evs = ()
-                src.status = str(e)
-            for e in evs:
-                if e.type == KEYDOWN:
-                    if scroll_key(console.terminal.screen, e.key, e.mod):
-                        continue
-                    b = key_bytes(e.key, e.mod, app_cursor)
-                    if b:
-                        out = b if out is None else out + b
+    def tick(self, _t=None):
+        console = self.console
+        out = _keys(self.sources, console.terminal)
         if out:
             console.push(out)
         console.refresh()
-        show_status()
+        self.status()
 
-    def close():
-        console = st["console"]
-        if console is not None:
-            console.detach()
-        for src in st["sources"]:
-            try:
-                src.close()
-            except Exception as e:  # noqa: BLE001 - closing the rest matters more
-                print("repl app: closing", src, e)
+    def stop(self):
+        if self.console is not None:
+            self.console.detach()
+        _close_all(self.sources)
+        self.sources = []
 
-    scope.on_close(close)
-    scope.after(150, start)
+
+class _Serial:
+    """A terminal to the board on the serial port chosen in Connections."""
+
+    def __init__(self, scope, area, say):
+        self.scope = scope
+        self.say = say
+        self.term = Terminal(area(), palette=AnsiPalette(length=256, color_depth=16))
+        self.sources = start_all()[0]  # the page's own keyboard; a board's USB and BLE don't apply here
+        self.port = None
+        self.ready = False
+
+    def start(self, endpoints):
+        self.use(endpoints)
+        self.scope.every(TICK_MS, self.tick)
+
+    def use(self, endpoints):
+        self._let_go()
+        if not endpoints:
+            self.say(CHOOSE_TEXT)
+            return
+        try:
+            self.port = _webserial().open(endpoints[0], BAUDRATE)
+        except OSError as e:
+            self.say(str(e))
+            return
+        self.say("Opening %s" % self.port.name)
+
+    def tick(self, _t=None):
+        term = self.term
+        out = _keys(self.sources, term)
+        port = self.port
+        if port is None:
+            return
+        if port.error:
+            self.say("%s: %s" % (port.name, port.error))
+            return
+        if not port.is_open():
+            return
+        if not self.ready:
+            self.ready = True
+            self.say(port.name)
+            port.write(b"\r")  # a fresh prompt from the board
+        answers = term.answers()
+        if answers:
+            out = answers if out is None else out + answers
+        if out:
+            port.write(out)
+        data = port.read()
+        if data:
+            term.write(data)
+
+    def _let_go(self):
+        port, self.port = self.port, None
+        self.ready = False
+        if port is not None:
+            port.close()
+
+    def stop(self):
+        self._let_go()
+        _close_all(self.sources)
+        self.sources = []
 
 
 def _root(scope):
@@ -186,91 +301,3 @@ def _root(scope):
     status.set_width(w - 8)
     status.align(lv.ALIGN.BOTTOM_LEFT, 4, -2)
     return status, x, y, w, (h - STATUS_H) // 16 * 16
-
-
-def _main_serial(scope):
-    """A terminal to the board on the serial port chosen in Connections: a browser page's REPL."""
-    import webserial
-
-    status, x, y, w, rows_h = _root(scope)
-    status.set_text("Starting")
-    st = {"term": None, "port": None, "sources": [], "shown": None, "said": None}
-
-    def say(text):
-        if text != st["shown"]:
-            st["shown"] = text
-            status.set_text(text)
-
-    def use(endpoints):
-        port = st["port"]
-        if port is not None:
-            st["port"] = None
-            port.close()
-        if not endpoints:
-            say(CHOOSE_TEXT)
-            return
-        try:
-            st["port"] = webserial.open(endpoints[0], BAUDRATE)
-        except OSError as e:
-            say(str(e))
-            return
-        say("Opening %s" % st["port"].name)
-        st["said"] = None
-
-    def start(_t=None):
-        # After LVGL has painted the root, or it would paint over the terminal.
-        area = _Area(display_drv, x, y, w, rows_h)
-        st["term"] = Terminal(area, palette=AnsiPalette(length=256, color_depth=16))
-        st["sources"] = start_all()[0]  # the page's own keyboard; a board's USB and BLE don't apply
-        use(scope.follow("serial", use))
-        scope.every(TICK_MS, tick)
-
-    def tick(_t=None):
-        term = st["term"]
-        port = st["port"]
-        out = None
-        for src in st["sources"]:
-            try:
-                evs = src.poll()
-            except Exception:  # noqa: BLE001 - the source keeps trying
-                evs = ()
-            for e in evs:
-                if e.type == KEYDOWN:
-                    if scroll_key(term.screen, e.key, e.mod):
-                        continue
-                    b = key_bytes(e.key, e.mod, term.screen.app_cursor)
-                    if b:
-                        out = b if out is None else out + b
-        if port is None:
-            return
-        if port.error:
-            say("%s: %s" % (port.name, port.error))
-            return
-        if not port.is_open():
-            return
-        if st["said"] is None:
-            st["said"] = port.name
-            say(port.name)
-            port.write(b"\r")  # a fresh prompt from the board
-        answers = term.answers()
-        if answers:
-            out = answers if out is None else out + answers
-        if out:
-            port.write(out)
-        data = port.read()
-        if data:
-            term.write(data)
-
-    def close():
-        port = st["port"]
-        st["port"] = None
-        if port is not None:
-            port.close()
-        for src in st["sources"]:
-            try:
-                src.close()
-            except Exception as e:  # noqa: BLE001 - closing the rest matters more
-                print("repl app: closing", src, e)
-
-    scope.on_close(close)
-    scope.after(150, start)
