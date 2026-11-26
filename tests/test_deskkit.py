@@ -355,6 +355,55 @@ class IpZoneTest(unittest.TestCase):
         self.assertFalse(lt.follow_ip_zone())
         self.http.get.assert_not_called()
 
+    def _in_a_browser(self, lt):
+        lt.net.sets_clock.return_value = False  # the browser keeps the time
+        patcher = mock.patch.object(lt, "sys", mock.Mock(platform="webassembly"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_browser_page_takes_the_place_from_the_visitors_ip(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        self._in_a_browser(lt)
+        lt._looked = False
+        self.assertTrue(lt.finding(), "Weather waits for the lookup, not the ZIP pad")
+        lt.resync_if_due()
+        self.assertFalse(lt.finding())
+        self.assertEqual(sys.modules["deskkit.forecast"].ip_place["name"], "Kennett")
+        self.assertEqual(lt.offset_s, -21600)
+
+    GEOJS = {"city": "Malden", "country_code": "US", "latitude": "36.557", "longitude": "-89.9665", "timezone": "America/Chicago"}
+
+    def test_a_browser_page_asks_geojs_when_ipwhois_refuses(self):
+        # ipwho.is counts a page's lookups per site, and refuses past the cap.
+        lt = self._localtime()
+        self._in_a_browser(lt)
+        refused = {"success": False, "message": "Rate limit exceeded"}
+        self.http.get.side_effect = lambda url, **kw: mock.Mock(json=mock.Mock(return_value=self.GEOJS if "geojs" in url else refused))
+        lt.offset_s = None
+        with mock.patch("builtins.print"):
+            self.assertTrue(lt.follow_ip_zone())
+        here = sys.modules["deskkit.forecast"].ip_place
+        self.assertEqual((here["name"], here["lat"], here["lon"], here["units"]), ("Malden", 36.557, -89.9665, "F"))
+        self.assertEqual(lt.zone, "America/Chicago")
+        self.assertIsNone(lt.offset_s, "GeoJS gives no offset: the forecast brings it")
+
+    def test_a_board_does_not_ask_geojs(self):
+        lt = self._localtime(reply={"success": False, "message": "Rate limit exceeded"})
+        with mock.patch("builtins.print"):
+            self.assertFalse(lt.follow_ip_zone())
+        self.assertEqual(self.http.get.call_count, 1)
+
+    def test_a_browser_page_asks_once_a_day(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        self._in_a_browser(lt)
+        lt._synced_at = None
+        lt.resync_if_due()
+        lt.resync_if_due()  # each forecast fetch calls it
+        self.assertEqual(self.http.get.call_count, 1)
+        lt._synced_at -= lt._RESYNC_S
+        lt.resync_if_due()
+        self.assertEqual(self.http.get.call_count, 2)
+
     def test_the_daily_resync_asks_again(self):
         lt = self._localtime(reply=self.CHICAGO)
         lt.sync = mock.MagicMock(return_value=True)
