@@ -129,6 +129,10 @@
       "main"
     ],
     [
+      "github:PyDevices/apps/apps/touchcal",
+      "main"
+    ],
+    [
       "github:PyDevices/apps/apps/wake",
       "main"
     ],
