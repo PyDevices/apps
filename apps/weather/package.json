@@ -15,6 +15,10 @@
       "icons.py"
     ],
     [
+      "sizing.py",
+      "sizing.py"
+    ],
+    [
       "zippad.py",
       "zippad.py"
     ]
