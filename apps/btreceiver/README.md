@@ -101,9 +101,11 @@ Calls come to the board with Phone calls and battery turned on.
 ![An incoming call: a card over the player with a thin handset in rings, the caller's number large, and red decline and green answer rings](docs/images/incoming.png)
 
 A call shows a card over the player with the caller's number, and the phone
-pauses its music. Answer it on the card and the call plays through the
-board's speaker while the board's microphones go to the phone; decline it
-and the card goes.
+pauses its music. While it rings, the board plays a soft falling two-note
+chime every four seconds, over the phone's own ringtone if the phone sends
+it to the board. Answer it on the card and the call plays
+through the board's speaker while the board's microphones go to the phone;
+decline it and the card goes.
 
 ![An answered call: the number, the call's time, and thin mute, use phone and red hang up rings](docs/images/call.png)
 
@@ -121,6 +123,23 @@ card says so. The same goes for any board whose `HandsFree.call_audio` is
 False, such as the Pico W. On an ESP32-S31 board with the setting on, a
 call made through an internet calling app on the phone can reset the board.
 
+With Phone calls and battery off, the board doesn't hear about calls at all:
+the phone only pauses its music, which looks the same as pausing it by hand.
+So a call chimes only with the setting on.
+
+## Texts
+
+A new text plays a soft rising two-note chime once, over whatever is
+playing, whether Phone calls and battery is on or off. During a call whose
+audio is on the board, a text doesn't chime. The board reads the
+phone's message service for this, so the first time it connects the phone
+asks to allow access to its messages: allow it, or turn Message access on
+for the board in the phone's Bluetooth settings. The board only hears that a
+text arrived; it doesn't read or show the text.
+
+To leave the phone's messages alone, put `{"texts": false}` in the app's
+`config.json`.
+
 ## On a computer
 
 On a computer, with no `btclassic`, the app plays a demo: a pretend phone
@@ -131,8 +150,14 @@ repository's root, with the desktop `lvgl`, `svgio` and `jpegio` installed:
 PYTHONPATH=lib python -c "import appkit; appkit.run('btreceiver')"
 ```
 
+A few seconds after it starts playing, a pretend text arrives, and you hear
+its chime through the computer's speakers.
+
 `BTRECEIVER_DEMO` holds the demo in one state (`pairing`, `idle`,
-`playing`, `paused`, `nocover`, `long`, `incoming` or `call`), and
+`playing`, `paused`, `nocover`, `long`, `incoming`, `call` or `text`).
+`text` plays and has a text arrive, and `incoming` rings with its chime once
+Phone calls and battery is on. [`tools/shots.py`](tools/shots.py)
+saves a picture of each screen in
 [`tools/shots.py`](tools/shots.py) saves a picture of each in
 [`docs/images`](docs/images), where this page's pictures live:
 
