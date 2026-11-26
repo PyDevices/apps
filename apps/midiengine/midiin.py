@@ -4,12 +4,16 @@
 """What the apps that play say about the MIDI devices in the hub.
 
 Instruments and the midiEngine hear every USB MIDI device at once, through
-``midiports.usb_host.all_ports()``. `Watch` names the ones open now,
+``midiports.usb_host.all_ports()``; on a computer or in a browser page,
+the MIDI inputs chosen in Connections, or every input until some are. `Watch` names the ones open now,
 for the status line, and notices when one comes or goes.
 `ble_available` says whether a board can take Bluetooth MIDI too.
 """
 
 import sys
+
+#: The platforms that are a browser page, whose MIDI inputs are Web MIDI's.
+BROWSERS = ("webassembly", "emscripten")
 
 
 def ble_available():
@@ -114,12 +118,17 @@ def open_desktop():
     ``midi.in`` when there are any (`open_chosen`), else all of them, since
     the first is as likely a software synth's as a keyboard's; None when it
     has none (or no ``midiports`` backend). The port reads like the merged
-    hub port: ``any()``, ``read()``, ``close()``."""
-    import sys
-
+    hub port: ``any()``, ``read()``, ``close()``. A browser page is the
+    same, with every input Web MIDI offers until some are chosen."""
     found = open_chosen()
     if found is not None:
         return found
+    if sys.platform in BROWSERS:
+        try:
+            from midiports import webmidi
+        except ImportError:
+            return None
+        return Merged([webmidi.page_in()]), "Web MIDI"
     if sys.platform.startswith("win"):
         from midiports import windows as mp
     elif sys.platform.startswith("linux"):

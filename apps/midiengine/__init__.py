@@ -240,7 +240,7 @@ def main(scope):
         plugged in later are heard too), or all of a desktop's MIDI inputs."""
         # A computer reads its own MIDI ports, even where a usb.core is
         # importable (PyUSB, or a desktop build that carries the package).
-        if sys.platform in DESKTOPS:
+        if sys.platform in DESKTOPS + midiin.BROWSERS:
             return open_desktop_midi()
         try:
             import usb.core
@@ -283,7 +283,7 @@ def main(scope):
             st["midi"] = None
             status.set_text("no MIDI in: plug a keyboard in")
 
-    if sys.platform in DESKTOPS:
+    if sys.platform in DESKTOPS + midiin.BROWSERS:
         scope.follow("midi.in", midi_moved)
 
     def midi(t):

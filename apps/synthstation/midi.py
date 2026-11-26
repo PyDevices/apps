@@ -10,8 +10,10 @@ heard too. A board without one whose ``board_peripherals`` lists a
 and Linux it's every MIDI input port the computer has, through
 ``midiports.windows`` or ``midiports.linux``, until inputs are chosen for
 ``midi.in`` (the connections picker, or `endpointkit.select`): then it's
-those, read through ``midiports.endpoints``, which opened them. In a browser it's every MIDI
-input the browser offers, through ``midiports.webmidi``.
+those, read through ``midiports.endpoints``, which opened them. A browser
+page is the same: the inputs chosen for ``midi.in`` once there are any (the
+picker lists Web MIDI's), and until then every MIDI input the browser offers,
+through ``midiports.webmidi``.
 
 Bluetooth MIDI is one more input, on a board whose firmware has Bluetooth LE:
 `Inputs.set_ble` makes the board a BLE-MIDI instrument, advertised under the
@@ -33,6 +35,8 @@ USB_FULL_SPEED = True
 NO_INPUT = "no MIDI input on this computer"
 #: The platforms that are a computer, with MIDI ports of their own.
 DESKTOPS = ("win32", "linux", "darwin")
+#: The platforms that are a browser page, whose MIDI ports are Web MIDI's.
+BROWSERS = ("webassembly", "emscripten")
 #: The most reads of one port in one poll.
 READS_PER_POLL = 64
 #: The name a board advertises its Bluetooth MIDI under.
@@ -68,8 +72,10 @@ def _name(dev):
 class Inputs:
     """The open MIDI inputs, read together.
 
-    ``kind`` is ``"usb"``, ``"device"``, ``"desktop"``, ``"web"`` or None when there's nothing to
-    open; ``why`` then says why in a sentence. ``names()`` lists the
+    ``kind`` is ``"usb"``, ``"device"``, ``"desktop"`` (a computer's ports,
+    or the ones chosen for ``midi.in`` anywhere), ``"web"`` (every input a
+    browser offers) or None when there's nothing to open; ``why`` then says
+    why in a sentence. ``names()`` lists the
     devices heard now.
     """
 
@@ -93,7 +99,7 @@ class Inputs:
         if getattr(sys, "platform", "") in DESKTOPS:
             self._open_desktop()
             return self
-        if getattr(sys, "platform", "") == "webassembly":
+        if getattr(sys, "platform", "") in BROWSERS:
             self._open_web()
             return self
         try:
@@ -201,6 +207,8 @@ class Inputs:
             self.why = NO_INPUT
 
     def _open_web(self):
+        if self._open_chosen():
+            return
         try:
             from midiports import webmidi
         except ImportError:

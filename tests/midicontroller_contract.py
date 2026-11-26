@@ -30,7 +30,8 @@ _HERE = os.path.dirname(os.path.abspath(__file__))
 _ROOT = os.path.dirname(_HERE)
 _PYDEVICES = os.getenv("OMNIPYTHON_DIR") or os.path.join(_ROOT, "..", "omnipython")
 # lib first: tests/appkit would hide the real appkit.
-sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE, os.path.join(_PYDEVICES, "packages", "midiports")]
+sys.path[:0] = [os.path.join(_ROOT, "lib"), _ROOT, _HERE, os.path.join(_PYDEVICES, "packages", "midiports"),
+                os.path.join(_PYDEVICES, "packages", "endpointkit")]
 # multimer, and the shell's header, which draws through icons.
 sys.path += [os.path.join(_PYDEVICES, "lib"), os.path.join(_PYDEVICES, "packages", "icons"),
              os.path.join(_PYDEVICES, "packages", "_boardname")]
@@ -126,6 +127,9 @@ class _Port:
 
 
 class _Desk:
+    """The computer's MIDI ports, as the Connections picker's provider reads them."""
+
+    __name__ = "midiports.linux"
     ports = {}
 
     def available(self):
@@ -349,7 +353,9 @@ def tab(ctl, key):
 
 # -- Opening: the status line, the tabs, the board's ways out ------------------------
 
-check(links.choices() == [("usb", "USB device"), ("pc:Synth", "Synth"), ("pc:Loop", "Loop")],
+# The computer's outputs are the ones the Connections picker lists.
+OUT = "out:%s-midi-out:" % ("windows" if sys.platform == "win32" else "linux")
+check(links.choices() == [("usb", "USB device"), (OUT + "Synth", "Synth"), (OUT + "Loop", "Loop")],
       "the board offers USB and the computer's outputs: %r" % (links.choices(),))
 scope = Scope()
 ctl = app.main(scope)
@@ -509,11 +515,14 @@ check(sent and sent[0] == (9, 0x91, 36, 32), "pads play on channel 2 at the fixe
 tab(ctl, "setup")
 tap(setup_arrows()[0].get_parent())
 scope.run()
-check(ctl.link.key == "pc:Synth", "the way out steps to the computer's Synth")
+check(ctl.link.key == OUT + "Synth", "the way out steps to the computer's Synth")
+import endpointkit  # noqa: E402
+
+check(endpointkit.selection("midi.out") == [OUT[4:] + "Synth"], "and Connections has it chosen too")
 check(_UsbDevice.inits[-1] == (), "and the USB port is the serial port alone again")
 tap(setup_arrows()[0].get_parent())
 scope.run()
-check(ctl.link.key == "pc:Loop", "then to Loop")
+check(ctl.link.key == OUT + "Loop", "then to Loop")
 shot("setup_loop")
 check(_desk.ports[("Synth", "out")].closed, "the Synth's port is closed when it moves on")
 tab(ctl, "knobs")
@@ -559,13 +568,13 @@ check(not ctl.edit, "a second tap ends editing")
 scope.close()
 with open(os.path.join(DATA, "config.json")) as f:
     saved = json.load(f)
-check(saved.get("channel") == 2 and saved.get("output") == "pc:Loop", "closing saves the channel and the way out: %r" % saved)
+check(saved.get("channel") == 2 and saved.get("output") == OUT + "Loop", "closing saves the channel and the way out: %r" % saved)
 check(saved.get("map") == {"pad0": ["cc", 46], "knob0": ["cc", 69]}, "and only the mapping edits: %r" % saved.get("map"))
 check("bank" not in saved and "octave" in saved, "a setting at its default isn't saved")
 scope = Scope()
 ctl = app.main(scope)
 scope.run()
-check(ctl.link.key == "pc:Loop" and ctl.view == "setup", "it opens again on Loop and the view it closed on")
+check(ctl.link.key == OUT + "Loop" and ctl.view == "setup", "it opens again on Loop and the view it closed on")
 check(ctl.surface.map["pad0"] == ("cc", 46), "with the edited mapping")
 press_label(ctl, "Reset mapping")
 check(ctl.surface.map["pad0"] == ("note", 36), "Reset mapping puts the defaults back")

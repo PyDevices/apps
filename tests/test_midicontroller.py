@@ -209,74 +209,165 @@ class FeedTest(unittest.TestCase):
         self.assertEqual(s.feed(bytes([5, 0xF8, 0xC0, 3, 0xD0, 9, 0xB0, 70, 4, 0xB0, 71])), [("knob0", 4)])
 
 
+OMNIPYTHON = os.getenv("OMNIPYTHON_DIR") or os.path.join(ROOT, "..", "omnipython")
+_KIT = os.path.join(OMNIPYTHON, "packages", "endpointkit")
+_MIDIPORTS = os.path.join(OMNIPYTHON, "packages", "midiports")
+HAVE_KIT = os.path.isdir(_KIT) and os.path.isdir(_MIDIPORTS)
+NO_KIT = "endpointkit and midiports aren't at %s: set OMNIPYTHON_DIR" % OMNIPYTHON
+
+
 class _Port:
     def __init__(self, info):
         self.info = info
+        self.sent = bytearray()
+        self.inbox = bytearray()
         self.closed = False
 
     def write(self, buf, nbytes):
+        self.sent += bytes(buf[:nbytes])
         return nbytes
 
     def readinto(self, buf, nbytes=None):
-        return None
+        n = min(len(buf), len(self.inbox))
+        if not n:
+            return None
+        buf[:n] = self.inbox[:n]
+        del self.inbox[:n]
+        return n
 
     def close(self):
         self.closed = True
 
 
 class _Desk:
-    busy = False
+    """A computer's MIDI ports, as midiports.endpoints' backend sees them."""
+
+    __name__ = "midiports.linux"
+
+    def __init__(self, outs=("Synth", "Loop"), ins=("Loop",)):
+        self.outs = list(outs)
+        self.ins = list(ins)
+        self.ports = {}
 
     def available(self):
         P = types.SimpleNamespace
-        return [P(name="Synth", direction="out"), P(name="Loop", direction="in"), P(name="Loop", direction="out")]
+        return [P(name=n, direction="out") for n in self.outs] + [P(name=n, direction="in") for n in self.ins]
 
     def open_port(self, info):
-        if self.busy and info.direction == "in":
-            raise OSError("in use")
-        return _Port(info)
+        port = self.ports[(info.name, info.direction)] = _Port(info)
+        return port
 
 
-class LinksTest(unittest.TestCase):
+class _Page(_Desk):
+    """A browser page's Web MIDI, as midiports.webmidi is its backend."""
+
+    __name__ = "midiports.webmidi"
+
+    def __init__(self, state="idle", why_not=None):
+        _Desk.__init__(self, outs=(), ins=())
+        self._state = state
+        self._why = why_not
+        self.asked = 0
+        self._changes = 0
+
+    def state(self):
+        return self._state
+
+    def why(self):
+        return self._why
+
+    def request(self):
+        self.asked += 1
+        self._state = "asking"
+        self._changes += 1
+
+    def changes(self):
+        return self._changes
+
+    def grant(self, outs):
+        self._state = "granted"
+        self.outs = list(outs)
+        self._changes += 1
+
+    def available(self):
+        return _Desk.available(self) if self._state == "granted" else []
+
+
+class _Connections:
+    """endpointkit's registry with this test's MIDI ports registered, and the
+    platform the links see."""
+
+    platform = "linux"
+
     def setUp(self):
-        self.saved = {k: sys.modules.get(k) for k in ("machine", "_usbhost", "bledev", "midiports",
-                                                       "midiports.linux", "midiports.windows")}
-        self.desk = _Desk()
-        midiports = types.ModuleType("midiports")
-        midiports.__path__ = []
-        midiports.linux = midiports.windows = self.desk
-        sys.modules.update({"machine": None, "_usbhost": None, "bledev": None, "midiports": midiports,
-                            "midiports.linux": self.desk, "midiports.windows": self.desk})
-        self.platform = links.sys.platform
-        links.sys = types.SimpleNamespace(platform="linux")
+        sys.path[:0] = [_KIT, _MIDIPORTS]
+        self.saved = {k: sys.modules.get(k) for k in ("machine", "_usbhost", "bledev")}
+        sys.modules.update({"machine": None, "_usbhost": None, "bledev": None})
+        import endpointkit
+        from midiports import endpoints
+
+        self.kit, self.endpoints = endpointkit, endpoints
+        self.backend = self.make_backend()
+        endpoints._providers.clear()
+        endpoints.register(backend=self.backend)
+        links.sys = types.SimpleNamespace(platform=self.platform)
+
+    def make_backend(self):
+        return _Desk()
 
     def tearDown(self):
         links.sys = sys
+        for kind in ("midi.in", "midi.out"):
+            self.kit.select(kind, None)
+        for provider in self.kit.providers():
+            self.kit.unregister(provider)
+        self.endpoints._providers.clear()
         for k, v in self.saved.items():
             if v is None:
                 sys.modules.pop(k, None)
             else:
                 sys.modules[k] = v
+        del sys.path[:2]
 
-    def test_a_computer_offers_its_outputs(self):
-        self.assertEqual(links.choices(), [("pc:Synth", "Synth"), ("pc:Loop", "Loop")])
 
-    def test_an_output_opens_with_its_input_for_feedback(self):
-        link = links.open_link("pc:Loop")
-        self.assertEqual((link.out.info.direction, link.inp.info.direction), ("out", "in"))
-        self.assertEqual(link.status(), "Loop")
+
+@unittest.skipUnless(HAVE_KIT, NO_KIT)
+class ComputerLinksTest(_Connections, unittest.TestCase):
+    """On a computer: the outputs the Connections picker lists."""
+
+    def test_a_computer_offers_the_outputs_connections_lists(self):
+        self.assertEqual(links.choices(), [("out:linux-midi-out:Synth", "Synth"), ("out:linux-midi-out:Loop", "Loop")])
+
+    def test_an_output_chosen_here_is_the_devices_choice(self):
+        link = links.open_link("out:linux-midi-out:Loop")
+        self.assertEqual(self.kit.selection("midi.out"), ["linux-midi-out:Loop"])
+        link.write(b"\x90\x3c\x64")
+        self.assertEqual(bytes(self.backend.ports[("Loop", "out")].sent), b"\x90\x3c\x64")
+        self.assertEqual(link.status(), "MIDI out: Loop")
+        # Chosen in the picker instead: the controller plays there now.
+        self.kit.select("midi.out", "linux-midi-out:Synth")
+        link.write(b"\x80\x3c\x00")
+        self.assertEqual(bytes(self.backend.ports[("Synth", "out")].sent), b"\x80\x3c\x00")
+        self.assertEqual(link.status(), "MIDI out: Synth")
         link.close()
-        self.assertTrue(link.out.closed and link.inp.closed)
+        self.assertFalse(self.backend.ports[("Synth", "out")].closed, "the picker's port stays open")
 
-    def test_an_input_another_program_holds_still_sends(self):
-        self.desk.busy = True
-        link = links.open_link("pc:Loop")
-        self.assertIsNone(link.inp)
+    def test_what_comes_back_is_the_inputs_chosen_in_connections(self):
+        link = links.open_link("out:linux-midi-out:Loop")
         self.assertEqual(link.read_into(bytearray(8)), 0)
+        self.kit.select("midi.in", "linux-midi-in:Loop")
+        self.backend.ports[("Loop", "in")].inbox += b"\xb0\x46\x10"
+        buf = bytearray(8)
+        self.assertEqual(link.read_into(buf), 3)
+        self.assertEqual(bytes(buf[:3]), b"\xb0\x46\x10")
 
-    def test_an_output_that_went_away_says_so(self):
-        with self.assertRaises(OSError):
-            links.open_link("pc:Gone")
+    def test_an_output_not_here_yet_waits_for_it(self):
+        link = links.open_link("out:linux-midi-out:Gone")
+        self.assertEqual(link.status(), "MIDI out: waiting for Gone")
+        self.backend.outs.append("Gone")
+        self.kit.refresh("midi.out")
+        link.write(b"\xfa")
+        self.assertEqual(bytes(self.backend.ports[("Gone", "out")].sent), b"\xfa")
         with self.assertRaises(ValueError):
             links.open_link("serial")
 
@@ -286,86 +377,62 @@ class LinksTest(unittest.TestCase):
         self.assertIn("midiports", links.missing())
 
 
-class _WebPort:
-    def __init__(self, name, names):
-        self.match = name
-        self.names = names
-        self.name = None
-        self.why = None
-        self.sent = []
-        self.closed = False
+@unittest.skipUnless(HAVE_KIT, NO_KIT)
+class BrowserLinksTest(_Connections, unittest.TestCase):
+    """In a browser page, nothing is listed until the person allows MIDI."""
 
-    def write(self, buf, nbytes):
-        self.sent.append(bytes(buf[:nbytes]))
-        return nbytes
+    platform = "webassembly"
 
-    def readinto(self, buf):
-        return None
+    def make_backend(self):
+        return _Page()
 
-    def close(self):
-        self.closed = True
+    def test_allowing_midi_asks_the_browser_then_plays_the_first_output(self):
+        self.assertEqual(links.choices(), [("out:webmidi-midi-out:allow", "Allow MIDI")])
+        self.assertEqual(self.backend.asked, 0, "nothing asks before the app opens a way out")
+        link = links.open_link("out:webmidi-midi-out:allow")
+        self.assertEqual(self.backend.asked, 1)
+        self.assertEqual(link.status(), "MIDI out: allow MIDI when the browser asks")
+        self.backend.grant(["General MIDI Synth", "Loopback"])
+        self.kit.poll()
+        link.poll()
+        self.assertEqual(self.kit.selection("midi.out"), ["webmidi-midi-out:General MIDI Synth"])
+        self.assertEqual(link.status(), "MIDI out: General MIDI Synth")
+        link.write(b"\x90\x3c\x64")
+        self.assertEqual(bytes(self.backend.ports[("General MIDI Synth", "out")].sent), b"\x90\x3c\x64")
+        self.assertEqual(links.choices(), [("out:webmidi-midi-out:General MIDI Synth", "General MIDI Synth"),
+                                           ("out:webmidi-midi-out:Loopback", "Loopback")])
+
+    def test_a_page_offers_no_usb_even_where_the_build_carries_it(self):
+        usbhost = types.SimpleNamespace(host_start=lambda: None)
+        with mock.patch.dict(sys.modules, {"_usbhost": usbhost}):
+            self.assertEqual([k for k, _ in links.choices()], ["out:webmidi-midi-out:allow"])
+
+    def test_a_browser_without_web_midi_says_so(self):
+        self.backend._state, self.backend._why = "unsupported", "This browser has no Web MIDI"
+        self.kit.refresh("midi.out")
+        self.assertEqual(links.choices(), [])
+        self.assertIn("This browser has no Web MIDI", links.missing())
+        with self.assertRaises(OSError):
+            links.open_link("out:webmidi-midi-out:allow")
 
 
-class WebLinksTest(unittest.TestCase):
-    """In a browser page: Web MIDI's outputs, through midiports.webmidi."""
+class BoardLinksTest(unittest.TestCase):
+    """A board's own ways out: Bluetooth LE as a peripheral, USB as a device."""
 
     def setUp(self):
-        self.saved = {k: sys.modules.get(k) for k in ("machine", "_usbhost", "bledev", "midiports",
-                                                       "midiports.webmidi")}
-        self.names = []
-        self.opened = []
-        webmidi = types.ModuleType("midiports.webmidi")
-
-        def page_out(name=""):
-            port = _WebPort(name, self.names)
-            self.opened.append(("out", port))
-            return port
-
-        def page_in(name=""):
-            port = _WebPort(name, self.names)
-            self.opened.append(("in", port))
-            return port
-
-        webmidi.page_out = page_out
-        webmidi.page_in = page_in
-        self.webmidi = webmidi
+        self.saved = {k: sys.modules.get(k) for k in ("machine", "_usbhost", "bledev", "midiports")}
         midiports = types.ModuleType("midiports")
         midiports.__path__ = []
-        midiports.webmidi = webmidi
-        sys.modules.update({"machine": None, "_usbhost": None, "bledev": None, "midiports": midiports,
-                            "midiports.webmidi": webmidi})
-        links.sys = types.SimpleNamespace(platform="webassembly")
-        links._web_outputs = None
+        sys.modules.update({"machine": None, "_usbhost": None, "bledev": None, "midiports": midiports})
+        links.sys = types.SimpleNamespace(platform="esp32")
 
     def tearDown(self):
         links.sys = sys
-        links._web_outputs = None
         for k, v in self.saved.items():
             if v is None:
                 sys.modules.pop(k, None)
             else:
                 sys.modules[k] = v
-
-    def test_the_browser_lists_its_outputs_once_the_person_says_yes(self):
-        self.assertEqual(links.choices(), [("web", "Web MIDI")])  # asked; no answer yet
-        self.names[:] = ["General MIDI Synth", "Loopback"]
-        self.assertEqual(links.choices(), [("web:General MIDI Synth", "General MIDI Synth"),
-                                           ("web:Loopback", "Loopback")])
-        self.assertEqual(len(self.opened), 1)  # one ask, kept
-
-    def test_an_output_opens_by_name_with_its_input_for_feedback(self):
-        link = links.open_link("web:Loopback")
-        (kind_out, out), (kind_in, inp) = self.opened
-        self.assertEqual((kind_out, out.match, kind_in, inp.match), ("out", "Loopback", "in", "Loopback"))
-        self.assertIn("allow MIDI", link.status())
-        out.name = "Loopback"
-        self.assertEqual(link.status(), "Web MIDI: Loopback")
-        link.write(b"\x90\x3c\x64")
-        self.assertEqual(out.sent, [b"\x90\x3c\x64"])
-        out.name, out.why = None, "NotAllowedError"
-        self.assertEqual(link.status(), "Web MIDI: NotAllowedError")
-        link.close()
-        self.assertTrue(out.closed and inp.closed)
 
     def test_ble_is_offered_only_where_the_board_can_be_a_peripheral(self):
         for backend, offered in (("webble", False), ("bleak", False), ("mpble", True)):
@@ -408,12 +475,6 @@ class WebLinksTest(unittest.TestCase):
                 links.open_link("usb")
                 self.assertEqual(calls, expected)
 
-    def test_a_page_without_web_midi_output_says_so(self):
-        del self.webmidi.page_out
-        self.assertEqual(links.choices(), [])
-        self.assertIn("page_out", links.missing())
-        with self.assertRaises(OSError):
-            links.open_link("web")
 
 
 class BleLinkTest(unittest.TestCase):
