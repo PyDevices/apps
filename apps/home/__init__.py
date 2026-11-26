@@ -1,18 +1,22 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Home: the apps on pages, one page per category, with a tab for each.
+"""Home: the apps on pages, a tab for each category.
 
-Each app says what it is in its ``app.json``: ``category`` (its page), ``icon``
+Each app says what it is in its ``app.json``: ``category`` (its tab), ``icon``
 (a Material Symbols name from the icons package, required), ``color`` (a "#RRGGBB" tile colour) and ``tile`` (false to
-keep it off the pages). Pages come in alphabetical order by category. An app
-with no category gets a page of its own, "More", last. Home knows no app by
+keep it off the tabs). Tabs come in alphabetical order by category. An app
+with no category goes on a tab of its own, "More", last. Home knows no app by
 name: the board's own apps (Info, Settings, Hidden apps, the REPL) are on the
-System page because their ``app.json`` says so.
+System tab because their ``app.json`` says so.
 
-A tap on a tab switches pages at once; a swipe across the page slides to
-the next one. Home comes back to the tab it was last on. The tabs are as
-tall as the status bar.
+A tab with more apps than its grid holds gets as many pages as it needs,
+the apps in the same order, with a dot for each page under the grid. A
+swipe across the screen turns the tab's pages, and past its last page
+slides on to the next tab; backwards, past the first page, to the previous
+tab's last page. A tap on a dot turns to that page, and a tap on a tab
+switches to its first page at once. Home comes back to the tab and page it
+was last on. The tabs are as tall as the status bar.
 
 An app hidden from an app's can't-run screen (``Launcher.hide``) stays off
 the pages. The Hidden apps app lists them, with the reason each gave, and
@@ -26,7 +30,7 @@ tile keeps the 24 px icon.
 
 On a round screen (see ``appkit.shell.is_round``) the pages and their tabs
 fill the square inside the circle, two apps by two, so nothing falls
-outside the circle.
+outside the circle. They turn in pages the same way.
 """
 
 import lvgl as lv
@@ -50,6 +54,8 @@ MARGIN = 8  # around each page's card
 CARD = 0x121826  # a shade lighter than the screen
 LINE = 0x2A3550  # the card's border and the tab bar's top edge
 TAB_ON = 0x1A2438
+DOT = 6  # a page dot
+DOTS = 14  # the row of page dots under the grid, when a tab has more than one page
 
 
 def _tall_enough(h):
@@ -92,7 +98,7 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
         lh = ui.font.line_height
         # The title's first line sits 40 px below the middle; a second goes under it.
         lines = 2 if h // 2 >= 40 + lh + LARGE_PAD else 1
-    for i, (name, icon_name, color) in enumerate(apps[: cols * rows]):
+    for i, (name, icon_name, color) in enumerate(apps):
         col, row = i % cols, i // cols
         b = lv.button(card)
         b.set_size(w, h)
@@ -159,6 +165,93 @@ def wrap(title, font, width):
         if head.strip() and tail.strip() and text_width(head, font) <= width:
             best = head + "\n" + tail
     return title if best is None else best
+
+
+def paged(apps, per):
+    """*apps* cut into pages of *per*, in order: one page at least, empty
+    when there are no apps."""
+    return [apps[i: i + per] for i in range(0, len(apps), per)] or [[]]
+
+
+def _dots(parent, count, w, y, turn):
+    """A row of *count* page dots centred across *w* at *y*; a tap on one
+    calls *turn* with its page. Returns the dots."""
+    out = []
+    step = 3 * DOT
+    x = (w - (count - 1) * step - DOT) // 2
+    for k in range(count):
+        d = lv.obj(parent)
+        d.remove_style_all()
+        d.set_size(DOT, DOT)
+        d.set_pos(x + k * step, y + (DOTS - DOT) // 2)
+        d.set_style_radius(DOT // 2, 0)
+        d.set_style_bg_opa(lv.OPA.COVER, 0)
+        d.set_style_bg_color(ui.MUTED, 0)
+        d.set_ext_click_area(DOT)  # a fingertip, not just the dot
+        d.add_flag(lv.obj.FLAG.CLICKABLE)
+        d.add_event_cb((lambda k: lambda e: turn(k))(k), lv.EVENT.CLICKED, None)
+        out.append(d)
+    return out
+
+
+class _Tab:
+    """One category's pages: a strip of grids that scrolls a page at a time,
+    and its dots. At either end of the strip a swipe passes on to the tab
+    view, which turns the tab."""
+
+    def __init__(self, scope, page, pw, ph, apps, cols, rows, small, dots):
+        self.pw = pw
+        self.grids = paged(apps, cols * rows)
+        gh = ph - dots
+        strip = lv.obj(page)
+        strip.remove_style_all()
+        strip.set_size(pw, gh)
+        strip.add_flag(lv.obj.FLAG.EVENT_BUBBLE)
+        strip.set_scrollbar_mode(lv.SCROLLBAR_MODE.OFF)
+        if len(self.grids) > 1:
+            strip.set_scroll_dir(lv.DIR.HOR)
+            strip.set_scroll_snap_x(lv.SCROLL_SNAP.CENTER)
+            strip.add_flag(lv.obj.FLAG.SCROLL_ONE)
+            strip.add_event_cb(lambda e: self.landed(), lv.EVENT.SCROLL_END, None)
+        else:
+            strip.remove_flag(lv.obj.FLAG.SCROLLABLE)
+        for k, grid in enumerate(self.grids):
+            g = lv.obj(strip)
+            g.remove_style_all()
+            g.set_pos(k * pw, 0)
+            g.set_size(pw, gh)
+            g.add_flag(lv.obj.FLAG.EVENT_BUBBLE)
+            g.remove_flag(lv.obj.FLAG.SCROLLABLE)
+            _grid(scope, g, pw - 2 * MARGIN, gh - 2 * MARGIN, grid, cols, rows, small)
+        self.strip = strip
+        self.dots = _dots(page, len(self.grids), pw, gh - MARGIN // 2, self.turn) if len(self.grids) > 1 else []
+        self.at = 0
+        self.on_turn = None
+
+    def last(self):
+        return len(self.grids) - 1
+
+    def show(self, k, anim=False):
+        """Turn to page *k* (counted from 0)."""
+        k = max(0, min(k, self.last()))
+        self.strip.scroll_to_x(k * self.pw, bool(anim))
+        if not anim:
+            self.mark(k)
+
+    def turn(self, k):
+        self.show(k, True)
+
+    def landed(self):
+        self.mark((self.strip.get_scroll_x() + self.pw // 2) // self.pw)
+
+    def mark(self, k):
+        k = max(0, min(k, self.last()))
+        for i, d in enumerate(self.dots):
+            d.set_style_bg_color(ui.ACCENT if i == k else ui.MUTED, 0)
+        changed = k != self.at
+        self.at = k
+        if changed and self.on_turn is not None:
+            self.on_turn(k)
 
 
 def _tile(name, entry):
@@ -266,15 +359,20 @@ def main(scope):
     tv.get_content().set_style_bg_color(ui.BG, 0)
 
     pages = _pages(info, scope.launcher.hidden())
+    cols, rows = (2, 2) if round_ else (COLS, ROWS)
+    # Every tab keeps the dots' row when one of them needs it, so the tiles
+    # are the same size on every tab.
+    dots = DOTS if any(len(apps) > cols * rows for _, apps in pages) else 0
+    tabs = []
     for name, apps in pages:
         page = tv.add_tab(name)
         page.set_style_pad_all(0, 0)
         page.set_style_bg_color(ui.BG, 0)
         page.remove_flag(lv.obj.FLAG.SCROLLABLE)
         if round_:
-            _grid(scope, page, side - 2 * MARGIN, side - tab_bar - 2 * MARGIN, apps, 2, 2, True)
+            tabs.append(_Tab(scope, page, side, side - tab_bar, apps, cols, rows, True, dots))
         else:
-            _grid(scope, page, W - 2 * MARGIN, H - top - tab_bar - 2 * MARGIN, apps)
+            tabs.append(_Tab(scope, page, W, H - top - tab_bar, apps, cols, rows, False, dots))
 
     bar = tv.get_tab_bar()
     if round_:
@@ -309,11 +407,41 @@ def main(scope):
         t.set_style_border_width(stripe, on)
         t.set_style_border_color(ui.ACCENT, on)
 
+    def line_up(active):
+        # The tabs either side show the pages a swipe reaches next: the
+        # last page of the tabs before, the first page of the tabs after.
+        for i, t in enumerate(tabs):
+            if i != active:
+                t.show(t.last() if i < active else 0)
+
+    def turned(k):
+        kept["page"] = k
+
+    tv.update_layout()
     tab = kept.get("tab", 0)
-    if 0 < tab < len(pages):
+    if not 0 <= tab < len(pages):
+        tab = 0
+    if tab:
         tv.set_active(tab, False)  # no animation
+    if tabs:
+        tabs[tab].show(kept.get("page", 0))
+        line_up(tab)
+    for t in tabs:
+        t.on_turn = turned
+
+    def tapped(i):
+        def cb(e):
+            tabs[i].show(0)
+            kept["page"] = 0
+        return cb
+
+    for i in range(min(bar.get_child_count(), len(tabs))):
+        bar.get_child(i).add_event_cb(tapped(i), lv.EVENT.CLICKED, None)
 
     def changed(e):
-        kept["tab"] = tv.get_tab_active()
+        active = tv.get_tab_active()
+        kept["tab"] = active
+        kept["page"] = tabs[active].at
+        line_up(active)
 
     tv.add_event_cb(changed, lv.EVENT.VALUE_CHANGED, None)

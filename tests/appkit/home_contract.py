@@ -10,7 +10,9 @@ title with nothing else on the bar; the board's own apps (Info, Settings,
 Hidden apps, the REPL and the Shell) are on the System page and Gamepad on
 Games. Each tile's title takes a second line, broken at a space or a hyphen,
 when it's too long for one, and the tiles have 48 px icons, where a smaller
-screen's keep 24 px. Settings saves the board's name through boarddev, and Wi-Fi power
+screen's keep 24 px. A tab with more apps than its grid holds has a page
+for each eight (four on a round screen), with dots under the grid only
+then; a swipe turns the pages, then the tab. Settings saves the board's name through boarddev, and Wi-Fi power
 saving through a stand-in for wifi_manager, saying when it's the default.
 
     APPKIT_DATA=/tmp/home python tests/appkit/home_contract.py
@@ -117,6 +119,7 @@ from appkit import launcher as L  # noqa: E402
 from appkit.shell import Shell  # noqa: E402
 from appdev import App  # noqa: E402
 from touchkit import shell as touch  # noqa: E402
+from touchkit import ui  # noqa: E402
 
 # The fakes are this device: the Shell registers no real provider beside them.
 connections.register = lambda registry=None: []
@@ -179,11 +182,61 @@ def _plant_big_everywhere():
     home.SMALL_ICON = 48
 
 
+def _plant_one_page():
+    # A tab shows what fits on one grid and drops the rest, as before pages.
+    home.paged = lambda apps, per: [apps[:per]]
+
+
+def _plant_dots_always():
+    # A tab with one page still gets a dot under it.
+    real, dot_row = home._Tab.__init__, home._dots
+
+    def init(self, scope, page, pw, ph, apps, cols, rows, small, dots):
+        real(self, scope, page, pw, ph, apps, cols, rows, small, dots)
+        if not self.dots:
+            self.dots = dot_row(page, 1, pw, ph - dots - 4, self.turn)
+
+    home._Tab.__init__ = init
+
+
+def _plant_no_page_swipe():
+    # The pages are there, but a swipe skips them and turns the tab.
+    real = home._Tab.__init__
+
+    def init(self, *args):
+        real(self, *args)
+        self.strip.remove_flag(lv.obj.FLAG.SCROLLABLE)
+
+    home._Tab.__init__ = init
+
+
+def _plant_stuck_on_pages():
+    # A swipe past a tab's last page goes nowhere.
+    real = home._Tab.__init__
+
+    def init(self, *args):
+        real(self, *args)
+        self.strip.remove_flag(lv.obj.FLAG.SCROLL_CHAIN_HOR)
+
+    home._Tab.__init__ = init
+
+
+def _plant_round_one_page():
+    # A round screen's two by two grid drops what doesn't fit.
+    real = home.paged
+    home.paged = lambda apps, per: [apps[:per]] if per == 4 else real(apps, per)
+
+
 PLANTS = {
     "one_line": _plant_one_line,
     "every_space": _plant_every_space,
     "small_icon": _plant_small_icon,
     "big_everywhere": _plant_big_everywhere,
+    "one_page": _plant_one_page,
+    "dots_always": _plant_dots_always,
+    "no_page_swipe": _plant_no_page_swipe,
+    "stuck_on_pages": _plant_stuck_on_pages,
+    "round_one_page": _plant_round_one_page,
     "tall_tabs": _plant_tall_tabs,
     "home_word": _plant_home_word,
     "name_not_saved": _plant_name_not_saved,
@@ -214,6 +267,53 @@ def tap(obj):
     x, y, w, h = coords(obj)
     _headless.touch(x + w // 2, y + h // 2, True, 50)
     _headless.touch(x + w // 2, y + h // 2, False, 50)
+
+
+def swipe(x0, x1, y):
+    """Drag a finger from (*x0*, *y*) to (*x1*, *y*), let go, and let the
+    page settle."""
+    step = 16 if x1 > x0 else -16
+    _headless.touch(x0, y, True, 20)
+    for x in range(x0, x1, step):
+        _headless.touch(x, y, True, 20)
+    _headless.touch(x1, y, False, 20)
+    settle(1000)
+
+
+def title(lbl):
+    """A tile's title as its app.json gives it, without the tile's line break."""
+    return lbl.get_text().replace("-\n", "-").replace("\n", " ")
+
+
+def expected(category):
+    """The titles Home should show on *category*'s tab, in order."""
+    hidden = la.hidden()
+    return [la.info[n].get("title", n) for n in sorted(la.info)
+            if la.info[n].get("category", "More") == category
+            and la.info[n].get("tile", True) and n not in hidden]
+
+
+def paging(page):
+    """*page*'s strip of grids, how many grids it has, and its dots."""
+    strip = page.get_child(0)
+    return strip, strip.get_child_count(), [page.get_child(i) for i in range(1, page.get_child_count())]
+
+
+def page_at(strip):
+    """The page *strip* shows, from 0."""
+    w = coords(strip)[2]
+    return (strip.get_scroll_x() + w // 2) // w
+
+
+def lit(dots):
+    """Which dot is lit, or None."""
+    on = [i for i, d in enumerate(dots) if d.get_style_bg_color(0).to_int() == ui.ACCENT.to_int()]
+    return on[0] if len(on) == 1 else None
+
+
+def on_screen(obj, w=None):
+    x, y, ow, oh = coords(obj)
+    return 0 <= x and x + ow <= (w or SW)
 
 
 def walk(obj, cls, out=None):
@@ -344,6 +444,68 @@ sizes = sorted(set(coords(img)[2] for _, img, _ in tiles_of("Audio")))
 check(sizes == [48], "the tiles at 480x320 have 48 px icons: %r" % (sizes,))
 row = [coords(img)[1] for _, img, _ in tiles_of("Audio")[:4]]
 check(len(set(row)) == 1, "the icons in a row line up, whatever their titles: %r" % (row,))
+
+# -- pages within a tab ---------------------------------------------------------
+
+
+def _pages_hold_everything(tv, names, per, where):
+    for category in names:
+        page = tv.get_content().get_child(names.index(category))
+        strip, count, dots = paging(page)
+        want = expected(category)
+        got = [title(lbl) for _, _, lbl in tiles_of_page(page)]
+        # A title cut short with dots counts as the title it starts.
+        same = len(got) == len(want) and all(g == w or (g.endswith("...") and w.startswith(g[:-3])) for g, w in zip(got, want))
+        check(same, "%s: every app on %s's tab is on one of its pages, in order: %r, want %r" % (where, category, got, want))
+        n = (len(want) + per - 1) // per or 1
+        check(count == n, "%s: %s has ceil(%d/%d) = %d pages: %d" % (where, category, len(want), per, n, count))
+        check(len(dots) == (n if n > 1 else 0), "%s: %s has a dot per page only with more than one page: %d dots, %d pages" % (where, category, len(dots), n))
+
+
+def tiles_of_page(page):
+    out = []
+    for b in walk(page, lv.button_class):
+        imgs, lbls = walk(b, lv.image_class), walk(b, lv.label_class)
+        if imgs and lbls:
+            out.append((b, imgs[0], lbls[0]))
+    return out
+
+
+if tv is not None:
+    _pages_hold_everything(tv, names, 8, "480x320")
+    check(len(expected("Audio")) > 8, "the Audio tab has more apps than one grid holds: %d" % len(expected("Audio")))
+    tiles = {title(lbl): b for b, _, lbl in tiles_of("Audio")}
+    # Which apps spill onto the second page depends on what this interpreter can run.
+    spill = expected("Audio")[8:]
+    check(all(t in tiles for t in spill), "the apps past the first eight are on the Audio tab: %r, %r" % (spill, sorted(tiles)))
+    strip, count, dots = paging(tv.get_content().get_child(0))
+    y = coords(strip)[1] + coords(strip)[3] // 2
+    check(tv.get_tab_active() == 0 and page_at(strip) == 0 and lit(dots) == 0, "Home opens on Audio's first page, its first dot lit")
+    check(not on_screen(tiles.get(spill[0], strip)) or plant == "one_page", "%s waits on the second page" % spill[0])
+    shot("audio_page1")
+    swipe(SW - 60, 60, y)
+    check(tv.get_tab_active() == 0 and page_at(strip) == 1, "a swipe left turns Audio to its second page: tab %d, page %d" % (tv.get_tab_active(), page_at(strip)))
+    check(all(t in tiles and on_screen(tiles[t]) for t in spill), "where %s show" % " and ".join(spill))
+    check(lit(dots) == 1, "and the second dot is lit: %r" % (lit(dots),))
+    shot("audio_page2")
+    swipe(SW - 60, 60, y)
+    check(tv.get_tab_active() == 1, "past the last page, a swipe left moves to the Desk tab: %d" % tv.get_tab_active())
+    desk_strip = paging(tv.get_content().get_child(1))[0]
+    check(page_at(desk_strip) == 0, "on its first page")
+    swipe(60, SW - 60, y)
+    check(tv.get_tab_active() == 0 and page_at(strip) == count - 1, "a swipe right comes back to Audio's last page: tab %d, page %d" % (tv.get_tab_active(), page_at(strip)))
+    swipe(60, SW - 60, y)
+    check(tv.get_tab_active() == 0 and page_at(strip) == 0 and lit(dots) == 0, "and another to its first: tab %d, page %d" % (tv.get_tab_active(), page_at(strip)))
+    if len(dots) > 1:
+        tap(dots[1])
+        settle(1000)
+    check(page_at(strip) == 1 and lit(dots) == 1, "a tap on the second dot turns to the second page: %d" % page_at(strip))
+    bar_buttons = walk(tabs, lv.button_class)
+    tap(bar_buttons[1])
+    settle(1000)
+    tap(bar_buttons[0])
+    settle(1000)
+    check(tv.get_tab_active() == 0 and page_at(strip) == 0, "a tap on a tab opens it at its first page: %d" % page_at(strip))
 
 system = page_of("System")
 check(all(t in system for t in ("Info", "Settings", "Hidden apps")),
@@ -492,6 +654,57 @@ check(home.wrap("Walkie-talkie", lv.font_montserrat_14, 60) == "Walkie-\ntalkie"
 check(home.wrap("Supercalifragilistic", lv.font_montserrat_14, 60) == "Supercalifragilistic",
       "a single word too long for the tile isn't broken: it's cut short")
 small_page.delete()
+
+# -- a round screen pages too ----------------------------------------------------------
+
+if plant in ("one_page", "round_one_page"):
+    PLANTS[plant]()
+RW = 240
+
+
+class _Round:
+    display_drv = type("drv", (), {"round": True})()
+
+
+sys.modules["board_config"] = _Round()
+# The first screen goes on drawing into its frame: keep that alive.
+first_frame = _headless._state["frame"]
+_headless.display(RW, RW)
+_headless.pointer().set_display(lv.display_get_default())
+from appkit.shell import is_round  # noqa: E402
+
+check(is_round(), "the second screen is round")
+
+
+class _RoundScope(_Scope):
+    root = lv.screen_active()
+    size = (RW, RW)
+    rect = (0, 0, RW, RW)
+    header = None
+    bar = None
+    kept = {}
+
+    def store(self):
+        return self.kept
+
+
+home.main(_RoundScope())
+settle()
+rtv = walk(lv.screen_active(), lv.tabview_class)[0]
+rnames = [c.get_child(0).get_text() for c in walk(rtv.get_tab_bar(), lv.button_class)]
+_pages_hold_everything(rtv, rnames, 4, "round")
+rstrip, rcount, rdots = paging(rtv.get_content().get_child(0))
+y = coords(rstrip)[1] + coords(rstrip)[3] // 2
+x0, _, rw, _ = coords(rstrip)
+if SHOTS:
+    _headless.refresh()
+    _headless.save_raw(_join(SHOTS, "round_page1.raw"), RW, RW)
+swipe(x0 + rw - 20, x0 + 20, y)
+check(rtv.get_tab_active() == 0 and page_at(rstrip) == 1 and lit(rdots) == 1,
+      "on a round screen a swipe turns Audio's page too: tab %d, page %d" % (rtv.get_tab_active(), page_at(rstrip)))
+if SHOTS:
+    _headless.refresh()
+    _headless.save_raw(_join(SHOTS, "round_page2.raw"), RW, RW)
 
 print("%d checks, %d failed" % (checks[0], len(failures)))
 sys.exit(1 if failures else 0)

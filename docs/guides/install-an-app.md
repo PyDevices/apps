@@ -129,7 +129,7 @@ omip.install("github:PyDevices/apps/apps/home/main.py", target="/")
 ```
 
 Reset the board. Home comes up with a tile for each app you installed, on a
-page per category; Info is on the System page. On CircuitPython, remove `code.py` first (`os.remove("/code.py")`):
+tab per category; Info is on the System tab. On CircuitPython, remove `code.py` first (`os.remove("/code.py")`):
 CircuitPython runs it ahead of `main.py`, and a freshly erased board has one. Installing Home doesn't touch `main.py`, so a board that
 starts something else keeps doing so until you run this line.
 
