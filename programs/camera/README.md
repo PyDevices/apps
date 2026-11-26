@@ -46,9 +46,11 @@ drawn once at 240x240, enlarged by a whole number and centred, so
 ## Put it on a board
 
 The firmware is MicroPython from omnipython-builds with `cameraif`, `ppa`,
-`jpegio`, `h264enc` and `vision`. With your board's config installed, one line
-at the board's REPL puts Camera in `/apps/eyecam`, where Home lists it, and
-`mp4mux`, appkit and touchkit in `/lib`:
+`jpegio`, `h264enc` and `vision`, and OmniPython 0.8.1 or later, which carries
+`mp4mux` for video. With your board's config installed, one line at the
+board's REPL puts Camera in `/apps/eyecam`, where Home lists it, and the
+libraries the apps share in `/lib`. On the ESP32-P4X-EYE over Wi-Fi it takes
+about eight minutes:
 
 ```python
 import omip
