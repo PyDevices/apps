@@ -475,16 +475,17 @@ if tv is not None:
     _pages_hold_everything(tv, names, 8, "480x320")
     check(len(expected("Audio")) > 8, "the Audio tab has more apps than one grid holds: %d" % len(expected("Audio")))
     tiles = {title(lbl): b for b, _, lbl in tiles_of("Audio")}
-    check("Synth Station" in tiles and "Wake word" in tiles, "Synth Station and Wake word are on the Audio tab: %r" % (sorted(tiles),))
+    # Which apps spill onto the second page depends on what this interpreter can run.
+    spill = expected("Audio")[8:]
+    check(all(t in tiles for t in spill), "the apps past the first eight are on the Audio tab: %r, %r" % (spill, sorted(tiles)))
     strip, count, dots = paging(tv.get_content().get_child(0))
     y = coords(strip)[1] + coords(strip)[3] // 2
     check(tv.get_tab_active() == 0 and page_at(strip) == 0 and lit(dots) == 0, "Home opens on Audio's first page, its first dot lit")
-    check(not on_screen(tiles.get("Synth Station", strip)) or plant == "one_page", "Synth Station waits on the second page")
+    check(not on_screen(tiles.get(spill[0], strip)) or plant == "one_page", "%s waits on the second page" % spill[0])
     shot("audio_page1")
     swipe(SW - 60, 60, y)
     check(tv.get_tab_active() == 0 and page_at(strip) == 1, "a swipe left turns Audio to its second page: tab %d, page %d" % (tv.get_tab_active(), page_at(strip)))
-    check("Synth Station" in tiles and on_screen(tiles["Synth Station"]) and on_screen(tiles["Wake word"]),
-          "where Synth Station and Wake word show")
+    check(all(t in tiles and on_screen(tiles[t]) for t in spill), "where %s show" % " and ".join(spill))
     check(lit(dots) == 1, "and the second dot is lit: %r" % (lit(dots),))
     shot("audio_page2")
     swipe(SW - 60, 60, y)
