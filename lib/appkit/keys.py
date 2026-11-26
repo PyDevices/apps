@@ -174,6 +174,7 @@ def keyboard():
         kb.add_flag(lv.obj.FLAG.HIDDEN)
         kb.add_event_cb(lambda e: hide(), lv.EVENT.READY, None)
         kb.add_event_cb(lambda e: hide(), lv.EVENT.CANCEL, None)
+        kb.add_event_cb(_typed_on_board, lv.EVENT.KEY, None)
         # It outlives the app running when it was first needed.
         from . import scope
 
@@ -256,6 +257,26 @@ def _by_keys():
     group is focused by LVGL itself, and a tap opens the keyboard on its own."""
     i = lv.indev_active()
     return i is not None and i.get_type() in (lv.INDEV_TYPE.KEYPAD, lv.INDEV_TYPE.ENCODER)
+
+
+def _typed_on_board(e):
+    """A real keyboard typed while the on-screen one had the focus.
+
+    The on-screen keyboard takes the focus when it opens, so an encoder can
+    walk its keys, and a keypad's keys go to whatever has the focus: a
+    keyboard on the board, or one in the browser showing a remote display,
+    would otherwise type into the on-screen keyboard's buttons, where letters
+    do nothing. Close it and type the key into the field. An encoder's turns,
+    and a keypad's arrows and Enter, still walk the keys."""
+    i = lv.indev_active()
+    if i is None or i.get_type() != lv.INDEV_TYPE.KEYPAD:
+        return
+    key = e.get_key()
+    if key < 32 and key != lv.KEY.BACKSPACE:
+        return
+    if _kb["field"] is None:
+        return
+    push(key)  # closes the on-screen keyboard, which gives the field its focus back
 
 
 def _hide_if_left():
