@@ -1,8 +1,9 @@
 name: Publish release packages
 
 # A published GitHub Release (made by tag-release.yml when VERSION changes on
-# main) builds omnipython-applibs, uploads it to PyPI and asks the library
-# index to publish lib/'s packages from the tag.
+# main) builds omnipython-applibs, uploads it to PyPI, asks the library index
+# to publish lib/'s packages from the tag, and asks omnipython-builds to build
+# the all-apps page from the tag and publish it to apps.omnipython.org.
 on:
   release:
     types:
@@ -68,3 +69,29 @@ jobs:
       version: ${{ needs.publish.outputs.version }}
       pypi-result: ${{ needs.pypi.result }}
     secrets: inherit
+
+  allapps-page:
+    # omnipython-builds' "All-apps browser page" workflow takes the
+    # apps-release event, freezes every app at this tag into the browser
+    # runtime, and publishes the page.
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Mint an installation token for omnipython-builds
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          app-id: ${{ secrets.PYDEVICES_APP_ID }}
+          private-key: ${{ secrets.PYDEVICES_APP_PRIVATE_KEY }}
+          owner: PyDevices
+          repositories: omnipython-builds
+
+      - name: Ask omnipython-builds to build and publish the page
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          APPS_REF: ${{ inputs.release-ref || github.event.release.tag_name }}
+        run: |
+          gh api --method POST repos/PyDevices/omnipython-builds/dispatches \
+            -f event_type=apps-release \
+            -f "client_payload[apps_ref]=$APPS_REF"
+          echo "asked for the all-apps page at $APPS_REF"

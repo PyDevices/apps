@@ -5,8 +5,7 @@
 
 import lvgl as lv
 from deskkit import forecast, localtime
-
-from .face import AnalogClock
+from deskkit.clockface import AnalogClock
 
 FACE = "Grand Classic"
 _TICK_MS = 200  # the second hand is at most this late

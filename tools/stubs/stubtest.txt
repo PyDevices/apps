@@ -35,7 +35,9 @@ controlkit.slider
 controlkit.sprites
 controlkit.theme
 deskkit
+deskkit.clockface
 deskkit.forecast
+deskkit.hybridface
 deskkit.localtime
 deskkit.shell
 programkit

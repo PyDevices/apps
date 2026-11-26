@@ -79,6 +79,8 @@ elif PLANT == "browser_without_gamepads":
     connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "displaydev")
 elif PLANT == "browser_without_serial":
     connections.WEB_PROVIDERS = tuple(p for p in connections.WEB_PROVIDERS if p[0] != "webserial")
+elif PLANT == "page_forgets":
+    connections.remember_in_page = lambda registry, storage=None: True
 elif PLANT == "unnamed_tabs":
     connections.name_page = lambda name_of: None
 elif PLANT == "noisy_absence":
@@ -448,6 +450,38 @@ if real_audio_attr is not None:
     audiodev.endpoints = real_audio_attr
 else:
     del audiodev.endpoints
+
+# A browser page keeps its choices across the restart each app from Home
+# brings, in the page's storage.
+from endpointkit.fake import FakeProvider  # noqa: E402
+
+
+class _Storage:
+    def __init__(self):
+        self.items = {}
+
+    def getItem(self, key):
+        return self.items.get(key)
+
+    def setItem(self, key, value):
+        self.items[key] = value
+
+
+store = _Storage()
+first = endpointkit.Registry()
+first.register(FakeProvider("camera", "page-camera", [("usb", "USB Camera")]))
+check(connections.remember_in_page(first, store), "the page keeps choices")
+first.select("camera", "page-camera:usb")
+check(connections.PAGE_KEY in store.items, "a choice is kept: %r" % (store.items,))
+again = endpointkit.Registry()
+again.register(FakeProvider("camera", "page-camera", [("usb", "USB Camera")]))
+connections.remember_in_page(again, store)
+check(again.chosen("camera") == ["page-camera:usb"], "and comes back when the page starts again: %r" % (again.chosen("camera"),))
+again.select("camera", None)
+third = endpointkit.Registry()
+connections.remember_in_page(third, store)
+check(third.chosen("camera") == [], "letting it go is kept too: %r" % (third.chosen("camera"),))
+check(not connections.remember_in_page(endpointkit.Registry()) or sys.platform in connections.BROWSERS, "away from a page there's no storage")
 
 if FAILS:
     print("%d checks failed" % len(FAILS))

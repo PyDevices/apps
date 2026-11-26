@@ -13,6 +13,10 @@
       "main"
     ],
     [
+      "github:PyDevices/apps/apps/battery",
+      "main"
+    ],
+    [
       "github:PyDevices/apps/apps/bit_world",
       "main"
     ],
@@ -58,6 +62,10 @@
     ],
     [
       "github:PyDevices/apps/apps/info",
+      "main"
+    ],
+    [
+      "github:PyDevices/apps/apps/lora",
       "main"
     ],
     [
@@ -129,6 +137,10 @@
       "main"
     ],
     [
+      "github:PyDevices/apps/apps/steps",
+      "main"
+    ],
+    [
       "github:PyDevices/apps/apps/stompbox",
       "main"
     ],
@@ -146,6 +158,10 @@
     ],
     [
       "github:PyDevices/apps/apps/wake",
+      "main"
+    ],
+    [
+      "github:PyDevices/apps/apps/watch",
       "main"
     ],
     [

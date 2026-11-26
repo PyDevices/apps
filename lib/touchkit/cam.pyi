@@ -11,6 +11,7 @@ FORMAT: str
 BRIGHT: int
 LIGHT: tuple[tuple[str, int], ...]
 PHOTOS: str
+BROWSERS: tuple[str, ...]
 TAGS: tuple[str, ...]
 
 class NoCameraPort(OSError):

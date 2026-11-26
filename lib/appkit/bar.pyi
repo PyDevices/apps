@@ -49,6 +49,8 @@ def cast_item(registry: Any, on_click: Callable[[], object] | None = None) -> It
     """The cast icon while the screen goes somewhere, with "viewing" while someone watches."""
 def battery_item(source: Any) -> Item:
     """The battery from the board's `battery()`."""
+def battery_percent(source: Any) -> int | None:
+    """`source`'s charge in percent, as the bar shows it."""
 def board_battery() -> Any:
     """The battery the imported board config gives, or None."""
 

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 PyDevices
 #
 # SPDX-License-Identifier: MIT
-"""The camera program's decisions, which need no screen or board: how far the
+"""Eye Camera's decisions, which need no screen or board: how far the
 240x240 layout is enlarged, which controls a board gets, which picture source
 it uses, and what part of a small camera's frame a video takes.
 
@@ -14,7 +14,7 @@ import types
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PKG = os.path.join(ROOT, "programs", "camera", "apps", "eyecam")
+PKG = os.path.join(ROOT, "apps", "eyecam")
 
 
 def _load(name, *path):

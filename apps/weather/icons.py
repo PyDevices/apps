@@ -3,7 +3,15 @@
 # SPDX-License-Identifier: MIT
 """Weather icons built from LVGL objects, so they scale to any size with no image files."""
 
+import struct
+
 import lvgl as lv
+
+# A line's points are whole numbers or floats, as LVGL was built.
+_probe = lv.point_precise_t()
+_probe.x = 1.5
+_POINT = "<ff" if _probe.x == 1.5 else "<ii"
+_bolts = []
 
 _SUN = 0xFFC533
 _MOON = 0xDCE6F2
@@ -99,15 +107,14 @@ def _streaks(parent, x, y, w, n, color, long):
 
 def _bolt(parent, x, y, u):
     bolt = lv.line(parent)
-    bolt.set_points(
-        [
-            {"x": x + u, "y": y},
-            {"x": x - u // 2, "y": y + u * 2},
-            {"x": x + u // 2, "y": y + u * 2},
-            {"x": x - u, "y": y + u * 4},
-        ],
-        4,
-    )
+    points = bytearray()
+    for px, py in ((x + u, y), (x - u // 2, y + u * 2), (x + u // 2, y + u * 2), (x - u, y + u * 4)):
+        points += struct.pack(_POINT, px, py)
+    # LVGL keeps a pointer to the points rather than a copy, so they're kept
+    # here for as long as a bolt can be on screen: one now, five days ahead.
+    _bolts.append(points)
+    del _bolts[:-12]
+    bolt.set_points(points, 4)
     bolt.set_style_line_width(max(2, u // 2), 0)
     bolt.set_style_line_color(lv.color_hex(_BOLT), 0)
     bolt.set_style_line_rounded(True, 0)
