@@ -42,3 +42,10 @@ These place the app on a home screen, and `icon` is required for an app with a t
 | `icon` | A Material Symbols name from the [icons](https://github.com/PyDevices/omnipython/tree/main/packages/icons) package (`icons.names()`), such as `"audio_file"`. Required on every app with a tile: the index build and Home refuse an app without one, or one the icons package doesn't have. | [`lib/appkit/index.py`](../../lib/appkit/index.py), [`apps/home/__init__.py`](../../apps/home/__init__.py) |
 | `color` | The tile's colour as `"#RRGGBB"`. Default `"#44505E"`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 111 |
 | `tile` | `false` keeps the app off the pages. Default `true`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 121 |
+
+## Fields the install reads
+
+| Field | Meaning | Read by |
+|---|---|---|
+| `downloads` | Files the app needs that this repository doesn't keep, as `{"<path in the app>": "<https URL>"}`. omip fetches them with the rest. | [`tools/app_packages.py`](../../tools/app_packages.py) |
+| `bundle` | `false` leaves the app out of the line that installs every app (`omip.install("github:PyDevices/apps/apps")`), for an app made for one board; it installs by name. Default `true`. | [`tools/app_packages.py`](../../tools/app_packages.py) `in_bundle()` |

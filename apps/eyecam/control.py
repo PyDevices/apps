@@ -10,8 +10,12 @@ Method names follow the factory's (``btn_up``, ``btn_menu``, ...) so the two
 can be read side by side. Quirks are kept on purpose; each is marked.
 """
 
-import framebuf
 import time
+
+try:
+    import framebuf
+except ImportError:  # CPython: Eye Camera runs on MicroPython only (see main)
+    framebuf = None
 
 import lvgl as lv
 

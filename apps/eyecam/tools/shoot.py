@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: MIT
 
 """Drive the app on the desktop with key presses and save a screenshot of
-each page and popup state. Run from the sketch folder with the desktop
-MicroPython (see the README); ARGB captures go to $EYECAM_SHOTS and
+each page and popup state. Run it through tools/run.sh with the desktop
+MicroPython (see the README), which starts it from the repository's root; ARGB captures go to $EYECAM_SHOTS and
 tools/shots_to_png.py turns them into PNGs. A capture is LVGL's snapshot
 of the screen and of the top layer; the window shows the same pixels.
 
@@ -129,7 +129,7 @@ try:
     os.mkdir(OUT)
 except OSError:
     pass
-run(load(sys.argv[1] if len(sys.argv) > 1 else "tools/shots.txt"))
+run(load(sys.argv[1] if len(sys.argv) > 1 else "apps/eyecam/tools/shots.txt"))
 
 import appkit  # noqa: E402
 

@@ -1,8 +1,8 @@
 ![the camera's main menu](docs/screens/01-main-camera.png)
 
-# Camera
+# Eye Camera
 
-Camera is a camera app for an ESP32-P4 board: photos, H.264 video with sound,
+Eye Camera is a camera app for an ESP32-P4 board: photos, H.264 video with sound,
 an album, the card as a USB disk, pedestrian and face detection, four screen
 rotations and interval shooting. It is the ESP32-P4X-EYE's own camera app,
 screen for screen, written as a PyDevices app so that other boards run it too.
@@ -16,7 +16,7 @@ is written and not yet run on a camera.
 ## Try it on a desktop
 
 You need desktop MicroPython with LVGL and the OmniPython libraries
-(`bin/micropython` from omnipython-builds). From this folder:
+(`bin/micropython` from omnipython-builds). From this app's folder:
 
 ```
 MICROPYTHON=path/to/micropython tools/run.sh
@@ -48,28 +48,29 @@ drawn once at 240x240, enlarged by a whole number and centred, so
 The firmware is MicroPython from omnipython-builds with `cameraif`, `ppa`,
 `jpegio`, `h264enc` and `vision`, and OmniPython 0.8.1 or later, which carries
 `mp4mux` for video. With your board's config installed, one line at the
-board's REPL puts Camera in `/apps/eyecam`, where Home lists it, and the
+board's REPL puts Eye Camera in `/apps/eyecam`, where Home lists it, and the
 libraries the apps share in `/lib`. On the ESP32-P4X-EYE over Wi-Fi it takes
 about eight minutes:
 
 ```python
 import omip
-omip.install("github:PyDevices/apps/programs/camera")
+omip.install("github:PyDevices/apps/apps/eyecam")
 ```
 
-The app is about 1.4 MB with its pictures and fonts.
+The app is about 1.4 MB with its pictures and fonts, so the line that
+installs every app leaves it out.
 [Install an app](../../docs/guides/install-an-app.md) has the board config and
 Wi-Fi lines that come first.
 
-To have the board start in Camera, full screen, as the Eye does, make Camera's
+To have the board start in Eye Camera, full screen, as the Eye does, make its
 `main.py` the board's:
 
 ```python
-omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
+omip.install("github:PyDevices/apps/apps/eyecam/main.py", target="/")
 ```
 
 With a `secrets.py` on the board, it joins that Wi-Fi network and starts
-WebREPL once Camera is on the screen, as Home does. On the Eye the picture
+WebREPL once Eye Camera is on the screen, as Home does. On the Eye the picture
 holds still for about six seconds while the radio starts and scans, then keeps
 moving while it joins. Without one it runs offline.
 

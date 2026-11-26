@@ -107,7 +107,7 @@ jobs:
           echo "synthstation=$(has '^(apps/synthstation/|lib/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "appkit=$(has '^(lib/(appkit|touchkit|deskkit)/|apps/(home|watch|clock|info|settings|steps|battery|lora|weather)/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
-          echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "camera=$(has '^(apps/eyecam/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "camera_apps=$(has '^(apps/(camera|detect)/|lib/(touchkit|appkit)/|tests/(test_camera_preview|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/(app_packages|import_every_app)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
@@ -232,8 +232,7 @@ jobs:
         run: python -m unittest discover -s tests/appkit -p 'test_*.py' -v
 
   # Each app's package.json matches its folder and its imports, so
-  # omip.install("github:PyDevices/apps/apps/<name>") installs what it needs;
-  # the same for a program that holds one app, as programs/camera does.
+  # omip.install("github:PyDevices/apps/apps/<name>") installs what it needs.
   app_packages:
     needs: scope
     if: needs.scope.outputs.app_packages == 'true'
@@ -547,7 +546,7 @@ jobs:
           SDL_AUDIODRIVER: dummy
         run: python -m unittest discover -s tests -v
 
-  # The camera program's layout, controls, picture sources and crop, which
+  # Eye Camera's layout, controls, picture sources and crop, which
   # need nothing past the standard library.
   camera:
     needs: scope
@@ -561,7 +560,7 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: The camera program's tests
+      - name: Eye Camera's tests
         run: python -m unittest tests.test_camera -v
 
   # Camera and Detect on a 240 x 240 display with no window, against a

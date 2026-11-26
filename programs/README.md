@@ -8,7 +8,6 @@ runs it from the home screen.
 |---|---|
 | [Backline in a web page](backline-web) | Backline's drum machine in a browser tab, as the box or as a box's desk, with a board as the other half. |
 | [Bluetooth speaker](bt-speaker) | A speaker your phone or computer pairs with, on a board with Bluetooth Classic. |
-| [Camera](camera) | The ESP32-P4X-EYE's camera app: photos, video with sound, an album and detection, on a board's MIPI camera or a USB one. |
 | [Internet radio](internet-radio) | Plays MP3 streams over Wi-Fi; a press changes station. |
 | [MIDI module](midi-module) | A General MIDI sound module: MIDI from a DIN socket plays a SoundFont. |
 | [Ostinato](ostinato) | A pattern sequencer and song editor, in a browser or a desktop window. |

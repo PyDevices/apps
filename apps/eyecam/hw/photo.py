@@ -10,7 +10,10 @@ The crop for zoom N is the centre 1/N of the frame (1920x1080, 960x540,
 640x480, which squashes it a little, exactly as the factory does.
 """
 
-import ppa
+try:
+    import ppa
+except ImportError:  # CPython: the PPA is an ESP32-P4's
+    ppa = None
 
 try:
     import jpegio

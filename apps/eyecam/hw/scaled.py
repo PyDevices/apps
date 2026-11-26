@@ -12,9 +12,13 @@ the launcher's shell draws over it) outside the enlarged picture.
 """
 
 import lvgl as lv
-import ppa
 import time
-import uctypes
+
+try:
+    import ppa
+    import uctypes
+except ImportError:  # CPython: the PPA is an ESP32-P4's
+    ppa = uctypes = None
 
 BASE = 240
 HOME_ZONE = 110  # panel pixels: a press held in the top-left corner goes Home

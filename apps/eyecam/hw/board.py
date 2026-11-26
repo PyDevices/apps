@@ -26,11 +26,14 @@ import _thread
 import os
 import time
 import lvgl as lv
-import uctypes
 from appkit import places
 
-import machine
-import ppa
+try:
+    import machine
+    import ppa
+    import uctypes
+except ImportError:  # CPython: these are the board's, and so is this module
+    machine = ppa = uctypes = None
 
 from . import Hardware
 from .crop import preview_side, video_crop

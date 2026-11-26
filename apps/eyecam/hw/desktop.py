@@ -13,14 +13,18 @@ and out, R turns the board a quarter. Interval sleep blanks the window; any
 key wakes it, and each interval passes in ``MINUTE_MS`` per minute.
 """
 
-import framebuf
 import math
 import os
 import time
 
-import jpegio
 import lvgl as lv
-import ppa
+
+try:
+    import framebuf
+    import jpegio
+    import ppa
+except ImportError:  # CPython: Eye Camera runs on MicroPython only
+    framebuf = jpegio = ppa = None
 
 from . import Hardware
 from .photo import Photo

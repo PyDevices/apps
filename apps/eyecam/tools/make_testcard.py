@@ -14,7 +14,7 @@ import os
 from PIL import Image, ImageDraw
 
 W, H = 960, 540
-OUT = os.path.join(os.path.dirname(__file__), "..", "apps", "eyecam", "hw", "testcard.jpg")
+OUT = os.path.join(os.path.dirname(__file__), "..", "hw", "testcard.jpg")
 
 img = Image.new("RGB", (W, H))
 d = ImageDraw.Draw(img)
