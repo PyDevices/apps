@@ -60,6 +60,7 @@ jobs:
       appkit: ${{ steps.scope.outputs.appkit }}
       bit_world: ${{ steps.scope.outputs.bit_world }}
       camera: ${{ steps.scope.outputs.camera }}
+      camera_apps: ${{ steps.scope.outputs.camera_apps }}
       app_packages: ${{ steps.scope.outputs.app_packages }}
       gamepad: ${{ steps.scope.outputs.gamepad }}
       perch: ${{ steps.scope.outputs.perch }}
@@ -86,6 +87,7 @@ jobs:
             echo "appkit=true" >> "$GITHUB_OUTPUT"
             echo "bit_world=true" >> "$GITHUB_OUTPUT"
             echo "camera=true" >> "$GITHUB_OUTPUT"
+            echo "camera_apps=true" >> "$GITHUB_OUTPUT"
             echo "app_packages=true" >> "$GITHUB_OUTPUT"
             echo "gamepad=true" >> "$GITHUB_OUTPUT"
             echo "perch=true" >> "$GITHUB_OUTPUT"
@@ -104,6 +106,7 @@ jobs:
           echo "appkit=$(has '^(lib/appkit/|tests/appkit/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "bit_world=$(has '^(apps/bit_world/|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "camera=$(has '^(programs/camera/|tests/test_camera\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
+          echo "camera_apps=$(has '^(apps/(camera|detect)/|lib/(touchkit|appkit)/|tests/(test_camera_preview|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "app_packages=$(has '^(apps/|lib/|programs/|tools/(app_packages|import_every_app)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "gamepad=$(has '^(apps/gamepad/|lib/(touchkit|appkit)/|tests/(test_gamepad|gamepad_contract|_headless)\.py$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
           echo "perch=$(has '^(apps/perch/|tests/(test_perch|perch_contract|perch_drawings|_headless)\.py$|tests/perch_drawings\.golden$|\.github/workflows/tests\.yml$)')" >> "$GITHUB_OUTPUT"
@@ -530,6 +533,32 @@ jobs:
 
       - name: The camera program's tests
         run: python -m unittest tests.test_camera -v
+
+  # Camera and Detect on a 240 x 240 display with no window, against a
+  # stand-in camera: the picture reaches the screen on a panel with no
+  # framebuffer (an SPI panel) and on one with a framebuffer.
+  camera_apps:
+    needs: scope
+    if: needs.scope.outputs.camera_apps == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Install LVGL and pygraphics for CPython
+        run: |
+          sudo apt-get update && sudo apt-get install -y libsdl2-2.0-0
+          python -m pip install "omnipython-lvgl>=9.6.1.dev1" "omnipython-desktop>=0.8.1.dev4" "omnipython>=0.8.0.dev21" "omnipython-pygraphics>=0.1.7.dev0"
+
+      - name: Camera and Detect's previews
+        env:
+          SDL_VIDEODRIVER: dummy
+          CAMERA_PREVIEW_REQUIRE: "1"
+        run: python -m unittest tests.test_camera_preview -v
 
   # Vamp's engine check and link contract, the sound module's contract and
   # Stompbox's meter check, on CPython and unix MicroPython, each with its
