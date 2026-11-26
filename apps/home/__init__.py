@@ -18,6 +18,12 @@ An app hidden from an app's can't-run screen (``Launcher.hide``) stays off
 the pages. The Hidden apps app lists them, with the reason each gave, and
 puts them back.
 
+A title too long for its tile takes a second line where the tile has room
+for one, broken at a space or a hyphen; a single word too long for the tile
+is cut short with dots. A small tile with room for a 48 px icon over its two
+lines shows one, as large tiles do, so a 480x320 screen gets them; a smaller
+tile keeps the 24 px icon.
+
 On a round screen (see ``appkit.shell.is_round``) the pages and their tabs
 fill the square inside the circle, two apps by two, so nothing falls
 outside the circle.
@@ -34,6 +40,9 @@ from touchkit import ui
 DEFAULT_COLOR = "#44505E"
 
 LARGE_PAD = 4  # least space between the large layout's icon or title and the tile's edge
+BIG_ICON = 48  # the large layout's icon, and a small tile's when it has the room
+SMALL_ICON = 24
+SMALL_PAD = 2  # a small tile's padding
 COLS, ROWS = 4, 2
 GAP = 12
 TOP = 56
@@ -70,6 +79,19 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
     card.add_flag(lv.obj.FLAG.EVENT_BUBBLE)  # a swipe on the card still turns the page
     w = (cw - (cols + 1) * gap) // cols
     h = (ch - (rows + 1) * gap) // rows
+    if small:
+        # Icon and title stacked and centred as one, the title given two lines'
+        # room where the tile has it; the larger icon where there's room for
+        # that too, so every icon in a row lines up whatever its title.
+        lh = ui.tiny.line_height
+        inner = h - 2 * SMALL_PAD
+        lines = 2 if inner >= SMALL_ICON + LARGE_PAD + 2 * lh else 1
+        size = BIG_ICON if lines == 2 and w >= 2 * BIG_ICON and inner >= BIG_ICON + 2 * LARGE_PAD + 2 * lh else SMALL_ICON
+        top = (inner - size - LARGE_PAD - lines * lh) // 2
+    else:
+        lh = ui.font.line_height
+        # The title's first line sits 40 px below the middle; a second goes under it.
+        lines = 2 if h // 2 >= 40 + lh + LARGE_PAD else 1
     for i, (name, icon_name, color) in enumerate(apps[: cols * rows]):
         col, row = i % cols, i // cols
         b = lv.button(card)
@@ -79,21 +101,64 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
         title = launcher.info.get(name, {}).get("title", name)
         if small:
             b.set_style_radius(10, 0)
-            b.set_style_pad_all(2, 0)
-            icon = lvicons.image(b, icon_name, 24, ui.WHITE)
-            icon.align(lv.ALIGN.CENTER, 0, -ui.tiny.line_height // 2)
-            lbl = ui.label(b, title, ui.tiny, ui.WHITE)
+            b.set_style_pad_all(SMALL_PAD, 0)
+            icon = lvicons.image(b, icon_name, size, ui.WHITE)
+            text = wrap(title, ui.tiny, w - 2 * SMALL_PAD) if lines == 2 else title
+            lbl = ui.label(b, text, ui.tiny, ui.WHITE)
             lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
-            lbl.set_size(w - 4, ui.tiny.line_height)  # a fixed height is what lets DOTS cut a long title
+            # A fixed height is what lets DOTS cut a long title.
+            lbl.set_size(w - 2 * SMALL_PAD, lh * (2 if "\n" in text else 1))
             lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-            lbl.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+            if lines == 1:
+                icon.align(lv.ALIGN.CENTER, 0, -lh // 2)
+                lbl.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+            else:
+                icon.align(lv.ALIGN.TOP_MID, 0, top)
+                lbl.align(lv.ALIGN.TOP_MID, 0, top + size + LARGE_PAD)
         else:
             b.set_style_radius(18, 0)
-            icon = lvicons.image(b, icon_name, 48, ui.WHITE)
+            icon = lvicons.image(b, icon_name, BIG_ICON, ui.WHITE)
             icon.align(lv.ALIGN.CENTER, 0, -22)
-            lbl = ui.label(b, title, ui.font, ui.WHITE)
-            lbl.align(lv.ALIGN.CENTER, 0, 40)
+            width = w - 2 * LARGE_PAD
+            text = wrap(title, ui.font, width) if lines == 2 else title
+            two = "\n" in text
+            lbl = ui.label(b, text, ui.font, ui.WHITE)
+            lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
+            lbl.set_size(width, lh * (2 if two else 1))
+            lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+            lbl.align(lv.ALIGN.CENTER, 0, 40 + (lh // 2 if two else 0))
         b.add_event_cb((lambda n: lambda e: scope.switch(n))(name), lv.EVENT.CLICKED, None)
+
+
+def text_width(text, font):
+    """How wide *text* draws in *font*, in pixels."""
+    n = len(text.encode())  # LVGL counts bytes
+    try:
+        attrs = lv.text_attributes_t()
+        attrs.init()
+        return lv.text_get_width(text, n, font, attrs)
+    except AttributeError:  # LVGL before 9.4 takes the letter spacing itself
+        return lv.text_get_width(text, n, font, 0)
+
+
+def wrap(title, font, width):
+    """*title* as a tile *width* pixels wide shows it in *font*: as it is when
+    it fits on one line, else broken into two at the last space or hyphen
+    that lets the first line fit. A title with no such break comes back as
+    it is, for the label to cut short."""
+    if text_width(title, font) <= width:
+        return title
+    best = None
+    for i, ch in enumerate(title):
+        if ch == " ":
+            head, tail = title[:i], title[i + 1:]
+        elif ch == "-":
+            head, tail = title[: i + 1], title[i + 1:]
+        else:
+            continue
+        if head.strip() and tail.strip() and text_width(head, font) <= width:
+            best = head + "\n" + tail
+    return title if best is None else best
 
 
 def _tile(name, entry):

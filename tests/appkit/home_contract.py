@@ -8,7 +8,9 @@ TouchShell, on a 480x320 screen with the status bar, as on a board. Home has
 a tab per category, the tabs as tall as the bar, and the Home icon as its
 title with nothing else on the bar; the board's own apps (Info, Settings,
 Hidden apps, the REPL and the Shell) are on the System page and Gamepad on
-Games. Settings saves the board's name through boarddev, and Wi-Fi power
+Games. Each tile's title takes a second line, broken at a space or a hyphen,
+when it's too long for one, and the tiles have 48 px icons, where a smaller
+screen's keep 24 px. Settings saves the board's name through boarddev, and Wi-Fi power
 saving through a stand-in for wifi_manager, saying when it's the default.
 
     APPKIT_DATA=/tmp/home python tests/appkit/home_contract.py
@@ -157,7 +159,31 @@ def _plant_no_category():
     home._pages = lambda info, hidden=(): [("More", [t for _, tiles in real(info, hidden) for t in tiles])]
 
 
+def _plant_one_line():
+    # A long title is cut short on one line, as before.
+    home.wrap = lambda title, font, width: title
+
+
+def _plant_every_space():
+    # Every space breaks the line, so a title that fits still takes two.
+    home.wrap = lambda title, font, width: title.replace(" ", "\n", 1)
+
+
+def _plant_small_icon():
+    # The tiles keep their 24 px icons with room for more.
+    home.BIG_ICON = 24
+
+
+def _plant_big_everywhere():
+    # A small screen's tiles take the large icon too.
+    home.SMALL_ICON = 48
+
+
 PLANTS = {
+    "one_line": _plant_one_line,
+    "every_space": _plant_every_space,
+    "small_icon": _plant_small_icon,
+    "big_everywhere": _plant_big_everywhere,
     "tall_tabs": _plant_tall_tabs,
     "home_word": _plant_home_word,
     "name_not_saved": _plant_name_not_saved,
@@ -277,6 +303,48 @@ def page_of(category):
     return [t for t in texts(page)]
 
 
+def tiles_of(category):
+    """``[(button, icon, label), ...]`` for *category*'s tiles."""
+    if tv is None or category not in names:
+        return []
+    page = tv.get_content().get_child(names.index(category))
+    out = []
+    for b in walk(page, lv.button_class):
+        imgs, lbls = walk(b, lv.image_class), walk(b, lv.label_class)
+        if imgs and lbls:
+            out.append((b, imgs[0], lbls[0]))
+    return out
+
+
+def inside(inner, outer):
+    x, y, w, h = coords(inner)
+    ox, oy, ow, oh = coords(outer)
+    return ox <= x and oy <= y and x + w <= ox + ow and y + h <= oy + oh
+
+
+# -- the tiles: titles on two lines, larger icons ---------------------------------
+
+audio = {lbl.get_text(): (b, img, lbl) for b, img, lbl in tiles_of("Audio")}
+check(audio.get("Bluetooth\nReceiver") is not None and audio.get("MIDI\nController") is not None,
+      "a title too long for its tile breaks at its space onto a second line: %r" % (sorted(audio),))
+check("Spotify" in audio and "MP3 player" in audio, "a title that fits stays on one line: %r" % (sorted(audio),))
+for b, img, lbl in [t for c in names for t in tiles_of(c)]:
+    lines = lbl.get_text().count("\n") + 1
+    font_h = lbl.get_style_text_font(0).line_height
+    if lines > 2 or coords(lbl)[3] > 2 * font_h:
+        check(False, "no title takes more than two lines: %r" % (lbl.get_text(),))
+        break
+    if not inside(lbl, b) or not inside(img, b):
+        check(False, "each tile's icon and title are inside it: %r" % (lbl.get_text(),))
+        break
+    if coords(img)[1] + coords(img)[3] > coords(lbl)[1]:
+        check(False, "each icon is above its title: %r" % (lbl.get_text(),))
+        break
+sizes = sorted(set(coords(img)[2] for _, img, _ in tiles_of("Audio")))
+check(sizes == [48], "the tiles at 480x320 have 48 px icons: %r" % (sizes,))
+row = [coords(img)[1] for _, img, _ in tiles_of("Audio")[:4]]
+check(len(set(row)) == 1, "the icons in a row line up, whatever their titles: %r" % (row,))
+
 system = page_of("System")
 check(all(t in system for t in ("Info", "Settings", "Hidden apps")),
       "Info, Settings and Hidden apps are on the System page: %r" % (system,))
@@ -395,6 +463,35 @@ import apps.system  # noqa: E402
 
 check(not hasattr(apps.info, "_power_save_switch"), "Info has no power saving switch: Settings has the one")
 check(apps.system.stats is apps.info.stats and apps.system.main is apps.info.main, "apps.system answers as apps.info")
+
+# -- a smaller screen's tiles ----------------------------------------------------------
+
+# The launcher unloaded Home when it stopped: this import is a fresh copy,
+# so a plant on the tiles goes in again.
+import apps.home as home  # noqa: E402
+
+if plant in ("one_line", "every_space", "small_icon", "big_everywhere"):
+    PLANTS[plant]()
+# A 320x240 screen's page, as Home lays it out: four by two tiles of 68x87.
+small_page = lv.obj(lv.screen_active())
+small_page.set_size(320, 240)
+
+
+class _Scope:
+    launcher = la
+
+    def switch(self, name):
+        pass
+
+
+home._grid(_Scope(), small_page, 304, 192, sorted(t for _, ts in home._pages(la.info) for t in ts)[:8])
+sizes = sorted(set(coords(img)[2] for img in walk(small_page, lv.image_class)))
+check(sizes == [24], "a smaller screen's tiles keep 24 px icons: %r" % (sizes,))
+check(home.wrap("Walkie-talkie", lv.font_montserrat_14, 60) == "Walkie-\ntalkie",
+      "a hyphen is a place to break, and stays on the first line: %r" % (home.wrap("Walkie-talkie", lv.font_montserrat_14, 60),))
+check(home.wrap("Supercalifragilistic", lv.font_montserrat_14, 60) == "Supercalifragilistic",
+      "a single word too long for the tile isn't broken: it's cut short")
+small_page.delete()
 
 print("%d checks, %d failed" % (checks[0], len(failures)))
 sys.exit(1 if failures else 0)

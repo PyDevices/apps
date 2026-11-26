@@ -15,7 +15,8 @@ import unittest
 from _harness import TESTS, need_micropython, run
 
 CONTRACT = TESTS / "home_contract.py"
-PLANTS = ("tall_tabs", "home_word", "name_not_saved", "no_category", "why_unsaid")
+PLANTS = ("tall_tabs", "home_word", "name_not_saved", "no_category", "why_unsaid",
+          "one_line", "every_space", "small_icon", "big_everywhere")
 
 
 def _run(case, interpreter, plant=None):
