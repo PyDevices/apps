@@ -91,11 +91,21 @@ class Shell:
         from .bar import Bar
 
         connections.register()
+        connections.name_page(self.page_name)
         launcher = self.launcher
         on_home = None
         if launcher.home is not None:
             on_home = lambda: launcher.request(launcher.home)  # noqa: E731
         return Bar(on_home=on_home, on_picker=self.open_picker)
+
+    def page_name(self):
+        """What the page's other tabs call this one: the running app's title,
+        or "Home"."""
+        launcher = self.launcher
+        name = getattr(launcher, "current", None)
+        if name is None or name == launcher.home:
+            return "Home"
+        return getattr(launcher, "info", {}).get(name, {}).get("title", name)
 
     def make_host_keys(self):
         """A keyboard on the board's USB host port types into the focused

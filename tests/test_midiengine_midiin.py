@@ -45,13 +45,15 @@ class _Port:
 
 
 class BrowserTests(unittest.TestCase):
-    def _open(self, chosen):
-        provider = object()
+    def _open(self, chosen, tabs=False, from_tab=False):
+        provider, tab_provider = object(), object()
         merged = _Port()
         merged.provider = provider
+        merged.providers = [provider, tab_provider]
         pages = []
         kit = types.ModuleType("endpointkit")
-        kit.selected = lambda kind: [types.SimpleNamespace(provider=provider, label=label) for label in chosen]
+        by = tab_provider if from_tab else provider
+        kit.selected = lambda kind: [types.SimpleNamespace(provider=by, label=label) for label in chosen]
         endpoints = types.ModuleType("midiports.endpoints")
         endpoints.merged_in = lambda: merged
         webmidi = types.ModuleType("midiports.webmidi")
@@ -66,6 +68,10 @@ class BrowserTests(unittest.TestCase):
         ports.endpoints, ports.webmidi = endpoints, webmidi
         modules = {"endpointkit": kit, "midiports": ports, "midiports.endpoints": endpoints,
                    "midiports.webmidi": webmidi}
+        if tabs:
+            other = types.ModuleType("midiports.tabs")
+            other.page_in = lambda: _Port(b"\xb0\x07\x64")
+            ports.tabs = modules["midiports.tabs"] = other
         with mock.patch.dict(sys.modules, modules), \
                 mock.patch.object(midiin, "sys", types.SimpleNamespace(platform="webassembly")):
             found = midiin.open_desktop()
@@ -75,6 +81,20 @@ class BrowserTests(unittest.TestCase):
         (port, names), merged, pages = self._open(["Keys", "Pads"])
         self.assertIs(port, merged)
         self.assertEqual((names, pages), ("Keys + Pads", []))
+
+    def test_an_input_from_another_tab_counts_as_chosen(self):
+        (port, names), merged, pages = self._open(["Tab: MIDI Controller"], tabs=True, from_tab=True)
+        self.assertIs(port, merged)
+        self.assertEqual(names, "Tab: MIDI Controller")
+
+    def test_until_some_are_chosen_it_hears_the_other_tabs_too(self):
+        (port, names), merged, pages = self._open([], tabs=True)
+        self.assertEqual(names, "Web MIDI and other tabs")
+        got = b""
+        for _ in range(3):
+            got += port.read() or b""
+        self.assertIn(b"\xb0\x07\x64", got)
+        self.assertIn(b"\x90\x3c\x64", got)
 
     def test_until_some_are_chosen_it_reads_every_input(self):
         (port, names), merged, pages = self._open([])

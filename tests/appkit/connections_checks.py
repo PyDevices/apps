@@ -73,6 +73,8 @@ elif PLANT == "never_starts_usb_host":
     connections._usb_host_start = _never_starts
 elif PLANT == "browser_gets_nothing":
     connections.WEB_PROVIDERS = ()
+elif PLANT == "unnamed_tabs":
+    connections.name_page = lambda name_of: None
 elif PLANT == "noisy_absence":
     def _usb_raises(registry):
         import usb.core
@@ -348,12 +350,18 @@ class _WebMidi:
         _WebMidi.registered.append(registry)
 
 
+class _Tabs:
+    name_of = None
+
+
 class _Midiports:
     endpoints = _WebMidi
+    tabs = _Tabs
 
 
 sys.modules["midiports"] = _Midiports
 sys.modules["midiports.endpoints"] = _WebMidi
+sys.modules["midiports.tabs"] = _Tabs
 real_sys, real_wifi = connections.sys, connections._wifi
 connections.sys = _Browser
 connections._wifi = lambda: False
@@ -363,9 +371,15 @@ names = connections.register(reg)
 check("midiports" in names, "a browser registers Web MIDI's ports: %r" % (names,))
 check(_WebMidi.registered == [reg], "in the registry it was given: %r" % (_WebMidi.registered,))
 check("audiodev" not in names and "usb.host" not in names, "and none of a board's: %r" % (names,))
+_title = lambda: "Synth Station"  # noqa: E731
+connections.name_page(_title)
+check(_Tabs.name_of is _title, "the other tabs hear this one's name")
 connections.sys, connections._wifi = real_sys, real_wifi
+connections.name_page(lambda: "elsewhere")
+check(_Tabs.name_of is _title, "away from a browser, nothing is named")
 del sys.modules["midiports"]
 del sys.modules["midiports.endpoints"]
+del sys.modules["midiports.tabs"]
 
 if FAILS:
     print("%d checks failed" % len(FAILS))
