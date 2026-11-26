@@ -13,9 +13,12 @@ from .picker import Picker
 from .scope import AppScope
 
 ROUND_MARGIN: int
+SMALL: int
 
 def is_round() -> bool:
     """Whether the default display is a round panel."""
+def is_small() -> bool:
+    """Whether the default display is too small for a grid of app tiles."""
 def round_corner(size: int, d: int, margin: int = ...) -> tuple[int, int]:
     """`(x, y)` of the top left of a `d`-pixel circle at the top right of a round screen `size` pixels across."""
 

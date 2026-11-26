@@ -475,5 +475,31 @@ class ContractTest(unittest.TestCase):
             self.assertIn("FAILED:", done.stdout, plant + " was not caught\n" + done.stdout + done.stderr)
 
 
+class BoardClockTest(unittest.TestCase):
+    """The network's time goes to the board's clock chip, where it has one."""
+
+    def _sync(self, board):
+        forecast, fakes = _forecast()
+        lt = forecast.localtime
+        fakes["appkit"].net.sets_clock.return_value = True
+        lt.net = fakes["appkit"].net
+        with mock.patch.dict(sys.modules, {"board_config": board}):
+            self.assertTrue(lt.sync())
+
+    def test_a_board_with_a_clock_chip_has_it_set(self):
+        rtc = mock.MagicMock()
+        board = mock.MagicMock(PERIPHERALS=frozenset({"rtc"}), rtc=rtc)
+        self._sync(board)
+        rtc.datetime.assert_called_once()
+        t = rtc.datetime.call_args[0][0]
+        self.assertEqual(len(t), 8)
+        self.assertEqual(t[0], time.gmtime()[0])
+
+    def test_a_board_without_one_is_left_alone(self):
+        board = mock.MagicMock(PERIPHERALS=frozenset())
+        self._sync(board)
+        board.rtc.datetime.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()

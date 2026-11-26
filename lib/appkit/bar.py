@@ -196,6 +196,13 @@ def _battery_percent(source):
     return max(0, min(100, int((v - 3.3) * 100 / 0.9)))
 
 
+def battery_percent(source):
+    """*source*'s charge in percent, as the bar shows it: from a fuel
+    gauge's ``percent``, or a single LiPo cell's ``voltage``. None with no
+    battery."""
+    return _battery_percent(source)
+
+
 def battery_item(source):
     """The battery from *source*, the board's ``battery()`` (a gauge with a
     ``percent`` property or an ADC with ``voltage``); hidden while it reads none."""

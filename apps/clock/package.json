@@ -9,10 +9,6 @@
     [
       "app.json",
       "app.json"
-    ],
-    [
-      "face.py",
-      "face.py"
     ]
   ],
   "deps": [

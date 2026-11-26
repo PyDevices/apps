@@ -23,6 +23,8 @@ def parse_ip_place(reply: dict[str, Any]) -> dict[str, Any] | None:
     """Return the place an ipwho.is reply points at, for Weather to start on."""
 def follow_ip_zone() -> bool:
     """Take the timezone, and Weather's place until one is chosen, from the board's public IP address."""
+def keep_board_clock() -> None:
+    """Copy the clock to the board's own clock chip (its `rtc` role), where it has one."""
 def resync_if_due() -> None:
     """Set the clock, the timezone and the place from the IP when the clock is unset or a day has passed."""
 def network_moved() -> None:
