@@ -34,8 +34,8 @@ class Shell:
         """What reads a keyboard on the board's USB host port, made once, or None without one."""
     def bar_mode(self, scope: AppScope) -> str:
         """What the app's `app.json` asks for: "shell", "own" or "none"."""
-    def home_title(self) -> str:
-        """What the bar says on the home screen: "Home"."""
+    def home_title(self) -> str | None:
+        """What the bar says on the home screen: None for the Home icon, or text."""
     def make_home_button(self) -> Any:
         """The Home button, made once: an LVGL object, or None for no button."""
     def open_picker(self, kind: str | None = None) -> Picker:

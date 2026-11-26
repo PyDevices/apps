@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The status bar: the clock, the network, Bluetooth, the battery and the audio output."""
+"""The status bar: Home and the title at the left; the connections button, the clock, the network and the rest from the right."""
 
 from collections.abc import Callable
 from typing import Any
@@ -63,6 +63,7 @@ class Bar:
     status_below: bool
     header: Any
     title: Any
+    title_icon: Any
     status_line: Any
     under: Any
     group: Any
@@ -81,8 +82,8 @@ class Bar:
         items: list[Item] | None = None,
         tick_ms: int = ...,
     ) -> None: ...
-    def open(self, title: str, status: bool = True) -> tuple[Any, Any]:
-        """Set the bar up for the app being opened: its title, and a fresh status line."""
+    def open(self, title: str, status: bool = True, icon: str | None = None) -> tuple[Any, Any]:
+        """Set the bar up for the app being opened: its title after `icon`, and a fresh status line."""
     def status_row(self) -> Any:
         """The status line in its row under the bar, made when the app first asks; the area makes room at once."""
     def chrome_height(self) -> int:
@@ -94,7 +95,7 @@ class Bar:
     def remove(self, name: str) -> None:
         """Take the item called `name` off the bar."""
     def status(self) -> list[tuple[str, str | None, str | None]]:
-        """`(name, icon, text)` for each item showing something."""
+        """`(name, icon, text)` for each item showing something, in the order added."""
     def tick(self) -> None:
         """Poll endpointkit and redraw what changed."""
     def is_shown(self) -> bool: ...

@@ -10,11 +10,12 @@
   the compact cap, which has no room for a title, the app gets a short
   row of its own below the cap instead, with Home at its left; on a round
   screen the row starts and ends inside the circle (`round_row`). An app whose ``app.json`` says ``"bar": "none"``
-  gets the whole screen, with a Home button on LVGL's system layer, where it
-  never presses the app's own widgets. Without the bar (``bar=False``) every
+  gets the whole screen, with a square glass Home button (`appkit.glass`)
+  on LVGL's system layer, where the app shows through it and it never
+  presses the app's own widgets. Without the bar (``bar=False``) every
   app gets the header with that Home button at its left. The board's BOOT
   button goes home too, through a pin interrupt.
-* `TouchLauncher` keeps a short history of switches for System,
+* `TouchLauncher` keeps a short history of switches for Info,
   and takes the USB sound card off when the next app isn't one that plays
   through it, so the PC goes back to its own speakers.
 
@@ -26,9 +27,10 @@ import gc
 
 import lvgl as lv
 import multimer
+from icons import lvgl as lvicons
 from multimer import ticks_diff, ticks_ms
 
-from appkit import Launcher, Shell, foreground
+from appkit import Launcher, Shell, foreground, glass
 from appkit import shell as appshell
 
 from . import ui
@@ -112,28 +114,37 @@ class TouchShell(Shell):
             self._boot_button()
 
     def make_home_button(self):
-        b = lv.button(lv.layer_sys())
-        if _under_cap(self) and appshell.is_round():
-            # The corners are outside the circle: at the left of the title
-            # row, inside it.
-            x0, _ = round_row(lv.display_get_default().get_horizontal_resolution(), CAP_ROW)
-            b.set_size(CAP_HOME_W, _cap_title_row() - 2)
-            b.set_pos(x0, CAP_ROW + 1)
-            b.set_ext_click_area(4)
-        elif _under_cap(self):
-            # Beside the cap, in its row: the icon alone.
-            b.set_size(CAP_HOME_W, CAP_ROW - 4)
-            b.set_pos(4, 2)
-            b.set_ext_click_area(4)
-        else:
+        if getattr(self, "bar", None) is None:
+            # In the header, at its left, beside the title.
+            b = lv.button(lv.layer_sys())
             b.set_size(ui.HOME_W, ui.HEADER - 12)
             b.set_pos(6, 6)
-        b.set_style_bg_color(lv.color_hex(0x2A3550), 0)
-        b.set_style_radius(12, 0)
-        lbl = lv.label(b)
-        lbl.set_text(lv.SYMBOL.HOME if _under_cap(self) else lv.SYMBOL.HOME + "  Home")
-        lbl.set_style_text_font(ui.font, 0)
-        lbl.center()
+            b.set_style_bg_color(ui.KEY, 0)
+            b.set_style_radius(12, 0)
+            # The Home icon, as on the bar's Home button.
+            lvicons.image(b, "home", 24, ui.WHITE).center()
+        elif _under_cap(self):
+            # In the cap's row: glass, so an app with the whole screen shows
+            # through it, the icon alone.
+            b = glass.button(lv.layer_sys(), "home", CAP_HOME_W, 12)
+            b.set_ext_click_area(4)
+            if appshell.is_round():
+                # The corners are outside the circle: at the left of the
+                # title row, inside it.
+                x0, _ = round_row(lv.display_get_default().get_horizontal_resolution(), CAP_ROW)
+                b.set_size(CAP_HOME_W, _cap_title_row() - 2)
+                b.set_pos(x0, CAP_ROW + 1)
+            else:
+                # Beside the cap.
+                b.set_size(CAP_HOME_W, CAP_ROW - 4)
+                b.set_pos(4, 2)
+        else:
+            # Over an app that takes the whole screen: a square of glass,
+            # which the app shows through, as Huey's Perch's controls do.
+            disp = lv.display_get_default()
+            side = glass.side(disp.get_horizontal_resolution(), disp.get_vertical_resolution())
+            b = glass.button(lv.layer_sys(), "home", side)
+            b.set_pos(8, 8)
         launcher = self.launcher
         b.add_event_cb(lambda e: go(launcher.home), lv.EVENT.CLICKED, None)
         return b

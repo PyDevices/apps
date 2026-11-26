@@ -70,7 +70,8 @@
     "touchkit": {
       "deps": [
         "appkit",
-        "deskkit"
+        "deskkit",
+        "icons"
       ],
       "upstream": [],
       "circuitpython": []

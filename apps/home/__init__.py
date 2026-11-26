@@ -1,41 +1,51 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""Home: the apps on pages, one page per category, and one app behind the gear.
+"""Home: the apps on pages, one page per category, with a tab for each.
 
 Each app says what it is in its ``app.json``: ``category`` (its page), ``icon``
-(a Material Symbols name from the icons package, required), ``color`` (a "#RRGGBB" tile colour), ``tile`` (false to
-keep it off the pages) and ``gear`` (true for the app the gear button opens).
-Pages come in alphabetical order by category. An app with no category gets a
-page of its own, "More", last. Home knows no app by name.
+(a Material Symbols name from the icons package, required), ``color`` (a "#RRGGBB" tile colour) and ``tile`` (false to
+keep it off the pages). Pages come in alphabetical order by category. An app
+with no category gets a page of its own, "More", last. Home knows no app by
+name: the board's own apps (Info, Settings, Hidden apps, the REPL) are on the
+System page because their ``app.json`` says so.
 
 A tap on a tab switches pages at once; a swipe across the page slides to
-the next one. Home comes back to the tab it was last on.
+the next one. Home comes back to the tab it was last on. The tabs are as
+tall as the status bar.
 
 An app hidden from an app's can't-run screen (``Launcher.hide``) stays off
-the pages. While any are hidden, a button beside the gear (a long press on
-the gear on a round screen) opens the Hidden apps page: each one with the
-reason it gave, and an Unhide button.
+the pages. The Hidden apps app lists them, with the reason each gave, and
+puts them back.
+
+A title too long for its tile takes a second line where the tile has room
+for one, broken at a space or a hyphen; a single word too long for the tile
+is cut short with dots. A small tile with room for a 48 px icon over its two
+lines shows one, as large tiles do, so a 480x320 screen gets them; a smaller
+tile keeps the 24 px icon.
 
 On a round screen (see ``appkit.shell.is_round``) the pages and their tabs
-fill the square inside the circle, two apps by two, and the gear sits
-centred above them, so nothing falls outside the circle.
+fill the square inside the circle, two apps by two, so nothing falls
+outside the circle.
 """
 
 import lvgl as lv
 
 import icons
 from icons import lvgl as lvicons
+from appkit.bar import height_for
 from appkit.shell import ROUND_MARGIN, is_round
 from touchkit import ui
 
 DEFAULT_COLOR = "#44505E"
 
 LARGE_PAD = 4  # least space between the large layout's icon or title and the tile's edge
+BIG_ICON = 48  # the large layout's icon, and a small tile's when it has the room
+SMALL_ICON = 24
+SMALL_PAD = 2  # a small tile's padding
 COLS, ROWS = 4, 2
 GAP = 12
 TOP = 56
-TAB_BAR = 56
 MARGIN = 8  # around each page's card
 CARD = 0x121826  # a shade lighter than the screen
 LINE = 0x2A3550  # the card's border and the tab bar's top edge
@@ -69,6 +79,19 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
     card.add_flag(lv.obj.FLAG.EVENT_BUBBLE)  # a swipe on the card still turns the page
     w = (cw - (cols + 1) * gap) // cols
     h = (ch - (rows + 1) * gap) // rows
+    if small:
+        # Icon and title stacked and centred as one, the title given two lines'
+        # room where the tile has it; the larger icon where there's room for
+        # that too, so every icon in a row lines up whatever its title.
+        lh = ui.tiny.line_height
+        inner = h - 2 * SMALL_PAD
+        lines = 2 if inner >= SMALL_ICON + LARGE_PAD + 2 * lh else 1
+        size = BIG_ICON if lines == 2 and w >= 2 * BIG_ICON and inner >= BIG_ICON + 2 * LARGE_PAD + 2 * lh else SMALL_ICON
+        top = (inner - size - LARGE_PAD - lines * lh) // 2
+    else:
+        lh = ui.font.line_height
+        # The title's first line sits 40 px below the middle; a second goes under it.
+        lines = 2 if h // 2 >= 40 + lh + LARGE_PAD else 1
     for i, (name, icon_name, color) in enumerate(apps[: cols * rows]):
         col, row = i % cols, i // cols
         b = lv.button(card)
@@ -78,21 +101,64 @@ def _grid(scope, page, cw, ch, apps, cols=COLS, rows=ROWS, small=False):
         title = launcher.info.get(name, {}).get("title", name)
         if small:
             b.set_style_radius(10, 0)
-            b.set_style_pad_all(2, 0)
-            icon = lvicons.image(b, icon_name, 24, ui.WHITE)
-            icon.align(lv.ALIGN.CENTER, 0, -ui.tiny.line_height // 2)
-            lbl = ui.label(b, title, ui.tiny, ui.WHITE)
+            b.set_style_pad_all(SMALL_PAD, 0)
+            icon = lvicons.image(b, icon_name, size, ui.WHITE)
+            text = wrap(title, ui.tiny, w - 2 * SMALL_PAD) if lines == 2 else title
+            lbl = ui.label(b, text, ui.tiny, ui.WHITE)
             lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
-            lbl.set_size(w - 4, ui.tiny.line_height)  # a fixed height is what lets DOTS cut a long title
+            # A fixed height is what lets DOTS cut a long title.
+            lbl.set_size(w - 2 * SMALL_PAD, lh * (2 if "\n" in text else 1))
             lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
-            lbl.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+            if lines == 1:
+                icon.align(lv.ALIGN.CENTER, 0, -lh // 2)
+                lbl.align(lv.ALIGN.BOTTOM_MID, 0, 0)
+            else:
+                icon.align(lv.ALIGN.TOP_MID, 0, top)
+                lbl.align(lv.ALIGN.TOP_MID, 0, top + size + LARGE_PAD)
         else:
             b.set_style_radius(18, 0)
-            icon = lvicons.image(b, icon_name, 48, ui.WHITE)
+            icon = lvicons.image(b, icon_name, BIG_ICON, ui.WHITE)
             icon.align(lv.ALIGN.CENTER, 0, -22)
-            lbl = ui.label(b, title, ui.font, ui.WHITE)
-            lbl.align(lv.ALIGN.CENTER, 0, 40)
+            width = w - 2 * LARGE_PAD
+            text = wrap(title, ui.font, width) if lines == 2 else title
+            two = "\n" in text
+            lbl = ui.label(b, text, ui.font, ui.WHITE)
+            lbl.set_long_mode(lv.label.LONG_MODE.DOTS)
+            lbl.set_size(width, lh * (2 if two else 1))
+            lbl.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+            lbl.align(lv.ALIGN.CENTER, 0, 40 + (lh // 2 if two else 0))
         b.add_event_cb((lambda n: lambda e: scope.switch(n))(name), lv.EVENT.CLICKED, None)
+
+
+def text_width(text, font):
+    """How wide *text* draws in *font*, in pixels."""
+    n = len(text.encode())  # LVGL counts bytes
+    try:
+        attrs = lv.text_attributes_t()
+        attrs.init()
+        return lv.text_get_width(text, n, font, attrs)
+    except AttributeError:  # LVGL before 9.4 takes the letter spacing itself
+        return lv.text_get_width(text, n, font, 0)
+
+
+def wrap(title, font, width):
+    """*title* as a tile *width* pixels wide shows it in *font*: as it is when
+    it fits on one line, else broken into two at the last space or hyphen
+    that lets the first line fit. A title with no such break comes back as
+    it is, for the label to cut short."""
+    if text_width(title, font) <= width:
+        return title
+    best = None
+    for i, ch in enumerate(title):
+        if ch == " ":
+            head, tail = title[:i], title[i + 1:]
+        elif ch == "-":
+            head, tail = title[: i + 1], title[i + 1:]
+        else:
+            continue
+        if head.strip() and tail.strip() and text_width(head, font) <= width:
+            best = head + "\n" + tail
+    return title if best is None else best
 
 
 def _tile(name, entry):
@@ -133,7 +199,7 @@ def _pages(info, hidden=()):
 def _below_cap(scope, title, right):
     """How far Home's own row has to move down to clear the status bar's
     compact cap, which floats at the top middle: 0 when the cap fits between
-    *title* and the buttons, which start at *right*, else the cap's height."""
+    *title* and *right*, else the cap's height."""
     cap = getattr(scope, "bar", None)
     if cap is None or not cap.compact or not cap.is_shown():
         return 0
@@ -146,15 +212,21 @@ def _below_cap(scope, title, right):
     return cap.root.get_y() + cap.root.get_height() + 4
 
 
+def tab_height(scope):
+    """How tall Home's tabs are: as tall as the status bar, or as the bar
+    would be on this screen when there's none or it's the compact cap."""
+    cap = getattr(scope, "bar", None)
+    if cap is not None and not cap.compact:
+        return cap.height
+    disp = lv.display_get_default()
+    return height_for(disp.get_horizontal_resolution(), disp.get_vertical_resolution())
+
+
 def main(scope):
     scr = scope.root
     W, H = scope.size
     kept = scope.store()
     info = scope.launcher.info
-    gear_app = None  # the app the gear opens: the one whose app.json says "gear": true
-    for name in scope.launcher.names:
-        if info.get(name, {}).get("gear"):
-            gear_app = name
     # Dark whether or not the shell put a dark theme on the display.
     scr.set_style_bg_color(ui.BG, 0)
     scr.set_style_bg_opa(lv.OPA.COVER, 0)
@@ -162,78 +234,24 @@ def main(scope):
     round_ = W == H and getattr(scope, "rect", (0, 0, W, H))[:2] == (0, 0) and is_round()
 
     if round_:
-        # The square inside the circle holds the pages and their tabs; the
-        # gear goes in the cap of the circle above it, centred, or below it
-        # when the status bar's cap is at the top.
+        # The square inside the circle holds the pages and their tabs.
         inner = W // 2 - ROUND_MARGIN
         side = int(inner * 1.4142) & ~1
         x0 = (W - side) // 2
         tab_bar = ui.small.line_height + 14
-        gear_w = 48
-        # As high as the circle is gear_w wide there, and down to the square.
-        gear_y = W // 2 - int((inner * inner - (gear_w // 2) ** 2) ** 0.5) + 1
-        gear_h = max(24, min(TOP - 12, x0 - gear_y - 2))
-        cap = getattr(scope, "bar", None)
-        if cap is not None and cap.compact and cap.is_shown():
-            gear_y = W - gear_y - gear_h  # the status bar's cap has the top: the bottom one
-    # With the status bar's header, its title says "Home" and the buttons
-    # below go on it: the pages take the whole area. Without it, Home draws
-    # its own row of TOP pixels.
+    else:
+        tab_bar = tab_height(scope)
+    # With the status bar's header, its title is the Home icon and the pages
+    # take the whole area. Without it, Home draws its own row of TOP pixels.
     header = None if round_ else getattr(scope, "header", None)
     top = 0 if header is not None else TOP
-    drop = 0  # how far Home's own row moves down, to clear the status bar's cap
     if not round_ and header is None:
-        title = ui.label(scr, "Home", ui.big, ui.ACCENT)
-        title.set_pos(GAP + 4, 14)
-        drop = _below_cap(scope, title, W - GAP - (64 + GAP) * ((gear_app is not None) + bool(scope.launcher.hidden())))
+        title = lvicons.image(scr, "home", 32, ui.ACCENT)
+        title.set_pos(GAP + 4, (TOP - 32) // 2)
+        drop = _below_cap(scope, title, W - GAP)
         if drop:
-            title.set_y(14 + drop)
+            title.set_y((TOP - 32) // 2 + drop)
             top += drop
-    if header is not None:
-        header.update_layout()
-        bh = header.get_height() - 4
-
-    if gear_app is not None:
-        gear = lv.button(scr)
-        gear.set_style_bg_color(lv.color_hex(0x44505E), 0)
-        if round_:
-            gear.set_size(gear_w, gear_h)
-            gear.set_pos((W - gear_w) // 2, gear_y)
-            gear.set_style_radius(gear_h // 2, 0)
-            gear.set_style_pad_all(0, 0)
-            lvicons.image(gear, "settings", 24, ui.WHITE).center()
-        elif header is not None:
-            gear.set_parent(header)
-            gear.set_size(56, bh)
-            gear.align(lv.ALIGN.RIGHT_MID, -4, 0)
-            gear.set_style_radius(bh // 2, 0)
-            gear.set_style_pad_all(0, 0)
-            lvicons.image(gear, "settings", 24, ui.WHITE).center()
-        else:
-            gear.set_size(64, TOP - 12)
-            gear.align(lv.ALIGN.TOP_RIGHT, -GAP, 6 + drop)
-            gear.set_style_radius(12, 0)
-            lvicons.image(gear, "settings", 24, ui.WHITE).center()
-        gear.add_event_cb(lambda e: scope.switch(gear_app), lv.EVENT.CLICKED, None)
-
-    hidden = scope.launcher.hidden()
-    if hidden:
-        if round_ and gear_app is not None:
-            gear.add_event_cb(lambda e: _hidden_page(scope, hidden), lv.EVENT.LONG_PRESSED, None)
-        elif not round_:
-            shown = lv.button(header or scr)
-            shown.set_style_bg_color(lv.color_hex(0x44505E), 0)
-            if header is not None:
-                shown.set_size(56, bh)
-                shown.align(lv.ALIGN.RIGHT_MID, -4 - (56 + 8 if gear_app is not None else 0), 0)
-                shown.set_style_radius(bh // 2, 0)
-                shown.set_style_pad_all(0, 0)
-            else:
-                shown.set_size(64, TOP - 12)
-                shown.align(lv.ALIGN.TOP_RIGHT, -GAP - (64 + GAP if gear_app is not None else 0), 6 + drop)
-                shown.set_style_radius(12, 0)
-            lvicons.image(shown, "visibility_off", 24, ui.WHITE).center()
-            shown.add_event_cb(lambda e: _hidden_page(scope, hidden), lv.EVENT.CLICKED, None)
 
     tv = lv.tabview(scr)
     if round_:
@@ -243,11 +261,11 @@ def main(scope):
         tv.set_pos(0, top)
         tv.set_size(W, H - top)
     tv.set_tab_bar_position(lv.DIR.BOTTOM)
-    tv.set_tab_bar_size(tab_bar if round_ else TAB_BAR)
+    tv.set_tab_bar_size(tab_bar)
     tv.set_style_bg_color(ui.BG, 0)
     tv.get_content().set_style_bg_color(ui.BG, 0)
 
-    pages = _pages(info, hidden)
+    pages = _pages(info, scope.launcher.hidden())
     for name, apps in pages:
         page = tv.add_tab(name)
         page.set_style_pad_all(0, 0)
@@ -256,22 +274,28 @@ def main(scope):
         if round_:
             _grid(scope, page, side - 2 * MARGIN, side - tab_bar - 2 * MARGIN, apps, 2, 2, True)
         else:
-            _grid(scope, page, W - 2 * MARGIN, H - top - TAB_BAR - 2 * MARGIN, apps)
+            _grid(scope, page, W - 2 * MARGIN, H - top - tab_bar - 2 * MARGIN, apps)
 
     bar = tv.get_tab_bar()
-    tab_font = ui.font
     if round_:
         # Four labels share the square's width: the larger font if its tab is wide enough for "Video", else the smaller.
         tab_font = ui.small if side // max(1, len(pages)) >= 4 * ui.small.line_height else ui.tiny
+    else:
+        # The status bar's title font, or the largest that leaves the tab room.
+        tab_font = getattr(getattr(scope, "bar", None), "title_font", None)
+        if tab_font is None:
+            tab_font = ui.font if ui.font.line_height + 8 <= tab_bar else ui.small
     bar.set_style_bg_color(ui.PANEL, 0)
     bar.set_style_bg_opa(lv.OPA.COVER, 0)
     bar.set_style_border_side(lv.BORDER_SIDE.TOP, 0)
     bar.set_style_border_width(1, 0)
     bar.set_style_border_color(lv.color_hex(LINE), 0)
     on = lv.STATE.CHECKED
+    stripe = 3 if tab_bar < 40 else 4
     for i in range(bar.get_child_count()):
         t = bar.get_child(i)
         t.set_style_radius(0, 0)
+        t.set_style_pad_ver(0, 0)
         t.set_style_text_font(tab_font, 0)
         t.set_style_text_color(ui.MUTED, 0)
         t.set_style_bg_opa(lv.OPA.TRANSP, 0)
@@ -282,7 +306,7 @@ def main(scope):
         t.set_style_bg_color(lv.color_hex(TAB_ON), on)
         t.set_style_bg_opa(lv.OPA.COVER, on)
         t.set_style_border_side(lv.BORDER_SIDE.TOP, on)
-        t.set_style_border_width(4, on)
+        t.set_style_border_width(stripe, on)
         t.set_style_border_color(ui.ACCENT, on)
 
     tab = kept.get("tab", 0)
@@ -293,56 +317,3 @@ def main(scope):
         kept["tab"] = tv.get_tab_active()
 
     tv.add_event_cb(changed, lv.EVENT.VALUE_CHANGED, None)
-
-
-def _hidden_page(scope, hidden):
-    """The Hidden apps page over Home: each hidden app, the reason it gave and
-    an Unhide button. Back closes it; Home is drawn again if anything came back."""
-    W, H = scope.size
-    info = scope.launcher.info
-    page = ui.plain(lv.obj(scope.root))
-    page.set_size(W, H)
-    page.set_style_bg_color(ui.BG, 0)
-    page.set_style_bg_opa(lv.OPA.COVER, 0)
-    title = ui.label(page, "Hidden apps", ui.big, ui.ACCENT)
-    title.set_pos(GAP + 4, 14)
-    changed = []
-
-    def back():
-        if changed:
-            scope.switch(scope.launcher.home)  # the pages again, with the apps back
-        else:
-            page.delete_async()  # from its own button's callback
-
-    b, _ = ui.button(page, lv.SYMBOL.LEFT + "  Back", back, h=TOP - 12, color=ui.PANEL)
-    b.align(lv.ALIGN.TOP_RIGHT, -GAP, 6)
-    rows = lv.obj(page)
-    rows.set_pos(0, TOP)
-    rows.set_size(W, H - TOP)
-    rows.set_style_bg_opa(lv.OPA.TRANSP, 0)
-    rows.set_style_border_width(0, 0)
-    rows.set_style_pad_all(GAP, 0)
-    rows.set_style_pad_gap(GAP, 0)
-    rows.set_flex_flow(lv.FLEX_FLOW.COLUMN)
-    for name in sorted(hidden):
-        row = ui.plain(lv.obj(rows))
-        row.set_size(lv.pct(100), lv.SIZE_CONTENT)
-        row.set_style_bg_color(lv.color_hex(CARD), 0)
-        row.set_style_bg_opa(lv.OPA.COVER, 0)
-        row.set_style_radius(12, 0)
-        row.set_style_pad_all(GAP, 0)
-        text = ui.label(row, info.get(name, {}).get("title", name), ui.font, ui.WHITE)
-        text.set_pos(0, 0)
-        if hidden[name]:
-            why = ui.label(row, hidden[name], ui.small, ui.MUTED)
-            why.set_width(W - 4 * GAP - 140)
-            why.align_to(text, lv.ALIGN.OUT_BOTTOM_LEFT, 0, 4)
-
-        def unhide(name=name, row=row):
-            scope.launcher.unhide(name)
-            changed.append(name)
-            row.delete_async()  # from its own button's callback
-
-        u, _ = ui.button(row, "Unhide", unhide, w=120, color=ui.PANEL)
-        u.align(lv.ALIGN.RIGHT_MID, 0, 0)
-    return page

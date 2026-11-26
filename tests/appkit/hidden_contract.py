@@ -5,9 +5,9 @@
 
 The repository's own Home runs through a real Launcher beside Nowhere
 (`cant_run_app`), which shows touchkit's shared can't-run message as an
-app missing its hardware does. Its "Hide from Home" button takes it off Home's pages; Home's
-Hidden apps page lists it with its reason and puts it back. Run alone, with
-no home screen, it offers no Hide button.
+app missing its hardware does. Its "Hide from Home" button takes it off Home's pages; the
+Hidden apps app, always on Home's System page, lists it with its reason and
+puts it back. Run alone, with no home screen, it offers no Hide button.
 
     APPKIT_DATA=/tmp/hidden python tests/appkit/hidden_contract.py
     micropython tests/appkit/hidden_contract.py
@@ -71,8 +71,6 @@ from appkit import launcher as L  # noqa: E402
 from appkit.shell import Shell  # noqa: E402
 from appdev import App  # noqa: E402
 from touchkit import ui  # noqa: E402
-
-TOP = 48  # Home's top strip: the gear and the hidden-apps button sit in it
 
 # -- plants: each must make a check fail -------------------------------------
 
@@ -207,31 +205,31 @@ check(la.current == "nowhere" and "no radio for this" in texts(la.scope.root), "
 la.switch("home")
 settle()
 
-# The Hidden apps page, from the button beside the gear.
-top = [c for c in (la.scope.root.get_child(i) for i in range(la.scope.root.get_child_count()))
-       if c.check_type(lv.button_class) and coords(c)[1] < TOP]
-check(len(top) == 2, "with an app hidden, a button sits beside the gear: %d top buttons" % len(top))
-if len(top) == 2:
-    shown = min(top, key=lambda b: coords(b)[0])  # the gear is at the right
-    tap(shown)
-    settle()
+# The Hidden apps app, from its tile.
+tile = find(la.scope.root, "Hidden apps")
+check(tile is not None, "Home has a Hidden apps tile")
+if tile is not None:
+    tap(tile.get_parent())
+    wait_for(la, "hidden")
 on_page = texts(la.scope.root)
-check("Hidden apps" in on_page and "Nowhere" in on_page and "no radio for this" in on_page,
-      "the page lists the app with its reason: %r" % (on_page,))
+check(la.current == "hidden" and "Nowhere" in on_page and "no radio for this" in on_page,
+      "Hidden apps lists the app with its reason: %r" % (on_page,))
+check(not [t for t in on_page if t.endswith("Back")], "and has no Back button of its own: Home goes back")
 unhide = find(la.scope.root, "Unhide")
 if unhide is not None:
     tap(unhide.get_parent())
     settle()
 check(stored(la) == {}, "Unhide puts it back: %r" % (stored(la),))
-back = [lbl for t, lbl in labels(la.scope.root) if t.endswith("Back")]
-if back:
-    tap(back[0].get_parent())
-    until(lambda: "Hidden apps" not in texts(la.scope.root) and "Nowhere" in texts(la.scope.root))
-check("Nowhere" in texts(la.scope.root) and "Hidden apps" not in texts(la.scope.root),
-      "back on Home, the app has its tile again: %r" % ([t for t in texts(la.scope.root) if t in ("Nowhere", "Hidden apps")],))
-top = [c for c in (la.scope.root.get_child(i) for i in range(la.scope.root.get_child_count()))
-       if c.check_type(lv.button_class) and coords(c)[1] < TOP]
-check(len(top) == 1, "with nothing hidden, only the gear: %d top buttons" % len(top))
+check(find(la.scope.root, "Unhide") is None and any(t.startswith("No app is hidden") for t in texts(la.scope.root)),
+      "with the last one back, the app says none is hidden: %r" % (texts(la.scope.root),))
+la.switch("home")
+settle()
+check("Nowhere" in texts(la.scope.root) and "Hidden apps" in texts(la.scope.root),
+      "back on Home, the app has its tile again, and Hidden apps keeps its own")
+la.switch("hidden")
+settle()
+check(find(la.scope.root, "Unhide") is None and any(t.startswith("No app is hidden") for t in texts(la.scope.root)),
+      "opened with nothing hidden, it says so: %r" % (texts(la.scope.root),))
 la.stop()
 
 # -- run alone ------------------------------------------------------------------
