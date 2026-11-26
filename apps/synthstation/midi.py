@@ -74,7 +74,7 @@ class Inputs:
 
     ``kind`` is ``"usb"``, ``"device"``, ``"desktop"`` (a computer's ports,
     or the ones chosen for ``midi.in`` anywhere), ``"web"`` (every input a
-    browser offers) or None when there's nothing to open; ``why`` then says
+    browser offers, and the page's other tabs) or None when there's nothing to open; ``why`` then says
     why in a sentence. ``names()`` lists the
     devices heard now.
     """
@@ -161,7 +161,9 @@ class Inputs:
             port = endpoints.merged_in()
         except KeyError:  # the computer's MIDI ports aren't registered
             return False
-        chosen = [ep for ep in endpointkit.selected("midi.in") if ep.provider is port.provider]
+        # A browser's port reads the page's Web MIDI ports and the other tabs.
+        mine = getattr(port, "providers", (port.provider,))
+        chosen = [ep for ep in endpointkit.selected("midi.in") if ep.provider in mine]
         if not chosen:
             return False
         self.ports = [port]
@@ -215,6 +217,12 @@ class Inputs:
             self.why = "midiports isn't installed"
             return
         self.ports = [webmidi.page_in()]
+        try:
+            from midiports import tabs
+        except ImportError:  # a midiports from before the tabs
+            tabs = None
+        if tabs is not None:
+            self.ports.append(tabs.page_in())
         self.kind = "web"
 
     def set_ble(self, on, parser=None, name=BLE_NAME):
@@ -262,7 +270,7 @@ class Inputs:
         if self.kind == "usb":
             found = [_name(d) for d in getattr(self.ports[0], "devices", ())]
         elif self.kind == "web":
-            found = list(self.ports[0].names)
+            found = [name for port in self.ports for name in port.names]
         elif self.kind == "device":
             found = ["USB MIDI"]
         else:

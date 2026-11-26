@@ -60,12 +60,13 @@ class DeviceModeTests(unittest.TestCase):
 
 
 class BrowserTests(unittest.TestCase):
-    def _open(self, chosen):
-        provider = object()
-        merged = types.SimpleNamespace(provider=provider)
+    def _open(self, chosen, tabs=False, from_tab=False):
+        provider, tab_provider = object(), object()
+        merged = types.SimpleNamespace(provider=provider, providers=[provider, tab_provider])
         pages = []
         kit = types.ModuleType("endpointkit")
-        kit.selected = lambda kind: [types.SimpleNamespace(provider=provider, label=label) for label in chosen]
+        by = tab_provider if from_tab else provider
+        kit.selected = lambda kind: [types.SimpleNamespace(provider=by, label=label) for label in chosen]
         endpoints = types.ModuleType("midiports.endpoints")
         endpoints.merged_in = lambda: merged
         webmidi = types.ModuleType("midiports.webmidi")
@@ -75,6 +76,10 @@ class BrowserTests(unittest.TestCase):
         ports.endpoints, ports.webmidi = endpoints, webmidi
         modules = {"endpointkit": kit, "midiports": ports, "midiports.endpoints": endpoints,
                    "midiports.webmidi": webmidi}
+        if tabs:
+            other = types.ModuleType("midiports.tabs")
+            other.page_in = lambda: types.SimpleNamespace(names=["Tab: MIDI Controller"])
+            ports.tabs = modules["midiports.tabs"] = other
         with mock.patch.dict(sys.modules, modules), \
                 mock.patch.object(midi, "sys", types.SimpleNamespace(platform="webassembly")):
             inputs = Inputs().open()
@@ -88,6 +93,15 @@ class BrowserTests(unittest.TestCase):
     def test_until_some_are_chosen_it_reads_every_input(self):
         inputs, merged, pages = self._open([])
         self.assertEqual((inputs.kind, inputs.ports, pages), ("web", ["every input"], [""]))
+
+    def test_an_input_from_another_tab_counts_as_chosen(self):
+        inputs, merged, pages = self._open(["Tab: MIDI Controller"], tabs=True, from_tab=True)
+        self.assertEqual((inputs.ports, inputs.names()), ([merged], ["Tab: MIDI Controller"]))
+
+    def test_until_some_are_chosen_it_hears_the_other_tabs_too(self):
+        inputs, merged, pages = self._open([], tabs=True)
+        self.assertEqual((inputs.kind, len(inputs.ports)), ("web", 2))
+        self.assertEqual(inputs.ports[1].names, ["Tab: MIDI Controller"])
 
 
 if __name__ == "__main__":

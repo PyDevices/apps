@@ -107,7 +107,9 @@ def open_chosen():
         port = endpoints.merged_in()
     except KeyError:  # the computer's MIDI ports aren't registered
         return None
-    chosen = [ep for ep in endpointkit.selected("midi.in") if ep.provider is port.provider]
+    # A browser's port reads the page's Web MIDI ports and the other tabs.
+    mine = getattr(port, "providers", (port.provider,))
+    chosen = [ep for ep in endpointkit.selected("midi.in") if ep.provider in mine]
     if not chosen:
         return None
     return port, " + ".join(ep.label for ep in chosen)
@@ -119,7 +121,8 @@ def open_desktop():
     the first is as likely a software synth's as a keyboard's; None when it
     has none (or no ``midiports`` backend). The port reads like the merged
     hub port: ``any()``, ``read()``, ``close()``. A browser page is the
-    same, with every input Web MIDI offers until some are chosen."""
+    same, with every input Web MIDI offers and every other tab of the page
+    until some are chosen."""
     found = open_chosen()
     if found is not None:
         return found
@@ -128,7 +131,13 @@ def open_desktop():
             from midiports import webmidi
         except ImportError:
             return None
-        return Merged([webmidi.page_in()]), "Web MIDI"
+        ports = [webmidi.page_in()]
+        try:
+            from midiports import tabs
+        except ImportError:  # a midiports from before the tabs
+            return Merged(ports), "Web MIDI"
+        ports.append(tabs.page_in())
+        return Merged(ports), "Web MIDI and other tabs"
     if sys.platform.startswith("win"):
         from midiports import windows as mp
     elif sys.platform.startswith("linux"):

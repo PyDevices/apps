@@ -13,6 +13,9 @@ HOST_PROVIDERS: tuple[tuple[str, Callable[[Any], None]], ...]
 WEB_PROVIDERS: tuple[tuple[str, Callable[[Any], None]], ...]
 USB_HOST_APART: dict[str, bool]
 
+def name_page(name_of: Callable[[], str]) -> None:
+    """In a browser, what the page's other tabs call this one."""
+
 def register(registry: Any = None) -> list[str]:
     """Register the device's providers once; returns the names registered."""
 

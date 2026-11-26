@@ -177,6 +177,20 @@ HOST_PROVIDERS = (
 )
 
 
+def name_page(name_of):
+    """In a browser, have the page's other tabs call this one what
+    *name_of()* returns, asked each time they list it, so a picker there
+    offers "Tab: Synth Station". Does nothing anywhere else, or with a
+    midiports from before the tabs."""
+    if sys.platform not in BROWSERS:
+        return
+    try:
+        from midiports import tabs
+    except ImportError:
+        return
+    tabs.name_of = name_of
+
+
 def register(registry=None):
     """Register the device's providers in *registry* (endpointkit's own when
     None), once; later calls do nothing. Returns the names registered.

@@ -30,6 +30,8 @@ class Shell:
     def __init__(self, launcher: Launcher, *, data_root: str | None = None, bar: bool = False) -> None: ...
     def make_bar(self) -> Bar:
         """The status bar, made once, with Home on it when there's a home screen."""
+    def page_name(self) -> str:
+        """What the page's other tabs call this one: the running app's title, or "Home"."""
     def make_host_keys(self) -> HostKeys | None:
         """What reads a keyboard on the board's USB host port, made once, or None without one."""
     def bar_mode(self, scope: AppScope) -> str:
