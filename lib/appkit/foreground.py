@@ -39,7 +39,7 @@ loop.
 CircuitPython has no REPL to go to with the program still running: Ctrl-C
 ends ``code.py``, and the display with it. There `serve` reads lines typed
 on the console instead, runs each in ``code.py``'s namespace and prints what
-it returns, so ``apps.system.stats()`` answers while the apps keep running.
+it returns, so ``apps.info.stats()`` answers while the apps keep running.
 """
 
 import sys

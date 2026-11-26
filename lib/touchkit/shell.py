@@ -14,7 +14,7 @@
   never presses the app's own widgets. Without the bar (``bar=False``) every
   app gets the header with that Home button at its left. The board's BOOT
   button goes home too, through a pin interrupt.
-* `TouchLauncher` keeps a short history of switches for System,
+* `TouchLauncher` keeps a short history of switches for Info,
   and takes the USB sound card off when the next app isn't one that plays
   through it, so the PC goes back to its own speakers.
 
@@ -26,6 +26,7 @@ import gc
 
 import lvgl as lv
 import multimer
+from icons import lvgl as lvicons
 from multimer import ticks_diff, ticks_ms
 
 from appkit import Launcher, Shell, foreground
@@ -130,10 +131,8 @@ class TouchShell(Shell):
             b.set_pos(6, 6)
         b.set_style_bg_color(lv.color_hex(0x2A3550), 0)
         b.set_style_radius(12, 0)
-        lbl = lv.label(b)
-        lbl.set_text(lv.SYMBOL.HOME if _under_cap(self) else lv.SYMBOL.HOME + "  Home")
-        lbl.set_style_text_font(ui.font, 0)
-        lbl.center()
+        # The Home icon, as on the bar's Home button.
+        lvicons.image(b, "home", 24, ui.WHITE).center()
         launcher = self.launcher
         b.add_event_cb(lambda e: go(launcher.home), lv.EVENT.CLICKED, None)
         return b

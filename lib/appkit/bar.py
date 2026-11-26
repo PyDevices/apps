@@ -1,10 +1,10 @@
 # SPDX-FileCopyrightText: 2026 Brad Barnett
 #
 # SPDX-License-Identifier: MIT
-"""The status bar: Home, the running app's title and status line, then the
-clock, the network, Bluetooth, the battery and the audio output along the
-top of the screen, and a button for every connection the device has. It is
-the app's title bar too: there's no second strip under it.
+"""The status bar: Home and the running app's title and status line at the
+top left; at the right, from the edge in, the connections button, the
+clock, the network, then Bluetooth, the audio output, casting and the
+battery. It is the app's title bar too: there's no second strip under it.
 
 The Shell makes it when asked (``Shell(launcher, bar=True)``) and gives each
 app the screen below it. An app says in its ``app.json`` whether it wants it::
@@ -22,11 +22,12 @@ under `STATUS_ROW_UNDER` wide the status line has a row of its own under
 the bar instead, which shows from the first time the app asks for
 ``scope.status``, and the app's area and ``scope.rect`` shrink right then:
 ask for it before placing anything from ``scope.rect``. An app with no
-status keeps that row for itself. The home screen's title
-is `Shell.home_title`, "Home", and Home puts its own buttons in the header.
+status keeps that row for itself. The home screen's title is the Home icon
+(`Shell.home_title`).
 
 An app reaches the bar as ``scope.bar``: `hide` and `show` it for a while (a
-video, a game), or `add` an item of its own, which goes when the app closes::
+video, a game), or `add` an item of its own, which goes when the app closes
+and sits left of the built-in ones::
 
     scope.bar.add(bar.Item("cast", lambda: ("cast", "Living room")), scope)
 
@@ -364,6 +365,9 @@ class Bar:
         t.align(lv.ALIGN.LEFT_MID, 0, 0)
         self.title = t
         self._title_w = 0
+        #: The icon before the title, such as Home's on the home screen, or None.
+        self.title_icon = None
+        self._title_icon_name = None
         if self.status_below:
             under = _plain(lv.obj(lv.layer_top()))
             under.set_style_bg_opa(lv.OPA.COVER, 0)
@@ -416,16 +420,18 @@ class Bar:
         self.root.update_layout()
         return self.header.get_x()
 
-    def open(self, title, status=True):
+    def open(self, title, status=True, icon=None):
         """Set the bar up for the app being opened: *title* in the header,
-        and with *status* a fresh, empty status line (in its row under the
-        bar on a narrow screen). What the last app put in the header goes.
-        Returns ``(header, status line)``; both None on the compact cap, and
-        the status line None without *status* or on a narrow screen, where
-        `status_row` makes it when the app first asks."""
+        after *icon* (an icon's name) when given, and with *status* a fresh,
+        empty status line (in its row under the bar on a narrow screen).
+        What the last app put in the header goes. Returns ``(header, status
+        line)``; both None on the compact cap, and the status line None
+        without *status* or on a narrow screen, where `status_row` makes it
+        when the app first asks."""
         if self.header is None:
             return None, None
         self._clear_header()
+        self._set_title_icon(icon)
         self.title.set_text(title or "")
         self._title_w = self._text_width(title or "", self.title_font)
         st = None
@@ -455,12 +461,31 @@ class Bar:
         m.delete()
         return w
 
+    def _set_title_icon(self, name):
+        """Show the icon *name* before the title, or none for None. It is
+        the header's second child, made only when the icon changes."""
+        if name == self._title_icon_name:
+            return
+        if self.title_icon is not None:
+            self.title_icon.delete()
+            self.title_icon = None
+        x = 0
+        if name:
+            img = lvicons.image(self.header, name, self.icon, lv.color_hex(TITLE))
+            img.move_to_index(1)
+            img.align(lv.ALIGN.LEFT_MID, 0, 0)
+            self.title_icon = img
+            x = self.icon + 6
+        self._title_icon_name = name
+        self.title.align(lv.ALIGN.LEFT_MID, x, 0)
+
     def _clear_header(self):
         """Delete what the last app had in the header: its status line, and
-        anything it put there. The title, the header's first child, stays.
-        LVGL hands back a new wrapper for a child, so they're told apart by
-        place, not identity."""
-        for i in range(self.header.get_child_count() - 1, 0, -1):
+        anything it put there. The title, the header's first child, stays,
+        and so does the icon before it, the second. LVGL hands back a new
+        wrapper for a child, so they're told apart by place, not identity."""
+        keep = 1 if self.title_icon is None else 2
+        for i in range(self.header.get_child_count() - 1, keep - 1, -1):
             self.header.get_child(i).delete()
         if not self.status_below:
             self.status_line = None   # deleted with the rest
@@ -471,6 +496,8 @@ class Bar:
         title), and ends in dots past that."""
         hdr = self.header
         hw = hdr.get_width()
+        if self.title_icon is not None:
+            hw -= self.icon + 6
         if hw <= 0:
             return
         gap = 8
@@ -544,7 +571,8 @@ class Bar:
 
     def status(self):
         """``[(name, icon, text)]`` for each item showing something, in the
-        bar's order: what an app with its own bar draws."""
+        order they were added, which the full bar shows from its right edge
+        in: what an app with its own bar draws."""
         out = []
         for item in self.items:
             shown = self._shown.get(item.name)
@@ -583,8 +611,12 @@ class Bar:
             shown[0].delete()
             del self._shown[item.name]
         if value is None:
-            self._shown[item.name] = [_plain(lv.obj(self.right)), None, None, None]
-            self._shown[item.name][0].set_size(0, 0)
+            # A hidden stand-in keeps the item's place; flex leaves no gap for it.
+            box = _plain(lv.obj(self.right))
+            box.set_size(0, 0)
+            box.add_flag(lv.obj.FLAG.HIDDEN)
+            self._place(item, box, self.right)
+            self._shown[item.name] = [box, None, None, None]
             return
         icon_name, text = value
         parent = self.left if item.name == "clock" and self.left is not None else self.right
@@ -613,13 +645,18 @@ class Bar:
         self._shown[item.name] = [box, img, label, value]
 
     def _place(self, item, box, parent):
-        """Keep the items in the order they were added."""
+        """Keep the items in the order they were added: on the full bar from
+        the right edge in, so the clock is nearest the connections button
+        and an app's own item is furthest from it; on the cap from the left."""
+        from_right = self.left is None
         index = 0
+        after = False
         for other in self.items:
             if other is item:
-                break
+                after = True
+                continue
             shown = self._shown.get(other.name)
-            if shown is not None and shown[0].get_parent() == parent:
+            if shown is not None and shown[0].get_parent() == parent and after == from_right:
                 index += 1
         box.move_to_index(index)
 

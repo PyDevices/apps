@@ -31,6 +31,8 @@ class HomeButtonTest(unittest.TestCase):
         fakes = {
             "lvgl": mock.MagicMock(),
             "multimer": mock.MagicMock(),
+            "icons": mock.MagicMock(),
+            "icons.lvgl": mock.MagicMock(),
             "touchkit.ui": mock.MagicMock(),
         }
         with mock.patch.dict(sys.modules, fakes):
@@ -59,6 +61,8 @@ class BootButtonTest(unittest.TestCase):
             "appkit": mock.MagicMock(),
             "lvgl": mock.MagicMock(),
             "multimer": mock.MagicMock(),
+            "icons": mock.MagicMock(),
+            "icons.lvgl": mock.MagicMock(),
             "touchkit.ui": mock.MagicMock(),
             "board_config": board,
             "machine": mock.MagicMock(),
@@ -100,6 +104,7 @@ class LendBootTest(unittest.TestCase):
 
     def test_lent_boot_stops_going_home_until_given_back(self):
         fakes = {"appkit": mock.MagicMock(), "lvgl": mock.MagicMock(), "multimer": mock.MagicMock(),
+                 "icons": mock.MagicMock(), "icons.lvgl": mock.MagicMock(),
                  "touchkit.ui": mock.MagicMock(), "machine": mock.MagicMock()}
         fakes["appkit"].Shell = object
         with mock.patch.dict(sys.modules, fakes):

@@ -41,8 +41,10 @@ packages = [
     "apps.clock",
     "apps.detect",
     "apps.gamepad",
+    "apps.hidden",
     "apps.home",
     "apps.huey",
+    "apps.info",
     "apps.medialink_baby_monitor",
     "apps.medialink_doorbell",
     "apps.medialink_hands_free",
@@ -57,6 +59,7 @@ packages = [
     "apps.repl",
     "apps.roku",
     "apps.security",
+    "apps.settings",
     "apps.shell",
     "apps.spotify",
     "apps.stompbox",
@@ -76,8 +79,10 @@ packages = [
 "apps.clock" = ["app.json"]
 "apps.detect" = ["app.json"]
 "apps.gamepad" = ["app.json"]
+"apps.hidden" = ["app.json"]
 "apps.home" = ["app.json"]
 "apps.huey" = ["app.json", "settings.example.json"]
+"apps.info" = ["app.json"]
 "apps.medialink_baby_monitor" = ["app.json"]
 "apps.medialink_doorbell" = ["app.json"]
 "apps.medialink_hands_free" = ["app.json"]
@@ -92,6 +97,7 @@ packages = [
 "apps.repl" = ["app.json"]
 "apps.roku" = ["app.json"]
 "apps.security" = ["app.json"]
+"apps.settings" = ["app.json"]
 "apps.shell" = ["app.json"]
 "apps.spotify" = ["app.json"]
 "apps.stompbox" = ["app.json", "guitar-set.txt"]

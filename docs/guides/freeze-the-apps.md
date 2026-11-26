@@ -32,7 +32,7 @@ To freeze some of the apps, name them. An app that draws with another's code
 (Huey with Perch's) brings that app too:
 
 ```python
-include("path/to/apps/apps", apps="home,clock,system")
+include("path/to/apps/apps", apps="home,clock,info")
 ```
 
 `libs=False` leaves the libraries out, for a build that freezes them

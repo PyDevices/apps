@@ -206,6 +206,21 @@ def _plant_row_late():
     B.Bar.status_row = late
 
 
+def _plant_items_left_to_right():
+    # The items go in from the left, as added, the way the cap's do.
+    def place(self, item, box, parent):
+        index = 0
+        for other in self.items:
+            if other is item:
+                break
+            shown = self._shown.get(other.name)
+            if shown is not None and shown[0].get_parent() == parent:
+                index += 1
+        box.move_to_index(index)
+
+    B.Bar._place = place
+
+
 def _plant_home_untitled():
     # Home gets no title and no header on the bar.
     from appkit.shell import Shell as S
@@ -242,6 +257,7 @@ PLANTS = {
     "row_never": _plant_row_never,
     "row_late": _plant_row_late,
     "home_untitled": _plant_home_untitled,
+    "items_left_to_right": _plant_items_left_to_right,
     "round_row_off": _plant_round_row_off,
     "mirror_hidden": _plant_mirror_hidden,
     "gauge_ignored": _plant_gauge_ignored,
@@ -324,6 +340,14 @@ check(scope.rect == (0, bar.height, SW, SH - bar.height), "and the screen below 
 check(scope.header is bar.header and bar.title.get_text() == "framed", "its title is on the bar: %r" % (bar.title.get_text(),))
 check(bar.home is not None and not bar.home.has_flag(lv.obj.FLAG.HIDDEN), "Home shows away from home")
 check(icon_of(bar, "casting") == "cast" and text_of(bar, "casting") == "Den", "the app's own item is on the bar")
+# From the right edge in: the connections button, the clock, the network,
+# then the rest in the order added, and the app's own item furthest in.
+order = [bar.connections] + [bar._shown[n][0] for n in ("clock", "net", "battery", "casting")]
+xs = [coords(o)[0] for o in order]
+check(xs == sorted(xs, reverse=True) and len(set(xs)) == len(xs),
+      "right to left: connections, clock, network, battery, the app's item: %r" % (xs,))
+x, y, w, h = coords(bar.connections)
+check(x + w == SW - 4, "the connections button is at the right edge: %r" % ((x, w),))
 labels = [s[2] for s in bar._shown.values() if s[2] is not None]
 check(labels and all(lb.get_style_text_color(0).red == 0xFF and lb.get_style_text_color(0).blue == 0xFF
                      for lb in labels), "the bar's text is in its own colour, not the theme's")
@@ -539,15 +563,20 @@ settle()
 check(coords(tb.title)[2] > tw, "a short status line gives the title its room back: %r" % (coords(tb.title)[2],))
 la.switch("whole")
 settle()
-check(tb.header.get_child_count() == 1 and tb.status_line is None,
-      "Home's bar has the title and nothing an app left: %r" % (tb.header.get_child_count(),))
-check(tb.title.get_text() == "Home" and seen["whole"].header is tb.header,
-      "Home's title is Home, and its header is the bar's, for its own buttons: %r" % (tb.title.get_text(),))
+check(tb.header.get_child_count() == 2 and tb.status_line is None,
+      "Home's bar has the title, its icon and nothing an app left: %r" % (tb.header.get_child_count(),))
+check(tb.title.get_text() == "" and tb.title_icon is not None and seen["whole"].header is tb.header,
+      "Home's title is the Home icon, and its header is the bar's: %r" % (tb.title.get_text(),))
+if tb.title_icon is not None:
+    ix, iy, iw, ih = coords(tb.title_icon)
+    hx, hy, hw, hh = coords(tb.header)
+    check(ix == hx and iw == tb.icon and iy >= hy and iy + ih <= hy + hh,
+          "the icon starts the header, at the bar's icon size: %r in %r" % ((ix, iy, iw, ih), (hx, hy, hw, hh)))
 la.info["framed"] = {}
 la.switch("framed")
 settle()
-check(tb.header.get_child_count() == 2 and tb.title.get_text() == "framed",
-      "the next app gets a clean header: %r" % (tb.header.get_child_count(),))
+check(tb.header.get_child_count() == 2 and tb.title.get_text() == "framed" and tb.title_icon is None,
+      "the next app gets a clean header, without Home's icon: %r" % (tb.header.get_child_count(),))
 la.switch("whole")
 settle()
 scope = seen["whole"]

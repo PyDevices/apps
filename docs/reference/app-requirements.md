@@ -38,8 +38,7 @@ These place the app on a home screen, and `icon` is required for an app with a t
 
 | Field | Meaning | Read by |
 |---|---|---|
-| `category` | The page the app's tile is on. Pages are in alphabetical order. No category: the app is on a "More" page, last. | [`apps/home/__init__.py`](../../apps/home/__init__.py) lines 77–80 |
+| `category` | The page the app's tile is on, and its tab. Pages are in alphabetical order. The board's own apps say `"System"`. No category: the app is on a "More" page, last. | [`apps/home/__init__.py`](../../apps/home/__init__.py) lines 123–127 |
 | `icon` | A Material Symbols name from the [icons](https://github.com/PyDevices/omnipython/tree/main/packages/icons) package (`icons.names()`), such as `"audio_file"`. Required on every app with a tile: the index build and Home refuse an app without one, or one the icons package doesn't have. | [`lib/appkit/index.py`](../../lib/appkit/index.py), [`apps/home/__init__.py`](../../apps/home/__init__.py) |
-| `color` | The tile's colour as `"#RRGGBB"`. Default `"#44505E"`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 66 |
-| `tile` | `false` keeps the app off the pages. Default `true`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 75 |
-| `gear` | `true` on the one app the gear button opens. | [`apps/home/__init__.py`](../../apps/home/__init__.py) lines 94–96 |
+| `color` | The tile's colour as `"#RRGGBB"`. Default `"#44505E"`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 111 |
+| `tile` | `false` keeps the app off the pages. Default `true`. | [`apps/home/__init__.py`](../../apps/home/__init__.py) line 121 |
