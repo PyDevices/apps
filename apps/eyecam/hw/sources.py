@@ -170,9 +170,11 @@ class TestCardSource:
 
     def __init__(self, path):
         import jpegio
+        from appkit import assets
 
         dec = jpegio.JpegDecoder()
-        self.w, self.h = dec.open(path)
+        # From /apps, or from the firmware where the app is frozen.
+        self.w, self.h = dec.open(assets.read(path, binary=True))
         self._raw, self._rgb = _aligned(self.w * self.h * 2)
         dec.decode(self._rgb)
 

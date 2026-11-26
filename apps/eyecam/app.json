@@ -1,1 +1,1 @@
-{"name": "eyecam", "title": "Eye Camera", "category": "Camera", "icon": "photo_camera", "color": "#C9C9C9", "needs": ["framebuf"], "bundle": false}
+{"name": "eyecam", "title": "Eye Camera", "category": "Video", "icon": "photo_camera", "color": "#546E7A", "needs": ["framebuf"], "bundle": false, "bar": "none"}
