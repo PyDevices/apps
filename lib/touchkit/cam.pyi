@@ -40,7 +40,10 @@ class Preview:
     """The camera's picture in a box: straight into the panel's framebuffer, or an LVGL image on a panel with none."""
 
     buf: memoryview | None
+    fb: memoryview | None
     image: Any
+    x: int
+    y: int
     def __init__(
         self,
         parent: Any,
@@ -55,4 +58,4 @@ class Preview:
     def capture(self, c: Any, timeout: int = 200) -> bool:
         """The next frame from camera `c` into the preview; False when none came."""
     def show(self) -> None:
-        """Put `buf` on the panel."""
+        """Redraw the picture after a frame went into `buf` (a panel with no framebuffer)."""

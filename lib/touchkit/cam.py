@@ -124,8 +124,7 @@ class Preview:
 
     *origin* is *parent*'s top-left corner on the panel (``scope.rect``).
     *own* asks for that buffer on every panel, for an app that draws on the
-    frame before it shows (Detect's boxes): `buf` is the frame then, and
-    `show` puts it on the panel.
+    frame before it shows (Detect's boxes): `buf` is the frame then.
     """
 
     def __init__(self, parent, x, y, w, h, origin=(0, 0), own=False, display=None):
@@ -138,7 +137,6 @@ class Preview:
         self.w, self.h = w, h
         self.buf = aligned(w * h * 2) if own or self.fb is None else None
         self.image = None
-        self._panel = None
         self._keep = {}
         if self.fb is None:
             self.image = lv.image(parent)
@@ -158,20 +156,12 @@ class Preview:
         return c.capture_scaled(self.buf, self.w, self.h, timeout=timeout) is not None
 
     def show(self):
-        """Put `buf` on the panel: the image redraws, or it's copied into
-        the framebuffer and presented."""
+        """Redraw the picture after a frame went into `buf`: the image on a
+        panel with no framebuffer. On a panel with one, an app that asked
+        for `own` copies `buf` into `fb` itself, with whatever it draws
+        with (Detect: pygraphics), and presents the box."""
         if self.image is not None:
             self.image.invalidate()
-        elif self.buf is not None:
-            if self._panel is None:
-                from pygraphics import RGB565, FrameBuffer
-
-                # Not row by row through memoryview slices: into a buffer
-                # this big, that took 7 s a frame on an ESP32-P4.
-                self._panel = FrameBuffer(self.fb, self.d.width, self.d.height, RGB565)
-                self._canvas = FrameBuffer(self.buf, self.w, self.h, RGB565)
-            self._panel.blit(self._canvas, self.x, self.y)
-            self.d.flush_rect(self.x, self.y, self.w, self.h)
 
 
 def mount_sd(readonly=True):

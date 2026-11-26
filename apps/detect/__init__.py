@@ -9,9 +9,9 @@ looks at a 160 x 160 copy of each frame, so a thing that fills a fair part of
 the picture is found and a small one far away isn't.
 
 Each loop takes a preview-sized frame into a buffer of its own, runs the
-detector on it, draws the boxes into it and puts it on the panel
-(`touchkit.cam.Preview`: copied into the framebuffer, or shown by an LVGL
-image on a panel with none); the list on the right names what was found,
+detector on it, draws the boxes into it and copies it to the panel's
+framebuffer, or on a panel with none redraws the LVGL image that shows it
+(`touchkit.cam.Preview`); the list on the right names what was found,
 in the colour of its box. On a narrow screen the list is under the picture.
 Flip, mirror, light and brightness are the Camera app's.
 
@@ -119,6 +119,18 @@ def main(scope):
     buf = pv.buf
     canvas = FrameBuffer(buf, pw, ph, RGB565)
     img = image.Image(pw, ph, image.RGB565, buffer=buf)
+    if pv.fb is not None:
+        from board_config import display_drv as d
+
+        panel = FrameBuffer(pv.fb, d.width, d.height, RGB565)
+
+        def show():
+            # The finished frame onto the panel. Not row by row through memoryview
+            # slices: into a buffer this big, that took 7 s a frame on an ESP32-P4.
+            panel.blit(canvas, pv.x, pv.y)
+            d.flush_rect(pv.x, pv.y, pw, ph)
+    else:
+        show = pv.show  # the image redraws from the buffer
 
     if wide:
         rx, ry, rw, font, step = x0 + pw + 24, 64, W - x0 - pw - 48, ui.font, 34
@@ -158,7 +170,7 @@ def main(scope):
             canvas.rect(x + 2, y + 2, w - 4, h - 4, col)
         st["found"] = found
         st["frames"] += 1
-        pv.show()
+        show()
 
     def tick(t=None):
         found = sorted(st["found"], key=lambda f: -f[4])

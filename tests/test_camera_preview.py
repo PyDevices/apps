@@ -201,11 +201,22 @@ class PreviewTest(unittest.TestCase):
         o = ((y + h // 2) * SIZE + x + w // 2) * 2
         self.assertEqual(bytes(d.fb[o : o + 2]), RED.to_bytes(2, "little"))
 
-    def test_detect_on_a_panel_with_no_framebuffer_shows_the_picture(self):
+    def detect_modules(self):
         image = types.SimpleNamespace(RGB565=1, Image=lambda w, h, fmt, buffer=None: buffer)
-        cam = self.run_app("detect", BusDisplay(), {"espdl": types.SimpleNamespace(YOLO11=Yolo), "image": image})
+        return {"espdl": types.SimpleNamespace(YOLO11=Yolo), "image": image}
+
+    def test_detect_on_a_panel_with_no_framebuffer_shows_the_picture(self):
+        cam = self.run_app("detect", BusDisplay(), self.detect_modules())
         self.assertEqual(cam.frames, 3)
         self.assertGreater(self.red_on_screen(), 200 * 100)
+
+    def test_detect_on_a_framebuffer_panel_copies_the_frame_in_and_presents_it(self):
+        d = PanelDisplay()
+        self.run_app("detect", d, self.detect_modules())
+        self.assertEqual(len(d.flushed), 3)
+        x, y, w, h = d.flushed[0]
+        o = ((y + h - 2) * SIZE + x + w - 2) * 2  # clear of the stand-in's box
+        self.assertEqual(bytes(d.fb[o : o + 2]), RED.to_bytes(2, "little"))
 
 
 if __name__ == "__main__":
