@@ -4,10 +4,10 @@
 """A keypad for a ZIP code, sized so every key sits inside a round screen."""
 
 import lvgl as lv
+from appkit.shell import is_round
 from deskkit import forecast
 
-# The ZIP code's digits: 40 px, or the largest a firmware without it has.
-_DIGITS = getattr(lv, "font_montserrat_40", None) or getattr(lv, "font_montserrat_32", lv.font_montserrat_24)
+from . import sizing
 
 _LENGTH = 5
 _BG = 0x0A1020
@@ -44,30 +44,51 @@ class ZipPad:
         panel.set_style_radius(0, 0)
         panel.set_style_bg_color(lv.color_hex(_BG), 0)
 
-        key_w = width * 20 // 100
-        key_h = height * 13 // 100
-        gap = height * 2 // 100
-        grid_top = height * 29 // 100
+        k = sizing.scale(width, height)
+        side = min(width, height)
+        key_w = side * 20 // 100
+        key_h = side * 11 // 100
+        gap = max(4, side * 2 // 100)
+        key_font = sizing.font(24 * k, 16)
+        title_font = sizing.font(16 * k)
+        digits_font = sizing.font(40 * k, 24)
+
+        # Title, digits, then the keys: a column centred on the screen, so a
+        # round one's edge clears the top and bottom rows.
+        title_h = title_font.get_line_height()
+        digits_h = digits_font.get_line_height()
+        column = title_h + gap + digits_h + gap + 4 * key_h + 3 * gap
+        top = (height - column) // 2
+        digits_top = top + title_h + gap
+        grid_top = digits_top + digits_h + gap
 
         self.title = lv.label(panel)
-        self.title.set_style_text_font(lv.font_montserrat_16, 0)
+        self.title.set_style_text_font(title_font, 0)
         self.title.set_style_text_color(lv.color_hex(_SOFT), 0)
-        self.title.align(lv.ALIGN.TOP_MID, 0, height * 8 // 100)
+        self.title.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
+        self.title.set_long_mode(lv.label.LONG_MODE.WRAP)
+        # A message too long for the row wraps upwards, inside the circle.
+        self.title.set_width(2 * sizing.half_width(width, height, is_round(), top, top + title_h, 4))
+        self.title_bottom = top + title_h
+        self.width = width
 
         self.shown = lv.label(panel)
-        self.shown.set_style_text_font(_DIGITS, 0)
+        self.shown.set_style_text_font(digits_font, 0)
         self.shown.set_style_text_color(lv.color_hex(_WHITE), 0)
-        self.shown.align(lv.ALIGN.TOP_MID, 0, height * 13 // 100)
+        self.shown.align(lv.ALIGN.TOP_MID, 0, digits_top)
 
         place = forecast.current()
         if place is not None:
             self.units = lv.button(panel)
-            self.units.set_size(width * 16 // 100, height * 8 // 100)
-            self.units.align(lv.ALIGN.TOP_RIGHT, -width * 14 // 100, height * 14 // 100)
+            units_w = key_w * 8 // 10
+            self.units.set_size(units_w, min(key_h, digits_h))
+            # Right of the digits, clear of five of them.
+            self.units.set_pos(width // 2 + side * 21 // 100, digits_top + (digits_h - min(key_h, digits_h)) // 2)
             self.units.set_style_bg_color(lv.color_hex(_KEY), 0)
+            self.units.set_style_pad_all(0, 0)
             self.units.add_event_cb(self._toggle_units, lv.EVENT.CLICKED, None)
             self.units_label = lv.label(self.units)
-            self.units_label.set_style_text_font(lv.font_montserrat_24, 0)
+            self.units_label.set_style_text_font(key_font, 0)
             self.units_label.set_text("°" + place.get("units", "F"))
             self.units_label.center()
 
@@ -81,8 +102,9 @@ class ZipPad:
                 )
                 color = _GO if key == "ok" else _KEY
                 b.set_style_bg_color(lv.color_hex(color), 0)
+                b.set_style_pad_all(0, 0)
                 label = lv.label(b)
-                label.set_style_text_font(lv.font_montserrat_24, 0)
+                label.set_style_text_font(key_font, 0)
                 if key == "del":
                     label.set_text(lv.SYMBOL.BACKSPACE)
                 elif key == "ok":
@@ -103,6 +125,8 @@ class ZipPad:
         if title is not None:
             self.title.set_text(title)
             self.title.set_style_text_color(lv.color_hex(color), 0)
+            self.title.update_layout()
+            self.title.set_pos((self.width - self.title.get_width()) // 2, self.title_bottom - self.title.get_height())
         self.shown.set_text(self.digits + "-" * (_LENGTH - len(self.digits)))
 
     def _press(self, key):

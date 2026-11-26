@@ -5,12 +5,13 @@
 
 The repository's own apps run through a real Launcher under touchkit's
 TouchShell, with Watch as the home screen, as Home's ``main.py`` makes it on
-a round or small screen. Watch opens on Grand Classic with the date, the
+a round or small screen. Watch opens on the hybrid face with the date, the
 battery and the steps under it; a swipe turns to the next face and the
 choice is saved; a tap opens the wheel, which holds every app Home shows,
 in the order of Home's tabs, the middle one named beside its disc. A swipe
 up the wheel brings the next app to the middle, a tap on it opens it, and
-the Shell's Home button brings Watch back, on its face.
+the Shell's Home button brings Watch back, on its face. In a browser page
+the line under the face is left out.
 
     APPKIT_DATA=/tmp/watch python tests/appkit/watch_contract.py
 
@@ -149,6 +150,16 @@ def _plant_no_arc():
     wheel_mod.arc = lambda r, dy: 0
 
 
+def _plant_classic_first():
+    # Watch opens on Grand Classic, not the hybrid face.
+    faces.DEFAULT = "Grand Classic"
+
+
+def _plant_glance_in_browser():
+    # A browser page shows the line under the face anyway.
+    watch.shows_glances = lambda: True
+
+
 def _plant_hidden_listed():
     # An app hidden from Home is on the wheel anyway.
     real = watch.in_order
@@ -162,6 +173,8 @@ PLANTS = {
     "face_forgotten": _plant_face_forgotten,
     "no_arc": _plant_no_arc,
     "hidden_listed": _plant_hidden_listed,
+    "classic_first": _plant_classic_first,
+    "glance_in_browser": _plant_glance_in_browser,
 }
 plant = os.getenv("WATCH_PLANT")
 if plant:
@@ -217,6 +230,17 @@ def texts(obj):
     return [c.get_text() for c in walk(obj, lv.label_class) if not c.has_flag(lv.obj.FLAG.HIDDEN)]
 
 
+def glance_lines(face_view):
+    """The shown text of the line under the face: a label of the face's own,
+    not one of the dial's."""
+    out = []
+    for i in range(face_view.get_child_count()):
+        c = face_view.get_child(i)
+        if c.check_type(lv.label_class) and not c.has_flag(lv.obj.FLAG.HIDDEN):
+            out.append(c.get_text())
+    return out
+
+
 def shown(obj):
     while obj is not None:
         if obj.has_flag(lv.obj.FLAG.HIDDEN):
@@ -256,7 +280,7 @@ shot("face")
 face_view = scope.root.get_child(0)
 wheel_view = scope.root.get_child(1)
 check(shown(face_view) and not shown(wheel_view), "Watch opens on its face")
-line = [t for t in texts(face_view) if "  " in t]
+line = glance_lines(face_view)
 check(bool(line), "a line of glances under the face: %r" % (texts(face_view),))
 line = line[0] if line else ""
 check("82%" in line, "the battery is on it: %r" % (line,))
@@ -264,6 +288,9 @@ check("1234 steps" in line, "today's steps are on it: %r" % (line,))
 check(("online" in line) or ("offline" in line), "the network is on it: %r" % (line,))
 dial = face_view.get_child(0)
 check(dial.get_child_count() > 0, "a face is drawn")
+_DAYS = ("MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN")
+check(any(t[:3] in _DAYS for t in texts(dial)),
+      "it opens on the hybrid face, the day in its window: %r" % (texts(dial),))
 
 # -- faces --------------------------------------------------------------------------
 
@@ -274,7 +301,7 @@ try:
         saved = f.read()
 except OSError:
     saved = ""
-check("Midnight Diver" in saved, "the next face, Midnight Diver, is saved: %r" % (saved,))
+check("Grand Classic" in saved, "the next face, Grand Classic, is saved: %r" % (saved,))
 shot("face_next")
 drag(40, 120, 200, 120)
 try:
@@ -282,7 +309,27 @@ try:
         saved = f.read()
 except OSError:
     saved = ""
-check("Grand Classic" in saved, "back to Grand Classic, saved: %r" % (saved,))
+check("Hybrid" in saved, "back to the hybrid face, saved: %r" % (saved,))
+
+# -- in a browser page, no line under the face ----------------------------------
+
+real_host = L.host
+L.host = lambda: "browser"
+# To the wheel and back, by its time at the top: the face reads its line again.
+catch = face_view.get_child(face_view.get_child_count() - 1)
+catch.send_event(lv.EVENT.PRESSED, None)
+catch.send_event(lv.EVENT.CLICKED, None)
+check(shown(wheel_view), "a tap opens the wheel")
+settle()
+for i in range(wheel_view.get_child_count()):
+    c = wheel_view.get_child(i)
+    if c.check_type(lv.label_class) and ":" in c.get_text():
+        c.send_event(lv.EVENT.CLICKED, None)
+settle()
+check(shown(face_view), "its time goes back to the face")
+check(not glance_lines(face_view), "in a browser page there's no line under the face: %r" % (glance_lines(face_view),))
+shot("face_browser")
+L.host = real_host
 
 # -- the wheel ----------------------------------------------------------------------
 

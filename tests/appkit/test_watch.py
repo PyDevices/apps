@@ -16,7 +16,8 @@ import unittest
 from _harness import TESTS, need_micropython, run
 
 CONTRACT = TESTS / "watch_contract.py"
-PLANTS = ("no_battery", "own_order", "tap_does_nothing", "face_forgotten", "no_arc", "hidden_listed")
+PLANTS = ("no_battery", "own_order", "tap_does_nothing", "face_forgotten", "no_arc", "hidden_listed",
+          "classic_first", "glance_in_browser")
 APPS_CONTRACT = TESTS / "watch_apps_contract.py"
 APPS_PLANTS = ("no_count", "charger_stuck", "radio_left_on", "no_percent")
 

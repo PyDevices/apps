@@ -5,7 +5,8 @@
 
 It opens on a watch face, with the date, the battery where the board has
 one, today's steps where it counts them, and whether it's on the network, on
-a line under the hands. Swipe left or right for another face; the one you
+a line under the hands. In a browser page that line is left out: a page has
+no battery, steps or network of its own to show. Swipe left or right for another face; the one you
 pick is kept across restarts. A tap, or a swipe up, opens the wheel of
 apps (`wheel`); a tap on the time at the top of the wheel, a swipe
 sideways, or a few idle seconds go back to the face. The apps are those
@@ -13,8 +14,8 @@ Home shows, in the order of its tabs: each app's ``app.json`` says what
 it is, as for Home, and an app Home hides stays off the wheel too.
 
 Every app comes back here through the Shell's Home button. The faces are
-Clock's analog clock in each of its skins, Grand Classic first, and a
-hybrid face with the time in digits too (`faces`).
+a hybrid face with the time in digits too, first, and Clock's analog clock
+in each of its skins (`faces`).
 
 A board's ``main.py`` makes it the home screen with
 ``TouchLauncher(app, home="watch")``; Home's own ``main.py`` does that by
@@ -28,6 +29,7 @@ import lvgl as lv
 from deskkit import localtime
 
 from appkit.bar import battery_percent, board_battery
+from appkit import launcher as running
 from appkit.shell import is_round
 from touchkit import ui
 
@@ -111,6 +113,12 @@ def network_text():
     from touchkit import net
 
     return "online" if net.ip() else "offline"
+
+
+def shows_glances():
+    """False in a browser page, where the line under the face has nothing of
+    the board's to say."""
+    return running.host() != "browser"
 
 
 def glances():
@@ -202,6 +210,9 @@ def main(scope):
         state["glance_at"] += TICK_MS
         if force or state["glance_at"] >= GLANCE_MS:
             state["glance_at"] = 0
+            if not shows_glances():
+                line.add_flag(lv.obj.FLAG.HIDDEN)
+                return
             line.set_text(glances())
             line.update_layout()
             line.align(lv.ALIGN.TOP_MID, 0, y)
@@ -212,6 +223,7 @@ def main(scope):
         name = names[(i + step) % len(names)]
         show_face(name)
         _save_face(scope, name)
+        line.remove_flag(lv.obj.FLAG.HIDDEN)
         line.set_text(name)  # says which face it is until the next glance
         state["glance_at"] = -GLANCE_MS // 2
         line.update_layout()
