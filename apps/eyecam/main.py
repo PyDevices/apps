@@ -2,16 +2,16 @@
 #
 # SPDX-License-Identifier: MIT
 
-"""Start Camera when the board starts, full screen, as the ESP32-P4X-EYE does.
+"""Start Eye Camera when the board starts, full screen, as the ESP32-P4X-EYE does.
 
-Install the app with ``omip.install("github:PyDevices/apps/programs/camera")``,
+Install the app with ``omip.install("github:PyDevices/apps/apps/eyecam")``,
 then put this file at the board's root as its main.py with
-``omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")``.
+``omip.install("github:PyDevices/apps/apps/eyecam/main.py", target="/")``.
 Home's main.py, installed the same way, takes the board back to Home.
 On a desktop, run it from this folder (see the README).
 
 A board with a ``secrets.py`` joins its Wi-Fi and starts WebREPL once Camera
-is on the screen, as Home does. Without one, Camera runs offline.
+is on the screen, as Home does. Without one, Eye Camera runs offline.
 """
 
 import appkit
@@ -31,7 +31,7 @@ if not appkit.run_pending_script():
     else:
         from touchkit import net
 
-        # Join a known network and start WebREPL, now Camera is up.
+        # Join a known network and start WebREPL, now Eye Camera is up.
         net.boot()
     if appkit.host() != "browser":
         appkit.serve(app)

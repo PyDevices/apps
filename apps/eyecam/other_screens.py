@@ -5,7 +5,11 @@
 """The Album and USB screens."""
 
 import lvgl as lv
-import ppa
+
+try:
+    import ppa
+except ImportError:  # CPython: Eye Camera runs on MicroPython only
+    ppa = None
 
 from . import assets
 from .widgets import CENTER, FOCUSED, bar, hide, image, label, panel, pin_to_panel, rgb565_dsc, show, visible

@@ -19,7 +19,10 @@ import appdev
 import events
 import keys
 
+from touchkit import ui
+
 from . import assets, controls, hw
+from . import control as _control
 from .control import Eye
 from .settings import Settings
 
@@ -33,6 +36,9 @@ eye = None  # the running app, for tests and the REPL
 
 def main(scope):
     global eye
+    if _control.framebuf is None:
+        ui.missing(scope, "no framebuf", "Eye Camera needs MicroPython: this Python has no framebuf module.")
+        return
     parts = hw.build(scope)
     board = None
     if not parts.desktop:

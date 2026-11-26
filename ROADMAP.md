@@ -18,7 +18,7 @@ keyboard sends it over MIDI, the way a hardware tone module does.
 
 - Undo in the window that knows about edits made on other panels.
 
-## Camera
+## Eye Camera
 
 - Record a USB camera's microphone as the video's sound on a board with no microphone of its own.
 - Run on ESP32-S31 boards with a USB camera, once MicroPython runs there.

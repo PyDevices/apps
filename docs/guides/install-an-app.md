@@ -106,18 +106,18 @@ afresh, so a changed file is replaced. It never deletes, so a file an app no
 longer has stays on the board, unused. To clear those out, remove the app's
 folder and run the line again.
 
-## Install a program that is an app
+## Install an app the bundle leaves out
 
-Camera, the ESP32-P4 camera program, is an app too. Its line names the
-program's folder under [`programs/`](../../programs), and it lands in
-`/apps/eyecam`, where Home lists it:
+Eye Camera, the ESP32-P4X-EYE's camera app, is made for one board and is
+about 1.4 MB with its pictures, so the line that installs every app leaves it
+out. Install it by name, and it lands in `/apps/eyecam`, where Home lists it:
 
 ```python
-omip.install("github:PyDevices/apps/programs/camera")
+omip.install("github:PyDevices/apps/apps/eyecam")
 ```
 
 It needs a firmware with the camera modules and, for detection, model files on
-the card: its [README](../../programs/camera/README.md#put-it-on-a-board) says
+the card: its [README](../../apps/eyecam/README.md#put-it-on-a-board) says
 which.
 
 ## Start Home when the board starts
@@ -133,15 +133,15 @@ tab per category; Info is on the System tab. On CircuitPython, remove `code.py` 
 CircuitPython runs it ahead of `main.py`, and a freshly erased board has one. Installing Home doesn't touch `main.py`, so a board that
 starts something else keeps doing so until you run this line.
 
-A board that should start in Camera, as a camera does, takes Camera's
+A board that should start in Eye Camera, as a camera does, takes Eye Camera's
 `main.py` in its place:
 
 ```python
-omip.install("github:PyDevices/apps/programs/camera/main.py", target="/")
+omip.install("github:PyDevices/apps/apps/eyecam/main.py", target="/")
 ```
 
 Like Home's, it joins the Wi-Fi in `secrets.py` and starts WebREPL once the
-picture is up. A board with no `secrets.py` starts Camera offline.
+picture is up. A board with no `secrets.py` starts Eye Camera offline.
 
 ## Start in one app, with Home behind it
 

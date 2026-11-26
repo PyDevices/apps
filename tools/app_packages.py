@@ -13,12 +13,6 @@ On the board, ``omip.install("github:PyDevices/apps/apps/<name>")`` then puts
 the app's files in ``/apps/<name>``, where Home finds them, and what it imports
 from the OmniPython index, micropython-lib or another repository in ``/lib``.
 
-A program whose ``apps`` folder holds one app (``programs/camera`` holds
-eyecam) gets a package.json of its own, so
-``omip.install("github:PyDevices/apps/programs/<program>")`` installs that app
-the same way. The program's other files, such as its ``main.py``, are left to
-lines of their own.
-
 An app that imports from another app (``from ..perch import stage``) installs
 that app as well.
 
@@ -31,6 +25,8 @@ Two more files install every app at once, both from the main branch:
 puts every app in ``/apps``, and ``apps/pyproject.toml``, so
 ``pip install "omnipython-apps @ git+https://github.com/PyDevices/apps#subdirectory=apps"``
 installs them as the package ``apps``, with the libraries from the same branch.
+An app made for one board, such as Eye Camera, says ``"bundle": false`` in its
+app.json: the bundle leaves it out, so a board installs it by name.
 
 The OmniPython index publishes the same apps from each release, compiled to
 ``.mpy``, as ``app-<name>`` (``omip.install("app-clock")``), and every one of
@@ -52,7 +48,6 @@ import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APPS = os.path.join(ROOT, "apps")
-PROGRAMS = os.path.join(ROOT, "programs")
 LIB = os.path.join(ROOT, "lib")
 
 #: This repository's libraries: every folder in lib/ with an __init__.py. The
@@ -149,8 +144,9 @@ FIRMWARE = {
 #: What isn't installed from an app's folder.
 #: Folders an app keeps beside its code that a board has no use for.
 SKIP_DIRS = {"tests", "docs", "tools", "studies", "__pycache__"}
-#: Home's main.py goes to the board's root, with a line of its own.
-SKIP_FILES = {"package.json", "AGENTS.md", "README.md", "main.py"}
+#: Home's main.py goes to the board's root, with a line of its own. A licence
+#: an app's folder carries for its artwork stays with the source.
+SKIP_FILES = {"package.json", "AGENTS.md", "README.md", "main.py", "LICENSE-APACHE", "NOTICE"}
 
 
 def app_files(folder):
@@ -201,7 +197,9 @@ def python_files(folder):
     out = []
     for here, dirs, files in os.walk(folder):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS and d != "examples"]
-        out.extend(os.path.join(here, name) for name in files if name.endswith(".py"))
+        # A main.py is the board's boot line, installed on its own: what an
+        # app needs is read from the app.
+        out.extend(os.path.join(here, name) for name in files if name.endswith(".py") and name != "main.py")
     return sorted(out)
 
 
@@ -314,9 +312,8 @@ def needs_and_libraries(folder):
     return deps, [[package, "latest"] for package in sorted(upstream)], [[name, "latest"] for name in bundle], libraries
 
 
-def render(folder, prefix=""):
-    """The text of the package.json for the app in *folder*. *prefix* is the
-    app's folder as seen from the package.json, when that sits higher up."""
+def render(folder):
+    """The text of the package.json for the app in *folder*."""
     name = os.path.basename(folder)
     with open(os.path.join(folder, "app.json"), encoding="utf-8") as f:
         info = json.load(f)
@@ -324,7 +321,7 @@ def render(folder, prefix=""):
     body = {
         "description": "%s, an app for Home" % info.get("title", name),
         "target": "apps/" + name,
-        "urls": [[path, prefix + path] for path in app_files(folder)] + sorted(info.get("downloads", {}).items()),
+        "urls": [[path, path] for path in app_files(folder)] + sorted(info.get("downloads", {}).items()),
         "deps": deps,
     }
     # Which of applibs' libraries the app uses. omip and mip read only deps,
@@ -398,12 +395,13 @@ def check_desktop_split(omnipython):
 
 
 def render_bundle():
-    """The text of ``apps/package.json``: every app, each from its own package.json."""
+    """The text of ``apps/package.json``: every app but those made for one
+    board, each from its own package.json."""
     body = {
         "description": "Every app for Home",
         "target": "apps",
         "urls": [["__init__.py", "__init__.py"]],
-        "deps": [["github:PyDevices/apps/apps/" + name, "main"] for name in apps()],
+        "deps": [["github:PyDevices/apps/apps/" + name, "main"] for name in apps() if in_bundle(name)],
         "generated": "by tools/app_packages.py from the apps folder; edit the apps, not this",
     }
     return json.dumps(body, indent=2) + "\n"
@@ -500,32 +498,18 @@ def apps():
     return sorted(e for e in os.listdir(APPS) if os.path.isfile(os.path.join(APPS, e, "app.json")))
 
 
-def program_app(program):
-    """The one app in program *program*'s ``apps`` folder, or None when it has none.
-
-    A program with two would need a package.json for each, which nothing
-    installs yet, so it stops the script.
-    """
-    folder = os.path.join(PROGRAMS, program, "apps")
-    if not os.path.isdir(folder):
-        return None
-    found = sorted(e for e in os.listdir(folder) if os.path.isfile(os.path.join(folder, e, "app.json")))
-    if len(found) > 1:
-        raise SystemExit("programs/%s/apps holds %s: one package.json installs one app" % (program, ", ".join(found)))
-    return found[0] if found else None
+def in_bundle(name):
+    """Whether app *name* goes in the bundle: all do but one whose app.json
+    says ``"bundle": false``."""
+    with open(os.path.join(APPS, name, "app.json"), encoding="utf-8") as f:
+        return json.load(f).get("bundle", True)
 
 
 def packages():
-    """``(path, text)`` for each app's package.json, each program's that holds one,
-    the bundle and the pyproject."""
+    """``(path, text)`` for each app's package.json, the bundle and the pyproject."""
     out = []
     for name in apps():
         out.append((os.path.join(APPS, name, "package.json"), render(os.path.join(APPS, name))))
-    for program in sorted(os.listdir(PROGRAMS)):
-        name = program_app(program)
-        if name is not None:
-            folder = os.path.join(PROGRAMS, program, "apps", name)
-            out.append((os.path.join(PROGRAMS, program, "package.json"), render(folder, "apps/%s/" % name)))
     out.append((os.path.join(APPS, "package.json"), render_bundle()))
     out.append((os.path.join(LIB, "applibs.json"), render_libraries()))
     out.append((os.path.join(APPS, "pyproject.toml"), render_pyproject()))
@@ -561,7 +545,7 @@ def main(argv):
                 f.write(text)
             print("wrote", os.path.relpath(path, ROOT))
     paths = [path for path, _ in wanted]
-    for top in (APPS, PROGRAMS):
+    for top in (APPS, os.path.join(ROOT, "programs")):
         for entry in os.listdir(top):
             orphan = os.path.join(top, entry, "package.json")
             if orphan not in paths and os.path.isfile(orphan):

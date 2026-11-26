@@ -14,6 +14,6 @@ Fonts (apps/eyecam/fonts)
     KoHo Bold and SemiBold, copyright 2018 The KoHo Project Authors
     (https://github.com/cadsondemak/Koho), under the SIL Open Font License,
     Version 1.1 (apps/eyecam/fonts/OFL.txt). The .bin files are bitmap fonts
-    made from the TTFs in assets/fonts/src with lv_font_conv.
+    made from the TTFs in tools/fonts with lv_font_conv.
 
 The page layout, texts and behaviour follow the same factory demo.

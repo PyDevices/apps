@@ -1,4 +1,4 @@
-# How Camera works
+# How Eye Camera works
 
 ## What a board needs
 
@@ -9,7 +9,7 @@ package: `board_config.camera` (cameraif), `sdcard`, `led`, `accelerometer`,
 `pcm_in` and `sleep`. A board that lacks one steps down and says so in the
 log:
 
-| Missing | What the program does |
+| Missing | What the app does |
 |---|---|
 | a MIPI-CSI camera | looks for a USB camera on the host port, then shows the test card |
 | a microphone | records video with no sound |
@@ -28,7 +28,7 @@ where to download them.
 The Eye's board config brings its display, keys, accelerometer and
 `orientation` helper.
 
-A board config can add two names the program reads:
+A board config can add two names the app reads:
 
 - `camera_source`: `"csi"`, `"uvc"` or `"testcard"`, to use that source
   rather than the first the board has.
@@ -96,7 +96,7 @@ fails to mount.
 | Rotation | LVGL rotation and the PPA | the panel itself turns, and the PPA turns the preview back |
 | Card folders | `esp32_p4_pic_save` and `esp32_p4_mp4_save` | `photos` and `videos`, shared with the other camera apps, with flash behind the card |
 
-Where the factory was unclear, the program picks: video needs 100 MB free and
+Where the factory was unclear, the app picks: video needs 100 MB free and
 a photo 5 MB; resolution cycles 720P, 1080P, 480P; the delete dialog opens with
 NO focused.
 
