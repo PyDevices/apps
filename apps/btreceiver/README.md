@@ -101,9 +101,9 @@ Calls come to the board with Phone calls and battery turned on.
 ![An incoming call: a card over the player with a thin handset in rings, the caller's number large, and red decline and green answer rings](docs/images/incoming.png)
 
 A call shows a card over the player with the caller's number, and the phone
-pauses its music. While it rings, the board plays a soft falling two-note
-chime every four seconds, over the phone's own ringtone if the phone sends
-it to the board. Answer it on the card and the call plays
+pauses its music. While it rings, the board plays a falling two-note chime
+every four seconds, over the phone's own ringtone if the phone sends it to
+the board. Answer it on the card and the call plays
 through the board's speaker while the board's microphones go to the phone;
 decline it and the card goes.
 
@@ -129,8 +129,9 @@ So a call chimes only with the setting on.
 
 ## Texts
 
-A new text plays a soft rising two-note chime once, over whatever is
-playing, whether Phone calls and battery is on or off. During a call whose
+A new text plays a rising two-note chime once, whether Phone calls and
+battery is on or off. Whatever is playing dips under the chime and comes
+back after it. During a call whose
 audio is on the board, a text doesn't chime. The board reads the
 phone's message service for this, so the first time it connects the phone
 asks to allow access to its messages: allow it, or turn Message access on

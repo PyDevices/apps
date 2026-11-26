@@ -20,7 +20,7 @@ to answer or decline. An answered call plays through the board's speaker and
 sends its microphones to the phone, and the music comes back when the call
 ends. On a board whose Bluetooth can't carry a
 call's audio (``HandsFree.call_audio`` is False), the card answers and hangs
-up, and you talk on the phone. A ringing call chimes softly every few
+up, and you talk on the phone. A ringing call chimes every few
 seconds.
 
 A new text chimes once, over the music, whatever the calls setting (but not

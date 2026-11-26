@@ -478,6 +478,28 @@ def later(key, ms):
     app.state[key] = ticks_add(ticks_ms(), -ms)
 
 
+if CAN_MIX:
+    import time
+    from array import array
+
+    import audiocore
+    from apps.btreceiver import chime
+
+    music = audiocore.RawSample(array("h", [0] * 256), sample_rate=44100, channel_count=2)
+    chimes = chime.Chimes()
+    mixer = chimes.mix(44100, music)
+    chimes.play("text")
+    check("a chime dips the music first, before its first note",
+          mixer.voice[0].level == chime.DUCK and not mixer.voice[1].playing,
+          str((mixer.voice[0].level, mixer.voice[1].playing)))
+    time.sleep((chime.DUCK_MS + chime.GAP_MS + chime.HOLD_MS + 150) / 1000)
+    check("and brings it back after the chime", mixer.voice[0].level == 1.0, str(mixer.voice[0].level))
+    check("the synthesizer goes quiet between chimes", not chimes._sounding)
+    chimes.close()
+    mixer = chimes.mix(44100)
+    check("chimes with no music dip nothing and play at once", chimes.play("call") and mixer.voice[1].playing)
+    chimes.close()
+
 forget_settings()
 del outs[:]
 scope, sink, scr = opened("incoming")
@@ -485,8 +507,8 @@ hf = app.state["hf"]
 check("a ringing call chimes", played() == ["call"], str(played()))
 if CAN_MIX:
     check("the chime opens the speaker on the chimes' mixer, at 44.1 kHz with no music yet",
-          len(outs) == 1 and outs[0].rate == 44100 and outs[0].sample is app.state["chimes"].mixer
-          and app.state["chimes"].synth is not None, str([(o.rate, o.sample) for o in outs]))
+          len(outs) == 1 and outs[0].rate == 44100 and outs[0].sample is app.state["chimes"].mixer,
+          str([(o.rate, o.sample) for o in outs]))
 scope.run()
 check("it doesn't chime again at once", played() == ["call"], str(played()))
 later("rang", app.RING_MS)
