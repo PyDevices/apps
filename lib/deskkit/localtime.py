@@ -19,6 +19,10 @@ the lookup fails, the clock keeps what it had (UTC at first), Weather asks for
 a ZIP code, and the board asks again a minute later, then at longer gaps up
 to an hour: the first lookup after joining a network can fail while the link
 settles, and the clock would otherwise stay on UTC for a day.
+
+A browser page looks up its place the same way, from the visitor's public IP
+address, so Weather opens on a forecast there too. The browser keeps the
+time; the zone and the place come from the lookup, as on a board.
 """
 
 import sys
@@ -30,6 +34,9 @@ from appkit import net
 # is UTC and does the same job.
 gmtime = getattr(time, "gmtime", time.localtime)
 
+# Where Python runs in a browser page: the browser keeps the clock, but
+# nothing else says where the page is.
+_BROWSERS = ("webassembly", "emscripten")
 _FIRST_VALID_YEAR = 2025
 _MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 _DATE_URL = "https://api.open-meteo.com/"
@@ -101,6 +108,7 @@ def sync():
     """
     global _synced_at
     if not net.sets_clock():
+        _synced_at = time.time()  # so a browser looks its place up once a day
         return True
     try:
         net.ntp(3)
@@ -136,6 +144,13 @@ def due():
     if not is_set() or _synced_at is None or time.time() - _synced_at >= _RESYNC_S:
         return True
     return _ip_retry_at is not None and time.time() >= _ip_retry_at
+
+
+def finds_place():
+    """Return True where the program looks up its place from its public IP
+    address: on a board, and in a browser page. A desktop keeps its own
+    timezone, and Weather asks it for a ZIP code."""
+    return net.sets_clock() or sys.platform in _BROWSERS
 
 
 def parse_ip_zone(reply):
@@ -178,14 +193,15 @@ def parse_ip_place(reply):
 
 def follow_ip_zone():
     """Take the timezone, and Weather's place until one is chosen, from the
-    board's public IP address. Nothing changes once a place is chosen. It
-    blocks: call it from a worker. A desktop keeps its own timezone.
+    board's public IP address, or in a browser the visitor's. Nothing changes
+    once a place is chosen. It blocks: call it from a worker. A desktop keeps
+    its own timezone (`finds_place`).
 
     Returns:
         bool: True when the offset now comes from the IP.
     """
     global offset_s, zone, _ip_retry_at, _ip_wait_s
-    if not net.sets_clock():
+    if not finds_place():
         return False
     from . import forecast  # here: forecast imports this module
 
@@ -240,8 +256,9 @@ def network_moved():
 
 
 def finding():
-    """Return True while a board hasn't yet tried to find where it is."""
-    return net.sets_clock() and not _looked
+    """Return True while a board or a browser page hasn't yet tried to find
+    where it is."""
+    return finds_place() and not _looked
 
 
 def now():

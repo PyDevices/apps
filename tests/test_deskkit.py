@@ -355,6 +355,33 @@ class IpZoneTest(unittest.TestCase):
         self.assertFalse(lt.follow_ip_zone())
         self.http.get.assert_not_called()
 
+    def _in_a_browser(self, lt):
+        lt.net.sets_clock.return_value = False  # the browser keeps the time
+        patcher = mock.patch.object(lt, "sys", mock.Mock(platform="webassembly"))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_a_browser_page_takes_the_place_from_the_visitors_ip(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        self._in_a_browser(lt)
+        lt._looked = False
+        self.assertTrue(lt.finding(), "Weather waits for the lookup, not the ZIP pad")
+        lt.resync_if_due()
+        self.assertFalse(lt.finding())
+        self.assertEqual(sys.modules["deskkit.forecast"].ip_place["name"], "Kennett")
+        self.assertEqual(lt.offset_s, -21600)
+
+    def test_a_browser_page_asks_once_a_day(self):
+        lt = self._localtime(reply=self.CHICAGO)
+        self._in_a_browser(lt)
+        lt._synced_at = None
+        lt.resync_if_due()
+        lt.resync_if_due()  # each forecast fetch calls it
+        self.assertEqual(self.http.get.call_count, 1)
+        lt._synced_at -= lt._RESYNC_S
+        lt.resync_if_due()
+        self.assertEqual(self.http.get.call_count, 2)
+
     def test_the_daily_resync_asks_again(self):
         lt = self._localtime(reply=self.CHICAGO)
         lt.sync = mock.MagicMock(return_value=True)

@@ -9,7 +9,7 @@ place's timezone and daylight saving.
 
 Until you choose a place, the forecast is for the city the board's public IP
 address is in, which ``deskkit.localtime`` looks up when the board joins a
-network. That default is never saved: a place you choose wins, and is what's
+network. In a browser page it's the visitor's, looked up when Weather opens. That default is never saved: a place you choose wins, and is what's
 kept.
 
 The forecast lives here rather than in an app, so it stays while apps open and
