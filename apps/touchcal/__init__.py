@@ -72,7 +72,7 @@ def _median(values):
 
 class Taps:
     """Every press the touch device reads, from first contact to lift, as one
-    tap: ``((x, y), held_ms)`` in `done`.
+    tap: ``((x, y), held_ms, (x, y) of its first read)`` in `done`.
 
     It stands in for the device's ``_read`` until `close`, so it sees the
     points before the rotation table does, whether or not LVGL finds anything
@@ -97,11 +97,12 @@ class Taps:
             p = points if isinstance(points[0], int) else points[0]
             if not self._xs:
                 self._t0 = lv.tick_get()
+                self._first = (int(p[0]), int(p[1]))
             self._xs.append(int(p[0]))
             self._ys.append(int(p[1]))
         elif self._xs:
             # A resistive panel's first and last reads wander: the median is the press.
-            self.done.append(((_median(self._xs), _median(self._ys)), lv.tick_elaps(self._t0)))
+            self.done.append(((_median(self._xs), _median(self._ys)), lv.tick_elaps(self._t0), self._first))
             self._xs = []
             self._ys = []
         return points
@@ -195,7 +196,7 @@ def main(scope):
         near = abs(point[0] - last[1][0]) + abs(point[1] - last[1][1]) < 2 * tolerance(width, height)
         return since < AGAIN_MS or (near and since < NEAR_MS)
 
-    def tapped(raw, mapped, held=0):
+    def tapped(raw, mapped, held=0, first=None):
         if state["result"] is not None:
             return
         if held >= HOLD_MS:
@@ -205,7 +206,7 @@ def main(scope):
         if state["busy"] or again_soon(point):
             return
         state["last"] = (lv.tick_get(), point)
-        taps.append({"n": len(taps) + 1, "target": targets[len(taps)], "raw": raw, "mapped": mapped})
+        taps.append({"n": len(taps) + 1, "target": targets[len(taps)], "raw": raw, "mapped": mapped, "first": first})
         state["busy"] = True
         _got(sheet, state["ring"])
         scope.after(GOT_MS, next_target)
@@ -225,8 +226,8 @@ def main(scope):
 
     def poll(_timer=None):
         while watch.done:
-            raw, held = watch.done.pop(0)
-            tapped(raw, watch.mapped(raw), held)
+            raw, held, first = watch.done.pop(0)
+            tapped(raw, watch.mapped(raw), held, first)
 
     def clicked(_event):
         # No touch device to watch (a computer's mouse): LVGL's point is all there is.

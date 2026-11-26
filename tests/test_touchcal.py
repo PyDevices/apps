@@ -138,6 +138,19 @@ class AnalyseTest(unittest.TestCase):
         self.assertIsNone(a["fix"])
         self.assertTrue(a["words"][0].startswith("Left and right"))
 
+    def test_a_press_that_starts_on_the_last_tap_is_named(self):
+        # A controller whose first read of a press is still the last press's point.
+        taps = _taps(self.W, self.H, lambda x, y: (x, y), 0)
+        for before, tap in zip(taps, taps[1:]):
+            tap["first"] = before["raw"]
+        a = fit.analyse(taps, self.W, self.H, 0, 0, (0, 0, 0, 0))
+        self.assertFalse(a["ok"])
+        self.assertEqual(a["stale"], 4)
+        self.assertTrue(any("starts where the last one ended" in w for w in a["words"]), a["words"])
+        for tap in taps:
+            tap["first"] = tap["raw"]
+        self.assertTrue(fit.analyse(taps, self.W, self.H, 0, 0, (0, 0, 0, 0))["ok"])
+
     def test_taps_that_all_read_the_same(self):
         a = self.analyse(lambda x, y: (100, 100), 0)
         self.assertFalse(a["ok"])

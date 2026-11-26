@@ -131,7 +131,8 @@ def analyse(taps, width, height, mask=None, rotation=0, table=None):
         dict: ``ok`` (every tap on its target), ``off`` (each tap's distance
         from its target, in pixels), ``worst``, ``tolerance``, ``seen`` (the
         `fit` of the mapped points), ``words`` (what's wrong, in plain
-        sentences) and ``fix`` (the table entry and calibration that would be
+        sentences), ``stale`` (how many presses began on the tap before's
+        point, when any did) and ``fix`` (the table entry and calibration that would be
         right, or None without raw points).
     """
     tol = tolerance(width, height)
@@ -158,6 +159,14 @@ def analyse(taps, width, height, mask=None, rotation=0, table=None):
     raws = [t.get("raw") for t in taps]
     if None in raws:
         return out
+    stale = _stale(taps, tol)
+    if stale:
+        words.append(
+            "Each press starts where the last one ended: the touch controller's first read of %d of the taps "
+            "was the tap before's point, so a tap can press what you touched last." % stale
+        )
+        out["stale"] = stale
+        out["ok"] = False
     raws = [tuple(r[:2]) for r in raws]
     need = fit(raws, targets)
     if need is None:
@@ -194,6 +203,20 @@ def analyse(taps, width, height, mask=None, rotation=0, table=None):
                        "right" if axis == "x" else "bottom", c["should"][0], c["should"][1])
                 )
     return out
+
+
+def _stale(taps, tol):
+    """How many taps began with a first read on the tap before them, far from where they settled."""
+    count = 0
+    for before, tap in zip(taps, taps[1:]):
+        first = tap.get("first")
+        if first is None or before.get("raw") is None:
+            continue
+        on_before = abs(first[0] - before["raw"][0]) + abs(first[1] - before["raw"][1]) <= 2 * tol
+        settled_far = abs(first[0] - tap["raw"][0]) + abs(first[1] - tap["raw"][1]) > 4 * tol
+        if on_before and settled_far:
+            count += 1
+    return count
 
 
 def _scale_words(seen, width, height, tol):
