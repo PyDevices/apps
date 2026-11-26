@@ -19,8 +19,10 @@ def due() -> bool:
     """Return True when the clock is unset, or this program hasn't set it in a day."""
 def finds_place() -> bool:
     """Return True where the program looks up its place from its public IP address: on a board, and in a browser page."""
-def parse_ip_zone(reply: dict[str, Any]) -> tuple[str, int]:
+def parse_ip_zone(reply: dict[str, Any]) -> tuple[str, int | None]:
     """Return `(zone, offset_s)` from an ipwho.is reply."""
+def from_geojs(reply: dict[str, Any]) -> dict[str, Any]:
+    """Return a GeoJS reply in the shape of an ipwho.is one."""
 def parse_ip_place(reply: dict[str, Any]) -> dict[str, Any] | None:
     """Return the place an ipwho.is reply points at, for Weather to start on."""
 def follow_ip_zone() -> bool:

@@ -22,7 +22,10 @@ settles, and the clock would otherwise stay on UTC for a day.
 
 A browser page looks up its place the same way, from the visitor's public IP
 address, so Weather opens on a forecast there too. The browser keeps the
-time; the zone and the place come from the lookup, as on a board.
+time; the zone and the place come from the lookup, as on a board. ipwho.is
+counts a page's lookups per site rather than per visitor, so when it refuses
+one the page asks GeoJS (get.geojs.io, also free with no key), which names
+the zone but not its offset: the first forecast brings that.
 """
 
 import sys
@@ -44,6 +47,9 @@ _IP_URL = (
     "https://ipwho.is/?fields=success,message,city,country_code,latitude,longitude,"
     "timezone.id,timezone.offset"
 )
+# A browser page's second source. ipwho.is counts a page's lookups per site,
+# not per visitor (1,000 a day for everyone together), and refuses the rest.
+_GEOJS_URL = "https://get.geojs.io/v1/ip/geo.json"
 # Where the IP is in one of these, temperatures start in Fahrenheit.
 _FAHRENHEIT = ("US", "PR", "GU", "VI", "AS", "MP", "LR", "KY", "BS", "BZ", "PW", "FM", "MH")
 _RESYNC_S = 24 * 3600
@@ -159,13 +165,66 @@ def parse_ip_zone(reply):
     Args:
         reply (dict): The decoded JSON.
 
+    Returns:
+        tuple: The IANA zone, and its offset from UTC now in seconds, or None
+        when the reply doesn't say (`from_geojs`).
+
     Raises:
         ValueError: The reply says the lookup failed.
     """
     if not reply.get("success"):
         raise ValueError(reply.get("message") or "no timezone in the reply")
     tz = reply["timezone"]
-    return tz["id"], int(tz["offset"])
+    offset = tz.get("offset")
+    return tz["id"], None if offset is None else int(offset)
+
+
+def from_geojs(reply):
+    """Return a GeoJS reply in the shape of an ipwho.is one.
+
+    GeoJS names the zone but not its offset, so the offset is None; the first
+    forecast brings it.
+
+    Args:
+        reply (dict): The decoded JSON of GeoJS's ``/v1/ip/geo.json``.
+    """
+    if not reply.get("timezone"):
+        return {"success": False, "message": "no timezone in GeoJS's reply"}
+
+    def number(key):
+        value = reply.get(key)
+        return None if value in (None, "") else float(value)
+
+    return {
+        "success": True,
+        "city": reply.get("city"),
+        "country_code": reply.get("country_code"),
+        "latitude": number("latitude"),
+        "longitude": number("longitude"),
+        "timezone": {"id": reply["timezone"], "offset": None},
+    }
+
+
+def _get_json(url):
+    resp = net.requests().get(url, timeout=10)
+    try:
+        return resp.json()
+    finally:
+        resp.close()
+
+
+def _ask_where():
+    """Return the IP lookup's reply, in ipwho.is's shape, and its zone and
+    offset. A browser page asks GeoJS when ipwho.is fails."""
+    try:
+        reply = _get_json(_IP_URL)
+        return (reply,) + parse_ip_zone(reply)
+    except Exception as exc:
+        if sys.platform not in _BROWSERS:
+            raise
+        print("deskkit: ipwho.is didn't answer (%r), asking GeoJS" % (exc,))
+    reply = from_geojs(_get_json(_GEOJS_URL))
+    return (reply,) + parse_ip_zone(reply)
 
 
 def parse_ip_place(reply):
@@ -210,12 +269,7 @@ def follow_ip_zone():
         _ip_retry_at = None
         return False  # a chosen place wins
     try:
-        resp = net.requests().get(_IP_URL, timeout=10)
-        try:
-            reply = resp.json()
-        finally:
-            resp.close()
-        found, offset = parse_ip_zone(reply)
+        reply, found, offset = _ask_where()
     except Exception as exc:
         _ip_wait_s = min(max(2 * _ip_wait_s, _IP_RETRY_S), _IP_RETRY_MAX_S)
         _ip_retry_at = time.time() + _ip_wait_s
@@ -226,7 +280,8 @@ def follow_ip_zone():
     if forecast.place() is not None:
         return False  # chosen while the lookup ran
     zone = found
-    offset_s = offset
+    if offset is not None:
+        offset_s = offset
     here = parse_ip_place(reply)
     if here is not None:
         if forecast.ip_place is not None:

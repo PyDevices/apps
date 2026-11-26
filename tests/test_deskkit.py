@@ -371,6 +371,28 @@ class IpZoneTest(unittest.TestCase):
         self.assertEqual(sys.modules["deskkit.forecast"].ip_place["name"], "Kennett")
         self.assertEqual(lt.offset_s, -21600)
 
+    GEOJS = {"city": "Malden", "country_code": "US", "latitude": "36.557", "longitude": "-89.9665", "timezone": "America/Chicago"}
+
+    def test_a_browser_page_asks_geojs_when_ipwhois_refuses(self):
+        # ipwho.is counts a page's lookups per site, and refuses past the cap.
+        lt = self._localtime()
+        self._in_a_browser(lt)
+        refused = {"success": False, "message": "Rate limit exceeded"}
+        self.http.get.side_effect = lambda url, **kw: mock.Mock(json=mock.Mock(return_value=self.GEOJS if "geojs" in url else refused))
+        lt.offset_s = None
+        with mock.patch("builtins.print"):
+            self.assertTrue(lt.follow_ip_zone())
+        here = sys.modules["deskkit.forecast"].ip_place
+        self.assertEqual((here["name"], here["lat"], here["lon"], here["units"]), ("Malden", 36.557, -89.9665, "F"))
+        self.assertEqual(lt.zone, "America/Chicago")
+        self.assertIsNone(lt.offset_s, "GeoJS gives no offset: the forecast brings it")
+
+    def test_a_board_does_not_ask_geojs(self):
+        lt = self._localtime(reply={"success": False, "message": "Rate limit exceeded"})
+        with mock.patch("builtins.print"):
+            self.assertFalse(lt.follow_ip_zone())
+        self.assertEqual(self.http.get.call_count, 1)
+
     def test_a_browser_page_asks_once_a_day(self):
         lt = self._localtime(reply=self.CHICAGO)
         self._in_a_browser(lt)
