@@ -245,8 +245,9 @@ def freeze_apps(folder, module, package, out_dir=None, names=None, native=True):
     takes the ``@micropython.native`` decorators out, for a port with no
     native code emitter (the Windows and webassembly ports), where they don't
     compile. A script
-    entry's module is frozen on its own when it is a file in the app's folder
-    (``<app>/<script>.py``); otherwise the build must freeze it elsewhere,
+    entry's module is frozen at the top level when it is a file in the app's
+    folder (``<app>/<script>.py``), with the other modules beside it, which it
+    imports by their own names; otherwise the build must freeze it elsewhere,
     like any library. The index is written to *out_dir* (default: a new
     temporary folder) and frozen as ``_appkit_apps``.
     """
@@ -275,7 +276,22 @@ def freeze_apps(folder, module, package, out_dir=None, names=None, native=True):
         script = info.get("script")
         if script:
             if os.path.isfile(os.path.join(where, script + ".py")):
-                module(script + ".py", base_path=where)
+                # The script imports the modules beside it by their own names,
+                # as it does from its folder on sys.path, so they go in at the
+                # top level with it.
+                code, _ = _walk(where)
+                own = os.path.join(out_dir, "_scripts", entry)
+                if os.path.isdir(own):
+                    shutil.rmtree(own)
+                os.makedirs(own)
+                for rel in code:
+                    if "/" in rel:
+                        continue
+                    with open(os.path.join(where, rel), encoding="utf-8") as f:
+                        text = f.read()
+                    with open(os.path.join(own, rel), "w", encoding="utf-8", newline="\n") as f:
+                        f.write(text if native else _without_native(text))
+                    module(rel, base_path=own)
             continue
         if not os.path.isfile(os.path.join(where, "__init__.py")):
             raise ValueError("%s has an app.json but no __init__.py" % (where,))
