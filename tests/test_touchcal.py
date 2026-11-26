@@ -55,7 +55,28 @@ class AnalyseTest(unittest.TestCase):
         self.assertEqual(a["worst"], 0)
         self.assertEqual(a["fix"]["mask"], 0)
         self.assertIsNone(a["fix"]["calibration"])
-        self.assertIn("Every tap landed on its target", a["words"][0])
+        self.assertIn("Taps land where you touch", a["words"][0])
+
+    def test_a_fingertip_s_aim_is_right(self):
+        # Misses of up to a finger's width in no pattern, as the bench's taps were.
+        jitter = [(12, -9), (-14, 6), (9, 15), (-6, -16), (16, 4)]
+        taps = _taps(self.W, self.H, lambda x, y: (x, y), 0)
+        for t, (dx, dy) in zip(taps, jitter):
+            t["raw"] = t["mapped"] = (t["target"][0] + dx, t["target"][1] + dy)
+        a = fit.analyse(taps, self.W, self.H, 0, 0, (0, 0, 0, 0))
+        self.assertTrue(a["ok"], a["words"])
+        self.assertIn("Taps land where you touch", a["words"][0])
+
+    def test_one_tap_far_out_is_off(self):
+        # Every tap on target but one, which read the tap before's point.
+        taps = _taps(self.W, self.H, lambda x, y: (x, y), 0)
+        taps[2]["raw"] = taps[2]["mapped"] = taps[1]["raw"]
+        a = fit.analyse(taps, self.W, self.H, 0, 0, (0, 0, 0, 0))
+        self.assertFalse(a["ok"])
+
+    def test_the_tolerance_is_a_fingertip(self):
+        self.assertEqual(fit.tolerance(240, 320), 20)
+        self.assertEqual(fit.tolerance(800, 480), 38)
 
     def test_mirror_x(self):
         a = self.analyse(lambda x, y: (self.W - 1 - x, y), 0)

@@ -53,8 +53,24 @@ def apply_mask(point, mask, width, height):
 
 
 def tolerance(width, height):
-    """How far from its target a tap may land and still count as on it, in pixels."""
-    return max(12, min(width, height) // 20)
+    """A fingertip's width on this screen, in pixels: 8% of the short side, at least 20.
+
+    A tap this far from its target is on it, and a pattern (an offset, say)
+    smaller than this is a finger's aim, not a mapping fault.
+    """
+    return max(20, min(width, height) * 8 // 100)
+
+
+def _pattern_right(seen, width, height, tol):
+    """Whether fit `seen` is the identity: no swap or mirror, the right scale, and no offset past ``tol``."""
+    if seen is None or seen["mask"]:
+        return False
+    for axis, size in (("x", width), ("y", height)):
+        a, b = seen[axis]
+        mid = (size - 1) / 2
+        if abs(a - 1) > SCALE_OK or abs((mid - b) / a - mid) > tol:
+            return False
+    return True
 
 
 def _mean(values):
@@ -128,7 +144,8 @@ def analyse(taps, width, height, mask=None, rotation=0, table=None):
         table (tuple): The board's ``touch_rotation_table``, or None.
 
     Returns:
-        dict: ``ok`` (every tap on its target), ``off`` (each tap's distance
+        dict: ``ok`` (the taps follow the targets, each within twice
+        `tolerance`, and no press started on the last one), ``off`` (each tap's distance
         from its target, in pixels), ``worst``, ``tolerance``, ``seen`` (the
         `fit` of the mapped points), ``words`` (what's wrong, in plain
         sentences), ``stale`` (how many presses began on the tap before's
@@ -140,12 +157,25 @@ def analyse(taps, width, height, mask=None, rotation=0, table=None):
     mapped = [tuple(t["mapped"]) for t in taps]
     off = [round(((m[0] - t[0]) ** 2 + (m[1] - t[1]) ** 2) ** 0.5) for m, t in zip(mapped, targets)]
     worst = max(off) if off else 0
-    out = {"ok": worst <= tol, "off": off, "worst": worst, "tolerance": tol, "seen": None, "words": [], "fix": None}
-    words = out["words"]
-    if out["ok"]:
-        words.append("Every tap landed on its target, the worst %d px away." % worst)
     seen = fit(mapped, targets)
-    out["seen"] = seen
+    # Right when the taps follow the targets with no pattern to their misses
+    # and none is far out: a fingertip's aim, not the mapping.
+    ok = _pattern_right(seen, width, height, tol) and worst <= 2 * tol
+    out = {"ok": ok, "off": off, "worst": worst, "tolerance": tol, "seen": seen, "words": [], "fix": None}
+    words = out["words"]
+    stale = _stale(taps, tol)
+    if stale:
+        # A press that read the last tap's point throws the fit off, so the
+        # fault is that, not a pattern.
+        out["ok"] = False
+        out["stale"] = stale
+        words.append(
+            "Each press starts where the last one ended: the touch controller's first read of %d of the taps "
+            "was the tap before's point, so a tap can press what you touched last." % stale
+        )
+        return out
+    if ok:
+        words.append("Taps land where you touch: %d px off on average, the worst %d px." % (round(sum(off) / len(off)), worst))
     if seen is None:
         words.append("The taps all read the same place: the touch controller isn't reporting where you touch.")
         return out
@@ -154,19 +184,15 @@ def analyse(taps, width, height, mask=None, rotation=0, table=None):
             words.append(_WORDS[seen["mask"]])
         words.extend(_scale_words(seen, width, height, tol))
         if len(words) == 0:
-            words.append("Taps land up to %d px from their targets, but not in a pattern this can name." % worst)
+            far = [i + 1 for i, d in enumerate(off) if d > 2 * tol]
+            if far:
+                words.append("Tap %s landed %d px from its target, far past the others." % (" and ".join(str(n) for n in far), worst))
+            else:
+                words.append("Taps land up to %d px from their targets." % worst)
 
     raws = [t.get("raw") for t in taps]
     if None in raws:
         return out
-    stale = _stale(taps, tol)
-    if stale:
-        words.append(
-            "Each press starts where the last one ended: the touch controller's first read of %d of the taps "
-            "was the tap before's point, so a tap can press what you touched last." % stale
-        )
-        out["stale"] = stale
-        out["ok"] = False
     raws = [tuple(r[:2]) for r in raws]
     need = fit(raws, targets)
     if need is None:
