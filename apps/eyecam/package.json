@@ -63,6 +63,10 @@
       "hw/board.py"
     ],
     [
+      "hw/browser.py",
+      "hw/browser.py"
+    ],
+    [
       "hw/crop.py",
       "hw/crop.py"
     ],

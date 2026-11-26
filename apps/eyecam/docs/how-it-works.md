@@ -2,9 +2,10 @@
 
 ## What a board needs
 
-The pages never touch hardware. They ask seams, which come in two sets with
-the same methods: `hw.desktop` (stand-ins that run anywhere) and `hw.board`
-(any ESP32-P4 board). The board's side takes everything from the board
+The pages never touch hardware. They ask seams, which come in three sets with
+the same methods: `hw.desktop` (stand-ins that run anywhere), `hw.browser`
+(a browser page's camera and object detector, [below](#in-a-browser)) and
+`hw.board` (any ESP32-P4 board). The board's side takes everything from the board
 package: `board_config.camera` (cameraif), `sdcard`, `led`, `accelerometer`,
 `pcm_in` and `sleep`. A board that lacks one steps down and says so in the
 log:
@@ -35,6 +36,24 @@ A board config can add two names the app reads:
 - `camera_buttons`: a dict of `"menu"`, `"up"`, `"down"` and `"encoder"` to key
   codes (or tuples of them), when the board's keypad sends different ones. The
   default is M or Escape, the arrow keys and Enter.
+
+## In a browser
+
+In the all-apps browser page the picture is the camera the browser gives the
+page, the one chosen in Home's Connections. Zoom crops the centre of its
+frame as a board crops its sensor's, and a photo takes the whole frame. When
+the camera won't open, because it wasn't allowed or there isn't one, the app
+says why on the screen; there is no test card in a browser.
+
+Detection is the page's object detector, YOLOX-nano, which knows the 80
+COCO classes. On the AI page, Pedestrian mode boxes the people it finds; the
+album's object overlay names everything it finds above a score of 0.3. The
+page has no face model, so Face mode finds nothing and says so on the
+picture. The model loads when the AI page or the album first asks for it, and
+goes when you leave the page.
+
+The card is a folder in the app's data folder, and video is MJPEG frames, as
+on a desktop.
 
 ## The screen
 
@@ -91,7 +110,7 @@ fails to mount.
 | Preview | LVGL 8 canvas on a transparent screen | an `lv.image` over a 240x240 container |
 | Wheel items | `lv_btn` | plain `lv.obj`; they're only scrolled |
 | Video | MP4 (MJPEG and PCM) | H.264 in MP4 with 16 kHz sound through `h264enc` and `mp4mux`; MJPEG frames on the desktop |
-| Detection | esp-dl in its own task | esp-dl's pedestrian and face models, run in the frame loop and unloaded when the AI page is left |
+| Detection | esp-dl in its own task | esp-dl's pedestrian and face models, run in the frame loop and unloaded when the AI page is left; YOLOX-nano in a browser, people and objects only |
 | Settings | NVS u8, u16 and u32 keys | NVS i32 keys, namespace `p4_eye_cfg`; JSON on a desktop |
 | Rotation | LVGL rotation and the PPA | the panel itself turns, and the PPA turns the preview back |
 | Card folders | `esp32_p4_pic_save` and `esp32_p4_mp4_save` | `photos` and `videos`, shared with the other camera apps, with flash behind the card |

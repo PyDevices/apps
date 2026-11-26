@@ -4,14 +4,15 @@
 
 """The camera app's hardware seams.
 
-The pages never touch hardware. They ask these objects, which come in two
-sets with the same methods: ``hw.desktop`` (stand-ins that run anywhere) and
-``hw.board`` (the ESP32-P4X-EYE). ``build(scope)`` picks one and returns a
-``Hardware`` holding them all.
+The pages never touch hardware. They ask these objects, which come in three
+sets with the same methods: ``hw.desktop`` (stand-ins that run anywhere),
+``hw.browser`` (a browser page's camera and detector, with the desktop's
+other stand-ins) and ``hw.board`` (the ESP32-P4X-EYE). ``build(scope)`` picks
+one and returns a ``Hardware`` holding them all.
 
 Preview
     Cut from a source (``hw.sources``): a MIPI-CSI camera, a USB camera or a
-    test card, whichever the board has.
+    test card, whichever the board has. In a browser, the page's camera.
     ``frame(magnify)`` -> a 240x240 RGB565 ``bytearray`` (LVGL's byte
     order), the centre of the sensor cropped for zoom 1..4 and scaled, as
     the factory's PPA pass does; the same buffer every call.
@@ -43,9 +44,13 @@ Detector
     ``people(buf, w, h)`` and ``faces(buf, w, h)`` -> boxes
     ``(x0, y0, x1, y1, keypoints)``; ``objects(buf, w, h)`` -> boxes
     ``(x0, y0, x1, y1, name, score)`` for the album's YOLO overlay.
+    ``release()`` lets the models go. A ``why`` attribute, where there is
+    one, says why the last call found nothing because it couldn't look.
 """
 
 import sys
+
+BROWSERS = ("webassembly", "emscripten")
 
 
 class Hardware:
@@ -55,13 +60,20 @@ class Hardware:
 
 
 def on_board():
-    return sys.platform not in ("linux", "darwin", "win32", "webassembly")
+    return sys.platform not in ("linux", "darwin", "win32") + BROWSERS
+
+
+def in_browser():
+    return sys.platform in BROWSERS
 
 
 def build(scope):
-    """All the seams for wherever this runs."""
+    """All the seams for wherever this runs. In a browser this raises the
+    camera's error when the page's camera won't open."""
     if on_board():
         from . import board as impl
+    elif in_browser():
+        from . import browser as impl
     else:
         from . import desktop as impl
     return impl.build(scope)

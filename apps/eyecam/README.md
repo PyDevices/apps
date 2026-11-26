@@ -8,7 +8,8 @@ rotations and interval shooting. It is the ESP32-P4X-EYE's own camera app,
 screen for screen, written as a PyDevices app so that other boards run it too.
 
 Runs on: the ESP32-P4X-EYE, where it starts with the board, any other ESP32-P4
-board as an app in Home, and desktop MicroPython at 240x240 or larger. A board
+board as an app in Home, desktop MicroPython at 240x240 or larger, and the
+all-apps browser page, where the picture is your browser's camera. A board
 without one of the Eye's parts steps down to what it has; the USB camera source
 is written and not yet run on a camera.
 [What each board does](docs/how-it-works.md#what-a-board-needs).
