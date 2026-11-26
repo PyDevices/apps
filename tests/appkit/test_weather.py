@@ -17,7 +17,8 @@ from _harness import TESTS, need_micropython, run
 
 CONTRACT = TESTS / "weather_contract.py"
 SIZES = ("240x240r", "320x240", "480x320", "800x480", "480x480r")
-PLANTS = (("full_size", "240x240r"), ("corner", "800x480"), ("square_rows", "240x240r"))
+PLANTS = (("full_size", "240x240r"), ("corner", "800x480"), ("square_rows", "240x240r"),
+          ("under_home", "240x240r"))
 
 
 def _run(case, interpreter, size, plant=None):

@@ -47,3 +47,25 @@ def half_width(width, height, round_, top, bottom, margin=6):
     if dy >= r:
         return 0
     return int((r * r - dy * dy) ** 0.5) - margin
+
+
+def below_home(scope, gap=4, centred=True):
+    """How far down the Shell's Home button reaches, plus *gap*, when it
+    floats over the top of the app's screen; 0 when it doesn't. Weather's
+    words start below it, so the button never sits on them. For *centred*
+    words, a button in a corner is no matter."""
+    shell = getattr(getattr(scope, "launcher", None), "shell", None)
+    button = getattr(shell, "home_button", None)
+    if button is None or button.has_flag(lv.obj.FLAG.HIDDEN):
+        return 0
+    button.update_layout()
+    area = lv.area_t()
+    button.get_coords(area)
+    width, height = scope.size
+    # A button in a corner clears the words, which are centred; one that
+    # reaches towards the middle, as on a round screen, doesn't.
+    if area.y1 > height // 4:
+        return 0
+    if centred and (area.x2 < width // 4 or area.x1 > width * 3 // 4):
+        return 0
+    return area.y2 + 1 + gap

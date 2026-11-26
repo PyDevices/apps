@@ -58,6 +58,7 @@ class _Screen:
         self.days = None
         self.k = sizing.scale(self.w, self.h)
         self.round = is_round()
+        self.top = 0  # where the words may start: below the Home button, if it's over the screen
         self.notice = _label(self.root, sizing.font(24 * self.k, 16), _SOFT)
         self.notice.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
         self.notice.set_width(self.w * 7 // 10)
@@ -81,6 +82,7 @@ class _Screen:
 
     def show(self):
         """Draw what's known. Rebuilt whole: it changes twice an hour at most."""
+        self.top = sizing.below_home(self.scope)
         self._drop("now")
         self._drop("days")
         place = forecast.current()
@@ -148,12 +150,19 @@ class _Screen:
             old = _label(panel, sizing.font(14 * k), _SOFT)
             old.set_text("as of %s" % data["as_of"])
             column.append((old, 0))
-        self._stack(column, int(24 * k))
+        # Where the column is too tall for the screen (below the Home button
+        # on a small round one), the icon gives up the height.
+        while not self._stack(column, int(24 * k), max(4, int(6 * k))) and icon_size > 24:
+            icon_size -= 6
+            icon.delete()
+            icon = icons.make(panel, data["code"], data["is_day"], icon_size, background)
+            column[1] = (icon, 0)
 
-    def _stack(self, column, gap):
+    def _stack(self, column, gap, least=2):
         """Put each ``(obj, transform_scale)`` under the last, *gap* apart,
-        the whole column centred on the screen. On a round screen the gap
-        shrinks until every line is inside the circle."""
+        the whole column centred on the screen and below the Home button.
+        The gap shrinks, down to *least*, until every line is on the screen,
+        and inside the circle on a round one. Returns whether it fits."""
         sizes = []
         for obj, scale in column:
             obj.update_layout()
@@ -161,22 +170,23 @@ class _Screen:
             if scale:
                 # Drawn scaled about its middle; only the glyphs' cap height
                 # shows, so the line's empty top and bottom aren't counted.
-                w, h = w * scale // 256, h * scale // 256 * 3 // 4
+                w, h = w * scale // 256 + 1, h * scale * 3 // 1024 + 2
             sizes.append((w, h))
         while True:
-            y = (self.h - sum(h for _, h in sizes) - gap * (len(column) - 1)) // 2
+            y = max(self.top, (self.h - sum(h for _, h in sizes) - gap * (len(column) - 1)) // 2)
             tops = []
             fits = True
             for w, h in sizes:
                 tops.append(y)
-                if w > 2 * sizing.half_width(self.w, self.h, self.round, y, y + h, 2):
+                if w > 2 * sizing.half_width(self.w, self.h, self.round, y, y + h, 2) or y + h > self.h:
                     fits = False
                 y += h + gap
-            if fits or gap <= 2:
+            if fits or gap <= least:
                 break
-            gap -= 2
+            gap = max(least, gap - 2)
         for (obj, _scale), (_w, h), top in zip(column, sizes, tops):
             obj.align(lv.ALIGN.TOP_MID, 0, top + (h - obj.get_height()) // 2)
+        return fits
 
     def _build_days(self, data, background):
         k = self.k
@@ -184,16 +194,25 @@ class _Screen:
         big = sizing.font(24 * k, 16)
         small = sizing.font(14 * k)
         rows = len(data["days"])
+        clear = sizing.below_home(self.scope, centred=False)  # the rows run edge to edge
         pair = big.get_line_height() + small.get_line_height()
         row_h = self.h * 15 // 100
         if self.round:
             row_h = min(row_h, self.h * 72 // 100 // rows)
-        row_h = max(row_h, pair)
-        top = (self.h - row_h * rows) // 2
+        # Clear of the Home button: the rows start below it and end as far
+        # from the bottom as they would without it.
+        bottom = self.h - max(clear, (self.h - row_h * rows) // 2)
+        top = max(clear, (self.h - row_h * rows) // 2)
+        row_h = (bottom - top) // rows
+        # Too tight for the rain under the temperatures: it goes beside them.
+        stacked = row_h >= pair
+        if not stacked:
+            row_h = max(row_h, big.get_line_height())
         # Every row's ends line up, inside the circle at the first and last rows.
         half = sizing.half_width(self.w, self.h, self.round, top, top + row_h * rows)
         half = min(half, self.h * 6 // 10)
-        icon_size = max(20, int(_SMALL_ICON * k))
+        icon_size = max(20, min(int(_SMALL_ICON * k), row_h - 4))
+        right = -(self.w // 2 - half)
         for i, (day, code, hi, lo, rain) in enumerate(data["days"]):
             y = top + i * row_h
             cy = y + row_h // 2 - self.h // 2
@@ -202,14 +221,21 @@ class _Screen:
             name.align(lv.ALIGN.LEFT_MID, self.w // 2 - half, cy)
 
             icon = icons.make(panel, code, True, icon_size, background)
-            icon.align(lv.ALIGN.CENTER, -half // 6, cy)
 
             temps = _label(panel, big)
             temps.set_text("%d° / %d°" % (forecast.degrees(hi), forecast.degrees(lo)))
             chance = _label(panel, small, _RAIN)
-            chance.set_text("%d%% rain" % rain)
-            temps.align(lv.ALIGN.RIGHT_MID, -(self.w // 2 - half), cy - pair // 2 + big.get_line_height() // 2)
-            chance.align(lv.ALIGN.RIGHT_MID, -(self.w // 2 - half), cy + pair // 2 - small.get_line_height() // 2)
+            chance.set_text("%d%%" % rain if not stacked else "%d%% rain" % rain)
+            if stacked:
+                icon.align(lv.ALIGN.CENTER, -half // 6, cy)
+                temps.align(lv.ALIGN.RIGHT_MID, right, cy - pair // 2 + big.get_line_height() // 2)
+                chance.align(lv.ALIGN.RIGHT_MID, right, cy + pair // 2 - small.get_line_height() // 2)
+            else:
+                chance.align(lv.ALIGN.RIGHT_MID, right, cy)
+                chance.update_layout()
+                temps.align(lv.ALIGN.RIGHT_MID, right - chance.get_width() - 6, cy)
+                temps.update_layout()
+                icon.align(lv.ALIGN.RIGHT_MID, right - chance.get_width() - temps.get_width() - 12, cy)
 
     def _apply_page(self):
         shown, hidden = (self.days, self.now) if self.showing_days else (self.now, self.days)

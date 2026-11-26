@@ -59,6 +59,13 @@ class ZipPad:
         digits_h = digits_font.get_line_height()
         column = title_h + gap + digits_h + gap + 4 * key_h + 3 * gap
         top = (height - column) // 2
+        clear = sizing.below_home(scope)
+        if clear > top:
+            # Below the Home button, ending where it would have: the keys
+            # give up the height, down to what their labels need.
+            bottom = top + column
+            top = clear
+            key_h = max(key_font.get_line_height() + 4, (bottom - top - title_h - digits_h - 5 * gap) // 4)
         digits_top = top + title_h + gap
         grid_top = digits_top + digits_h + gap
 
@@ -68,7 +75,7 @@ class ZipPad:
         self.title.set_style_text_align(lv.TEXT_ALIGN.CENTER, 0)
         self.title.set_long_mode(lv.label.LONG_MODE.WRAP)
         # A message too long for the row wraps upwards, inside the circle.
-        self.title.set_width(2 * sizing.half_width(width, height, is_round(), top, top + title_h, 4))
+        self.title.set_width(min(width * 7 // 10, 2 * sizing.half_width(width, height, is_round(), top, top + title_h, 4)))
         self.title_bottom = top + title_h
         self.width = width
 

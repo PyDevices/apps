@@ -6,7 +6,8 @@
 Weather runs through a real Launcher on one screen size, with a forecast
 already in hand. Its three screens (now, the five days, and the ZIP pad a
 long press brings up) must each keep every word and key on the screen,
-inside the circle on a round one, none on top of another, and the "now"
+inside the circle on a round one, none on top of another or under the
+Shell's Home button, and the "now"
 screen must use most of the screen's height rather than a corner of it.
 
     WEATHER_SIZE=240x240r APPKIT_DATA=/tmp/weather python tests/appkit/weather_contract.py
@@ -115,6 +116,11 @@ def _plant_corner():
     sizing.scale = lambda width, height: min(width, height) / 960
 
 
+def _plant_under_home():
+    # The words start at the top of the screen, under the Home button.
+    sizing.below_home = lambda scope, gap=4, centred=True: 0
+
+
 def _plant_square_rows():
     # The five days' rows run to the edges of the square, round screen or not.
     sizing.half_width = lambda width, height, round_, top, bottom, margin=6: width // 2 - margin
@@ -124,6 +130,7 @@ PLANTS = {
     "full_size": _plant_full_size,
     "corner": _plant_corner,
     "square_rows": _plant_square_rows,
+    "under_home": _plant_under_home,
 }
 plant = os.getenv("WEATHER_PLANT")
 if plant:
@@ -186,12 +193,16 @@ def fits(panel, name):
     found = parts(panel)
     check(len(found) > 3, "the %s screen shows something: %d parts" % (name, len(found)))
     boxes = [(what, box(obj)) for what, obj in found]
+    button = la.shell.home_button
+    if button is not None and not button.has_flag(lv.obj.FLAG.HIDDEN):
+        boxes.append(("the Home button", box(button)))
     for what, b in boxes:
         inside(b, "on the %s screen, %s" % (name, what))
     for i in range(len(boxes)):
         for j in range(i + 1, len(boxes)):
             if overlap(boxes[i][1], boxes[j][1]):
-                check(False, "on the %s screen, %s and %s overlap" % (name, boxes[i][0], boxes[j][0]))
+                check(False, "on the %s screen, %s and %s overlap: %r %r"
+                      % (name, boxes[i][0], boxes[j][0], boxes[i][1], boxes[j][1]))
     return boxes
 
 
@@ -203,10 +214,13 @@ def shot(name):
 
 from touchkit import shell as touch  # noqa: E402
 
+la.home = "watch" if ROUND else "home"
 la.shell = touch.TouchShell(la)
 la.boot("weather")
 settle(600)
 check(la.current == "weather", "Weather is open: %r" % (la.current,))
+b = la.shell.home_button
+check(b is not None and not b.has_flag(lv.obj.FLAG.HIDDEN), "the Home button is over Weather")
 root = la.scope.root
 
 
@@ -217,6 +231,7 @@ def panels():
 
 now, days = panels()[:2]
 boxes = fits(now, "now")
+boxes = [(what, b) for what, b in boxes if what != "the Home button"]
 top = min(b[1] for _, b in boxes)
 bottom = max(b[3] for _, b in boxes)
 check(bottom - top >= H * 55 // 100, "the now screen fills the height: %d of %d" % (bottom - top, H))
