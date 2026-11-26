@@ -18,6 +18,7 @@ import os
 import time
 
 import lvgl as lv
+from appkit import assets
 
 try:
     import framebuf
@@ -63,7 +64,8 @@ def _mkdirs(path):
 class Preview:
     def __init__(self):
         dec = jpegio.JpegDecoder()
-        w, h = dec.open(_here + "/testcard.jpg")
+        # From /apps, or from the firmware where the app is frozen.
+        w, h = dec.open(assets.read(_here + "/testcard.jpg", binary=True))
         self.src = bytearray(w * h * 2)
         dec.decode(self.src)
         self.buf = bytearray(OUT * OUT * 2)

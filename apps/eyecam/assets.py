@@ -12,6 +12,7 @@ nearest built-in Montserrat, so the app still runs without them.
 """
 
 import lvgl as lv
+from appkit import assets as _files
 
 HEADER = 12  # LVGL 9 image header: magic, cf, flags, w, h, stride, reserved
 
@@ -34,8 +35,8 @@ fallbacks = []  # font names that fell back, for the log
 
 
 def _read(path):
-    with open(path, "rb") as f:
-        return f.read()
+    # From /apps, or from the firmware where the app is frozen.
+    return _files.read(path, binary=True)
 
 
 def image(name):
