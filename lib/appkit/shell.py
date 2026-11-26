@@ -10,7 +10,9 @@ sits in the corner when there's a home screen to go back to. With
 gets the screen below it unless its ``app.json`` says ``"bar": "own"`` or ``"none"``. Those apps,
 and every app under the compact cap, keep the corner Home button. On a round
 screen (`is_round`) the button is a circle with the Home icon, set in
-from the top right along the diagonal so all of it is inside the circle. A board that
+from the top right along the diagonal so all of it is inside the circle;
+elsewhere it's a square. Either way it's glass (`appkit.glass`), so the
+app shows through it. A board that
 wants a header, its own look or its own buttons subclasses it: override
 `Shell.make_root` to give apps a smaller area (with the bar on, inside
 `Shell.bar_area`), `Shell.make_home_button` for its own Home button, or
@@ -20,9 +22,8 @@ wants a header, its own look or its own buttons subclasses it: override
 import sys
 
 import lvgl as lv
-from icons import lvgl as lvicons
 
-from . import data, hover
+from . import data, glass, hover
 
 #: How far a round screen's Home button keeps in from the circle's edge, in pixels.
 ROUND_MARGIN = 4
@@ -130,19 +131,17 @@ class Shell:
         app's screen; `prepare` hides it on the home screen itself.
         """
         launcher = self.launcher
-        b = lv.button(lv.layer_top())
+        disp = lv.display_get_default()
+        w, h = disp.get_horizontal_resolution(), disp.get_vertical_resolution()
         if is_round():
             # The corner is outside the circle: a round button on the diagonal.
-            size = lv.display_get_default().get_horizontal_resolution()
-            d = max(36, size // 6)
-            b.set_size(d, d)
-            b.set_style_radius(lv.RADIUS_CIRCLE, 0)
-            b.set_style_pad_all(0, 0)
-            lvicons.image(b, "home", 24).center()
-            b.set_pos(*round_corner(size, d))
+            d = max(36, w // 6)
+            b = glass.button(lv.layer_top(), "home", d, lv.RADIUS_CIRCLE)
+            b.set_pos(*round_corner(w, d))
         else:
+            # A square of glass over the app, which shows through it.
+            b = glass.button(lv.layer_top(), "home", glass.side(w, h))
             b.align(lv.ALIGN.TOP_RIGHT, -8, 8)
-            lvicons.image(b, "home", 24).center()
         b.add_event_cb(lambda e: launcher.request(launcher.home), lv.EVENT.CLICKED, None)
         return b
 

@@ -18,7 +18,7 @@ CONTRACT = TESTS / "bar_contract.py"
 PLANTS = ("redraws_all", "root_under_bar", "items_stay", "overlays_die", "home_everywhere", "no_way_home",
           "touch_header_behind_bar", "mirror_hidden", "gauge_ignored", "status_over_title", "header_kept",
           "row_always", "row_never", "row_late", "home_untitled", "round_row_off",
-          "items_left_to_right")
+          "items_left_to_right", "home_wide", "home_opaque", "home_icon_corner")
 
 
 def _run(case, interpreter, plant=None):

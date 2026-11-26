@@ -110,6 +110,7 @@ from appkit import keys  # noqa: E402
 from appkit import launcher as L  # noqa: E402
 from appkit.shell import Shell  # noqa: E402
 from appkit import connections  # noqa: E402
+from appkit import glass  # noqa: E402
 
 # The fakes are this device: the Shell registers no real provider beside them.
 connections.register = lambda registry=None: []
@@ -243,6 +244,42 @@ def _plant_touch_header_behind_bar():
     touch.TouchShell.bar_area = lambda self, screen: screen
 
 
+def _plant_home_wide():
+    # The corner Home button as it was: as wide as the header's.
+    real = glass.button
+
+    def wide(parent, icon, size, radius=None):
+        b = real(parent, icon, size, radius)
+        b.set_width(128)
+        return b
+
+    glass.button = wide
+
+
+def _plant_home_opaque():
+    # The corner Home button hides the app behind it.
+    real = glass.button
+
+    def opaque(parent, icon, size, radius=None):
+        b = real(parent, icon, size, radius)
+        b.set_style_bg_opa(lv.OPA.COVER, 0)
+        return b
+
+    glass.button = opaque
+
+
+def _plant_home_icon_corner():
+    # The icon sits in the button's top left corner.
+    real = glass._icon
+
+    def cornered(obj, icon):
+        image = real(obj, icon)
+        image.align(lv.ALIGN.TOP_LEFT, 0, 0)
+        return image
+
+    glass._icon = cornered
+
+
 PLANTS = {
     "redraws_all": _plant_redraws_all,
     "root_under_bar": _plant_root_under_bar,
@@ -261,6 +298,9 @@ PLANTS = {
     "round_row_off": _plant_round_row_off,
     "mirror_hidden": _plant_mirror_hidden,
     "gauge_ignored": _plant_gauge_ignored,
+    "home_wide": _plant_home_wide,
+    "home_opaque": _plant_home_opaque,
+    "home_icon_corner": _plant_home_icon_corner,
 }
 plant = os.getenv("BAR_PLANT")
 if plant:
@@ -277,6 +317,38 @@ def coords(obj):
     a = lv.area_t()
     obj.get_coords(a)
     return a.x1, a.y1, a.x2 - a.x1 + 1, a.y2 - a.y1 + 1
+
+
+def pixel(x, y):
+    """``(r, g, b)`` of the frame at *x*, *y*, each 0 to 255."""
+    i = (y * SW + x) * 2
+    v = _headless._state["frame"][i] | (_headless._state["frame"][i + 1] << 8)
+    return ((v >> 11) & 31) * 255 // 31, ((v >> 5) & 63) * 255 // 63, (v & 31) * 255 // 31
+
+
+def glass_home(b, who, root=None):
+    """The corner Home button *b* is a square of glass, Huey's Perch's size,
+    with the Home icon at its middle; over *root*, the app shows through it."""
+    x, y, w, h = coords(b)
+    side = glass.side(SW, SH)
+    check(w == h == side, "%s corner Home button is a square, %d a side: %r" % (who, side, (w, h)))
+    opa = b.get_style_bg_opa(0)
+    check(opa == glass.GLASS_OPA, "%s corner Home button is glass, %d of 255: %r" % (who, glass.GLASS_OPA, opa))
+    icon = b.get_child(0) if b.get_child_count() == 1 else None
+    if icon is None:
+        check(False, "%s corner Home button holds one icon: %r" % (who, b.get_child_count()))
+    else:
+        ix, iy, iw, ih = coords(icon)
+        dx, dy = (ix + iw // 2) - (x + w // 2), (iy + ih // 2) - (y + h // 2)
+        check(abs(dx) <= 1 and abs(dy) <= 1, "%s Home icon is at the button's middle: off by %r" % (who, (dx, dy)))
+    if root is not None:
+        # A red app: through the glass it's darker and bluer, but still red.
+        root.set_style_bg_color(lv.color_hex(0xFF0000), 0)
+        root.set_style_bg_opa(lv.OPA.COVER, 0)
+        lv.obj.invalidate(lv.screen_active())
+        _headless.refresh()
+        r, g, bl = pixel(x + w // 2, y + 3)
+        check(60 <= r <= 160 and bl >= 24, "%s app shows through the Home button: %r at its top" % (who, (r, g, bl)))
 
 
 def tap(obj):
@@ -490,6 +562,8 @@ settle()
 corner = shell.home_button
 check(corner is not None and not corner.has_flag(lv.obj.FLAG.HIDDEN) and not bar.is_shown(),
       '"bar": "none" away from home gets the corner Home button')
+if corner is not None:
+    glass_home(corner, "the Shell's")
 la.info["chooser"] = {}
 la.switch("framed")
 settle()
@@ -581,6 +655,26 @@ la.switch("whole")
 settle()
 scope = seen["whole"]
 check(scope.rect == (0, tb.height, SW, SH - tb.height), "TouchShell's home screen is below the bar: %r" % (scope.rect,))
+
+# An app with no bar under TouchShell gets the whole screen and the corner
+# Home button: glass, so the app shows through it, and a tap goes home.
+if shell.picker is not None and shell.picker.is_open():
+    shell.picker.close()   # the chooser's, left open above
+la.info["framed"] = {"bar": "none"}
+la.switch("framed")
+settle()
+hb = board_shell.home_button
+check(hb is not None and not hb.has_flag(lv.obj.FLAG.HIDDEN) and not tb.is_shown(),
+      'TouchShell gives a "bar": "none" app the corner Home button')
+if hb is not None:
+    glass_home(hb, "TouchShell's", seen["framed"].root)
+    tap(hb)
+    # The launcher switches from a multimer timer, which nothing runs here.
+    check(la._pending == "whole", "a tap on it asks the launcher for home: %r" % (la._pending,))
+    la._cancel_request()
+la.info["framed"] = {}
+la.switch("whole")
+settle()
 
 # A narrow screen: the status line has a row of its own under the bar,
 # which shows the first time the app asks for it, and not before; the app's

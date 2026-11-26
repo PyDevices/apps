@@ -47,6 +47,22 @@
       "vec.py"
     ]
   ],
-  "deps": [],
+  "deps": [
+    [
+      "applibs",
+      "latest"
+    ],
+    [
+      "endpointkit",
+      "latest"
+    ],
+    [
+      "icons",
+      "latest"
+    ]
+  ],
+  "applibs": [
+    "appkit"
+  ],
   "generated": "by tools/app_packages.py from the app's folder; edit the app, not this"
 }
