@@ -127,7 +127,7 @@ HTTP = {
 BOARD = {
     "appdev", "audiodev", "backends", "board_config", "board_peripherals", "boarddev", "display_driver",
     "displaydev", "events", "hmilink", "keys", "medialink", "mp4mux", "multimer", "orientation", "usb_hid",
-    "wifi", "wifi_manager",
+    "webserial", "wifi", "wifi_manager",
 }
 
 #: The interpreter's own modules and the firmware's C modules. An app that
