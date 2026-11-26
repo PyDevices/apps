@@ -142,7 +142,22 @@ def _plant_secret_dropped():
     P.Picker._pair = lambda self, endpoint_id, field: real(self, endpoint_id, None)
 
 
+def _plant_grant_asks_first():
+    # What the browser asks about gets the picker's own question first.
+    real = P.Picker.choose
+
+    def choose(self, endpoint_id, confirm=False):
+        ep = self.registry.find(endpoint_id)
+        if ep is not None and ep.caps.get("grant"):
+            self._ask_pair(ep)
+            return
+        real(self, endpoint_id, confirm)
+
+    P.Picker.choose = choose
+
+
 PLANTS = {
+    "grant_asks_first": _plant_grant_asks_first,
     "no_address": _plant_no_address,
     "pairs_blind": _plant_pairs_blind,
     "secret_dropped": _plant_secret_dropped,
@@ -372,6 +387,36 @@ fakes["uart"].add("2", "MIDI DIN in 2")
 fakes["uart"]._dirty = False   # only a scan finds it now
 tap(p.scan)
 check(row(p, "MIDI DIN in 2") is not None, "Scan finds what's new")
+
+# What the browser asks about itself (a page's "Allow MIDI") pairs at the
+# tap, with no question of the picker's, and what it grants is listed.
+class _Grant(endpointkit.Provider):
+    kind = "midi.out"
+    name = "page"
+
+    def __init__(self):
+        endpointkit.Provider.__init__(self)
+        self.asked = 0
+
+    def scan(self):
+        if self.asked:
+            return [self.endpoint("synth", "Web synth")]
+        return [self.endpoint("allow", "Allow MIDI", endpointkit.NEEDS_PAIRING, caps={"grant": True})]
+
+    def pair(self, endpoint, secret=None):
+        self.asked += 1
+
+
+grant = reg.register(_Grant())
+tap(p.back)
+tap(row(p, "MIDI out")[0])
+tap(row(p, "Allow MIDI")[0])
+check(p.asking is None, "the browser's grant opens no question of the picker's")
+check(grant.asked == 1, "one tap has the browser ask: %d" % grant.asked)
+check(row(p, "Web synth") is not None, "what it grants is listed: %r" % (texts(p),))
+if p.asking is not None:
+    p._answer("page:allow", False)
+reg.unregister(grant)
 
 # A pin is shown, and the device's choice under it is kept.
 reg.pin("net", ["eth:0"], "Synth Station")

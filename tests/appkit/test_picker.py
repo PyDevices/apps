@@ -17,7 +17,7 @@ import unittest
 from _harness import TESTS, need_micropython, run
 
 CONTRACT = TESTS / "picker_contract.py"
-PLANTS = ("many_moves", "never_asks", "deaf", "keeps_listening", "no_pin_note", "no_address")
+PLANTS = ("many_moves", "never_asks", "deaf", "keeps_listening", "no_pin_note", "no_address", "grant_asks_first")
 
 
 def _run(case, interpreter, plant=None):

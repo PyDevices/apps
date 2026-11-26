@@ -7,8 +7,10 @@ from collections.abc import Callable
 from typing import Any
 
 HOSTS: tuple[str, ...]
+BROWSERS: tuple[str, ...]
 BOARD_PROVIDERS: tuple[tuple[str, Callable[[Any], bool]], ...]
 HOST_PROVIDERS: tuple[tuple[str, Callable[[Any], None]], ...]
+WEB_PROVIDERS: tuple[tuple[str, Callable[[Any], None]], ...]
 USB_HOST_APART: dict[str, bool]
 
 def register(registry: Any = None) -> list[str]:
